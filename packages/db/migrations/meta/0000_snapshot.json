@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "1ba9d073-4657-4db4-8d9d-a8fc67aebd82",
+  "id": "79ee48e7-976a-44df-99d5-c5b36342c6ca",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "exam_attempts": {
@@ -2333,15 +2333,6 @@
             "state"
           ],
           "isUnique": false
-        },
-        "cards_item_template_live": {
-          "name": "cards_item_template_live",
-          "columns": [
-            "item_id",
-            "template"
-          ],
-          "isUnique": true,
-          "where": "\"cards\".\"deleted_at\" IS NULL"
         }
       },
       "foreignKeys": {
@@ -5003,10 +4994,6 @@
         "review_logs_difficulty_range": {
           "name": "review_logs_difficulty_range",
           "value": "\"review_logs\".\"difficulty\" >= 0 AND \"review_logs\".\"difficulty\" <= 10"
-        },
-        "review_logs_elapsed_days_nonnegative": {
-          "name": "review_logs_elapsed_days_nonnegative",
-          "value": "\"review_logs\".\"elapsed_days\" >= 0"
         },
         "review_logs_scheduled_days_nonnegative": {
           "name": "review_logs_scheduled_days_nonnegative",

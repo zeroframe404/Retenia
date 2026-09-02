@@ -260,7 +260,9 @@ export const cards = sqliteTable(
     index('cards_item').on(t.itemId),
     index('cards_exam').on(t.examId),
     index('cards_state').on(t.state),
-    uniqueIndex('cards_item_template_live').on(t.itemId, t.template).where(notDeleted(t)),
+    // No uniqueness on (item_id, template): one skill may be rendered by several cards of
+    // the same shape (two `mcq` exercises, say), each with its own D/S
+    // (docs/spec/02-memory-system.md §10). Dedupe is the generator's job, not the schema's.
     check('cards_state', inIntList(t.state, CARD_STATES)),
     check('cards_suspended_bool', isBool(t.suspended)),
     check('cards_leech_bool', isBool(t.leech)),

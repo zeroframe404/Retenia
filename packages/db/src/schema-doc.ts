@@ -193,16 +193,19 @@ export function renderSchemaDoc(): string {
       '- **Enumerations** are `TEXT`/`INTEGER` columns with `CHECK (… IN (…))`; the allowed values are exported as constants from `@retenia/db/schema` (`IMPORTANCE_LEVELS`, `CARD_STATES`, `REVIEW_CONTEXTS`, …).',
     )
     line(
-      "- **Foreign keys** are declared everywhere a column holds another row's id and are enforced (`PRAGMA foreign_keys = ON`). No cascades: rows are soft-deleted, never removed.",
+      "- **Foreign keys** are declared everywhere a column holds another row's id and are enforced (`PRAGMA foreign_keys = ON`). No `ON DELETE` cascades: rows are soft-deleted, never removed (the one cascade is a soft one, see the triggers bullet).",
     )
     line(
-      '- **Live-only unique indexes** (`… WHERE deleted_at IS NULL`) let a soft-deleted key be reused (`settings.key`, `scheduler_profiles.scope`, `streaks.kind`, `achievements.key`, `cards(item_id, template)`).',
+      '- **Live-only unique indexes** (`… WHERE deleted_at IS NULL`) let a soft-deleted key be reused (`settings.key`, `scheduler_profiles.scope`, `streaks.kind`, `achievements.key`). There is deliberately no uniqueness on `cards(item_id, template)`: one skill may be rendered by several cards of the same shape, each with its own FSRS state.',
     )
     line(
-      "- **FSRS parity**: the nine `cards` columns `due, stability, difficulty, scheduled_days, learning_steps, reps, lapses, state, last_review` and the nine `review_logs` columns `rating, state, due, stability, difficulty, elapsed_days, scheduled_days, learning_steps, review` are `ts-fsrs`'s `Card`/`ReviewLog` verbatim. In `review_logs`, `state/due/stability/difficulty` are the values *before* the review (what `02-memory-system.md` §14 sketches as `*_before`). `elapsed_days` is deliberately absent from `cards` (`ts-fsrs@6` drops it).",
+      "- **FSRS parity**: the nine `cards` columns `due, stability, difficulty, scheduled_days, learning_steps, reps, lapses, state, last_review` and the nine `review_logs` columns `rating, state, due, stability, difficulty, elapsed_days, scheduled_days, learning_steps, review` are `ts-fsrs`'s `Card`/`ReviewLog` verbatim. In `review_logs`, `state/due/stability/difficulty` are the values *before* the review (what `02-memory-system.md` §14 sketches as `*_before`). `elapsed_days` is deliberately absent from `cards` (`ts-fsrs@6` drops it) and is not range-checked on `review_logs`: ts-fsrs derives it from `last_review`, so an imported history or a clock step can make it negative, and a review must never be lost to a CHECK.",
     )
     line(
       '- **`review_logs` is append-only**: `CHECK (updated_at = created_at AND version = 1)` rejects any update except setting `deleted_at` when the parent card is soft-deleted.',
+    )
+    line(
+      "- **Derived data follows soft deletes (triggers)**: `chunks_fts` mirrors `chunks` on insert, update, soft delete and un-delete; `embeddings` drops a chunk's vectors when the chunk is soft-deleted or deleted (an un-deleted chunk is re-embedded by the embedding job). Soft-deleting a `sources` row cascades to its `source_units` and `chunks` (bumping their `version`, never lowering `updated_at` below their own `created_at`), and un-deleting the source restores exactly the rows that cascade touched. Knowledge items and annotations made from a source are not touched: cards outlive their source.",
     )
     line(
       '- **Sync-ready**: UUIDv7 ids, soft deletes, `device_id`/`version` per row, an `outbox` that stays empty in v1, no `AUTOINCREMENT`.',
@@ -240,7 +243,7 @@ export function renderSchemaDoc(): string {
     line('|---|---|---|---|')
     const contents: Record<string, string> = {
       '0000_domain_schema': 'All Drizzle tables, indexes, foreign keys and CHECKs.',
-      '0001_fts5_vec0_seed': `\`chunks_fts\` (FTS5, \`${FTS_TOKENIZER}\`) + sync triggers, \`embeddings\` (vec0, \`float[${EMBEDDING_DIMENSIONS}]\`, partition \`source_id\`), the five \`importance_levels\` rows.`,
+      '0001_fts5_vec0_seed': `\`chunks_fts\` (FTS5, \`${FTS_TOKENIZER}\`) + sync triggers, \`embeddings\` (vec0, \`float[${EMBEDDING_DIMENSIONS}]\`, partition \`source_id\`), the vector-maintenance and source soft-delete cascade triggers, the five \`importance_levels\` rows.`,
     }
     for (const [index, migration] of loadMigrations().entries()) {
       line(

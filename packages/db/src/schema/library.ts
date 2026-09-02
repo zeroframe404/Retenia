@@ -87,7 +87,14 @@ export const blobs = sqliteTable(
   ],
 )
 
-/** One imported document, recording, page or link (docs/spec/07-architecture.md §5). */
+/**
+ * One imported document, recording, page or link (docs/spec/07-architecture.md §5).
+ *
+ * Soft-deleting a source cascades (by trigger, see `migrations/0001_fts5_vec0_seed.sql`)
+ * to its `source_units` and `chunks`, which takes them out of `chunks_fts` and
+ * `embeddings`; un-deleting it restores them. Knowledge items and annotations made from
+ * the source keep their `source_id` as provenance and are not touched.
+ */
 export const sources = sqliteTable(
   'sources',
   {

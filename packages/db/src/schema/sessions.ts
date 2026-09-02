@@ -219,7 +219,9 @@ export const reviewLogs = sqliteTable(
     check('review_logs_context', inTextList(t.context, REVIEW_CONTEXTS)),
     check('review_logs_stability_nonnegative', atLeast(t.stability, 0)),
     check('review_logs_difficulty_range', inRange(t.difficulty, 0, 10)),
-    check('review_logs_elapsed_days_nonnegative', atLeast(t.elapsedDays, 0)),
+    // `elapsed_days` is deliberately not range-checked: ts-fsrs derives it from
+    // `last_review`, so an imported history (`context = 'import'`) or a clock that stepped
+    // back can produce a negative value, and a review must never be lost to a CHECK.
     check('review_logs_scheduled_days_nonnegative', atLeast(t.scheduledDays, 0)),
     check('review_logs_learning_steps_nonnegative', atLeast(t.learningSteps, 0)),
     check('review_logs_duration_nonnegative', atLeast(t.durationMs, 0)),

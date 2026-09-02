@@ -132,7 +132,8 @@ export interface KnnHit {
 }
 
 /** Nearest neighbours of `embedding` (brute force inside the partition; fine below
- * ~200k chunks, docs/spec/05-ingestion-rag.md §3). */
+ * ~200k chunks, docs/spec/05-ingestion-rag.md §3). Soft-deleted chunks — and the chunks of
+ * a soft-deleted source — never appear: triggers drop their vectors as they go. */
 export function knnChunks(
   sqlite: Database,
   embedding: ArrayLike<number>,

@@ -382,7 +382,6 @@ CREATE INDEX `cards_due` ON `cards` (`due`) WHERE "cards"."suspended" = 0 AND "c
 CREATE INDEX `cards_item` ON `cards` (`item_id`);--> statement-breakpoint
 CREATE INDEX `cards_exam` ON `cards` (`exam_id`);--> statement-breakpoint
 CREATE INDEX `cards_state` ON `cards` (`state`);--> statement-breakpoint
-CREATE UNIQUE INDEX `cards_item_template_live` ON `cards` (`item_id`,`template`) WHERE "cards"."deleted_at" IS NULL;--> statement-breakpoint
 CREATE TABLE `importance_levels` (
 	`id` text PRIMARY KEY NOT NULL,
 	`name` text NOT NULL,
@@ -789,7 +788,6 @@ CREATE TABLE `review_logs` (
 	CONSTRAINT "review_logs_context" CHECK("review_logs"."context" IN ('daily', 'lesson', 'reinforcement', 'exam_sim', 'cram', 'manual_postpone', 'import')),
 	CONSTRAINT "review_logs_stability_nonnegative" CHECK("review_logs"."stability" >= 0),
 	CONSTRAINT "review_logs_difficulty_range" CHECK("review_logs"."difficulty" >= 0 AND "review_logs"."difficulty" <= 10),
-	CONSTRAINT "review_logs_elapsed_days_nonnegative" CHECK("review_logs"."elapsed_days" >= 0),
 	CONSTRAINT "review_logs_scheduled_days_nonnegative" CHECK("review_logs"."scheduled_days" >= 0),
 	CONSTRAINT "review_logs_learning_steps_nonnegative" CHECK("review_logs"."learning_steps" >= 0),
 	CONSTRAINT "review_logs_duration_nonnegative" CHECK("review_logs"."duration_ms" IS NULL OR "review_logs"."duration_ms" >= 0),

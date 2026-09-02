@@ -940,7 +940,7 @@ describe('v1 schema', () => {
         max: 365,
         order: 2,
         postpone: 1,
-        newPerDay: null,
+        newPerDay: 20,
         leech: 'warn_rewrite',
         threshold: 8,
       },
@@ -1014,5 +1014,40 @@ describe('v1 schema', () => {
         expect(names, `${table}.${required}`).toContain(required)
       }
     }
+  })
+  it('lets one item carry several cards of the same template, each with its own FSRS state', () => {
+    const { itemId } = seedEverything()
+    for (const _ of [1, 2]) {
+      opened.db
+        .insert(schema.cards)
+        .values({ id: ids.next(), itemId, template: 'mcq', due: now, ...audit(now) })
+        .run()
+    }
+    expect(
+      opened.db.select().from(schema.cards).where(eq(schema.cards.itemId, itemId)).all(),
+    ).toHaveLength(3)
+  })
+
+  it('accepts a negative elapsed_days in review_logs (imports, clock steps) instead of losing the review', () => {
+    const { cardId } = seedEverything()
+    opened.db
+      .insert(schema.reviewLogs)
+      .values({
+        id: ids.next(),
+        cardId,
+        rating: 3,
+        state: 2,
+        due: now,
+        stability: 5,
+        difficulty: 5,
+        elapsedDays: -3,
+        scheduledDays: 4,
+        learningSteps: 0,
+        review: now,
+        context: 'import',
+        ...audit(now),
+      })
+      .run()
+    expect(count('review_logs')).toBe(2)
   })
 })

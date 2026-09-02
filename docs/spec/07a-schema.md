@@ -10,10 +10,11 @@ The SQLite schema of `packages/db`, listed from a freshly migrated database so i
 - **Audit columns** on every domain table: `created_at`, `updated_at` (Unix ms), `deleted_at` (soft delete — nothing issues `DELETE`), `device_id`, `version` (starts at 1, incremented per update). `updated_at >= created_at` and `version >= 1` are CHECKed.
 - **JSON** lives in `TEXT` columns guarded by `json_valid()`; where the shape is fixed, also by `json_type() = 'object'`/`'array'`. Drizzle parses/stringifies them (`text(…, { mode: 'json' })`).
 - **Enumerations** are `TEXT`/`INTEGER` columns with `CHECK (… IN (…))`; the allowed values are exported as constants from `@retenia/db/schema` (`IMPORTANCE_LEVELS`, `CARD_STATES`, `REVIEW_CONTEXTS`, …).
-- **Foreign keys** are declared everywhere a column holds another row's id and are enforced (`PRAGMA foreign_keys = ON`). No cascades: rows are soft-deleted, never removed.
-- **Live-only unique indexes** (`… WHERE deleted_at IS NULL`) let a soft-deleted key be reused (`settings.key`, `scheduler_profiles.scope`, `streaks.kind`, `achievements.key`, `cards(item_id, template)`).
-- **FSRS parity**: the nine `cards` columns `due, stability, difficulty, scheduled_days, learning_steps, reps, lapses, state, last_review` and the nine `review_logs` columns `rating, state, due, stability, difficulty, elapsed_days, scheduled_days, learning_steps, review` are `ts-fsrs`'s `Card`/`ReviewLog` verbatim. In `review_logs`, `state/due/stability/difficulty` are the values *before* the review (what `02-memory-system.md` §14 sketches as `*_before`). `elapsed_days` is deliberately absent from `cards` (`ts-fsrs@6` drops it).
+- **Foreign keys** are declared everywhere a column holds another row's id and are enforced (`PRAGMA foreign_keys = ON`). No `ON DELETE` cascades: rows are soft-deleted, never removed (the one cascade is a soft one, see the triggers bullet).
+- **Live-only unique indexes** (`… WHERE deleted_at IS NULL`) let a soft-deleted key be reused (`settings.key`, `scheduler_profiles.scope`, `streaks.kind`, `achievements.key`). There is deliberately no uniqueness on `cards(item_id, template)`: one skill may be rendered by several cards of the same shape, each with its own FSRS state.
+- **FSRS parity**: the nine `cards` columns `due, stability, difficulty, scheduled_days, learning_steps, reps, lapses, state, last_review` and the nine `review_logs` columns `rating, state, due, stability, difficulty, elapsed_days, scheduled_days, learning_steps, review` are `ts-fsrs`'s `Card`/`ReviewLog` verbatim. In `review_logs`, `state/due/stability/difficulty` are the values *before* the review (what `02-memory-system.md` §14 sketches as `*_before`). `elapsed_days` is deliberately absent from `cards` (`ts-fsrs@6` drops it) and is not range-checked on `review_logs`: ts-fsrs derives it from `last_review`, so an imported history or a clock step can make it negative, and a review must never be lost to a CHECK.
 - **`review_logs` is append-only**: `CHECK (updated_at = created_at AND version = 1)` rejects any update except setting `deleted_at` when the parent card is soft-deleted.
+- **Derived data follows soft deletes (triggers)**: `chunks_fts` mirrors `chunks` on insert, update, soft delete and un-delete; `embeddings` drops a chunk's vectors when the chunk is soft-deleted or deleted (an un-deleted chunk is re-embedded by the embedding job). Soft-deleting a `sources` row cascades to its `source_units` and `chunks` (bumping their `version`, never lowering `updated_at` below their own `created_at`), and un-deleting the source restores exactly the rows that cascade touched. Knowledge items and annotations made from a source are not touched: cards outlive their source.
 - **Sync-ready**: UUIDv7 ids, soft deletes, `device_id`/`version` per row, an `outbox` that stays empty in v1, no `AUTOINCREMENT`.
 
 ## Opening the database
@@ -41,8 +42,8 @@ Packaging note (Windows first): the `.node` binaries of both drivers and `sqlite
 
 | # | Migration | SHA-256 (prefix) | Contents |
 |---|---|---|---|
-| 0 | `0000_domain_schema` | `ec569f2a7be5` | All Drizzle tables, indexes, foreign keys and CHECKs. |
-| 1 | `0001_fts5_vec0_seed` | `b88c31b72a8f` | `chunks_fts` (FTS5, `unicode61 remove_diacritics 2`) + sync triggers, `embeddings` (vec0, `float[768]`, partition `source_id`), the five `importance_levels` rows. |
+| 0 | `0000_domain_schema` | `17866f5172ad` | All Drizzle tables, indexes, foreign keys and CHECKs. |
+| 1 | `0001_fts5_vec0_seed` | `cecb877e1951` | `chunks_fts` (FTS5, `unicode61 remove_diacritics 2`) + sync triggers, `embeddings` (vec0, `float[768]`, partition `source_id`), the vector-maintenance and source soft-delete cascade triggers, the five `importance_levels` rows. |
 
 ## Tables
 
@@ -68,10 +69,10 @@ Packaging note (Windows first): the `.node` binaries of both drivers and `sqlite
 | `importance_levels` | Memory system | 14 | 0 | 1 | 11 |
 | `scheduler_profiles` | Memory system | 20 | 0 | 1 | 11 |
 | `knowledge_items` | Memory system | 18 | 3 | 5 | 10 |
-| `cards` | Memory system | 23 | 2 | 5 | 14 |
+| `cards` | Memory system | 23 | 2 | 4 | 14 |
 | `lesson_sessions` | Sessions, attempts and review log | 16 | 1 | 2 | 10 |
 | `attempts` | Sessions, attempts and review log | 23 | 5 | 5 | 14 |
-| `review_logs` | Sessions, attempts and review log | 21 | 2 | 3 | 14 |
+| `review_logs` | Sessions, attempts and review log | 21 | 2 | 3 | 13 |
 | `jobs` | Infrastructure | 23 | 1 | 4 | 9 |
 | `ai_calls` | Infrastructure | 25 | 1 | 4 | 12 |
 | `settings` | Infrastructure | 8 | 0 | 1 | 5 |
@@ -149,6 +150,11 @@ Checks:
 - `sources_version_positive`: `version >= 1`
 - `sources_updated_after_created`: `updated_at >= created_at`
 
+Triggers:
+
+- `sources_soft_delete_cascade`: AFTER UPDATE OF deleted_at ON sources
+- `sources_undelete_cascade`: AFTER UPDATE OF deleted_at ON sources
+
 ### `source_units`
 
 | Column | Type | Null | Default | Key |
@@ -223,6 +229,8 @@ Checks:
 
 Triggers:
 
+- `chunks_embeddings_ad`: AFTER DELETE ON chunks
+- `chunks_embeddings_au`: AFTER UPDATE OF deleted_at ON chunks
 - `chunks_fts_ad`: AFTER DELETE ON chunks
 - `chunks_fts_ai`: AFTER INSERT ON chunks
 - `chunks_fts_au`: AFTER UPDATE OF source_id, text, heading_path, deleted_at ON chunks
@@ -841,7 +849,6 @@ Checks:
 
 Indexes:
 
-- `cards_item_template_live` UNIQUE (`item_id`, `template`) WHERE `deleted_at IS NULL`
 - `cards_state` (`state`)
 - `cards_exam` (`exam_id`)
 - `cards_item` (`item_id`)
@@ -999,7 +1006,6 @@ Checks:
 - `review_logs_context`: `context IN ('daily', 'lesson', 'reinforcement', 'exam_sim', 'cram', 'manual_postpone', 'import')`
 - `review_logs_stability_nonnegative`: `stability >= 0`
 - `review_logs_difficulty_range`: `difficulty >= 0 AND difficulty <= 10`
-- `review_logs_elapsed_days_nonnegative`: `elapsed_days >= 0`
 - `review_logs_scheduled_days_nonnegative`: `scheduled_days >= 0`
 - `review_logs_learning_steps_nonnegative`: `learning_steps >= 0`
 - `review_logs_duration_nonnegative`: `duration_ms IS NULL OR duration_ms >= 0`
