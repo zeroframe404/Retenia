@@ -9,6 +9,8 @@
       "Bash(pnpm dev*)",
       "Bash(pnpm e2e*)",
       "Bash(pnpm storybook*)",
+      "Bash(pnpm licenses:check*)",
+      "Bash(pnpm format*)",
       "Bash(git status*)",
       "Bash(git diff*)",
       "Bash(git log*)",
@@ -22,10 +24,18 @@
     ],
     "deny": [
       "Bash(rm -rf*)",
-      "Bash(git push --force*)",
+      "Bash(rm -fr*)",
+      "Bash(rm -r -f*)",
+      "Bash(rm --recursive --force*)",
+      "Bash(git push --force)",
+      "Bash(git push --force *)",
+      "Bash(git push -f*)",
       "Bash(git reset --hard*)",
-      "Bash(curl * | sh*)",
-      "Read(.env*)"
+      "Read(.env*)",
+      "Read(**/.env*)",
+      "Edit(**/migrations/**)",
+      "Write(**/migrations/**)",
+      "NotebookEdit(**/migrations/**)"
     ]
   },
   "hooks": {
@@ -54,7 +64,7 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "Bash",
+        "matcher": "Bash|Edit|Write|NotebookEdit",
         "hooks": [
           {
             "type": "command",
