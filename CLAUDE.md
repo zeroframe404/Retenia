@@ -48,6 +48,7 @@ pull in only the file a task needs, to keep context small:
 | `docs/spec/05-ingestion-rag.md` | Per-source ingestion strategy, OCR, embeddings, hybrid retrieval |
 | `docs/spec/06-ai-providers.md` | Provider matrix and prices, structured outputs, voice, media, budgets |
 | `docs/spec/07-architecture.md` | Stack versions, monorepo rules, Electron security, data layer, import/export, risks |
+| `docs/spec/07a-schema.md` | Generated listing of the SQLite schema (tables, columns, FKs, indexes, checks, triggers), pragmas, migration policy — regenerate with `pnpm --filter @retenia/db schema:doc` |
 | `docs/spec/08-ux.md` | UX principles, screen map, gamification |
 | `docs/spec/09-feature-catalog.md` | The 125 features with MVP/V1/V2/Later tags |
 | `docs/spec/10-glossary.md` | Glossary and primary sources |

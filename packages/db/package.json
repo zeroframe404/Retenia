@@ -3,20 +3,35 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Drizzle schema, SQL migrations, and better-sqlite3 repositories (Node adapter). The real SQLite layer lands in sub-phase 3.x.",
+  "description": "Drizzle schema, SQL migrations, FTS5 + sqlite-vec search and the better-sqlite3 Node adapter. Main/utility process only — never imported from the renderer.",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./schema": "./src/schema/index.ts",
+    "./testing": "./src/testing.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "lint": "biome check ."
+    "lint": "biome check .",
+    "migrations:generate": "drizzle-kit generate",
+    "migrations:custom": "drizzle-kit generate --custom",
+    "schema:doc": "tsx scripts/schema-doc.ts"
   },
   "dependencies": {
-    "@retenia/core": "workspace:*"
+    "@retenia/core": "workspace:*",
+    "better-sqlite3": "13.0.3",
+    "drizzle-orm": "0.45.2",
+    "sqlite-vec": "0.1.9"
+  },
+  "optionalDependencies": {
+    "better-sqlite3-multiple-ciphers": "13.0.3"
   },
   "devDependencies": {
     "@retenia/config": "workspace:*",
+    "@types/better-sqlite3": "9.6.0",
+    "@types/node": "24.13.3",
+    "drizzle-kit": "0.31.10",
+    "tsx": "4.23.13",
     "typescript": "7.0.2",
     "vitest": "4.1.11"
   }
