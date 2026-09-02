@@ -46,7 +46,11 @@ export function createUpdater({ getChannel, onStatus, enabled }: UpdaterOptions)
   autoUpdater.on('error', (error) => onStatus({ status: 'error', message: error.message }))
 
   const checkForUpdates = () => {
-    autoUpdater.channel = getChannel()
+    const channel = getChannel()
+    autoUpdater.channel = channel
+    // `channel` alone only picks which `<channel>.yml` feed file to read; a prerelease
+    // version in that feed is still skipped unless `allowPrerelease` is also set.
+    autoUpdater.allowPrerelease = channel !== 'latest'
     autoUpdater.checkForUpdates().catch((error: unknown) => {
       log.error('[updater] check failed', error)
     })

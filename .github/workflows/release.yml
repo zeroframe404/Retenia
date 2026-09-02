@@ -56,25 +56,35 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # electron-builder.yml has no fixed `publish.channel`: whether it writes
+      # `latest.yml` or `beta.yml` (and whether electron-updater's `allowPrerelease`
+      # accepts it — see src/main/updates/updater.ts) is decided by whether the version
+      # being built carries a prerelease tag. `--no-git-tag-version` keeps this to the
+      # checked-out workspace; nothing is pushed back to the repository.
+      - name: Set release version
+        shell: bash
+        working-directory: apps/desktop
+        run: |
+          if [ "$CHANNEL" = "beta" ]; then
+            npm version --no-git-tag-version prerelease --preid=beta
+          else
+            npm version --no-git-tag-version patch
+          fi
+        env:
+          CHANNEL: ${{ github.event.inputs.channel }}
+
       - name: Build and release desktop app
         env:
           # electron-builder reads GH_TOKEN; the default job token is enough to
-          # publish to this repository's own releases.
+          # publish to this repository's own releases. `--publish always` has
+          # electron-builder itself create the (draft) GitHub Release from the version
+          # set above and upload the installer plus the updater feed file to it — a
+          # second, separate release step here would only create a duplicate.
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # TODO: Uncomment when code signing certificate is available (Phase 14)
           # CSC_LINK: ${{ secrets.CSC_LINK }}
           # CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          CHANNEL: ${{ github.event.inputs.channel }}
         run: pnpm --filter @retenia/desktop run release
-
-      - name: Create draft release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ github.run_number }}-${{ github.event.inputs.channel }}
-          name: Release ${{ github.event.inputs.channel }}
-          draft: true
-          prerelease: ${{ github.event.inputs.channel == 'beta' }}
-          files: apps/desktop/dist/**
 
       - name: Upload release artifacts
         uses: actions/upload-artifact@v4

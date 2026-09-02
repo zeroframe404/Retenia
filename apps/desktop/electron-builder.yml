@@ -13,6 +13,11 @@ files:
   # Main leaves a few dependencies external (and better-sqlite3 will join them in 3.x),
   # so their packages have to ship. electron-builder prunes this to production deps.
   - node_modules/**
+  # Sidecar binaries land here from sub-phase 6.x onward (ffmpeg, whisper-cli). `files` is
+  # an allowlist, so without this entry `asarUnpack`'s `resources/bin/**` pattern below
+  # would never match anything. `resources/dev/**` (the dev-only media sample) is
+  # deliberately not included — it has no reason to ship in a packaged build.
+  - resources/bin/**
 # Native modules (better-sqlite3, sqlite-vec, onnxruntime, …) and the bundled sidecar
 # binaries (ffmpeg, whisper-cli — see docs/spec/07-architecture.md §7) can't live inside
 # the asar: a `.node` file has to be `dlopen`ed from a real path, and a sidecar has to be

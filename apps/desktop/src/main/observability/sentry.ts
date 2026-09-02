@@ -3,8 +3,9 @@ import * as Sentry from '@sentry/electron/main'
 /**
  * Crash reporting, opt-in only (docs/spec/07-architecture.md §2/§10): off by default until
  * the user consents in onboarding (`Settings.telemetryEnabled`, sub-phase 13.5). The DSN is
- * baked in at build time via `SENTRY_DSN`; a build without it (every build until that env
- * var is wired into CI) silently no-ops rather than failing.
+ * read from `process.env.SENTRY_DSN` at launch; nothing sets that env var yet (a real
+ * install would need it baked into the build), so this silently no-ops rather than failing
+ * until that lands.
  *
  * No PII and no content: `beforeSend`/`beforeBreadcrumb` strip anything that could carry
  * study material, file paths outside the app, or the user's IP.

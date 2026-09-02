@@ -100,6 +100,10 @@ if (gotLock) {
       updater,
       reportRendererError: (error) => {
         log.error('[renderer]', error.name, error.message, error.stack)
+        // Re-checked per call rather than captured once at startup: `Sentry.init` only
+        // runs once (a toggle takes full effect on the next launch), but a report that
+        // arrives after the user turns telemetry off should still not be sent anywhere.
+        if (!settings.get().telemetryEnabled) return
         const forwarded = new Error(error.message)
         forwarded.name = error.name
         if (error.stack) forwarded.stack = error.stack
