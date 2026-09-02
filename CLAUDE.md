@@ -36,6 +36,23 @@ Retenia is a local-first desktop learning & memory app (Electron + React + TypeS
 - Global conventions: @docs/spec/00-conventions.md
 - Architecture decisions log: @docs/spec/01-decisions.md
 
+The rest of the product specification lives in `docs/spec/` and is **not** imported here —
+pull in only the file a task needs, to keep context small:
+
+| File | Covers |
+|---|---|
+| `docs/spec/02-memory-system.md` | FSRS-6 formulas and defaults, importance levels, exams, metrics, SQL model, scheduler interfaces |
+| `docs/spec/03-activities.md` | The 98 activity types, rating strategies, 22 payload families, activity engine |
+| `docs/spec/04-path-generation.md` | 10-stage generation pipeline, QA gates, JSON schemas, prompts P1–P11, diagnostic |
+| `docs/spec/05-ingestion-rag.md` | Per-source ingestion strategy, OCR, embeddings, hybrid retrieval |
+| `docs/spec/06-ai-providers.md` | Provider matrix and prices, structured outputs, voice, media, budgets |
+| `docs/spec/07-architecture.md` | Stack versions, monorepo rules, Electron security, data layer, import/export, risks |
+| `docs/spec/08-ux.md` | UX principles, screen map, gamification |
+| `docs/spec/09-feature-catalog.md` | The 125 features with MVP/V1/V2/Later tags |
+| `docs/spec/10-glossary.md` | Glossary and primary sources |
+
+Source of all of them: `docs/research/Retenia_Investigacion_y_Plan_Maestro.pdf`.
+
 ## Domain rules
 
 Not inferrable from the code — follow exactly:
