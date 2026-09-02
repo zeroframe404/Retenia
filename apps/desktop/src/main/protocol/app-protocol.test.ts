@@ -64,3 +64,47 @@ describe('resolveAppRequestPath', () => {
     expect(path.relative(root, resolved as string).startsWith('..')).toBe(false)
   })
 })
+
+describe('resolveAppRequestPath under Windows path rules', () => {
+  // Win32 strips trailing dots and spaces from a path component, so `".. "` opens the
+  // parent directory even though `path.relative` sees an ordinary directory name. These
+  // run against `path.win32` explicitly so Linux CI covers the primary target platform.
+  const winRoot = 'C:\\Program Files\\Retenia\\resources\\app.asar\\out\\renderer'
+
+  it.each([
+    ['a trailing-space dot-dot', 'app://retenia/assets/..%20/..%20/..%20/Windows/win.ini'],
+    ['one buried in a longer path', 'app://retenia/a/..%20/..%20/package.json'],
+    ['a single prefixed segment, which a leading-".." check misses', 'app://retenia/a/..%20/b.js'],
+    ['three dots', 'app://retenia/a/...%2fb.js'],
+    ['a dot-space-dot component', 'app://retenia/a/.%20./b.js'],
+    ['a lone dot with a space', 'app://retenia/a/.%20/b.js'],
+    ['a tab-padded dot-dot', 'app://retenia/a/..%09/b.js'],
+  ])('refuses %s', (_label, url) => {
+    expect(resolveAppRequestPath(winRoot, url, path.win32)).toBeNull()
+  })
+
+  it('refuses a drive-relative first segment', () => {
+    expect(resolveAppRequestPath(winRoot, 'app://retenia/C%3a%2fbar.js', path.win32)).toBeNull()
+  })
+
+  it('still serves an ordinary Windows asset', () => {
+    expect(resolveAppRequestPath(winRoot, 'app://retenia/assets/index-abc.js', path.win32)).toBe(
+      `${winRoot}\\assets\\index-abc.js`,
+    )
+  })
+
+  it('never resolves outside the root for any of the traversal shapes', () => {
+    const attempts = [
+      'app://retenia/assets/..%20/..%20/..%20/Windows/win.ini',
+      'app://retenia/a/..%20/b.js',
+      'app://retenia/C%3a%2fbar.js',
+      'app://retenia/%2e%2e%2f%2e%2e%2fetc%2fpasswd',
+    ]
+    for (const url of attempts) {
+      const resolved = resolveAppRequestPath(winRoot, url, path.win32)
+      if (resolved !== null) {
+        expect(path.win32.relative(winRoot, resolved).startsWith('..')).toBe(false)
+      }
+    }
+  })
+})

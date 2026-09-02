@@ -58,6 +58,15 @@ describe('buildApi', () => {
     expect(invoke).toHaveBeenCalledWith('app.ping', { sentAt: '2026-09-02T00:00:00.000Z' })
   })
 
+  it('cannot be reached through the prototype chain', () => {
+    const { bridge } = makeBridge()
+    const api = buildApi(bridge) as unknown as Record<string, unknown>
+    // Null-prototype accumulator: no inherited members leak onto window.api.
+    expect(Object.getPrototypeOf(api)).toBeNull()
+    expect(Object.getPrototypeOf((api as Record<string, object>).app)).toBeNull()
+    expect((api as Record<string, unknown>).toString).toBeUndefined()
+  })
+
   it('rejects a channel using the reserved "events" domain', () => {
     // `buildApi` reads the real contract, so this asserts the guard rather than the data:
     // it is what stops a future `events.*` channel from silently shadowing api.events.on.

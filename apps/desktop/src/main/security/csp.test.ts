@@ -61,7 +61,7 @@ describe('buildCsp (production)', () => {
 
 describe('buildCsp (development)', () => {
   const devServerUrl = 'http://localhost:5173'
-  const csp = buildCsp({ isDev: true, devServerUrl })
+  const csp = buildCsp({ devServerUrl })
 
   it('allows the inline React Fast Refresh preamble', () => {
     expect(directive(csp, 'script-src')).toContain("'unsafe-inline'")
@@ -78,5 +78,14 @@ describe('buildCsp (development)', () => {
     const dev = csp.split('; ')
     const changed = dev.filter((part, index) => part !== prod[index]).map((p) => p.split(' ')[0])
     expect(changed).toEqual(['script-src', 'connect-src'])
+  })
+
+  it('stays strict when no dev server is serving the renderer', () => {
+    // `app.isPackaged` is false for any unpackaged run — an E2E launch, a packaged-build
+    // smoke test — and those still serve the real `app://` renderer. Only the presence of
+    // a dev server may relax the policy.
+    expect(buildCsp({ devServerUrl: undefined })).toBe(buildCsp())
+    expect(buildCsp({ devServerUrl: '' })).toBe(buildCsp())
+    expect(directive(buildCsp({ devServerUrl: '' }), 'script-src')).not.toContain('unsafe-inline')
   })
 })
