@@ -10,7 +10,8 @@ Retenia is a local-first desktop learning & memory app (Electron + React + TypeS
 - `pnpm test` — run all unit tests (Vitest)
 - `pnpm test --filter <pkg>` — run tests for one workspace package, e.g. `pnpm test --filter @retenia/core`
 - `pnpm typecheck` — TypeScript project-wide typecheck
-- `pnpm lint` — Biome lint + format check
+- `pnpm lint` — Biome lint + format check over the repo, then per-package lint
+- `pnpm licenses:check` — dependency license allowlist check
 - `pnpm e2e` — Playwright end-to-end tests (Electron, via `_electron`)
 - `pnpm storybook` — component catalog
 
@@ -28,8 +29,8 @@ Retenia is a local-first desktop learning & memory app (Electron + React + TypeS
 - `packages/ingest` — content ingestion pipelines
 - `packages/importers` — external format importers
 - `packages/i18n` — i18n resources (`es-AR` default, `en` second)
-- `packages/config` — shared runtime/app configuration
-- `tooling/` — shared build, lint, and TS configs
+- `packages/config` — base tsconfig, `biome.json` and Tailwind preset shared by every package
+- `tooling/` — release, signing, sidecar and model-download scripts, plus repo hygiene checks
 
 ## Conventions
 
@@ -52,6 +53,9 @@ pull in only the file a task needs, to keep context small:
 | `docs/spec/10-glossary.md` | Glossary and primary sources |
 
 Source of all of them: `docs/research/Retenia_Investigacion_y_Plan_Maestro.pdf`.
+
+The specs also reference a companion `prompts.md` (the 76 sub-phase prompts). It lives
+outside this repository — do not look for it here.
 
 ## Domain rules
 
@@ -81,7 +85,15 @@ Not inferrable from the code — follow exactly:
 
 ## Windows
 
-Hooks in `.claude/hooks/` are bash scripts run via Git Bash. Install **Git for Windows** and make sure `jq` is on `PATH` for the hooks to parse tool-call JSON. `.cmd` fallbacks sit next to each `.sh` for shells without `bash`, but they're best-effort — Git Bash is the supported path.
+Hooks in `.claude/hooks/` are bash scripts run via Git Bash. Install **Git for Windows** and make sure `jq` is on `PATH` (the hooks fall back to `node` if it is missing) for them to parse tool-call JSON. There is no non-bash fallback: without Git Bash the hooks do not run at all, so `guard.sh` will not be blocking anything.
+
+## MCP
+
+`.mcp.json` declares the project-scoped MCP servers: **github** (issues/PRs) and
+**playwright** (app screenshots). Claude Code asks for approval the first time it loads
+them. No secrets live in the file — `github` reads `${GITHUB_TOKEN}` from the environment,
+so export a fine-grained PAT (repo, issues, pull requests) before starting a session, or
+skip the server. Add per-user servers such as Context7 with `claude mcp add --scope user`.
 
 ## Compacting
 

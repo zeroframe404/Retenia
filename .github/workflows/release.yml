@@ -14,6 +14,9 @@ on:
 jobs:
   build-and-release:
     runs-on: windows-latest
+    permissions:
+      # Required to create the draft release and upload its assets.
+      contents: write
 
     steps:
       - uses: actions/checkout@v4
@@ -43,40 +46,35 @@ jobs:
       - name: Cache Electron
         uses: actions/cache@v4
         with:
-          path: ~/.cache/electron
+          path: |
+            ~/.cache/electron
+            ~/AppData/Local/electron/Cache
           key: ${{ runner.os }}-electron-cache-${{ hashFiles('**/package.json') }}
           restore-keys: |
             ${{ runner.os }}-electron-cache-
 
       - name: Install dependencies
-        run: |
-          if [ -f pnpm-lock.yaml ]; then
-            pnpm install --frozen-lockfile
-          else
-            pnpm install --no-frozen-lockfile
-          fi
-        shell: bash
+        run: pnpm install --frozen-lockfile
 
       - name: Build and release desktop app
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          # electron-builder reads GH_TOKEN; the default job token is enough to
+          # publish to this repository's own releases.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # TODO: Uncomment when code signing certificate is available (Phase 14)
           # CSC_LINK: ${{ secrets.CSC_LINK }}
           # CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
           CHANNEL: ${{ github.event.inputs.channel }}
-        run: pnpm --filter desktop release
-        continue-on-error: true
+        run: pnpm --filter @retenia/desktop run release
 
       - name: Create draft release
-        uses: actions/create-release@v1
-        if: always()
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ github.run_number }}-${{ github.event.inputs.channel }}
-          release_name: Release ${{ github.event.inputs.channel }}
+          name: Release ${{ github.event.inputs.channel }}
           draft: true
           prerelease: ${{ github.event.inputs.channel == 'beta' }}
+          files: apps/desktop/dist/**
 
       - name: Upload release artifacts
         uses: actions/upload-artifact@v4
@@ -85,3 +83,4 @@ jobs:
           name: release-artifacts-${{ github.event.inputs.channel }}
           path: apps/desktop/dist/
           retention-days: 30
+          if-no-files-found: ignore

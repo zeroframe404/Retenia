@@ -1,0 +1,42 @@
+# Windows is the primary development platform, where git's default
+# core.autocrlf would check these files out with CRLF. That breaks two things:
+# Biome's format check (its lineEnding is lf, so every line reads as changed)
+# and the .claude/hooks/*.sh scripts, which Git Bash cannot run with CRLF.
+* text=auto eol=lf
+
+# Shell scripts must be LF even if someone sets core.autocrlf=true locally.
+*.sh text eol=lf
+
+# Windows-native scripts keep CRLF.
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# Never touch binary assets.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.icns binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.mp3 binary
+*.mp4 binary
+*.wav binary
+*.webm binary
+*.zip binary
+*.apkg binary
+*.epub binary
+*.riv binary
+*.node binary
+*.wasm binary
+*.sqlite binary
+*.db binary
+
+# Generated: keep out of diffs and language stats.
+pnpm-lock.yaml linguist-generated=true -diff

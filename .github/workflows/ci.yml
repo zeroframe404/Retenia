@@ -8,6 +8,9 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
 jobs:
   lint-typecheck-test:
     runs-on: ${{ matrix.os }}
@@ -19,6 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          # Full history so `turbo run <task> --affected` can resolve a base ref.
           fetch-depth: 0
 
       - name: Setup Node.js
@@ -46,23 +50,20 @@ jobs:
       - name: Cache Electron
         uses: actions/cache@v4
         with:
-          path: ~/.cache/electron
+          # Electron caches to ~/.cache/electron on Linux/macOS and to
+          # %LOCALAPPDATA%\electron\Cache on Windows, which is the primary target.
+          path: |
+            ~/.cache/electron
+            ~/AppData/Local/electron/Cache
           key: ${{ runner.os }}-electron-cache-${{ hashFiles('**/package.json') }}
           restore-keys: |
             ${{ runner.os }}-electron-cache-
 
       - name: Install dependencies
-        run: |
-          if [ -f pnpm-lock.yaml ]; then
-            pnpm install --frozen-lockfile
-          else
-            pnpm install --no-frozen-lockfile
-          fi
-        shell: bash
+        run: pnpm install --frozen-lockfile
 
       - name: Check licenses
-        run: pnpm run licenses
-        continue-on-error: true
+        run: pnpm run licenses:check
 
       - name: Lint
         run: pnpm lint
@@ -106,23 +107,18 @@ jobs:
       - name: Cache Electron
         uses: actions/cache@v4
         with:
-          path: ~/.cache/electron
+          path: |
+            ~/.cache/electron
+            ~/AppData/Local/electron/Cache
           key: ${{ runner.os }}-electron-cache-${{ hashFiles('**/package.json') }}
           restore-keys: |
             ${{ runner.os }}-electron-cache-
 
       - name: Install dependencies
-        run: |
-          if [ -f pnpm-lock.yaml ]; then
-            pnpm install --frozen-lockfile
-          else
-            pnpm install --no-frozen-lockfile
-          fi
-        shell: bash
+        run: pnpm install --frozen-lockfile
 
       - name: Build desktop
         run: pnpm build
-        continue-on-error: true
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -131,3 +127,5 @@ jobs:
           name: desktop-build-windows
           path: apps/desktop/dist/
           retention-days: 7
+          # apps/desktop does not exist until phase 1.1.
+          if-no-files-found: ignore

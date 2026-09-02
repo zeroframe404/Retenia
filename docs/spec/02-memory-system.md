@@ -429,38 +429,56 @@ for bad days.
 
 ## 14. Data model
 
+Every table below carries the four audit columns required by
+[`00-conventions.md`](00-conventions.md) — `created_at`, `updated_at`, `deleted_at`
+(soft delete, never a hard `DELETE`) and `version` — and every `id` is a **UUIDv7 string**,
+never an autoincrement rowid, because the schema is born sync-ready.
+
 ```sql
 -- Knowledge unit (≈ Anki's "note" / RemNote's Rem)
-CREATE TABLE items (id TEXT PK, lesson_id TEXT, topic_id TEXT, kind TEXT /*fact, concept, procedure…*/,
+CREATE TABLE items (id TEXT PK /*UUIDv7*/, lesson_id TEXT, topic_id TEXT, kind TEXT /*fact, concept, procedure…*/,
   fields JSON, source_id TEXT, locator JSON /*page, timestamp, selector*/, as_of TEXT,
   importance TEXT CHECK(importance IN ('urgent','high','normal','maintenance','paused')),
-  created_by TEXT, created_at INT, updated_at INT, deleted_at INT);
+  created_by TEXT,
+  created_at INT, updated_at INT, deleted_at INT, version INT NOT NULL DEFAULT 1);
 
 -- Schedulable unit: every card/exercise has its own FSRS state
-CREATE TABLE cards (id TEXT PK, item_id TEXT, template TEXT /*basic, reverse, cloze:c1, occlusion:3, mcq, order_steps…*/,
+CREATE TABLE cards (id TEXT PK /*UUIDv7*/, item_id TEXT, template TEXT /*basic, reverse, cloze:c1, occlusion:3, mcq, order_steps…*/,
   payload JSON, state INT DEFAULT 0, due INT, stability REAL DEFAULT 0, difficulty REAL DEFAULT 0,
   scheduled_days INT DEFAULT 0, learning_steps INT DEFAULT 0, reps INT DEFAULT 0, lapses INT DEFAULT 0,
   last_review INT, suspended INT DEFAULT 0, buried_until INT, leech INT DEFAULT 0,
-  importance_override TEXT, exam_id TEXT);
-CREATE INDEX cards_due ON cards(due) WHERE suspended = 0;
+  importance_override TEXT, exam_id TEXT,
+  created_at INT, updated_at INT, deleted_at INT, version INT NOT NULL DEFAULT 1);
+CREATE INDEX cards_due ON cards(due) WHERE suspended = 0 AND deleted_at IS NULL;
 
--- Immutable history: source of truth for the optimizer, stats, rollback and sync
-CREATE TABLE review_logs (id INTEGER PK, card_id TEXT, reviewed_at INT, rating INT /*0 Manual,1..4*/,
+-- Immutable history: source of truth for the optimizer, stats, rollback and sync.
+-- Append-only: rows are inserted and never updated, so `updated_at` always equals
+-- `created_at` and `version` stays 1. They exist for uniformity with the sync outbox.
+-- `deleted_at` is only ever set when the parent card is soft-deleted.
+CREATE TABLE review_logs (id TEXT PK /*UUIDv7*/, card_id TEXT, reviewed_at INT, rating INT /*0 Manual,1..4*/,
   state_before INT, due_before INT, stability_before REAL, difficulty_before REAL, elapsed_days INT,
   scheduled_days INT, learning_steps INT, duration_ms INT,
-  context TEXT /*daily, lesson, reinforcement, exam_sim, cram, manual_postpone*/, exercise_score REAL, device TEXT);
+  context TEXT /*daily, lesson, reinforcement, exam_sim, cram, manual_postpone*/, exercise_score REAL, device TEXT,
+  created_at INT, updated_at INT, deleted_at INT, version INT NOT NULL DEFAULT 1);
 
-CREATE TABLE scheduler_profiles (id TEXT PK, scope TEXT, w JSON, decay REAL, trained_at INT,
-  n_reviews INT, log_loss REAL, rmse REAL);
+CREATE TABLE scheduler_profiles (id TEXT PK /*UUIDv7*/, scope TEXT, w JSON, decay REAL, trained_at INT,
+  n_reviews INT, log_loss REAL, rmse REAL,
+  created_at INT, updated_at INT, deleted_at INT, version INT NOT NULL DEFAULT 1);
 
-CREATE TABLE importance_levels (name TEXT PK, desired_retention REAL, max_interval_days INT, order_rank INT,
-  postpone_allowed INT, new_per_day INT, leech_action TEXT);
+-- `name` is the natural key used by the code ('urgent' | 'high' | …); the UUIDv7 `id`
+-- is what sync and the outbox address, like every other table.
+CREATE TABLE importance_levels (id TEXT PK /*UUIDv7*/, name TEXT NOT NULL UNIQUE,
+  desired_retention REAL, max_interval_days INT, order_rank INT,
+  postpone_allowed INT, new_per_day INT, leech_action TEXT,
+  created_at INT, updated_at INT, deleted_at INT, version INT NOT NULL DEFAULT 1);
 
-CREATE TABLE exams (id TEXT PK, title TEXT, date TEXT, scope JSON, blueprint JSON, target_retention REAL,
-  final_window_days INT, study_days_mask INT, status TEXT);
+CREATE TABLE exams (id TEXT PK /*UUIDv7*/, title TEXT, date TEXT, scope JSON, blueprint JSON, target_retention REAL,
+  final_window_days INT, study_days_mask INT, status TEXT,
+  created_at INT, updated_at INT, deleted_at INT, version INT NOT NULL DEFAULT 1);
 
-CREATE TABLE exam_attempts (id TEXT PK, exam_id TEXT, started_at INT, finished_at INT, score REAL,
-  by_topic JSON, items JSON, readiness_predicted REAL);
+CREATE TABLE exam_attempts (id TEXT PK /*UUIDv7*/, exam_id TEXT, started_at INT, finished_at INT, score REAL,
+  by_topic JSON, items JSON, readiness_predicted REAL,
+  created_at INT, updated_at INT, deleted_at INT, version INT NOT NULL DEFAULT 1);
 ```
 
 Store `reviewed_at` in UTC plus a `day_start_hour` (Anki and `fsrs-optimizer` use 4 a.m.) so

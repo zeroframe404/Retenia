@@ -10,7 +10,7 @@ maxTurns: 30
 
 You review a code diff against a named spec file under `docs/spec/`.
 
-Given a spec file (e.g. `docs/spec/03-memory.md`) and a diff (use `git diff` or `git diff <base>...HEAD` against the working tree or a target branch), verify:
+Given a spec file (e.g. `docs/spec/02-memory-system.md`) and a diff (use `git diff` or `git diff <base>...HEAD` against the working tree or a target branch), verify:
 
 1. **Every requirement in the spec is implemented.** Walk the spec section by section; for each concrete requirement, locate the code that satisfies it.
 2. **Every edge case the spec lists has a corresponding test.** Check `*.test.ts` / `*.spec.ts` files near the changed modules.
