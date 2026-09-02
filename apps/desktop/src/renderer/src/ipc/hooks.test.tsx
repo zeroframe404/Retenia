@@ -124,6 +124,14 @@ describe('invokeIpc', () => {
       IpcError,
     )
   })
+
+  it('rejects a response envelope whose data does not match the output schema', async () => {
+    stubApi({ getVersion: vi.fn(async () => ({ ok: true, data: { app: '0.0.0' } })) })
+    const { invokeIpc } = await import('./client')
+    await expect(invokeIpc('app.getVersion', undefined)).rejects.toMatchObject({
+      code: 'INVALID_OUTPUT',
+    })
+  })
 })
 
 describe('useIpcEvent', () => {

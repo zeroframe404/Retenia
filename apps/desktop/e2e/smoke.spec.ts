@@ -8,6 +8,20 @@ test('main window title is Retenia', async ({ window }) => {
   await expect(window).toHaveTitle('Retenia')
 })
 
+test('app:// is a secure context, with mediaDevices available', async ({ window }) => {
+  // Registering `app://` and `media://` in separate `protocol.registerSchemesAsPrivileged`
+  // calls silently strips `secure`/`supportFetchAPI` from whichever scheme is registered
+  // first — a real regression this project shipped once. Only an actual Electron launch
+  // catches it: a unit test mocking `protocol.registerSchemesAsPrivileged` cannot see
+  // Chromium's real handling of the privilege list.
+  const context = await window.evaluate(() => ({
+    isSecureContext: window.isSecureContext,
+    mediaDevices: typeof navigator.mediaDevices,
+    subtle: typeof crypto.subtle,
+  }))
+  expect(context).toEqual({ isSecureContext: true, mediaDevices: 'object', subtle: 'object' })
+})
+
 test('leaves no Node reachable from the renderer', async ({ window }) => {
   // Playwright always launches Electron with the Chromium `--no-sandbox` flag, so this run
   // proves the JavaScript boundary (contextIsolation + the sandboxed renderer client), not
@@ -94,6 +108,7 @@ test('serves a Content-Security-Policy header with the provider allowlist', asyn
   // be what `app://` serves.
   expect(csp).not.toContain("'unsafe-inline' ")
   expect(directives.find((d) => d.startsWith('script-src'))).not.toContain('unsafe-inline')
+  expect(directives.find((d) => d.startsWith('style-src'))).not.toContain('unsafe-inline')
 
   // Exactly one policy: a second would intersect with this one.
   expect(csp?.match(/default-src/g)).toHaveLength(1)

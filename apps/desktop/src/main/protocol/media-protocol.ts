@@ -2,7 +2,7 @@ import { createReadStream } from 'node:fs'
 import { stat } from 'node:fs/promises'
 import path from 'node:path'
 import { Readable } from 'node:stream'
-import { protocol } from 'electron'
+import { type CustomScheme, protocol } from 'electron'
 
 export const MEDIA_SCHEME = 'media'
 /** `media://blob/<sha256>[.ext]` — the only namespace this phase serves. */
@@ -19,21 +19,21 @@ export const MEDIA_BLOB_HOST = 'blob'
  * generic "Failed to fetch" before the request ever reaches `protocol.handle`. An
  * `<audio>`/`<video>` element is unaffected either way, since a media element's request
  * runs in `no-cors` mode.
+ *
+ * Only the privilege descriptor is exported — see the comment on `APP_SCHEME_PRIVILEGES`
+ * in `./app-protocol.ts` for why this scheme must be registered in the same
+ * `protocol.registerSchemesAsPrivileged` call as `app://` rather than its own.
  */
-export function registerMediaScheme(): void {
-  protocol.registerSchemesAsPrivileged([
-    {
-      scheme: MEDIA_SCHEME,
-      privileges: {
-        standard: true,
-        secure: true,
-        supportFetchAPI: true,
-        corsEnabled: true,
-        stream: true,
-        bypassCSP: false,
-      },
-    },
-  ])
+export const MEDIA_SCHEME_PRIVILEGES: CustomScheme = {
+  scheme: MEDIA_SCHEME,
+  privileges: {
+    standard: true,
+    secure: true,
+    supportFetchAPI: true,
+    corsEnabled: true,
+    stream: true,
+    bypassCSP: false,
+  },
 }
 
 /** A sha256 hex digest, lowercase or uppercase — nothing else matches this. */

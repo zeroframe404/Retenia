@@ -34,5 +34,11 @@ export default async function afterPack(context) {
     [FuseV1Options.OnlyLoadAppFromAsar]: true,
     // Cookie encryption at rest; no reason to opt out of it.
     [FuseV1Options.EnableCookieEncryption]: true,
+    // Retenia never loads a renderer over `file://` — the whole point of `app://`
+    // (apps/desktop/src/main/protocol/app-protocol.ts) is that the renderer does not get
+    // the ambient reach `file://` origins have by default. This fuse defaults to enabled;
+    // turning it off removes that reach from any `file://` page a future feature (a PDF/EPUB
+    // preview, an imported HTML asset) might ever load into a window.
+    [FuseV1Options.GrantFileProtocolExtraPrivileges]: false,
   })
 }

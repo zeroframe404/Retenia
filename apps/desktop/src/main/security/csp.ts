@@ -45,6 +45,7 @@ export function buildCsp(options: CspOptions = {}): string {
   const { devServerUrl, providerOrigins = PROVIDER_ORIGINS } = options
 
   const scriptSrc = ["'self'", "'wasm-unsafe-eval'"]
+  const styleSrc = ["'self'"]
   // `media:` here (as opposed to `media-src`) is what lets the renderer `fetch()` a blob —
   // for Range probing, or any future in-app processing — rather than only handing its URL
   // to an `<audio>`/`<video>` element.
@@ -52,15 +53,18 @@ export function buildCsp(options: CspOptions = {}): string {
 
   const devOrigin = devServerUrl ? originOf(devServerUrl) : null
   if (devOrigin) {
-    // The React Fast Refresh preamble is an inline script, and HMR talks over a websocket.
+    // The React Fast Refresh preamble is an inline script, and Vite's CSS HMR injects
+    // updated stylesheets as inline <style> tags — both dev-only, both absent from the
+    // built app the packaged/production policy actually ships.
     scriptSrc.push("'unsafe-inline'")
+    styleSrc.push("'unsafe-inline'")
     connectSrc.push(devOrigin, devOrigin.replace(/^http/, 'ws'))
   }
 
   return [
     "default-src 'self'",
     `script-src ${scriptSrc.join(' ')}`,
-    "style-src 'self' 'unsafe-inline'",
+    `style-src ${styleSrc.join(' ')}`,
     "img-src 'self' media: data: blob:",
     'media-src media: blob:',
     `connect-src ${connectSrc.join(' ')}`,
