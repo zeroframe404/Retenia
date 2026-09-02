@@ -82,7 +82,7 @@ export type {
   MascotReactKind,
 } from './components/mascot'
 export { MASCOT_RIVE_CONTRACT, Mascot } from './components/mascot'
-export type { MemoryStrengthBarProps } from './components/memory-strength-bar'
+export type { MemoryStrengthBand, MemoryStrengthBarProps } from './components/memory-strength-bar'
 export { MemoryStrengthBar } from './components/memory-strength-bar'
 export type { MermaidViewProps } from './components/mermaid-view'
 export { MermaidView } from './components/mermaid-view'
