@@ -21,11 +21,18 @@ describe('contract', () => {
 
   it('declares the channels the app implements', () => {
     expect([...channelNames].sort()).toEqual([
+      'app.checkForUpdates',
       'app.devMediaSampleUrl',
+      'app.exportDiagnostics',
+      'app.getSettings',
       'app.getVersion',
       'app.ping',
+      'app.quitAndInstall',
+      'app.reportRendererError',
+      'app.setTelemetryEnabled',
+      'app.setUpdateChannel',
     ])
-    expect([...eventNames].sort()).toEqual(['app.deepLink', 'app.themeChanged'])
+    expect([...eventNames].sort()).toEqual(['app.deepLink', 'app.themeChanged', 'app.updateStatus'])
   })
 
   it('never declares a domain called "events"', () => {
@@ -115,6 +122,85 @@ describe('app.devMediaSampleUrl', () => {
     expect(output.safeParse({ url: 'media://blob/abc.ogg' }).success).toBe(true)
     expect(output.safeParse({ url: null }).success).toBe(true)
     expect(output.safeParse({}).success).toBe(false)
+  })
+})
+
+describe('app.getSettings / app.setUpdateChannel / app.setTelemetryEnabled', () => {
+  it('shares the same settings output shape', () => {
+    const settings = { updateChannel: 'beta', telemetryEnabled: true }
+    expect(contract['app.getSettings'].output.safeParse(settings).success).toBe(true)
+    expect(contract['app.setUpdateChannel'].output.safeParse(settings).success).toBe(true)
+    expect(contract['app.setTelemetryEnabled'].output.safeParse(settings).success).toBe(true)
+  })
+
+  it('accepts no input for getSettings', () => {
+    expect(contract['app.getSettings'].input.safeParse(undefined).success).toBe(true)
+  })
+
+  it('only accepts latest or beta', () => {
+    const { input } = contract['app.setUpdateChannel']
+    expect(input.safeParse({ channel: 'latest' }).success).toBe(true)
+    expect(input.safeParse({ channel: 'beta' }).success).toBe(true)
+    expect(input.safeParse({ channel: 'nightly' }).success).toBe(false)
+  })
+
+  it('only accepts a boolean for telemetry', () => {
+    const { input } = contract['app.setTelemetryEnabled']
+    expect(input.safeParse({ enabled: true }).success).toBe(true)
+    expect(input.safeParse({ enabled: 'true' }).success).toBe(false)
+  })
+})
+
+describe('app.checkForUpdates / app.quitAndInstall', () => {
+  it('take and return nothing', () => {
+    for (const channel of ['app.checkForUpdates', 'app.quitAndInstall'] as const) {
+      expect(contract[channel].input.safeParse(undefined).success).toBe(true)
+      expect(contract[channel].output.safeParse(undefined).success).toBe(true)
+    }
+  })
+})
+
+describe('app.exportDiagnostics', () => {
+  it('returns a nullable saved path', () => {
+    const { output } = contract['app.exportDiagnostics']
+    expect(output.safeParse({ savedTo: 'C:\\diagnostics.zip' }).success).toBe(true)
+    expect(output.safeParse({ savedTo: null }).success).toBe(true)
+    expect(output.safeParse({}).success).toBe(false)
+  })
+})
+
+describe('app.reportRendererError', () => {
+  it('requires a name and message; the stack is optional', () => {
+    const { input, output } = contract['app.reportRendererError']
+    expect(input.safeParse({ name: 'TypeError', message: 'boom' }).success).toBe(true)
+    expect(
+      input.safeParse({ name: 'TypeError', message: 'boom', stack: 'at x (y:1:1)' }).success,
+    ).toBe(true)
+    expect(input.safeParse({ message: 'boom' }).success).toBe(false)
+    expect(output.safeParse(undefined).success).toBe(true)
+  })
+})
+
+describe('app.updateStatus', () => {
+  const schema = events['app.updateStatus']
+
+  it.each([
+    { status: 'checking' },
+    { status: 'not-available' },
+    { status: 'available', version: '0.4.0' },
+    { status: 'downloading', percent: 42 },
+    { status: 'downloaded', version: '0.4.0' },
+    { status: 'error', message: 'net::ERR_INTERNET_DISCONNECTED' },
+  ])('accepts a %o payload', (payload) => {
+    expect(schema.safeParse(payload).success).toBe(true)
+  })
+
+  it.each([
+    ['an unknown status', { status: 'nope' }],
+    ['available missing its version', { status: 'available' }],
+    ['downloading with an out-of-range percent', { status: 'downloading', percent: 101 }],
+  ])('rejects %s', (_label, payload) => {
+    expect(schema.safeParse(payload).success).toBe(false)
   })
 })
 

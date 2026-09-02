@@ -1,19 +1,30 @@
 import { join } from 'node:path'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 import { contract, type DeepLink } from '@retenia/ipc-contract'
+import * as Sentry from '@sentry/electron/main'
 import { app } from 'electron'
 import { parseDeepLink } from './deep-links/parse'
 import { deepLinkFromArgv, registerDeepLinks } from './deep-links/register'
-import { handlers } from './ipc/handlers'
+import { createHandlers } from './ipc/handlers'
 import { registerHandlers } from './ipc/register-handlers'
 import { makeSenderGuard } from './ipc/sender'
-import { getBlobsRoot } from './paths'
+import { initLogging, log } from './logging/log'
+import { initSentryMain } from './observability/sentry'
+import { getBlobsRoot, getSettingsPath } from './paths'
 import { handleAppProtocol, registerAppScheme } from './protocol/app-protocol'
 import { handleMediaProtocol, registerMediaScheme } from './protocol/media-protocol'
 import { applySecurity } from './security/apply'
 import { buildCsp } from './security/csp'
 import { allowedRendererOrigins } from './security/origins'
+import { SettingsStore } from './settings/store'
+import { createUpdater } from './updates/updater'
 import { broadcast, getWindows, openWindow, WindowKind } from './windows/manager'
+
+// Before anything else: file logging has to exist before the first `log.error`, and the
+// settings file decides whether Sentry is allowed to start at all.
+initLogging()
+const settings = new SettingsStore(getSettingsPath())
+initSentryMain(settings.get().telemetryEnabled)
 
 const preloadPath = join(__dirname, '../preload/index.cjs')
 
@@ -74,6 +85,27 @@ if (gotLock) {
     handleAppProtocol(join(__dirname, '../renderer'), appProtocolCsp)
     handleMediaProtocol(getBlobsRoot())
     applySecurity({ allowedOrigins, csp })
+
+    const updater = createUpdater({
+      getChannel: () => settings.get().updateChannel,
+      onStatus: (status) => broadcast('app.updateStatus', status),
+      // No `app-update.yml` in an unpackaged build for electron-updater to read — checking
+      // there only produces noise (and, over the dev server, occasional real errors).
+      enabled: !is.dev,
+    })
+    app.on('before-quit', () => updater.stop())
+
+    const handlers = createHandlers({
+      settings,
+      updater,
+      reportRendererError: (error) => {
+        log.error('[renderer]', error.name, error.message, error.stack)
+        const forwarded = new Error(error.message)
+        forwarded.name = error.name
+        if (error.stack) forwarded.stack = error.stack
+        Sentry.captureException(forwarded)
+      },
+    })
     registerHandlers(contract, handlers, { isAllowedSender: makeSenderGuard(allowedOrigins) })
 
     app.on('browser-window-created', (_, window) => {

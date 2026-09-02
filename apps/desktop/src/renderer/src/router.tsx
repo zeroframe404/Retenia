@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { DeepLinkBanner } from './components/deep-link-banner'
 import { IpcDemo } from './components/ipc-demo'
 import { MediaDevTest } from './components/media-dev-test'
+import { UpdateStatusLog } from './components/update-status-log'
 import { useAppStore } from './store'
 
 function HomePage() {
@@ -21,6 +22,7 @@ function HomePage() {
       <IpcDemo />
       <MediaDevTest />
       <DeepLinkBanner />
+      <UpdateStatusLog />
     </main>
   )
 }

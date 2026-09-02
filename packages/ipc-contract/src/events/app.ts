@@ -14,6 +14,22 @@ export const deepLinkSchema = z.discriminatedUnion('kind', [
 
 export type DeepLink = z.infer<typeof deepLinkSchema>
 
+/**
+ * electron-updater lifecycle, broadcast by `apps/desktop/src/main/updates/updater.ts` on
+ * every state change (docs/spec/07-architecture.md §10). `error` carries only a message —
+ * an update failure is not fatal, so the renderer just logs and lets the next scheduled
+ * check retry.
+ */
+export const updateStatusSchema = z.discriminatedUnion('status', [
+  z.object({ status: z.literal('checking') }),
+  z.object({ status: z.literal('not-available') }),
+  z.object({ status: z.literal('available'), version: z.string() }),
+  z.object({ status: z.literal('downloading'), percent: z.number().min(0).max(100) }),
+  z.object({ status: z.literal('downloaded'), version: z.string() }),
+  z.object({ status: z.literal('error'), message: z.string() }),
+])
+export type UpdateStatus = z.infer<typeof updateStatusSchema>
+
 /** Push events main sends to the renderer for the `app` domain. */
 export const appEvents = defineEvents({
   'app.themeChanged': z.object({
@@ -21,4 +37,5 @@ export const appEvents = defineEvents({
   }),
   /** Parsed by `apps/desktop/src/main/deep-links/parse.ts` and broadcast on receipt. */
   'app.deepLink': deepLinkSchema,
+  'app.updateStatus': updateStatusSchema,
 })
