@@ -28,15 +28,28 @@ export function registerAppScheme(): void {
 }
 
 /**
+ * Win32 strips trailing dots and spaces from every path component before opening it, so
+ * `".. "`, `"..."` and `". ."` all address the parent directory even though Node's `path`
+ * treats them as ordinary names. Any component made only of dots and whitespace is refused.
+ */
+const DOTS_AND_SPACE_ONLY = /^[.\s]+$/
+
+/**
  * Map a request URL onto a file inside `root`, or `null` if it escapes.
  *
  * Each path segment is decoded on its own and then checked, rather than decoding the whole
  * pathname at once: the URL parser collapses `../` before we ever see it, so the traversal
  * that matters is the one hiding inside an *encoded* segment (`%2e%2e%2f`), which only
- * becomes a separator after decoding. A segment that decodes into a separator, a `..`, or a
- * null byte is refused outright.
+ * becomes a separator after decoding.
+ *
+ * `pathApi` is injectable so the Windows rules above can be tested on any platform; it is
+ * never passed in production.
  */
-export function resolveAppRequestPath(root: string, requestUrl: string): string | null {
+export function resolveAppRequestPath(
+  root: string,
+  requestUrl: string,
+  pathApi: path.PlatformPath = path,
+): string | null {
   let pathname: string
   try {
     pathname = new URL(requestUrl).pathname
@@ -58,8 +71,7 @@ export function resolveAppRequestPath(root: string, requestUrl: string): string 
     }
 
     if (
-      segment === '.' ||
-      segment === '..' ||
+      DOTS_AND_SPACE_ONLY.test(segment) ||
       segment.includes('/') ||
       segment.includes('\\') ||
       segment.includes('\0')
@@ -72,16 +84,16 @@ export function resolveAppRequestPath(root: string, requestUrl: string): string 
 
   // A path with no extension is a client-side route: the SPA shell answers it.
   const last = segments.at(-1)
-  const relative = last && path.extname(last) ? segments.join('/') : 'index.html'
+  const relative = last && pathApi.extname(last) ? segments.join('/') : 'index.html'
 
-  const resolvedRoot = path.resolve(root)
-  const resolved = path.resolve(resolvedRoot, relative)
+  const resolvedRoot = pathApi.resolve(root)
+  const resolved = pathApi.resolve(resolvedRoot, relative)
 
-  // Belt and braces: the segment checks above already make an escape impossible, but the
-  // cost of proving it here is one string comparison. `path.relative` rather than a string
-  // prefix, so a sibling directory sharing the root's name prefix cannot pass.
-  const inside = path.relative(resolvedRoot, resolved)
-  if (inside.startsWith('..') || path.isAbsolute(inside)) {
+  // Backstop for anything the segment rules miss — a Win32 drive-relative first segment
+  // (`C:/…`) is the one that gets here. `path.relative` rather than a string prefix, so a
+  // sibling directory sharing the root's name prefix cannot pass.
+  const inside = pathApi.relative(resolvedRoot, resolved)
+  if (inside === '' || inside.startsWith('..') || pathApi.isAbsolute(inside)) {
     return null
   }
 
@@ -108,8 +120,16 @@ export function handleAppProtocol(rendererRoot: string, csp: string = buildCsp()
       return new Response('Forbidden', { status: 403 })
     }
 
-    const response = await net.fetch(pathToFileURL(filePath).toString())
-    // `net.fetch` over `file://` gives us Range support for free (needed for media in 1.3).
+    let response: Response
+    try {
+      // `net.fetch` over `file://` gives us Range support for free (needed for media in 1.3).
+      response = await net.fetch(pathToFileURL(filePath).toString())
+    } catch {
+      // A missing file rejects; without this the request fails with an opaque network
+      // error and every stale asset URL logs a main-process exception.
+      return new Response('Not found', { status: 404 })
+    }
+
     const headers = new Headers(response.headers)
     headers.set('Content-Security-Policy', csp)
     return new Response(response.body, {

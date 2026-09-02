@@ -91,10 +91,24 @@ test('serves a Content-Security-Policy header with the provider allowlist', asyn
   const csp = response?.headers()['content-security-policy']
 
   expect(csp).toBeTruthy()
-  expect(csp).toContain("default-src 'self'")
-  expect(csp).toContain("script-src 'self' 'wasm-unsafe-eval'")
-  expect(csp).toContain('https://api.anthropic.com')
-  expect(csp).toContain('http://127.0.0.1:11434')
+
+  // Exact directive match, not `toContain`: a substring check on
+  // "script-src 'self' 'wasm-unsafe-eval'" passes happily against a policy that also
+  // carries 'unsafe-inline', which is the whole thing this assertion exists to catch.
+  const directives = (csp ?? '').split('; ')
+  expect(directives).toContain("default-src 'self'")
+  expect(directives).toContain("script-src 'self' 'wasm-unsafe-eval'")
+  expect(directives).toContain("object-src 'none'")
+
+  const connectSrc = directives.find((d) => d.startsWith('connect-src '))
+  expect(connectSrc).toContain('https://api.anthropic.com')
+  expect(connectSrc).toContain('http://127.0.0.1:11434')
+
+  // This run is unpackaged, so `app.isPackaged` is false — the strict policy must still
+  // be what `app://` serves.
+  expect(csp).not.toContain("'unsafe-inline' ")
+  expect(directives.find((d) => d.startsWith('script-src'))).not.toContain('unsafe-inline')
+
   // Exactly one policy: a second would intersect with this one.
   expect(csp?.match(/default-src/g)).toHaveLength(1)
 })

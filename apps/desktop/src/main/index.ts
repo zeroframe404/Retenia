@@ -15,7 +15,11 @@ registerAppScheme()
 
 const devServerUrl = is.dev ? process.env.ELECTRON_RENDERER_URL : undefined
 const allowedOrigins = allowedRendererOrigins(devServerUrl)
-const csp = buildCsp({ isDev: is.dev, devServerUrl })
+// `is.dev` is `!app.isPackaged`, which is true for any unpackaged run — including one
+// that serves the real `app://` renderer. So the relaxation is keyed off the dev server
+// actually being in use, and the `app://` handler is given the strict policy regardless.
+const csp = buildCsp({ devServerUrl })
+const appProtocolCsp = buildCsp()
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -53,7 +57,7 @@ function createWindow(): void {
 app.whenReady().then(() => {
   electronApp.setAppUserModelId('app.retenia.desktop')
 
-  handleAppProtocol(join(__dirname, '../renderer'), csp)
+  handleAppProtocol(join(__dirname, '../renderer'), appProtocolCsp)
   applySecurity({ allowedOrigins, csp })
   registerHandlers(contract, handlers, { isAllowedSender: makeSenderGuard(allowedOrigins) })
 

@@ -23,12 +23,13 @@ export const LOCAL_AI_ORIGINS: readonly string[] = Object.freeze([
 
 export interface CspOptions {
   /**
-   * Relax the policy for the Vite dev server: `@vitejs/plugin-react` injects an inline
-   * preamble and HMR needs a websocket, neither of which the production policy permits.
-   * Never true in a packaged build.
+   * The Vite dev server URL, when one is serving the renderer.
+   *
+   * Its presence — not `app.isPackaged` — is what relaxes the policy, and it relaxes it
+   * only for that origin: `@vitejs/plugin-react` injects an inline preamble and HMR needs
+   * a websocket, neither of which the production policy permits. An unpackaged run that
+   * still serves `app://` gets the strict policy.
    */
-  isDev?: boolean
-  /** The dev server URL, so HMR's `http:`/`ws:` origins can be allowed in `connect-src`. */
   devServerUrl?: string
   providerOrigins?: readonly string[]
 }
@@ -41,18 +42,16 @@ export interface CspOptions {
  * otherwise strict policy.
  */
 export function buildCsp(options: CspOptions = {}): string {
-  const { isDev = false, devServerUrl, providerOrigins = PROVIDER_ORIGINS } = options
+  const { devServerUrl, providerOrigins = PROVIDER_ORIGINS } = options
 
   const scriptSrc = ["'self'", "'wasm-unsafe-eval'"]
   const connectSrc = ["'self'", ...LOCAL_AI_ORIGINS, ...providerOrigins]
 
-  if (isDev) {
+  const devOrigin = devServerUrl ? originOf(devServerUrl) : null
+  if (devOrigin) {
     // The React Fast Refresh preamble is an inline script, and HMR talks over a websocket.
     scriptSrc.push("'unsafe-inline'")
-    const devOrigin = devServerUrl ? originOf(devServerUrl) : null
-    if (devOrigin) {
-      connectSrc.push(devOrigin, devOrigin.replace(/^http/, 'ws'))
-    }
+    connectSrc.push(devOrigin, devOrigin.replace(/^http/, 'ws'))
   }
 
   return [

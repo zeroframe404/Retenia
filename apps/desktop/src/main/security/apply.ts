@@ -89,6 +89,9 @@ function applyWebContentsSecurity(contents: WebContents, allowedOrigins: readonl
   contents.on('will-frame-navigate', (event) => {
     blockForeignNavigation(event, event.url)
   })
+  // A server-side redirect does not fire `will-navigate` again. Only reachable via the dev
+  // server today, since `app://` is served locally and never redirects.
+  contents.on('will-redirect', blockForeignNavigation)
 
   // No new Electron windows, ever. Links the user should be able to follow are handed to
   // the OS browser, where they run outside the app's privileges.

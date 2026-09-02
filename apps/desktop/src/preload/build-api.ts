@@ -14,21 +14,26 @@ export interface Bridge {
  * channels: a channel that is not in the contract has no function to call, and adding one
  * to the contract is the only way to widen what the renderer can reach.
  */
+/** `events` is the push-event namespace; the rest would land on `Object.prototype`. */
+const RESERVED_DOMAINS = new Set(['events', '__proto__', 'constructor', 'prototype'])
+
 export function buildApi(bridge: Bridge): RendererApi {
-  const api: Record<string, Record<string, unknown>> = {}
+  // Null prototypes: the domain and action are used as keys, so a plain object would let
+  // a domain named `__proto__` resolve to `Object.prototype` and be written through.
+  const api: Record<string, Record<string, unknown>> = Object.create(null)
 
   for (const channel of channelNames) {
     const [domain, action] = channel.split('.')
     if (!domain || !action) {
       throw new Error(`IPC channel "${channel}" is not named domain.action`)
     }
-    if (domain === 'events') {
-      throw new Error(`IPC channel "${channel}" uses the reserved domain "events"`)
+    if (RESERVED_DOMAINS.has(domain)) {
+      throw new Error(`IPC channel "${channel}" uses the reserved domain "${domain}"`)
     }
 
     let namespace = api[domain]
     if (!namespace) {
-      namespace = {}
+      namespace = Object.create(null) as Record<string, unknown>
       api[domain] = namespace
     }
     namespace[action] = (input: unknown) => bridge.invoke(channel, input)
