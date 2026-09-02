@@ -116,9 +116,19 @@ test('serves a Content-Security-Policy header with the provider allowlist', asyn
   expect(csp?.match(/default-src/g)).toHaveLength(1)
 })
 
-test('renders the version read over IPC and a screenshot is saved', async ({ window }) => {
+test('reads the app version over IPC and a screenshot is saved', async ({ window }) => {
   await window.goto('app://retenia/index.html')
-  await expect(window.getByTestId('versions')).toContainText('44.')
+
+  // Asserted through the preload API rather than through a renderer widget: Today now shows
+  // one primary action (docs/spec/08-ux.md §1.1), not the F1 version table. That the renderer
+  // really renders IPC-derived data stays covered by the density and sober-mode tests in
+  // `shell.spec.ts`, both of which drive `app.getSettings` end to end through the UI.
+  const versions = await callApi(window, (api) => api.app.getVersion())
+  expect(versions.ok).toBe(true)
+  if (versions.ok) {
+    expect(versions.data.electron).toContain('44.')
+  }
+
   await screenshot(window, 'smoke-main-window')
 })
 

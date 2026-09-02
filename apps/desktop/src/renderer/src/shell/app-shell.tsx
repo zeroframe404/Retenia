@@ -12,6 +12,7 @@ import { StickyRegion } from './sticky-outlet'
 import { useDueCount } from './use-due-count'
 import { useProcessingJobs } from './use-processing-jobs'
 import { useSettings } from './use-settings'
+import { useXp } from './use-xp'
 
 const GLOBAL_SHORTCUTS = SHORTCUTS.filter((s) => s.scope === 'global')
 
@@ -33,6 +34,7 @@ export function AppShell() {
 
   const dueCount = useDueCount()
   const jobs = useProcessingJobs()
+  const xp = useXp()
   const settings = useSettings()
 
   const [paletteOpen, setPaletteOpen] = useState(false)
@@ -96,7 +98,7 @@ export function AppShell() {
             }
             onSearchClick={() => setPaletteOpen(true)}
             searchLabel={t('topBar.search')}
-            xpLabel={t('xpBadge', { xp: 1240 })}
+            xpLabel={t('xpBadge', { xp })}
             xpHidden={soberMode}
           />
           <Group orientation="horizontal" className="flex-1 overflow-hidden">
