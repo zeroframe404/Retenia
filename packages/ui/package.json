@@ -7,7 +7,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./theme.css": "./src/theme.css",
-    "./fonts/*": "./fonts/*"
+    "./fonts/*": "./fonts/*",
+    "./sounds/*": "./sounds/*"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
@@ -18,7 +19,10 @@
   },
   "dependencies": {
     "@base-ui/react": "1.7.0",
+    "@lottiefiles/dotlottie-react": "0.19.16",
     "@retenia/core": "workspace:*",
+    "@rive-app/react-canvas": "4.33.1",
+    "canvas-confetti": "1.9.4",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "katex": "0.18.5",
@@ -46,6 +50,7 @@
     "@testing-library/jest-dom": "7.0.1",
     "@testing-library/react": "16.3.3",
     "@testing-library/user-event": "14.6.6",
+    "@types/canvas-confetti": "1.9.0",
     "@types/katex": "0.16.8",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.5",
