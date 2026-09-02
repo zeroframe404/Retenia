@@ -3,7 +3,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 type Listener = (...args: unknown[]) => void
 
 class FakeAutoUpdater {
-  autoDownload = false
+  // Mirrors electron-updater's real defaults (both `true`), so the assertion in
+  // "checks for updates without auto-downloading..." observes createUpdater() actually
+  // flipping autoDownload to false, rather than passing vacuously because the fake
+  // already started there.
+  autoDownload = true
   autoInstallOnAppQuit = true
   allowPrerelease = false
   logger: unknown

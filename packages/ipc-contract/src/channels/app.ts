@@ -72,7 +72,11 @@ export const appChannels = defineContract({
     output: z.void(),
   },
   /** Restarts the app to apply a downloaded update. Only meaningful after `updateStatus`
-   * has reported `downloaded`; the renderer is expected to confirm with the user first. */
+   * has reported `downloaded`; the renderer is expected to confirm with the user first.
+   * Currently unreachable: the updater doesn't auto-download until the app is code-signed
+   * (`apps/desktop/src/main/updates/updater.ts`), and nothing calls `downloadUpdate()` yet
+   * either, so `downloaded` never fires. Don't wire a "Restart to update" button to this
+   * until one of those lands. */
   'app.quitAndInstall': {
     input: z.void(),
     output: z.void(),
