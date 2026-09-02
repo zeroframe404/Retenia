@@ -25,4 +25,15 @@ export const appChannels = defineContract({
       receivedAt: z.iso.datetime(),
     }),
   },
+  /**
+   * Dev-only: copies `resources/dev/sample.ogg` into the blob store and returns its
+   * `media://` URL, so the renderer can prove Range/seeking works against a real file
+   * (sub-phase 1.3). Resolves to `null` in a packaged build.
+   */
+  'app.devMediaSampleUrl': {
+    input: z.void(),
+    output: z.object({
+      url: z.string().nullable(),
+    }),
+  },
 })

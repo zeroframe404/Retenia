@@ -29,6 +29,10 @@ describe('buildCsp (production)', () => {
     expect(scriptSrc).not.toMatch(/https?:\/\//)
   })
 
+  it('allows fetch() against a media:// blob, not just <audio>/<video> src', () => {
+    expect(directive(csp, 'connect-src')).toContain('media:')
+  })
+
   it('allows the local inference servers to be reached', () => {
     const connectSrc = directive(csp, 'connect-src')
     for (const origin of LOCAL_AI_ORIGINS) {

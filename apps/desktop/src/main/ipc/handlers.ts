@@ -1,5 +1,8 @@
+import { is } from '@electron-toolkit/utils'
 import type { Contract } from '@retenia/ipc-contract'
 import { app } from 'electron'
+import { ensureDevMediaSample } from '../dev/media-sample'
+import { getBlobsRoot, getDevMediaSamplePath } from '../paths'
 import type { Handlers } from './register-handlers'
 
 /** The implementation of every channel in the contract. */
@@ -15,4 +18,11 @@ export const handlers: Handlers<Contract> = {
     sentAt,
     receivedAt: new Date().toISOString(),
   }),
+
+  'app.devMediaSampleUrl': () => {
+    if (!is.dev) {
+      return { url: null }
+    }
+    return { url: ensureDevMediaSample(getDevMediaSamplePath(), getBlobsRoot()) }
+  },
 }

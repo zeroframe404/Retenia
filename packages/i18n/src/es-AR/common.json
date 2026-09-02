@@ -9,5 +9,11 @@
     "roundTrip": "Ida y vuelta: {{ms}} ms",
     "failed": "Falló: {{message}}",
     "loading": "Cargando…"
+  },
+  "deepLink": {
+    "received": "Enlace recibido: {{link}}"
+  },
+  "mediaDevTest": {
+    "heading": "Prueba de reproducción media://"
   }
 }
