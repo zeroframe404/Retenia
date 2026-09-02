@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Turborepo
+.turbo/
+
+# Build outputs
+dist/
+out/
+build/
+*.tsbuildinfo
+
+# Electron-builder
+release/
+
+# Testing
+coverage/
+playwright-report/
+test-results/
+
+# Storybook
+storybook-static/
+
+# Env & local-only config
+.env
+.env.*
+!.env.example
+*.local.json
+
+# Electron userData fixtures (local test profiles, never committed)
+**/fixtures/userData/
+**/.userData/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
