@@ -1,0 +1,20 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1788383152866,
+      "tag": "0000_domain_schema",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1788383155022,
+      "tag": "0001_fts5_vec0_seed",
+      "breakpoints": true
+    }
+  ]
+}

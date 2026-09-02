@@ -7,6 +7,11 @@ allowBuilds:
   electron: true
   # Windows Squirrel installer pulled in transitively by electron-builder; we ship NSIS.
   electron-winstaller: false
+  # Both SQLite drivers (packages/db) ship N-API prebuilds for every platform inside the
+  # tarball; pnpm only flags them because of their binding.gyp. Skipping the implicit
+  # `node-gyp rebuild` keeps installs toolchain-free on Windows and CI.
+  better-sqlite3: false
+  better-sqlite3-multiple-ciphers: false
 minimumReleaseAgeExclude:
   - electron@44.1.1
   - '@sentry/electron@7.18.0'
