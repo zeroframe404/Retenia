@@ -10,3 +10,5 @@ allowBuilds:
 minimumReleaseAgeExclude:
   - electron@44.1.1
   - '@sentry/electron@7.18.0'
+  - '@rive-app/canvas@2.41.1'
+  - '@rive-app/react-canvas@4.33.1'

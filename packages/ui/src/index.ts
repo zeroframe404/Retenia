@@ -12,6 +12,8 @@ export {
   CardHeader,
   CardTitle,
 } from './components/card'
+export type { CelebrationProps, CelebrationVariant } from './components/celebration'
+export { Celebration } from './components/celebration'
 export type { CodeBlockProps } from './components/code-block'
 export { CodeBlock } from './components/code-block'
 export type { ConfirmDialogProps } from './components/confirm-dialog'
@@ -68,6 +70,13 @@ export { KatexInline } from './components/katex-inline'
 export { Kbd } from './components/kbd'
 export type { MarkdownViewProps } from './components/markdown-view'
 export { MarkdownView } from './components/markdown-view'
+export type {
+  MascotHandle,
+  MascotMood,
+  MascotProps,
+  MascotReactKind,
+} from './components/mascot'
+export { MASCOT_RIVE_CONTRACT, Mascot } from './components/mascot'
 export type { MemoryStrengthBarProps } from './components/memory-strength-bar'
 export { MemoryStrengthBar } from './components/memory-strength-bar'
 export type { MermaidViewProps } from './components/mermaid-view'
@@ -150,10 +159,17 @@ export {
 } from './components/tooltip'
 export type { Breadcrumb, TopBarProps } from './components/top-bar'
 export { TopBar } from './components/top-bar'
+export type { GamificationProfile } from './gamification/gamification-store'
+export { useGamificationProfileStore } from './gamification/gamification-store'
+export { useGamificationProfile } from './gamification/use-gamification-profile'
 export { cn } from './lib/cn'
 export { celebrate, fadeIn, motionPresets, pop, shake, slideUp } from './motion'
 export type { ShortcutDef, ShortcutScope } from './shortcuts'
 export { SHORTCUTS } from './shortcuts'
+export type { PlayOptions, SoundKitOptions, SoundName } from './sound/sound-kit'
+export { SoundKit } from './sound/sound-kit'
+export { useSoundSettingsStore } from './sound/sound-settings-store'
+export { useSoundKit } from './sound/use-sound-kit'
 export type { ResolvedTheme, ThemePreference } from './theme/theme-store'
 export { useThemeStore } from './theme/theme-store'
 export { useApplyTheme } from './theme/use-apply-theme'
