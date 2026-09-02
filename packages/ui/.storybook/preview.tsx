@@ -1,21 +1,25 @@
-import { defaultLocale, fallbackLocale, resources } from '@retenia/i18n'
+import { defaultLocale, fallbackLocale, namespaces, resources } from '@retenia/i18n'
 import { withThemeByDataAttribute } from '@storybook/addon-themes'
 import type { Preview } from '@storybook/react-vite'
 import i18n from 'i18next'
+import ICU from 'i18next-icu'
 import { MotionConfig } from 'motion/react'
 import { I18nextProvider, initReactI18next } from 'react-i18next'
 import { Toaster } from '../src/components/toast'
 import { TooltipProvider } from '../src/components/tooltip'
 import './tailwind.css'
 
-i18n.use(initReactI18next).init({
-  resources,
-  lng: defaultLocale,
-  fallbackLng: fallbackLocale,
-  ns: ['common'],
-  defaultNS: 'common',
-  interpolation: { escapeValue: false },
-})
+i18n
+  .use(ICU)
+  .use(initReactI18next)
+  .init({
+    resources,
+    lng: defaultLocale,
+    fallbackLng: fallbackLocale,
+    ns: [...namespaces],
+    defaultNS: 'common',
+    interpolation: { escapeValue: false },
+  })
 
 const preview: Preview = {
   decorators: [

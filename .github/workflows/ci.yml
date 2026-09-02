@@ -65,6 +65,9 @@ jobs:
       - name: Check licenses
         run: pnpm run licenses:check
 
+      - name: Check i18n key parity
+        run: pnpm run i18n:check
+
       - name: Lint
         run: pnpm lint
 

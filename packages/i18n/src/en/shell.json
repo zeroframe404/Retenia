@@ -1,0 +1,60 @@
+{
+  "nav": {
+    "home": "Today",
+    "path": "Path",
+    "review": "Review",
+    "library": "Library",
+    "exams": "Exams",
+    "languages": "Languages",
+    "notes": "Notes",
+    "statistics": "Statistics",
+    "settings": "Settings",
+    "collapse": "Collapse sidebar",
+    "expand": "Expand sidebar"
+  },
+  "topBar": {
+    "search": "Search",
+    "searchHint": "Open the command palette"
+  },
+  "xpBadge": "{xp} XP",
+  "processingTray": {
+    "title": "Processing",
+    "collapse": "Collapse",
+    "expand": "Expand",
+    "emptyState": "No background jobs",
+    "jobCount": "{count, plural, =0 {No jobs} one {# job running} other {# jobs running}}"
+  },
+  "commandPalette": {
+    "placeholder": "Type a command or search…",
+    "noResults": "No results",
+    "recent": "Recent",
+    "groupNavigate": "Navigate",
+    "groupActions": "Actions",
+    "actions": {
+      "startReview": "Start review",
+      "import": "Import…",
+      "openSettings": "Open settings",
+      "toggleTheme": "Toggle theme"
+    }
+  },
+  "shortcuts": {
+    "title": "Keyboard shortcuts",
+    "scopeGlobal": "Global",
+    "scopeReview": "Review",
+    "commandPalette": "Open the command palette",
+    "openSettings": "Open settings",
+    "shortcutsSheet": "Show this shortcut list",
+    "reveal": "Reveal the answer",
+    "continue": "Continue",
+    "back": "Back",
+    "grade1": "Grade: again",
+    "grade2": "Grade: hard",
+    "grade3": "Grade: good",
+    "grade4": "Grade: easy"
+  },
+  "notFound": {
+    "title": "We couldn't find that page",
+    "body": "The route you tried to reach does not exist.",
+    "backHome": "Back to Today"
+  }
+}

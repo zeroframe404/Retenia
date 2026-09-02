@@ -56,6 +56,10 @@ export function createHandlers({
       return settings.setTheme(theme)
     },
 
+    'app.setDensity': ({ density }) => settings.setDensity(density),
+
+    'app.setGamificationProfile': ({ profile }) => settings.setGamificationProfile(profile),
+
     'app.checkForUpdates': () => {
       updater.checkForUpdates()
     },

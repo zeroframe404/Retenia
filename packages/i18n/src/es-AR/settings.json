@@ -1,0 +1,14 @@
+{
+  "title": "Ajustes",
+  "comingSoon": "La pantalla completa de ajustes llega en una fase posterior.",
+  "density": {
+    "label": "Densidad",
+    "compact": "Compacta",
+    "comfortable": "Cómoda"
+  },
+  "gamification": {
+    "label": "Perfil de gamificación",
+    "arcade": "Arcade",
+    "sober": "Sobrio"
+  }
+}
