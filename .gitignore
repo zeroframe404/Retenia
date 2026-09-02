@@ -13,6 +13,7 @@ build/
 
 # Electron-builder
 release/
+!.claude/skills/release/
 
 # Testing
 coverage/
