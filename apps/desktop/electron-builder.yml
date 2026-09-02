@@ -16,6 +16,12 @@ files:
 # Required by the OnlyLoadAppFromAsar and EnableEmbeddedAsarIntegrityValidation fuses.
 asar: true
 afterPack: ./build/after-pack.mjs
+# Lets the installer register `retenia://` with the OS, so `app.setAsDefaultProtocolClient`
+# (apps/desktop/src/main/deep-links/register.ts) has something to associate with.
+protocols:
+  name: Retenia deep link
+  schemes:
+    - retenia
 win:
   target:
     - nsis

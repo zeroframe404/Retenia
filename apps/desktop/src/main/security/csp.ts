@@ -45,7 +45,10 @@ export function buildCsp(options: CspOptions = {}): string {
   const { devServerUrl, providerOrigins = PROVIDER_ORIGINS } = options
 
   const scriptSrc = ["'self'", "'wasm-unsafe-eval'"]
-  const connectSrc = ["'self'", ...LOCAL_AI_ORIGINS, ...providerOrigins]
+  // `media:` here (as opposed to `media-src`) is what lets the renderer `fetch()` a blob —
+  // for Range probing, or any future in-app processing — rather than only handing its URL
+  // to an `<audio>`/`<video>` element.
+  const connectSrc = ["'self'", 'media:', ...LOCAL_AI_ORIGINS, ...providerOrigins]
 
   const devOrigin = devServerUrl ? originOf(devServerUrl) : null
   if (devOrigin) {

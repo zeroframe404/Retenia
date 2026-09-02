@@ -1,82 +1,106 @@
 import { join } from 'node:path'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
-import { contract } from '@retenia/ipc-contract'
-import { app, BrowserWindow } from 'electron'
+import { contract, type DeepLink } from '@retenia/ipc-contract'
+import { app } from 'electron'
+import { parseDeepLink } from './deep-links/parse'
+import { deepLinkFromArgv, registerDeepLinks } from './deep-links/register'
 import { handlers } from './ipc/handlers'
 import { registerHandlers } from './ipc/register-handlers'
 import { makeSenderGuard } from './ipc/sender'
+import { getBlobsRoot } from './paths'
 import { handleAppProtocol, registerAppScheme } from './protocol/app-protocol'
+import { handleMediaProtocol, registerMediaScheme } from './protocol/media-protocol'
 import { applySecurity } from './security/apply'
 import { buildCsp } from './security/csp'
-import { APP_INDEX_URL, allowedRendererOrigins } from './security/origins'
+import { allowedRendererOrigins } from './security/origins'
+import { broadcast, getWindows, openWindow, WindowKind } from './windows/manager'
 
-// Must run before `app.whenReady()`: privileges are read when the scheme is first used.
-registerAppScheme()
+const preloadPath = join(__dirname, '../preload/index.cjs')
 
-const devServerUrl = is.dev ? process.env.ELECTRON_RENDERER_URL : undefined
-const allowedOrigins = allowedRendererOrigins(devServerUrl)
-// `is.dev` is `!app.isPackaged`, which is true for any unpackaged run — including one
-// that serves the real `app://` renderer. So the relaxation is keyed off the dev server
-// actually being in use, and the `app://` handler is given the strict policy regardless.
-const csp = buildCsp({ devServerUrl })
-const appProtocolCsp = buildCsp()
+/**
+ * A deep link that arrives before the main window can display it (cold start, or the
+ * window is still mid-navigation) waits here until `did-finish-load` flushes it.
+ */
+let pendingDeepLink: DeepLink | null = null
 
-function createWindow(): void {
-  const mainWindow = new BrowserWindow({
-    title: 'Retenia',
-    width: 1100,
-    height: 720,
-    show: false,
-    autoHideMenuBar: true,
-    webPreferences: {
-      // A sandboxed preload cannot be an ES module, hence `.cjs` (see electron.vite.config.ts).
-      preload: join(__dirname, '../preload/index.cjs'),
-      // Non-negotiable per CLAUDE.md and docs/spec/07-architecture.md §4.
-      contextIsolation: true,
-      sandbox: true,
-      nodeIntegration: false,
-      nodeIntegrationInSubFrames: false,
-      webSecurity: true,
-      webviewTag: false,
-    },
-  })
-
-  mainWindow.on('ready-to-show', () => {
-    mainWindow.show()
-  })
-
-  if (devServerUrl) {
-    void mainWindow.loadURL(devServerUrl)
+function deliverDeepLink(link: DeepLink): void {
+  const [main] = getWindows(WindowKind.Main)
+  if (main && !main.webContents.isLoadingMainFrame()) {
+    broadcast('app.deepLink', link)
   } else {
-    // `app://`, never `file://`: the renderer needs a real origin for CSP and for the
-    // sender checks on every IPC message.
-    void mainWindow.loadURL(APP_INDEX_URL)
+    pendingDeepLink = link
   }
 }
 
-app.whenReady().then(() => {
-  electronApp.setAppUserModelId('app.retenia.desktop')
-
-  handleAppProtocol(join(__dirname, '../renderer'), appProtocolCsp)
-  applySecurity({ allowedOrigins, csp })
-  registerHandlers(contract, handlers, { isAllowedSender: makeSenderGuard(allowedOrigins) })
-
-  app.on('browser-window-created', (_, window) => {
-    optimizer.watchWindowShortcuts(window)
-  })
-
-  createWindow()
-
-  // Headless verification (no display) greps stdout for this line.
-  console.log('ready')
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
-  })
+// Must run before `app.whenReady()`: a second launch has to be caught immediately, and
+// `retenia://` has to be registered before the OS can hand the app a link to it.
+const gotLock = registerDeepLinks({
+  onDeepLink: deliverDeepLink,
+  onSecondInstance: () => {
+    const [main] = getWindows(WindowKind.Main)
+    if (!main) return
+    if (main.isMinimized()) main.restore()
+    main.focus()
+  },
 })
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit()
+if (gotLock) {
+  // On Windows, launching the app via `retenia://…` starts a fresh process with the URL in
+  // its own argv — there is no earlier instance for `second-instance` to notify.
+  const argvLink = deepLinkFromArgv(process.argv)
+  if (argvLink) {
+    const parsed = parseDeepLink(argvLink)
+    if (parsed) {
+      pendingDeepLink = parsed
+    }
   }
-})
+
+  // Must also run before `app.whenReady()`: privileges are read the first time a scheme is
+  // used.
+  registerAppScheme()
+  registerMediaScheme()
+
+  const devServerUrl = is.dev ? process.env.ELECTRON_RENDERER_URL : undefined
+  const allowedOrigins = allowedRendererOrigins(devServerUrl)
+  // `is.dev` is `!app.isPackaged`, true for any unpackaged run — including one that serves
+  // the real `app://` renderer. So the relaxation is keyed off the dev server actually
+  // being in use, and the `app://` handler always gets the strict policy.
+  const csp = buildCsp({ devServerUrl })
+  const appProtocolCsp = buildCsp()
+
+  app.whenReady().then(() => {
+    electronApp.setAppUserModelId('app.retenia.desktop')
+
+    handleAppProtocol(join(__dirname, '../renderer'), appProtocolCsp)
+    handleMediaProtocol(getBlobsRoot())
+    applySecurity({ allowedOrigins, csp })
+    registerHandlers(contract, handlers, { isAllowedSender: makeSenderGuard(allowedOrigins) })
+
+    app.on('browser-window-created', (_, window) => {
+      optimizer.watchWindowShortcuts(window)
+    })
+
+    const main = openWindow(WindowKind.Main, {}, { devServerUrl, preloadPath })
+    main.webContents.once('did-finish-load', () => {
+      if (pendingDeepLink) {
+        broadcast('app.deepLink', pendingDeepLink)
+        pendingDeepLink = null
+      }
+    })
+
+    // Headless verification (no display) greps stdout for this line.
+    console.log('ready')
+
+    app.on('activate', () => {
+      if (getWindows(WindowKind.Main).length === 0) {
+        openWindow(WindowKind.Main, {}, { devServerUrl, preloadPath })
+      }
+    })
+  })
+
+  app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') {
+      app.quit()
+    }
+  })
+}

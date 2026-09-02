@@ -20,8 +20,12 @@ describe('contract', () => {
   })
 
   it('declares the channels the app implements', () => {
-    expect([...channelNames].sort()).toEqual(['app.getVersion', 'app.ping'])
-    expect([...eventNames]).toEqual(['app.themeChanged'])
+    expect([...channelNames].sort()).toEqual([
+      'app.devMediaSampleUrl',
+      'app.getVersion',
+      'app.ping',
+    ])
+    expect([...eventNames].sort()).toEqual(['app.deepLink', 'app.themeChanged'])
   })
 
   it('never declares a domain called "events"', () => {
@@ -81,6 +85,36 @@ describe('app.themeChanged', () => {
   it('accepts only the two themes', () => {
     expect(events['app.themeChanged'].safeParse({ theme: 'dark' }).success).toBe(true)
     expect(events['app.themeChanged'].safeParse({ theme: 'sepia' }).success).toBe(false)
+  })
+})
+
+describe('app.deepLink', () => {
+  const schema = events['app.deepLink']
+
+  it.each([
+    { kind: 'import', src: 'https://example.com/book.pdf' },
+    { kind: 'review' },
+    { kind: 'authCallback', params: { code: 'abc' } },
+  ])('accepts a %o payload', (payload) => {
+    expect(schema.safeParse(payload).success).toBe(true)
+  })
+
+  it.each([
+    ['an unknown kind', { kind: 'nope' }],
+    ['import missing its src', { kind: 'import' }],
+    ['authCallback with non-string params', { kind: 'authCallback', params: { code: 1 } }],
+  ])('rejects %s', (_label, payload) => {
+    expect(schema.safeParse(payload).success).toBe(false)
+  })
+})
+
+describe('app.devMediaSampleUrl', () => {
+  it('takes no input and returns a nullable url', () => {
+    const { input, output } = contract['app.devMediaSampleUrl']
+    expect(input.safeParse(undefined).success).toBe(true)
+    expect(output.safeParse({ url: 'media://blob/abc.ogg' }).success).toBe(true)
+    expect(output.safeParse({ url: null }).success).toBe(true)
+    expect(output.safeParse({}).success).toBe(false)
   })
 })
 

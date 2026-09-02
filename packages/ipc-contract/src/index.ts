@@ -19,6 +19,7 @@ export type {
 export { defineContract, defineEvents } from './define'
 export type { IpcError, IpcErrorCode, IpcResult } from './envelope'
 export { ipcErrorCodes, ipcErrorSchema, ipcFail, ipcOk } from './envelope'
+export type { DeepLink } from './events/app'
 
 /**
  * Every main<->renderer request/response channel. Merge one object per domain; the
