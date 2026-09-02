@@ -1,6 +1,4 @@
 {
-  "description": "License exceptions for Retenia dependencies. Add packages here that have acceptable licenses but don't fit the standard allowlist.",
-  "exceptions": {
-    "example-package": "The reason this exception was granted; link to decision if applicable"
-  }
+  "description": "License exceptions for Retenia dependencies. Add entries to \"exceptions\" as \"<package-name>\": \"<reason; link to the decision if applicable>\" for packages whose license is acceptable but does not fit the allowlist in check-licenses.mjs.",
+  "exceptions": {}
 }

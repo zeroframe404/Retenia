@@ -12,10 +12,11 @@
     "build": "turbo run build",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
-    "lint": "turbo run lint",
+    "lint": "biome check --error-on-warnings . && turbo run lint",
     "e2e": "turbo run e2e",
     "storybook": "turbo run storybook",
-    "licenses": "node tooling/scripts/check-licenses.mjs"
+    "format": "biome check --write .",
+    "licenses:check": "node tooling/scripts/check-licenses.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.11",
