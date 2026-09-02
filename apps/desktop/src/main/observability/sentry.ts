@@ -18,6 +18,24 @@ export function initSentryMain(enabled: boolean): void {
   Sentry.init({
     dsn: process.env.SENTRY_DSN,
     sendDefaultPii: false,
+    // The renderer has no Sentry SDK of its own (see the comment in
+    // `renderer/src/main.tsx`) — it reports through the contract-validated
+    // `app.reportRendererError` channel instead — so main has no use for @sentry/electron's
+    // own renderer<->main transport. Left at its default (`ipcMode: IPCMode.Both`), that
+    // transport registers raw `ipcMain.on('sentry-ipc.*')` channels with no sender-frame
+    // check or schema validation, and injects a second `contextBridge` preload
+    // (`__SENTRY_IPC__`) into every renderer session — a second, unvalidated main<->renderer
+    // bridge outside `packages/ipc-contract`. `ipcMode: 0` (neither `Classic` nor
+    // `Protocol`) turns off both; `getSessions: () => []` and dropping the
+    // `PreloadInjection` integration are kept too, as a backstop in case `ipcMode` is ever
+    // widened without noticing this comment. Neither `IPCMode` member is `0`, so there is
+    // no named constant for "off" to reach for — `IPCMode.Classic & IPCMode.Protocol` is
+    // the bitwise-off value, spelled out rather than a bare `0` so it survives a future
+    // renumbering of the enum.
+    ipcMode: Sentry.IPCMode.Classic & Sentry.IPCMode.Protocol,
+    getSessions: () => [],
+    integrations: (defaults) =>
+      defaults.filter((integration) => integration.name !== 'PreloadInjection'),
     beforeSend(event) {
       delete event.user
       delete event.request

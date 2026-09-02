@@ -1,7 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const init = vi.fn()
-vi.mock('@sentry/electron/main', () => ({ init }))
+vi.mock('@sentry/electron/main', () => ({
+  init,
+  IPCMode: { Classic: 1, Protocol: 2, Both: 3 },
+}))
 
 const { initSentryMain } = await import('./sentry')
 
@@ -47,6 +50,22 @@ describe('initSentryMain', () => {
     })
     expect(event.user).toBeUndefined()
     expect(event.request).toBeUndefined()
+  })
+
+  it('disables the classic and protocol IPC transports, so no sentry-ipc bridge is opened', () => {
+    process.env.SENTRY_DSN = 'https://example.ingest.sentry.io/1'
+    initSentryMain(true)
+    const options = init.mock.calls[0]?.[0]
+    expect(options.ipcMode).toBe(0)
+    expect(options.getSessions()).toEqual([])
+  })
+
+  it('filters the PreloadInjection integration out of the defaults', () => {
+    process.env.SENTRY_DSN = 'https://example.ingest.sentry.io/1'
+    initSentryMain(true)
+    const options = init.mock.calls[0]?.[0]
+    const defaults = [{ name: 'PreloadInjection' }, { name: 'ElectronContext' }]
+    expect(options.integrations(defaults)).toEqual([{ name: 'ElectronContext' }])
   })
 
   it('drops console and http breadcrumbs, keeps the rest', () => {

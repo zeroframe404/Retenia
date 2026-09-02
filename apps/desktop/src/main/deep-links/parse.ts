@@ -3,6 +3,23 @@ import type { DeepLink } from '@retenia/ipc-contract'
 export const DEEP_LINK_PROTOCOL = 'retenia'
 
 /**
+ * Deep links are a fully untrusted, remotely-triggerable input: `app.setAsDefaultProtocolClient`
+ * makes `retenia://…` invocable from any web page the user visits, not just from inside the
+ * app. Constraining `import`'s `src` to http(s) here — rather than accepting any string — keeps
+ * a crafted link from smuggling a local path, a UNC share, or a `javascript:`/`data:` URL into
+ * whatever eventually consumes it (the ingestion pipeline, sub-phase 6.x).
+ */
+const ALLOWED_IMPORT_PROTOCOLS = new Set(['https:', 'http:'])
+
+function isAllowedImportSrc(value: string): boolean {
+  try {
+    return ALLOWED_IMPORT_PROTOCOLS.has(new URL(value).protocol)
+  } catch {
+    return false
+  }
+}
+
+/**
  * Parse a `retenia://…` URL into a typed {@link DeepLink}, or `null` if it is not one of
  * the shapes the app understands.
  *
@@ -28,7 +45,7 @@ export function parseDeepLink(rawUrl: string): DeepLink | null {
   switch (url.host) {
     case 'import': {
       const src = url.searchParams.get('src')
-      return src ? { kind: 'import', src } : null
+      return src && isAllowedImportSrc(src) ? { kind: 'import', src } : null
     }
 
     case 'review':

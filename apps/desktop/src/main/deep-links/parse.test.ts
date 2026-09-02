@@ -14,6 +14,24 @@ describe('parseDeepLink', () => {
     expect(parseDeepLink('retenia://import?src=')).toBeNull()
   })
 
+  it.each([
+    ['a local file URL', 'file:///C:/Users/x/.ssh/id_rsa'],
+    ['a UNC-style path', '\\\\evil-host\\share\\payload'],
+    ['a javascript URL', 'javascript:alert(1)'],
+    ['a data URL', 'data:text/html,x'],
+    ['a bare relative path', '../../etc/passwd'],
+    ['not a url at all', 'not-a-url'],
+  ])('rejects an import link whose src is %s', (_label, src) => {
+    expect(parseDeepLink(`retenia://import?src=${encodeURIComponent(src)}`)).toBeNull()
+  })
+
+  it('accepts a plain http src, not only https', () => {
+    expect(parseDeepLink('retenia://import?src=http%3A%2F%2Flocalhost%3A8080%2Fbook.pdf')).toEqual({
+      kind: 'import',
+      src: 'http://localhost:8080/book.pdf',
+    })
+  })
+
   it('parses a review link', () => {
     expect(parseDeepLink('retenia://review')).toEqual({ kind: 'review' })
   })

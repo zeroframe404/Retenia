@@ -1,5 +1,5 @@
 import type { ChannelName, EventName, IpcResult, RendererApi } from '@retenia/ipc-contract'
-import { channelNames, events, isEventName } from '@retenia/ipc-contract'
+import { channelNames, contract, events, ipcFail, isEventName } from '@retenia/ipc-contract'
 
 export interface Bridge {
   invoke(channel: ChannelName, input: unknown): Promise<IpcResult<unknown>>
@@ -36,7 +36,20 @@ export function buildApi(bridge: Bridge): RendererApi {
       namespace = Object.create(null) as Record<string, unknown>
       api[domain] = namespace
     }
-    namespace[action] = (input: unknown) => bridge.invoke(channel, input)
+
+    const definition = contract[channel]
+    namespace[action] = (input: unknown) => {
+      // Main validates its side of every call already (`register-handlers.ts`); this is
+      // the renderer side of the same rule ("every channel validates on both sides"). A
+      // failure resolves the same `{ ok: false, error }` envelope main would have sent
+      // back anyway, rather than rejecting: callers up through `invokeIpc` and every
+      // `useIpc*` hook are built to never see a rejected promise for a bad payload.
+      const parsed = definition.input.safeParse(input)
+      if (!parsed.success) {
+        return Promise.resolve(ipcFail('INVALID_INPUT', parsed.error.message))
+      }
+      return bridge.invoke(channel, parsed.data)
+    }
   }
 
   api.events = {

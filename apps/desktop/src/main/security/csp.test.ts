@@ -15,7 +15,7 @@ describe('buildCsp (production)', () => {
   it.each([
     ["default-src 'self'"],
     ["script-src 'self' 'wasm-unsafe-eval'"],
-    ["style-src 'self' 'unsafe-inline'"],
+    ["style-src 'self'"],
     ["img-src 'self' media: data: blob:"],
     ['media-src media: blob:'],
   ])('declares %s', (expected) => {
@@ -27,6 +27,10 @@ describe('buildCsp (production)', () => {
     expect(scriptSrc).not.toContain('unsafe-inline')
     expect(scriptSrc).not.toContain('unsafe-eval"')
     expect(scriptSrc).not.toMatch(/https?:\/\//)
+  })
+
+  it('never allows inline style', () => {
+    expect(directive(csp, 'style-src')).not.toContain('unsafe-inline')
   })
 
   it('allows fetch() against a media:// blob, not just <audio>/<video> src', () => {
@@ -71,6 +75,10 @@ describe('buildCsp (development)', () => {
     expect(directive(csp, 'script-src')).toContain("'unsafe-inline'")
   })
 
+  it('allows inline style, for Vite CSS HMR', () => {
+    expect(directive(csp, 'style-src')).toContain("'unsafe-inline'")
+  })
+
   it('allows the HMR websocket and dev server', () => {
     const connectSrc = directive(csp, 'connect-src')
     expect(connectSrc).toContain('http://localhost:5173')
@@ -81,7 +89,7 @@ describe('buildCsp (development)', () => {
     const prod = buildCsp().split('; ')
     const dev = csp.split('; ')
     const changed = dev.filter((part, index) => part !== prod[index]).map((p) => p.split(' ')[0])
-    expect(changed).toEqual(['script-src', 'connect-src'])
+    expect(changed).toEqual(['script-src', 'style-src', 'connect-src'])
   })
 
   it('stays strict when no dev server is serving the renderer', () => {
@@ -91,5 +99,6 @@ describe('buildCsp (development)', () => {
     expect(buildCsp({ devServerUrl: undefined })).toBe(buildCsp())
     expect(buildCsp({ devServerUrl: '' })).toBe(buildCsp())
     expect(directive(buildCsp({ devServerUrl: '' }), 'script-src')).not.toContain('unsafe-inline')
+    expect(directive(buildCsp({ devServerUrl: '' }), 'style-src')).not.toContain('unsafe-inline')
   })
 })

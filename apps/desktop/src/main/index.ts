@@ -2,7 +2,7 @@ import { join } from 'node:path'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 import { contract, type DeepLink } from '@retenia/ipc-contract'
 import * as Sentry from '@sentry/electron/main'
-import { app } from 'electron'
+import { app, protocol } from 'electron'
 import { parseDeepLink } from './deep-links/parse'
 import { deepLinkFromArgv, registerDeepLinks } from './deep-links/register'
 import { createHandlers } from './ipc/handlers'
@@ -11,8 +11,8 @@ import { makeSenderGuard } from './ipc/sender'
 import { initLogging, log } from './logging/log'
 import { initSentryMain } from './observability/sentry'
 import { getBlobsRoot, getSettingsPath } from './paths'
-import { handleAppProtocol, registerAppScheme } from './protocol/app-protocol'
-import { handleMediaProtocol, registerMediaScheme } from './protocol/media-protocol'
+import { APP_SCHEME_PRIVILEGES, handleAppProtocol } from './protocol/app-protocol'
+import { handleMediaProtocol, MEDIA_SCHEME_PRIVILEGES } from './protocol/media-protocol'
 import { applySecurity } from './security/apply'
 import { buildCsp } from './security/csp'
 import { allowedRendererOrigins } from './security/origins'
@@ -67,31 +67,45 @@ if (gotLock) {
   }
 
   // Must also run before `app.whenReady()`: privileges are read the first time a scheme is
-  // used.
-  registerAppScheme()
-  registerMediaScheme()
+  // used. Both schemes are registered in one call — Electron writes scheme privileges to
+  // renderer command-line switches by *overwrite*, not append, so two separate calls would
+  // silently strip `secure`/`supportFetchAPI`/`corsEnabled` from whichever scheme is not
+  // registered last, leaving `app://` an insecure context.
+  protocol.registerSchemesAsPrivileged([APP_SCHEME_PRIVILEGES, MEDIA_SCHEME_PRIVILEGES])
 
   const devServerUrl = is.dev ? process.env.ELECTRON_RENDERER_URL : undefined
   const allowedOrigins = allowedRendererOrigins(devServerUrl)
   // `is.dev` is `!app.isPackaged`, true for any unpackaged run — including one that serves
   // the real `app://` renderer. So the relaxation is keyed off the dev server actually
   // being in use, and the `app://` handler always gets the strict policy.
-  const csp = buildCsp({ devServerUrl })
-  const appProtocolCsp = buildCsp()
+  //
+  // Both are functions, not precomputed strings: the provider allowlist `buildCsp` reads
+  // is meant to come from settings (sub-phase 7.x), which can change without a relaunch,
+  // and a closed-over string could never reflect that.
+  const getCsp = () => buildCsp({ devServerUrl })
+  const getAppProtocolCsp = () => buildCsp()
 
   app.whenReady().then(() => {
     electronApp.setAppUserModelId('app.retenia.desktop')
 
-    handleAppProtocol(join(__dirname, '../renderer'), appProtocolCsp)
+    handleAppProtocol(join(__dirname, '../renderer'), getAppProtocolCsp)
     handleMediaProtocol(getBlobsRoot())
-    applySecurity({ allowedOrigins, csp })
+    applySecurity({ allowedOrigins, getCsp })
 
     const updater = createUpdater({
       getChannel: () => settings.get().updateChannel,
       onStatus: (status) => broadcast('app.updateStatus', status),
       // No `app-update.yml` in an unpackaged build for electron-updater to read — checking
       // there only produces noise (and, over the dev server, occasional real errors).
-      enabled: !is.dev,
+      //
+      // Also stays off in every packaged build until the release pipeline explicitly opts
+      // in with RETENIA_UPDATES_ENABLED=1: `verifyUpdateCodeSignature` in
+      // electron-builder.yml has nothing to check against until sub-phase 14.3 ships a real
+      // code-signing certificate, so today's installer is unsigned. Silently downloading
+      // and installing an unsigned binary within 6h of a compromised or mistaken
+      // release-channel write is not a risk worth taking before signing lands
+      // (docs/spec/07-architecture.md §4).
+      enabled: !is.dev && process.env.RETENIA_UPDATES_ENABLED === '1',
     })
     app.on('before-quit', () => updater.stop())
 

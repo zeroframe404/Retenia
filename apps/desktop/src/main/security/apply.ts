@@ -5,22 +5,27 @@ import { isAllowedSenderUrl } from './origins'
 export interface SecurityOptions {
   /** Origins the renderer may legitimately be served from (see `allowedRendererOrigins`). */
   allowedOrigins: readonly string[]
-  csp: string
+  /**
+   * Read fresh on every response rather than passed as a precomputed string: the provider
+   * allowlist it is built from is meant to come from settings (sub-phase 7.x), which can
+   * change without a relaunch.
+   */
+  getCsp: () => string
 }
 
 /**
  * Apply the Electron security checklist from docs/spec/07-architecture.md §4 to the
  * default session and to every `WebContents` the app ever creates.
  */
-export function applySecurity({ allowedOrigins, csp }: SecurityOptions): void {
-  applySessionSecurity(allowedOrigins, csp)
+export function applySecurity({ allowedOrigins, getCsp }: SecurityOptions): void {
+  applySessionSecurity(allowedOrigins, getCsp)
 
   app.on('web-contents-created', (_event, contents) => {
     applyWebContentsSecurity(contents, allowedOrigins)
   })
 }
 
-function applySessionSecurity(allowedOrigins: readonly string[], csp: string): void {
+function applySessionSecurity(allowedOrigins: readonly string[], getCsp: () => string): void {
   const defaultSession = session.defaultSession
 
   defaultSession.webRequest.onHeadersReceived((details, callback) => {
@@ -34,7 +39,7 @@ function applySessionSecurity(allowedOrigins: readonly string[], csp: string): v
     )
 
     if (!existing) {
-      responseHeaders['Content-Security-Policy'] = [csp]
+      responseHeaders['Content-Security-Policy'] = [getCsp()]
     }
 
     callback({ responseHeaders })

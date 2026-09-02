@@ -1,6 +1,6 @@
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { net, protocol } from 'electron'
+import { type CustomScheme, net, protocol } from 'electron'
 import { buildCsp } from '../security/csp'
 import { APP_HOST, APP_SCHEME } from '../security/origins'
 
@@ -8,23 +8,25 @@ import { APP_HOST, APP_SCHEME } from '../security/origins'
  * The renderer is served from `app://retenia/` rather than `file://` so it gets a real,
  * secure origin: `'self'` in the CSP means something, `event.senderFrame` can be checked
  * against a single origin, and the renderer is not granted the ambient reach of `file://`
- * (docs/spec/07-architecture.md §4). `media://` and deep links land in sub-phase 1.3.
+ * (docs/spec/07-architecture.md §4).
+ *
+ * Only the privilege descriptor is exported, not a `register*Scheme()` call: Electron writes
+ * scheme privileges to renderer command-line switches by *overwrite*, not append, so calling
+ * `protocol.registerSchemesAsPrivileged` more than once silently drops privileges from every
+ * scheme but the last one registered. `media://` must be registered in the same call — see
+ * `registerPrivilegedSchemes` in `../index.ts`.
  */
-export function registerAppScheme(): void {
-  protocol.registerSchemesAsPrivileged([
-    {
-      scheme: APP_SCHEME,
-      privileges: {
-        standard: true,
-        secure: true,
-        supportFetchAPI: true,
-        corsEnabled: true,
-        stream: true,
-        // The renderer must obey the CSP we inject, not be exempt from it.
-        bypassCSP: false,
-      },
-    },
-  ])
+export const APP_SCHEME_PRIVILEGES: CustomScheme = {
+  scheme: APP_SCHEME,
+  privileges: {
+    standard: true,
+    secure: true,
+    supportFetchAPI: true,
+    corsEnabled: true,
+    stream: true,
+    // The renderer must obey the CSP we inject, not be exempt from it.
+    bypassCSP: false,
+  },
 }
 
 /**
@@ -106,8 +108,13 @@ export function resolveAppRequestPath(
  * The CSP is set on the response here *as well as* in `onHeadersReceived`: whether
  * `webRequest` observes custom schemes is an implementation detail of Chromium's network
  * stack, and the production policy is not worth betting on it.
+ *
+ * `getCsp` is a function, not a precomputed string, so the policy is read fresh on every
+ * request rather than frozen into this closure at startup — the provider allowlist it is
+ * built from is meant to come from settings (sub-phase 7.x), which can change without a
+ * relaunch.
  */
-export function handleAppProtocol(rendererRoot: string, csp: string = buildCsp()): void {
+export function handleAppProtocol(rendererRoot: string, getCsp: () => string = buildCsp): void {
   protocol.handle(APP_SCHEME, async (request) => {
     const url = new URL(request.url)
 
@@ -131,7 +138,7 @@ export function handleAppProtocol(rendererRoot: string, csp: string = buildCsp()
     }
 
     const headers = new Headers(response.headers)
-    headers.set('Content-Security-Policy', csp)
+    headers.set('Content-Security-Policy', getCsp())
     return new Response(response.body, {
       status: response.status,
       statusText: response.statusText,

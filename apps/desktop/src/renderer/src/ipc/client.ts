@@ -5,6 +5,7 @@ import type {
   InferOutput,
   IpcErrorCode,
 } from '@retenia/ipc-contract'
+import { contract } from '@retenia/ipc-contract'
 
 /** A failed IPC call, carrying the contract's error code so callers can branch on it. */
 export class IpcError extends Error {
@@ -47,5 +48,14 @@ export async function invokeIpc<K extends ChannelName>(
     throw new IpcError(channel, result.error.code, result.error.message)
   }
 
-  return result.data
+  // Main validates its own output before sending it (`register-handlers.ts`), but nothing
+  // re-checks it after crossing the bridge — this is that check on the renderer side,
+  // completing "every channel validates on both sides" for the response direction the way
+  // `buildApi` now does for the request direction.
+  const parsed = contract[channel].output.safeParse(result.data)
+  if (!parsed.success) {
+    throw new IpcError(channel, 'INVALID_OUTPUT', parsed.error.message)
+  }
+
+  return parsed.data as InferOutput<Contract, K>
 }

@@ -58,6 +58,19 @@ describe('buildApi', () => {
     expect(invoke).toHaveBeenCalledWith('app.ping', { sentAt: '2026-09-02T00:00:00.000Z' })
   })
 
+  it('resolves {ok:false, INVALID_INPUT} for input that fails the channel schema, without reaching the bridge', async () => {
+    const { bridge, invoke } = makeBridge()
+    const api = buildApi(bridge)
+
+    const result = await api.app.ping({ sentAt: 'not-a-date' })
+
+    expect(result).toEqual({
+      ok: false,
+      error: { code: 'INVALID_INPUT', message: expect.any(String) },
+    })
+    expect(invoke).not.toHaveBeenCalled()
+  })
+
   it('cannot be reached through the prototype chain', () => {
     const { bridge } = makeBridge()
     const api = buildApi(bridge) as unknown as Record<string, unknown>
