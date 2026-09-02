@@ -79,3 +79,25 @@ export async function callApi<T>(
 export async function screenshot(page: Page, name: string): Promise<void> {
   await page.screenshot({ path: path.join(screenshotsDir, `${name}.png`) })
 }
+
+/** The shell's sidebar sections, in `data-testid` order — the single list `shell.spec.ts`
+ * and `accessibility.spec.ts` both walk. */
+export const SECTIONS = [
+  'home',
+  'path',
+  'review',
+  'library',
+  'exams',
+  'languages',
+  'notes',
+  'statistics',
+  'settings',
+] as const
+
+/** Navigates to the app and waits for the shell to be hydrated (sidebar rendered) before
+ * returning — a global keyboard shortcut or route change fired immediately after `goto` can
+ * race ahead of React mounting/registering `HotkeysProvider`'s scopes. */
+export async function gotoReady(window: Page): Promise<void> {
+  await window.goto('app://retenia/index.html')
+  await window.getByTestId('sidebar-item-home').waitFor()
+}

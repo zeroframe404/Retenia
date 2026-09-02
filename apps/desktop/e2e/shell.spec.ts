@@ -1,25 +1,4 @@
-import type { Page } from '@playwright/test'
-import { expect, screenshot, test } from './fixtures'
-
-const SECTIONS = [
-  'home',
-  'path',
-  'review',
-  'library',
-  'exams',
-  'languages',
-  'notes',
-  'statistics',
-  'settings',
-]
-
-/** Navigates to the app and waits for the shell to be hydrated (sidebar rendered) before
- * returning — a global keyboard shortcut fired immediately after `goto` can race ahead of
- * React mounting/registering `HotkeysProvider`'s scopes. */
-async function gotoReady(window: Page): Promise<void> {
-  await window.goto('app://retenia/index.html')
-  await window.getByTestId('sidebar-item-home').waitFor()
-}
+import { expect, gotoReady, SECTIONS, screenshot, test } from './fixtures'
 
 test.describe('shell navigation', () => {
   for (const id of SECTIONS) {

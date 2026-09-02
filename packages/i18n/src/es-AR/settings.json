@@ -10,5 +10,12 @@
     "label": "Perfil de gamificación",
     "arcade": "Arcade",
     "sober": "Sobrio"
+  },
+  "typography": {
+    "label": "Tipografía",
+    "fontSize": "Tamaño de fuente",
+    "lineHeight": "Interlineado",
+    "dyslexiaFont": "Fuente para dislexia (Atkinson Hyperlegible)",
+    "reset": "Restablecer"
   }
 }

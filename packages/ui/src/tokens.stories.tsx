@@ -85,6 +85,9 @@ function TokensPage() {
             font-display (Nunito Variable) · text-2xl
           </p>
           <p className="font-mono text-sm">font-mono (JetBrains Mono Variable) · const x = 42</p>
+          <p className="text-base" style={{ fontFamily: 'Atkinson Hyperlegible' }}>
+            Atkinson Hyperlegible · opt-in via TypographySettings' dyslexiaFont
+          </p>
         </div>
       </section>
 
