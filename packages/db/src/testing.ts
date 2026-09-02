@@ -56,3 +56,8 @@ export function audit(nowMs: number, deviceId: string = TEST_DEVICE_ID) {
     version: 1,
   }
 }
+
+/** The SQLite harness for `@retenia/core/testing`'s shared repository contract suites, so
+ *  packages built on this one (and a future second adapter, as a worked example) can reuse
+ *  the same in-memory setup. */
+export { sqliteHarness } from './repositories/sqlite-harness'

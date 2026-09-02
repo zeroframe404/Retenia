@@ -1,4 +1,4 @@
-import { defineConfig } from 'vitest/config'
+import { coverageConfigDefaults, defineConfig } from 'vitest/config'
 
 /**
  * Aggregate entry point. `pnpm test` runs each package's own `vitest run` through Turborepo
@@ -42,6 +42,15 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'html', 'lcov'],
       reportsDirectory: './coverage',
+      exclude: [
+        ...coverageConfigDefaults.exclude,
+        // Test scaffolding, not product code: the shared repository contract suites in
+        // `@retenia/core/testing` are *executed* by the `db` project, so counting them
+        // would inflate core's numerator — the more contracts we write, the easier the
+        // threshold below would get, which is backwards.
+        'packages/*/src/testing/**',
+        'packages/db/src/test-fixtures.ts',
+      ],
       // `packages/core` is pure domain logic and zero-dependency by design (see CLAUDE.md);
       // it is the one package required to ship with real coverage. Every other package is
       // still placeholder scaffolding pending its real sub-phase, so coverage there is

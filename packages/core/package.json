@@ -3,9 +3,10 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Pure domain logic. Zero Electron, Node, or AI-provider SDK imports — depends only on ports.",
+  "description": "Pure domain logic. Zero Electron, Node, or AI-provider SDK imports \u2014 depends only on ports.",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./testing": "./src/testing/index.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",

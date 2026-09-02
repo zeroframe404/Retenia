@@ -5,7 +5,8 @@
  * - `migrate(db)` → applies `packages/db/migrations/*.sql`, records `_migrations`.
  * - `schema` → the Drizzle tables (also importable from `@retenia/db/schema`).
  * - `searchChunksFts` / `knnChunks` → the FTS5 and vec0 primitives.
- * - `Repository` → the port SQLite repositories implement (sub-phase 3.2).
+ * - `createRepositories(opened, options)` → the `@retenia/core` repository ports,
+ *   implemented over Drizzle; `withTransaction` for a multi-repository write.
  */
 
 export type {
@@ -32,8 +33,13 @@ export type {
   SqliteDriver,
 } from './open-database'
 export { DATABASE_PRAGMAS, IN_MEMORY, openDatabase } from './open-database'
-export type { Repository } from './repository'
-export { createInMemoryRepository } from './repository'
+export type { RepositoryContext, RepositoryOptions } from './repositories'
+export {
+  ConstraintViolationError,
+  createRepositories,
+  SYNCABLE_TABLES,
+  withTransaction,
+} from './repositories'
 export * as schema from './schema'
 export type {
   EmbeddingRow,
