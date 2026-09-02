@@ -15,6 +15,13 @@
       "when": 1788384103522,
       "tag": "0001_fts5_vec0_seed",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1788470400000,
+      "tag": "0002_embeddings_int8",
+      "breakpoints": true
     }
   ]
 }

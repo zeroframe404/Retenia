@@ -23,6 +23,7 @@ const ALL_TABLES = [
   'chunks',
   'chunks_fts',
   'embeddings',
+  'embeddings_i8',
   'exam_attempts',
   'exam_items',
   'exams',
@@ -579,7 +580,7 @@ describe('v1 schema', () => {
       expect(count(table), table).toBeGreaterThanOrEqual(1)
     }
     expect(count('importance_levels')).toBe(5)
-    expect(count('_migrations')).toBe(2)
+    expect(count('_migrations')).toBe(3)
     expect(count('lessons')).toBe(2)
   })
 
@@ -998,7 +999,7 @@ describe('v1 schema', () => {
 
   it('gives every domain table the audit column set', () => {
     const domainTables = ALL_TABLES.filter(
-      (t) => !['_migrations', 'chunks_fts', 'embeddings'].includes(t),
+      (t) => !['_migrations', 'chunks_fts', 'embeddings', 'embeddings_i8'].includes(t),
     )
     for (const table of domainTables) {
       const columns = (

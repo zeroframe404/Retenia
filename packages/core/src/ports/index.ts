@@ -22,6 +22,7 @@ export type {
 } from './chunk-repository'
 export type { Clock } from './clock'
 export { systemClock } from './clock'
+export type { EmbeddingProvider } from './embedding-provider'
 export {
   AppendOnlyViolationError,
   EntityNotFoundError,
@@ -35,6 +36,13 @@ export type { EnqueueOptions, JobRepository } from './job-repository'
 export type { KnowledgeItemRepository } from './knowledge-item-repository'
 export type { OutboxAppend, OutboxRepository } from './outbox-repository'
 export type { PathRepository, PathTree } from './path-repository'
+export type {
+  RerankDocument,
+  Reranker,
+  RerankOptions,
+  RerankResult,
+} from './reranker'
+export { passthroughReranker } from './reranker'
 export type { ReviewLogRepository } from './review-log-repository'
 export type { SettingsMap, SettingsRepository } from './settings-repository'
 export { SETTINGS, SETTINGS_DEFAULTS, type SettingsKey } from './settings-repository'

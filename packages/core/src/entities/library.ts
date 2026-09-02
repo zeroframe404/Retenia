@@ -60,6 +60,31 @@ export interface Chunk extends Entity {
   locator: JsonObject | null
 }
 
+/**
+ * Where a chunk (or a knowledge item) sits inside its source, in the shape retrieval hands
+ * back to the tutor and the citation UI: a page for paged sources, a millisecond range for
+ * media, and the ids of the blocks the span covers (`chunk_id → block_ids`,
+ * `docs/spec/05-ingestion-rag.md` §4).
+ *
+ * The stored form is the `locator` JSON column, whose canonical keys are snake_case
+ * (`t_start`, `t_end`, `block_ids`); `parseSourceLocator` is the one place that reads it.
+ */
+export interface SourceLocator {
+  /** The `source_units` row to open — the page, slide or transcript segment. */
+  unitId: string | null
+  /** 1-based page or slide number, for paged sources. */
+  page: number | null
+  /** Media offsets in milliseconds, for audio and video ("jump to the minute"). */
+  tStartMs: number | null
+  tEndMs: number | null
+  /** Human label as it is shown in a citation: `p. 112`, `Slide 4`, `12:30`. */
+  label: string | null
+  /** A DOM/EPUB selector for web and EPUB sources, when the parser produced one. */
+  selector: string | null
+  /** The editor block ids the chunk covers, for exact citations back into a note. */
+  blockIds: readonly string[]
+}
+
 /** A highlight, note, region or clip the user made on a source. */
 export interface Annotation extends Entity {
   sourceId: string

@@ -79,7 +79,11 @@ describe('loadMigrations()', () => {
 
   it('reads the shipped migrations in numeric order', () => {
     const migrations = loadMigrations(DEFAULT_MIGRATIONS_DIR)
-    expect(migrations.map((m) => m.name)).toEqual(['0000_domain_schema', '0001_fts5_vec0_seed'])
+    expect(migrations.map((m) => m.name)).toEqual([
+      '0000_domain_schema',
+      '0001_fts5_vec0_seed',
+      '0002_embeddings_int8',
+    ])
     for (const migration of migrations) expect(migration.sql.length).toBeGreaterThan(0)
   })
 
@@ -112,7 +116,11 @@ describe('migrate()', () => {
     opened = openDatabase(IN_MEMORY)
     const result = migrate(opened)
 
-    expect(result.applied).toEqual(['0000_domain_schema', '0001_fts5_vec0_seed'])
+    expect(result.applied).toEqual([
+      '0000_domain_schema',
+      '0001_fts5_vec0_seed',
+      '0002_embeddings_int8',
+    ])
     expect(result.alreadyApplied).toEqual([])
     expect(listTables(opened)).toEqual([...EXPECTED_TABLES])
   })
@@ -123,7 +131,11 @@ describe('migrate()', () => {
     const again = migrate(opened)
 
     expect(again.applied).toEqual([])
-    expect(again.alreadyApplied).toEqual(['0000_domain_schema', '0001_fts5_vec0_seed'])
+    expect(again.alreadyApplied).toEqual([
+      '0000_domain_schema',
+      '0001_fts5_vec0_seed',
+      '0002_embeddings_int8',
+    ])
     expect(listTables(opened)).toEqual([...EXPECTED_TABLES])
     expect(opened.sqlite.prepare('SELECT count(*) AS n FROM importance_levels').get()).toEqual({
       n: 5,
@@ -152,7 +164,7 @@ describe('migrate()', () => {
 
   it('accepts the raw handle and the Drizzle instance as targets too', () => {
     opened = openDatabase(IN_MEMORY)
-    expect(migrate(opened.sqlite).applied).toHaveLength(2)
+    expect(migrate(opened.sqlite).applied).toHaveLength(3)
     expect(migrate(opened.db).applied).toHaveLength(0)
   })
 

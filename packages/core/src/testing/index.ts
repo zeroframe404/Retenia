@@ -18,6 +18,8 @@ export {
   settingsContract,
   unitOfWorkContract,
 } from './contracts/index'
+export type { FakeEmbeddingProviderOptions } from './fake-embedding-provider'
+export { createFakeEmbeddingProvider, fakeEmbeddingTokens } from './fake-embedding-provider'
 export type {
   ContractCapabilities,
   ContractContext,

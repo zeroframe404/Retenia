@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { createFakeEmbeddingProvider } from '../fake-embedding-provider'
 import type { ContractContext, RepositoryContractHarness } from '../harness'
 
-/** Retrieval over chunks: full text, vectors, and the RRF fusion of the two
- *  (`docs/spec/05-ingestion-rag.md` §4). The reranker on top is sub-phase 3.3. */
+/** Retrieval over chunks: full text, vectors, the RRF fusion of the two and the citation
+ *  data every hit carries (`docs/spec/05-ingestion-rag.md` §4). */
 export function chunksContract(harness: RepositoryContractHarness): void {
   describe('chunk search', () => {
     let ctx: ContractContext
@@ -98,6 +99,76 @@ export function chunksContract(harness: RepositoryContractHarness): void {
       const chunk = await ctx.seed.chunk({ text: 'idéntico' })
       const found = await ctx.repos.chunks.findByHash(chunk.hash)
       expect(found.map((entry) => entry.id)).toContain(chunk.id)
+    })
+
+    it('restricts to a set of sources', async () => {
+      const wanted = await ctx.seed.source({ title: 'Fisiología' })
+      const other = await ctx.seed.source({ title: 'Bioquímica' })
+      const chunk = await ctx.seed.chunk({ sourceId: wanted.id, text: 'sangre y corazón' })
+      await ctx.seed.chunk({ sourceId: other.id, text: 'sangre y glucosa' })
+
+      const hits = await ctx.repos.chunks.search('sangre', {
+        mode: 'fts',
+        sourceIds: [wanted.id],
+      })
+      expect(hits.map((hit) => hit.chunk.id)).toEqual([chunk.id])
+    })
+
+    it('reads an empty source filter as no source, never as every source', async () => {
+      await ctx.seed.chunk({ text: 'El corazón bombea sangre' })
+      expect(await ctx.repos.chunks.search('corazón', { mode: 'fts', sourceIds: [] })).toEqual([])
+    })
+
+    it('restricts to the sources a path was generated from', async () => {
+      const wanted = await ctx.seed.source({ title: 'Fisiología' })
+      const other = await ctx.seed.source({ title: 'Bioquímica' })
+      const chunk = await ctx.seed.chunk({ sourceId: wanted.id, text: 'sangre y corazón' })
+      await ctx.seed.chunk({ sourceId: other.id, text: 'sangre y glucosa' })
+      const path = await ctx.seed.path({ sourceIds: [wanted.id] })
+
+      const hits = await ctx.repos.chunks.search('sangre', { mode: 'fts', pathId: path.id })
+      expect(hits.map((hit) => hit.chunk.id)).toEqual([chunk.id])
+    })
+
+    it('carries the page and the block ids a citation needs', async () => {
+      await ctx.seed.chunk({
+        text: 'El corazón bombea sangre',
+        locator: { page: 112, block_ids: ['b-112-1'] },
+      })
+      const [hit] = await ctx.repos.chunks.search('corazón', { mode: 'fts' })
+      expect(hit?.sourceLocator.page).toBe(112)
+      expect(hit?.blockIds).toEqual(['b-112-1'])
+    })
+
+    it('reports an empty block list for a chunk with no locator', async () => {
+      await ctx.seed.chunk({ text: 'El corazón bombea sangre' })
+      const [hit] = await ctx.repos.chunks.search('corazón', { mode: 'fts' })
+      expect(hit?.blockIds).toEqual([])
+      expect(hit?.sourceLocator.page).toBeNull()
+    })
+
+    it('exposes the fusion score next to the score, so ranking stays explainable', async () => {
+      await ctx.seed.chunk({ text: 'El corazón bombea sangre' })
+      const [hit] = await ctx.repos.chunks.search('corazón', { mode: 'fts' })
+      expect(hit?.score).toBe(hit?.fusionScore)
+      expect(hit?.fts?.rank).toBe(1)
+    })
+
+    it('finds a chunk by its meaning when the words do not match, given vectors', async () => {
+      if (!ctx.capabilities.vectorSearch) return
+      const chunk = await ctx.seed.chunk({ text: 'El corazón bombea la sangre por el cuerpo' })
+      await ctx.seed.chunk({ text: 'La glucólisis degrada la glucosa en piruvato' })
+
+      const provider = createFakeEmbeddingProvider()
+      await ctx.embedChunks?.(provider)
+      const [embedding] = await provider.embed(['la sangre del corazón por el cuerpo'])
+
+      const hits = await ctx.repos.chunks.search('¿cómo circula la sangre?', {
+        mode: 'hybrid',
+        embedding: embedding as Float32Array,
+        modelId: provider.modelId,
+      })
+      expect(hits[0]?.chunk.id).toBe(chunk.id)
     })
   })
 }

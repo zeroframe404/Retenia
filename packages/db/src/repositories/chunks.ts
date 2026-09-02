@@ -1,7 +1,7 @@
-import type { Chunk, ChunkRepository, ChunkSearchHit, NewEntity } from '@retenia/core'
+import type { Chunk, ChunkRepository, NewEntity } from '@retenia/core'
 import { asc, eq } from 'drizzle-orm'
+import { createHybridSearch } from '../hybrid-search'
 import { chunks } from '../schema'
-import { ftsQuery, knnChunks, searchChunksFts } from '../search'
 import { type BaseRepository, createBaseRepository, type Row, type TableCodec } from './base'
 import type { RepositoryContext } from './context'
 import {
@@ -69,31 +69,22 @@ const codec: TableCodec<Chunk, NewChunk, ChunkPatch> = {
     }),
 }
 
-/**
- * Reciprocal Rank Fusion's smoothing constant (Cormack et al. 2009), the value
- * `docs/spec/05-ingestion-rag.md` §4 assumes.
- *
- * RRF rather than score normalisation because the two branches are not comparable:
- * `bm25()` is negative and lower-is-better, an L2 distance is positive and lower-is-better,
- * and min-max normalising either one per query is wildly unstable when a branch returns two
- * hits. RRF uses only the ordinal rank, which is exactly why it is the standard fusion here.
- */
-const RRF_K = 60
-
-/** How many candidates each branch contributes before fusion. */
-function candidateCount(k: number): number {
-  return Math.max(k * 3, 50)
-}
-
 export function createChunkRepository(ctx: RepositoryContext): ChunkRepository {
   const base: BaseRepository<Chunk, NewChunk, ChunkPatch> = createBaseRepository(ctx, codec)
 
-  /** One batched read rather than N `findById` calls, preserving the fused order. */
-  async function hydrate(ids: readonly string[]): Promise<Map<string, Chunk>> {
-    if (ids.length === 0) return new Map()
-    const rows = await base.findMany(ids)
-    return new Map(rows.map((chunk) => [chunk.id, chunk]))
-  }
+  /**
+   * The retrieval pipeline of `docs/spec/05-ingestion-rag.md` §4. It lives in
+   * `../hybrid-search.ts` rather than here because it is a service over two indexes, not a
+   * table mapping: it is built once per repository set and reused across calls (its
+   * statements are cached per connection), and the vector index behind it is a port, so a
+   * future LanceDB backend replaces it without touching this file.
+   */
+  const hybrid = createHybridSearch({
+    sqlite: ctx.db.$client,
+    loadChunks: (ids) => base.findMany(ids),
+    ...(ctx.vectorIndex === undefined ? {} : { vectorIndex: ctx.vectorIndex }),
+    ...(ctx.reranker === undefined ? {} : { reranker: ctx.reranker }),
+  })
 
   return {
     findById: base.findById,
@@ -117,100 +108,13 @@ export function createChunkRepository(ctx: RepositoryContext): ChunkRepository {
     createMany: base.createMany,
 
     /**
-     * `fts` and `vector` rank by their own index; `hybrid` fuses the two with RRF. Soft
-     * deletes need no filtering here: the triggers of migration `0001` drop a chunk's FTS
-     * entry and its vectors the moment it is soft-deleted, so neither index can return one.
+     * `fts` and `vector` rank by their own index; `hybrid` fuses the two with RRF and, when
+     * one is configured, hands the survivors to the reranker.
      *
-     * The local reranker on top of these candidates is sub-phase 3.3.
+     * Soft deletes need no filtering here: the triggers of migrations 0001 and 0002 drop a
+     * chunk's FTS entry and its vectors the moment it is soft-deleted, so neither index can
+     * return one.
      */
-    search: async (query, options): Promise<ChunkSearchHit[]> => {
-      const k = options.k ?? 10
-      if (k <= 0) return []
-      const sqlite = ctx.db.$client
-      const candidates = candidateCount(k)
-
-      if (options.mode === 'fts') {
-        const hits = searchChunksFts(sqlite, ftsQuery(query), {
-          limit: k,
-          sourceId: options.sourceId,
-          snippetTokens: options.snippetTokens,
-        })
-        const byId = await hydrate(hits.map((hit) => hit.chunkId))
-        return hits.flatMap((hit, index) => {
-          const chunk = byId.get(hit.chunkId)
-          return chunk === undefined
-            ? []
-            : [
-                {
-                  chunk,
-                  score: 1 / (RRF_K + index + 1),
-                  snippet: hit.snippet,
-                  fts: { rank: hit.rank },
-                },
-              ]
-        })
-      }
-
-      if (options.mode === 'vector') {
-        const hits = knnChunks(sqlite, options.embedding, {
-          k,
-          modelId: options.modelId,
-          sourceId: options.sourceId,
-        })
-        const byId = await hydrate(hits.map((hit) => hit.chunkId))
-        return hits.flatMap((hit, index) => {
-          const chunk = byId.get(hit.chunkId)
-          return chunk === undefined
-            ? []
-            : [{ chunk, score: 1 / (RRF_K + index + 1), vector: { distance: hit.distance } }]
-        })
-      }
-
-      const ftsHits = searchChunksFts(sqlite, ftsQuery(query), {
-        limit: candidates,
-        sourceId: options.sourceId,
-        snippetTokens: options.snippetTokens,
-      })
-      const vectorHits = knnChunks(sqlite, options.embedding, {
-        k: candidates,
-        modelId: options.modelId,
-        sourceId: options.sourceId,
-      })
-
-      const scores = new Map<string, number>()
-      const addRanks = (ids: readonly string[]) => {
-        ids.forEach((chunkId, index) => {
-          scores.set(chunkId, (scores.get(chunkId) ?? 0) + 1 / (RRF_K + index + 1))
-        })
-      }
-      addRanks(ftsHits.map((hit) => hit.chunkId))
-      addRanks(vectorHits.map((hit) => hit.chunkId))
-
-      const ftsById = new Map(ftsHits.map((hit) => [hit.chunkId, hit]))
-      const vectorById = new Map(vectorHits.map((hit) => [hit.chunkId, hit]))
-
-      const ranked = [...scores.entries()]
-        // Ids are UUIDv7, so the tie-break is stable and tests are deterministic.
-        .sort(([leftId, left], [rightId, right]) =>
-          right === left ? leftId.localeCompare(rightId) : right - left,
-        )
-        .slice(0, k)
-
-      const byId = await hydrate(ranked.map(([chunkId]) => chunkId))
-      return ranked.flatMap(([chunkId, score]) => {
-        const chunk = byId.get(chunkId)
-        if (chunk === undefined) return []
-        const fts = ftsById.get(chunkId)
-        const vector = vectorById.get(chunkId)
-        return [
-          {
-            chunk,
-            score,
-            ...(fts === undefined ? {} : { snippet: fts.snippet, fts: { rank: fts.rank } }),
-            ...(vector === undefined ? {} : { vector: { distance: vector.distance } }),
-          },
-        ]
-      })
-    },
+    search: (query, options) => hybrid.search(query, options),
   }
 }
