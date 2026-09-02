@@ -1,0 +1,87 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: Release channel
+        required: true
+        type: choice
+        options:
+          - beta
+          - latest
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Cache Electron
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/electron
+          key: ${{ runner.os }}-electron-cache-${{ hashFiles('**/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-electron-cache-
+
+      - name: Install dependencies
+        run: |
+          if [ -f pnpm-lock.yaml ]; then
+            pnpm install --frozen-lockfile
+          else
+            pnpm install --no-frozen-lockfile
+          fi
+        shell: bash
+
+      - name: Build and release desktop app
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          # TODO: Uncomment when code signing certificate is available (Phase 14)
+          # CSC_LINK: ${{ secrets.CSC_LINK }}
+          # CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          CHANNEL: ${{ github.event.inputs.channel }}
+        run: pnpm --filter desktop release
+        continue-on-error: true
+
+      - name: Create draft release
+        uses: actions/create-release@v1
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+        with:
+          tag_name: v${{ github.run_number }}-${{ github.event.inputs.channel }}
+          release_name: Release ${{ github.event.inputs.channel }}
+          draft: true
+          prerelease: ${{ github.event.inputs.channel == 'beta' }}
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: release-artifacts-${{ github.event.inputs.channel }}
+          path: apps/desktop/dist/
+          retention-days: 30
