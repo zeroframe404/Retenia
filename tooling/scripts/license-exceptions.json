@@ -7,6 +7,7 @@
     "chownr": "BlueOak-1.0.0 — OSI-approved permissive license; transitive dep of electron-builder (dev-only, not shipped in the app).",
     "glob": "BlueOak-1.0.0 — OSI-approved permissive license; transitive dep of electron-builder and, at a newer version, of @storybook/react-vite (both dev-only, not shipped in the app).",
     "isexe": "BlueOak-1.0.0 — OSI-approved permissive license; transitive dep of electron-builder (dev-only, not shipped in the app).",
+    "khroma": "MIT — the LICENSE file in the package says MIT, but package.json omits the \"license\" field so it reads as unknown; transitive dep of mermaid.",
     "lru-cache": "BlueOak-1.0.0 — OSI-approved permissive license; common transitive dep across the toolchain.",
     "minimatch": "BlueOak-1.0.0 — OSI-approved permissive license; transitive dep of electron-builder (dev-only, not shipped in the app).",
     "minipass": "BlueOak-1.0.0 — OSI-approved permissive license; transitive dep of electron-builder (dev-only, not shipped in the app).",
