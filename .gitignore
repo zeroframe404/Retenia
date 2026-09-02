@@ -22,6 +22,7 @@ release/
 coverage/
 playwright-report/
 test-results/
+apps/desktop/e2e/__screenshots__/*.png
 
 # Storybook
 storybook-static/

@@ -8,7 +8,8 @@
     ".": "./src/index.ts",
     "./tsconfig.base.json": "./tsconfig.base.json",
     "./tailwind.preset": "./tailwind.preset.ts",
-    "./vitest.base": "./vitest.base.ts"
+    "./vitest.base": "./vitest.base.ts",
+    "./vitest.setup": "./vitest.setup.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
@@ -16,6 +17,14 @@
     "lint": "biome check ."
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "7.0.1",
+    "@testing-library/react": "16.3.3",
+    "@testing-library/user-event": "14.6.6",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.5",
+    "jsdom": "30.0.1",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
     "tailwindcss": "4.3.3",
     "typescript": "7.0.2",
     "vitest": "4.1.11"
