@@ -8,7 +8,9 @@ vi.mock('electron', () => ({
   protocol: { registerSchemesAsPrivileged: vi.fn(), handle: vi.fn() },
 }))
 
-const { resolveAppRequestPath } = await import('./app-protocol')
+const { handleAppProtocol, resolveAppRequestPath } = await import('./app-protocol')
+const { APP_SCHEME } = await import('../security/origins')
+const electron = await import('electron')
 
 const root = path.resolve('/opt/retenia/out/renderer')
 
@@ -106,5 +108,30 @@ describe('resolveAppRequestPath under Windows path rules', () => {
         expect(path.win32.relative(winRoot, resolved).startsWith('..')).toBe(false)
       }
     }
+  })
+})
+
+describe('handleAppProtocol', () => {
+  it('calls getCsp fresh on every request rather than a value captured once at registration', async () => {
+    const handlers = new Map<string, (request: { url: string }) => Promise<Response>>()
+    vi.mocked(electron.protocol.handle).mockImplementation((scheme, handler) => {
+      handlers.set(scheme, handler as never)
+      return true
+    })
+    vi.mocked(electron.net.fetch).mockResolvedValue(
+      new Response('<html></html>', { status: 200, headers: {} }),
+    )
+
+    let csp = 'policy-one'
+    handleAppProtocol(root, () => csp)
+    const handle = handlers.get(APP_SCHEME)
+    if (!handle) throw new Error('app scheme handler was never registered')
+
+    const first = await handle({ url: 'app://retenia/index.html' })
+    expect(first.headers.get('Content-Security-Policy')).toBe('policy-one')
+
+    csp = 'policy-two'
+    const second = await handle({ url: 'app://retenia/index.html' })
+    expect(second.headers.get('Content-Security-Policy')).toBe('policy-two')
   })
 })

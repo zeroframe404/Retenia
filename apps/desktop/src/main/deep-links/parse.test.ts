@@ -32,6 +32,31 @@ describe('parseDeepLink', () => {
     })
   })
 
+  it('normalizes an unusual but valid scheme casing/slash form to what the contract schema expects', () => {
+    // `HTTPS://…` and `https:/…` both parse to protocol "https:", but neither starts with
+    // the lowercase "https://" the ipc-contract schema's prefix check requires — forwarding
+    // the raw string here would pass this parser and then fail that schema, and
+    // `emitEvent` throws on a schema mismatch (apps/desktop/src/main/ipc/emit.ts).
+    expect(parseDeepLink('retenia://import?src=HTTPS%3A%2F%2Fexample.com%2Fbook.pdf')).toEqual({
+      kind: 'import',
+      src: 'https://example.com/book.pdf',
+    })
+    expect(parseDeepLink('retenia://import?src=https%3A%2Fexample.com%2Fbook.pdf')).toEqual({
+      kind: 'import',
+      src: 'https://example.com/book.pdf',
+    })
+  })
+
+  it('forwards the normalized URL, not the raw query value, so nothing downstream can disagree with what was validated', () => {
+    // WHATWG URL parsing strips embedded tab/CR/LF from the input before parsing — so the
+    // raw string and the parsed URL can describe different authorities. Forwarding
+    // `.href` (the parse's own serialization) instead of the raw value means the exact
+    // same parse that was validated is what every consumer — including this test — sees.
+    const raw = 'https://good.example\t@evil.example'
+    const result = parseDeepLink(`retenia://import?src=${encodeURIComponent(raw)}`)
+    expect(result).toEqual({ kind: 'import', src: new URL(raw).href })
+  })
+
   it('parses a review link', () => {
     expect(parseDeepLink('retenia://review')).toEqual({ kind: 'review' })
   })

@@ -34,10 +34,24 @@ const preloadPath = join(__dirname, '../preload/index.cjs')
  */
 let pendingDeepLink: DeepLink | null = null
 
+/**
+ * `broadcast` validates against the event schema and throws on a mismatch (by design —
+ * see `ipc/emit.ts`). A deep link is untrusted, remotely-triggerable input, though, so a
+ * validation gap between the parser and the schema (or any future drift between them)
+ * should drop the link, not take the whole main process down with it.
+ */
+function broadcastDeepLink(link: DeepLink): void {
+  try {
+    broadcast('app.deepLink', link)
+  } catch (error) {
+    log.error('[deep-link] dropped a link that failed contract validation', error)
+  }
+}
+
 function deliverDeepLink(link: DeepLink): void {
   const [main] = getWindows(WindowKind.Main)
   if (main && !main.webContents.isLoadingMainFrame()) {
-    broadcast('app.deepLink', link)
+    broadcastDeepLink(link)
   } else {
     pendingDeepLink = link
   }
@@ -97,15 +111,10 @@ if (gotLock) {
       onStatus: (status) => broadcast('app.updateStatus', status),
       // No `app-update.yml` in an unpackaged build for electron-updater to read — checking
       // there only produces noise (and, over the dev server, occasional real errors).
-      //
-      // Also stays off in every packaged build until the release pipeline explicitly opts
-      // in with RETENIA_UPDATES_ENABLED=1: `verifyUpdateCodeSignature` in
-      // electron-builder.yml has nothing to check against until sub-phase 14.3 ships a real
-      // code-signing certificate, so today's installer is unsigned. Silently downloading
-      // and installing an unsigned binary within 6h of a compromised or mistaken
-      // release-channel write is not a risk worth taking before signing lands
-      // (docs/spec/07-architecture.md §4).
-      enabled: !is.dev && process.env.RETENIA_UPDATES_ENABLED === '1',
+      // `createUpdater` itself keeps `autoDownload` off until the app is actually signed
+      // (see the comment there) — a runtime flag here could never reach an installed
+      // user's process anyway, since a CI env var doesn't propagate into it.
+      enabled: !is.dev,
     })
     app.on('before-quit', () => updater.stop())
 
@@ -133,7 +142,7 @@ if (gotLock) {
     const main = openWindow(WindowKind.Main, {}, { devServerUrl, preloadPath })
     main.webContents.once('did-finish-load', () => {
       if (pendingDeepLink) {
-        broadcast('app.deepLink', pendingDeepLink)
+        broadcastDeepLink(pendingDeepLink)
         pendingDeepLink = null
       }
     })

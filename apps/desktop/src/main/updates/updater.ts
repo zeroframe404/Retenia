@@ -32,11 +32,20 @@ export interface Updater {
 /**
  * Wraps `electron-updater`'s `autoUpdater` (docs/spec/07-architecture.md §4/§10): checks
  * on launch (after a short delay so it never competes with the window's first paint) and
- * every 6 hours after that, downloads automatically, and leaves the actual restart to
- * `app.quitAndInstall` so the renderer can ask the user first.
+ * every 6 hours after that, and leaves the actual restart to `app.quitAndInstall` so the
+ * renderer can ask the user first.
+ *
+ * `autoDownload` is off, not on: `verifyUpdateCodeSignature` in electron-builder.yml has
+ * nothing to check a download against until sub-phase 14.3 ships a real code-signing
+ * certificate, so today's installer is unsigned, and silently downloading + offering to
+ * install an unsigned binary within 6h of a compromised or mistaken release-channel write
+ * is not a risk worth taking before then. Checking (and the `checking`/`available`/`error`
+ * status events) still happens on the normal schedule either way — only the download step
+ * is held back, pending an explicit `autoUpdater.downloadUpdate()` call this app doesn't
+ * make yet. Flip this to `true` in the same change that wires up signing.
  */
 export function createUpdater({ getChannel, onStatus, enabled }: UpdaterOptions): Updater {
-  autoUpdater.autoDownload = true
+  autoUpdater.autoDownload = false
   autoUpdater.autoInstallOnAppQuit = false
   autoUpdater.logger = log
 

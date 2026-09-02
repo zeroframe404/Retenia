@@ -11,12 +11,23 @@ export const DEEP_LINK_PROTOCOL = 'retenia'
  */
 const ALLOWED_IMPORT_PROTOCOLS = new Set(['https:', 'http:'])
 
-function isAllowedImportSrc(value: string): boolean {
+/**
+ * Parses and validates an `import` deep link's `src`, returning the parsed `URL` — never
+ * the raw string — so whatever gets forwarded is exactly what was validated. Forwarding
+ * the raw query value instead would let it diverge from what was checked: the WHATWG URL
+ * parser lowercases the scheme, tolerates a missing slash (`https:example.com`), and
+ * strips embedded tab/CR/LF, none of which a downstream consumer doing anything less than
+ * a full re-parse (a prefix check, a regex, string-splitting) can be relied on to agree
+ * with — including `packages/ipc-contract`'s own schema check on this same field.
+ */
+function parseImportSrc(value: string): URL | null {
+  let parsed: URL
   try {
-    return ALLOWED_IMPORT_PROTOCOLS.has(new URL(value).protocol)
+    parsed = new URL(value)
   } catch {
-    return false
+    return null
   }
+  return ALLOWED_IMPORT_PROTOCOLS.has(parsed.protocol) ? parsed : null
 }
 
 /**
@@ -45,7 +56,8 @@ export function parseDeepLink(rawUrl: string): DeepLink | null {
   switch (url.host) {
     case 'import': {
       const src = url.searchParams.get('src')
-      return src && isAllowedImportSrc(src) ? { kind: 'import', src } : null
+      const parsedSrc = src ? parseImportSrc(src) : null
+      return parsedSrc ? { kind: 'import', src: parsedSrc.href } : null
     }
 
     case 'review':

@@ -42,9 +42,9 @@ afterEach(() => {
 })
 
 describe('createUpdater', () => {
-  it('configures autoUpdater for auto-download with a user-confirmed install', () => {
+  it('checks for updates without auto-downloading, until the app is code-signed', () => {
     createUpdater({ getChannel: () => 'latest', onStatus: vi.fn(), enabled: false })
-    expect(autoUpdater.autoDownload).toBe(true)
+    expect(autoUpdater.autoDownload).toBe(false)
     expect(autoUpdater.autoInstallOnAppQuit).toBe(false)
   })
 

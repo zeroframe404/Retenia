@@ -69,7 +69,11 @@ the version being published carries a prerelease tag, which is also why
 
 - **Signing** (sub-phase 14.3): once a certificate exists, `CSC_LINK`/`CSC_KEY_PASSWORD`
   (or eSigner) get wired into `release.yml`, and `verifyUpdateCodeSignature` starts
-  actually checking something.
+  actually checking something. Until then, `createUpdater` (`src/main/updates/updater.ts`)
+  keeps `autoDownload` off: the app still checks on the normal schedule and reports
+  `checking`/`available`/`error`, but never downloads or offers to install an unsigned
+  update on its own. Flip `autoDownload` back to `true` in the same change that adds
+  signing.
 - **macOS** (sub-phase 14.5): `electron-builder.yml`'s `mac` section is prepared but
   inert — nothing here invokes `electron-builder --mac`.
 - **Sentry**: `initSentryMain` only sends anything once `SENTRY_DSN` is set (currently read
