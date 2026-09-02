@@ -1,0 +1,24 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: monthly
+    allow:
+      - dependency-type: "production"
+      - dependency-type: "development"
+    open-pull-requests-limit: 5
+    pull-request-branch-name:
+      separator: "/"
+    reviewers:
+      - zeroframe404
+    labels:
+      - dependencies
+    commit-message:
+      prefix: "chore(deps):"
+      prefix-development: "chore(deps-dev):"
+      include: "scope"
+    ignore:
+      # Ignore major version bumps; update manually
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
