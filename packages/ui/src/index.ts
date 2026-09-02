@@ -39,6 +39,8 @@ export {
 } from './components/dropdown-menu'
 export { Input } from './components/input'
 export { Kbd } from './components/kbd'
+export type { ProcessingJob, ProcessingTrayProps } from './components/processing-tray'
+export { ProcessingTray } from './components/processing-tray'
 export type { ProgressRingProps } from './components/progress'
 export {
   Progress,
@@ -69,6 +71,10 @@ export {
   SheetTitle,
   SheetTrigger,
 } from './components/sheet'
+export type { ShortcutsSheetProps } from './components/shortcuts-sheet'
+export { ShortcutsSheet } from './components/shortcuts-sheet'
+export type { SidebarItem, SidebarProps } from './components/sidebar'
+export { Sidebar } from './components/sidebar'
 export { Skeleton } from './components/skeleton'
 export {
   Slider,
@@ -94,8 +100,12 @@ export {
   TooltipProvider,
   TooltipTrigger,
 } from './components/tooltip'
+export type { Breadcrumb, TopBarProps } from './components/top-bar'
+export { TopBar } from './components/top-bar'
 export { cn } from './lib/cn'
 export { celebrate, fadeIn, motionPresets, pop, shake, slideUp } from './motion'
+export type { ShortcutDef, ShortcutScope } from './shortcuts'
+export { SHORTCUTS } from './shortcuts'
 export type { ResolvedTheme, ThemePreference } from './theme/theme-store'
 export { useThemeStore } from './theme/theme-store'
 export { useApplyTheme } from './theme/use-apply-theme'

@@ -1,0 +1,14 @@
+{
+  "title": "Settings",
+  "comingSoon": "The full settings screen lands in a later phase.",
+  "density": {
+    "label": "Density",
+    "compact": "Compact",
+    "comfortable": "Comfortable"
+  },
+  "gamification": {
+    "label": "Gamification profile",
+    "arcade": "Arcade",
+    "sober": "Sober"
+  }
+}

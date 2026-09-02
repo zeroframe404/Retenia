@@ -6,12 +6,12 @@
     "versions": "Versions",
     "ping": "Ping the main process",
     "pinging": "Sending…",
-    "roundTrip": "Round trip: {{ms}} ms",
-    "failed": "Failed: {{message}}",
+    "roundTrip": "Round trip: {ms} ms",
+    "failed": "Failed: {message}",
     "loading": "Loading…"
   },
   "deepLink": {
-    "received": "Deep link received: {{link}}"
+    "received": "Deep link received: {link}"
   },
   "mediaDevTest": {
     "heading": "media:// playback test"

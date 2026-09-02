@@ -42,21 +42,43 @@ function makeDeps(): HandlerDeps {
         updateChannel: 'latest' as const,
         telemetryEnabled: false,
         theme: 'system' as const,
+        density: 'comfortable' as const,
+        gamification: { profile: 'arcade' as const },
       })),
       setUpdateChannel: vi.fn((channel: 'latest' | 'beta') => ({
         updateChannel: channel,
         telemetryEnabled: false,
         theme: 'system' as const,
+        density: 'comfortable' as const,
+        gamification: { profile: 'arcade' as const },
       })),
       setTelemetryEnabled: vi.fn((enabled: boolean) => ({
         updateChannel: 'latest' as const,
         telemetryEnabled: enabled,
         theme: 'system' as const,
+        density: 'comfortable' as const,
+        gamification: { profile: 'arcade' as const },
       })),
       setTheme: vi.fn((theme: 'light' | 'dark' | 'system') => ({
         updateChannel: 'latest' as const,
         telemetryEnabled: false,
         theme,
+        density: 'comfortable' as const,
+        gamification: { profile: 'arcade' as const },
+      })),
+      setDensity: vi.fn((density: 'compact' | 'comfortable') => ({
+        updateChannel: 'latest' as const,
+        telemetryEnabled: false,
+        theme: 'system' as const,
+        density,
+        gamification: { profile: 'arcade' as const },
+      })),
+      setGamificationProfile: vi.fn((profile: 'arcade' | 'sober') => ({
+        updateChannel: 'latest' as const,
+        telemetryEnabled: false,
+        theme: 'system' as const,
+        density: 'comfortable' as const,
+        gamification: { profile },
       })),
     } as unknown as HandlerDeps['settings'],
     updater: {
@@ -91,11 +113,15 @@ describe('app.getSettings / setUpdateChannel / setTelemetryEnabled / setTheme', 
       updateChannel: 'beta',
       telemetryEnabled: false,
       theme: 'system',
+      density: 'comfortable',
+      gamification: { profile: 'arcade' },
     })
     expect(handlers['app.setTelemetryEnabled']({ enabled: true }, fakeEvent)).toEqual({
       updateChannel: 'latest',
       telemetryEnabled: true,
       theme: 'system',
+      density: 'comfortable',
+      gamification: { profile: 'arcade' },
     })
   })
 
@@ -107,9 +133,36 @@ describe('app.getSettings / setUpdateChannel / setTelemetryEnabled / setTheme', 
       updateChannel: 'latest',
       telemetryEnabled: false,
       theme: 'dark',
+      density: 'comfortable',
+      gamification: { profile: 'arcade' },
     })
     expect(nativeTheme.themeSource).toBe('dark')
     expect(deps.settings.setTheme).toHaveBeenCalledWith('dark')
+  })
+})
+
+describe('app.setDensity / app.setGamificationProfile', () => {
+  it('delegates straight to the settings store', () => {
+    const deps = makeDeps()
+    const handlers = createHandlers(deps)
+
+    expect(handlers['app.setDensity']({ density: 'compact' }, fakeEvent)).toEqual({
+      updateChannel: 'latest',
+      telemetryEnabled: false,
+      theme: 'system',
+      density: 'compact',
+      gamification: { profile: 'arcade' },
+    })
+    expect(deps.settings.setDensity).toHaveBeenCalledWith('compact')
+
+    expect(handlers['app.setGamificationProfile']({ profile: 'sober' }, fakeEvent)).toEqual({
+      updateChannel: 'latest',
+      telemetryEnabled: false,
+      theme: 'system',
+      density: 'comfortable',
+      gamification: { profile: 'sober' },
+    })
+    expect(deps.settings.setGamificationProfile).toHaveBeenCalledWith('sober')
   })
 })
 

@@ -59,6 +59,8 @@ test('exposes only the generated api, never ipcRenderer', async ({ window }) => 
       'ping',
       'quitAndInstall',
       'reportRendererError',
+      'setDensity',
+      'setGamificationProfile',
       'setTelemetryEnabled',
       'setTheme',
       'setUpdateChannel',
@@ -159,6 +161,11 @@ test('a retenia:// deep link reaches the renderer as an app.deepLink event', asy
   electronApp,
   window,
 }) => {
+  // The shell mounts `DeepLinkBanner`'s `useIpcEvent` listener asynchronously (React
+  // hydration); firing the deep link before that finishes would drop it on the floor — main
+  // has no queuing for a link that arrives before the renderer is listening.
+  await window.getByTestId('sidebar-item-home').waitFor()
+
   await electronApp.evaluate(({ app: electronApp }) => {
     electronApp.emit('open-url', { preventDefault() {} }, 'retenia://review')
   })

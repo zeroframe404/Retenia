@@ -1,0 +1,11 @@
+{
+  "title": "Review",
+  "comingSoon": "The review session lands in a later phase.",
+  "activityDemo": {
+    "heading": "This screen stays mounted while you navigate away",
+    "counterLabel": "Session counter",
+    "increment": "Increment",
+    "lastShortcut": "Last shortcut: {key}",
+    "lastShortcutNone": "None yet"
+  }
+}

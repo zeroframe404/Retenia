@@ -12,10 +12,23 @@ export type UpdateChannel = z.infer<typeof updateChannelSchema>
 export const themePreferenceSchema = z.enum(['light', 'dark', 'system'])
 export type ThemePreference = z.infer<typeof themePreferenceSchema>
 
+/** Compact (Linear-style, adults) vs. comfortable (wide, animated — school students),
+ * docs/spec/08-ux.md §1 principle 5 "configurable density". */
+export const densitySchema = z.enum(['compact', 'comfortable'])
+export type Density = z.infer<typeof densitySchema>
+
+/** `arcade` is full Duolingo-style gamification; `sober` keeps streaks/goals/mastery but
+ * hides XP, mascot, quests and leagues (docs/spec/08-ux.md §4 "Sober mode"). Only the XP
+ * badge visibility is wired up in this phase — the rest lands with gamification (13.1). */
+export const gamificationProfileSchema = z.enum(['arcade', 'sober'])
+export type GamificationProfile = z.infer<typeof gamificationProfileSchema>
+
 export const settingsSchema = z.object({
   updateChannel: updateChannelSchema,
   telemetryEnabled: z.boolean(),
   theme: themePreferenceSchema,
+  density: densitySchema,
+  gamification: z.object({ profile: gamificationProfileSchema }),
 })
 export type Settings = z.infer<typeof settingsSchema>
 
@@ -77,6 +90,16 @@ export const appChannels = defineContract({
    * result on `app.themeChanged`, same as an OS-level theme switch does. */
   'app.setTheme': {
     input: z.object({ theme: themePreferenceSchema }),
+    output: settingsSchema,
+  },
+  /** The shell's compact/comfortable layout density. */
+  'app.setDensity': {
+    input: z.object({ density: densitySchema }),
+    output: settingsSchema,
+  },
+  /** The gamification profile (arcade/sober); the shell reads this to hide the XP badge. */
+  'app.setGamificationProfile': {
+    input: z.object({ profile: gamificationProfileSchema }),
     output: settingsSchema,
   },
   /** Manually trigger an update check outside the launch/6h cadence (e.g. a "Check now" button). */

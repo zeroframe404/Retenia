@@ -1,6 +1,14 @@
 @import "tailwindcss";
 @import "../fonts/fonts.css";
 
+/* Tailwind 4's automatic content detection scans from the *consuming* app's own root (e.g.
+ * `apps/desktop/src/renderer`), which never reaches this package's own source — so a
+ * class used only inside a `packages/ui` component (never coincidentally also typed
+ * somewhere in the consumer's own source) would silently never be generated. Every
+ * consumer of this stylesheet needs these utilities, so the source is registered here
+ * once rather than requiring every app to remember its own `@source` line. */
+@source "./";
+
 /**
  * Design tokens (docs/spec/01-decisions.md §10.2 sub-phase 2.1, docs/spec/08-ux.md).
  * Tailwind 4 CSS-first config: everything inside `@theme` both declares a CSS custom

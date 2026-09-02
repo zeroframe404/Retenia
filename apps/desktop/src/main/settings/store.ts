@@ -13,6 +13,8 @@ export const defaultSettings: Settings = {
   updateChannel: 'latest',
   telemetryEnabled: false,
   theme: 'system',
+  density: 'comfortable',
+  gamification: { profile: 'arcade' },
 }
 
 /** Read `file`, falling back to `defaultSettings` when it is missing, unreadable, or its
@@ -65,5 +67,13 @@ export class SettingsStore {
 
   setTheme(theme: Settings['theme']): Settings {
     return this.#update({ theme })
+  }
+
+  setDensity(density: Settings['density']): Settings {
+    return this.#update({ density })
+  }
+
+  setGamificationProfile(profile: Settings['gamification']['profile']): Settings {
+    return this.#update({ gamification: { profile } })
   }
 }

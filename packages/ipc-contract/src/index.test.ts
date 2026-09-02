@@ -29,6 +29,8 @@ describe('contract', () => {
       'app.ping',
       'app.quitAndInstall',
       'app.reportRendererError',
+      'app.setDensity',
+      'app.setGamificationProfile',
       'app.setTelemetryEnabled',
       'app.setTheme',
       'app.setUpdateChannel',
@@ -128,11 +130,19 @@ describe('app.devMediaSampleUrl', () => {
 
 describe('app.getSettings / app.setUpdateChannel / app.setTelemetryEnabled / app.setTheme', () => {
   it('shares the same settings output shape', () => {
-    const settings = { updateChannel: 'beta', telemetryEnabled: true, theme: 'system' }
+    const settings = {
+      updateChannel: 'beta',
+      telemetryEnabled: true,
+      theme: 'system',
+      density: 'comfortable',
+      gamification: { profile: 'arcade' },
+    }
     expect(contract['app.getSettings'].output.safeParse(settings).success).toBe(true)
     expect(contract['app.setUpdateChannel'].output.safeParse(settings).success).toBe(true)
     expect(contract['app.setTelemetryEnabled'].output.safeParse(settings).success).toBe(true)
     expect(contract['app.setTheme'].output.safeParse(settings).success).toBe(true)
+    expect(contract['app.setDensity'].output.safeParse(settings).success).toBe(true)
+    expect(contract['app.setGamificationProfile'].output.safeParse(settings).success).toBe(true)
   })
 
   it('accepts no input for getSettings', () => {
@@ -158,6 +168,20 @@ describe('app.getSettings / app.setUpdateChannel / app.setTelemetryEnabled / app
     expect(input.safeParse({ theme: 'dark' }).success).toBe(true)
     expect(input.safeParse({ theme: 'system' }).success).toBe(true)
     expect(input.safeParse({ theme: 'sepia' }).success).toBe(false)
+  })
+
+  it('only accepts compact or comfortable for density', () => {
+    const { input } = contract['app.setDensity']
+    expect(input.safeParse({ density: 'compact' }).success).toBe(true)
+    expect(input.safeParse({ density: 'comfortable' }).success).toBe(true)
+    expect(input.safeParse({ density: 'cozy' }).success).toBe(false)
+  })
+
+  it('only accepts arcade or sober for the gamification profile', () => {
+    const { input } = contract['app.setGamificationProfile']
+    expect(input.safeParse({ profile: 'arcade' }).success).toBe(true)
+    expect(input.safeParse({ profile: 'sober' }).success).toBe(true)
+    expect(input.safeParse({ profile: 'hardcore' }).success).toBe(false)
   })
 })
 

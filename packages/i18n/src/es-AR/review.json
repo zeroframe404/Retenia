@@ -1,0 +1,11 @@
+{
+  "title": "Repasar",
+  "comingSoon": "La sesión de repaso llega en una fase posterior.",
+  "activityDemo": {
+    "heading": "Esta pantalla se mantiene montada al navegar",
+    "counterLabel": "Contador de la sesión",
+    "increment": "Sumar",
+    "lastShortcut": "Último atajo: {key}",
+    "lastShortcutNone": "Todavía ninguno"
+  }
+}

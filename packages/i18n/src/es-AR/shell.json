@@ -1,0 +1,60 @@
+{
+  "nav": {
+    "home": "Hoy",
+    "path": "Camino",
+    "review": "Repasar",
+    "library": "Biblioteca",
+    "exams": "Exámenes",
+    "languages": "Idiomas",
+    "notes": "Notas",
+    "statistics": "Estadísticas",
+    "settings": "Ajustes",
+    "collapse": "Contraer barra lateral",
+    "expand": "Expandir barra lateral"
+  },
+  "topBar": {
+    "search": "Buscar",
+    "searchHint": "Abrir la paleta de comandos"
+  },
+  "xpBadge": "{xp} XP",
+  "processingTray": {
+    "title": "Procesando",
+    "collapse": "Contraer",
+    "expand": "Expandir",
+    "emptyState": "No hay trabajos en segundo plano",
+    "jobCount": "{count, plural, =0 {Sin trabajos} one {# trabajo en curso} other {# trabajos en curso}}"
+  },
+  "commandPalette": {
+    "placeholder": "Escribí un comando o buscá…",
+    "noResults": "Sin resultados",
+    "recent": "Recientes",
+    "groupNavigate": "Navegar",
+    "groupActions": "Acciones",
+    "actions": {
+      "startReview": "Empezar a repasar",
+      "import": "Importar…",
+      "openSettings": "Abrir ajustes",
+      "toggleTheme": "Cambiar tema"
+    }
+  },
+  "shortcuts": {
+    "title": "Atajos de teclado",
+    "scopeGlobal": "General",
+    "scopeReview": "Repaso",
+    "commandPalette": "Abrir la paleta de comandos",
+    "openSettings": "Abrir ajustes",
+    "shortcutsSheet": "Mostrar esta lista de atajos",
+    "reveal": "Mostrar la respuesta",
+    "continue": "Continuar",
+    "back": "Volver",
+    "grade1": "Calificar: de nuevo",
+    "grade2": "Calificar: difícil",
+    "grade3": "Calificar: bien",
+    "grade4": "Calificar: fácil"
+  },
+  "notFound": {
+    "title": "No encontramos esta página",
+    "body": "La ruta a la que intentaste ir no existe.",
+    "backHome": "Volver a Hoy"
+  }
+}

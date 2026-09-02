@@ -32,11 +32,19 @@ describe('loadSettings', () => {
   })
 
   it('round-trips a saved value', () => {
-    saveSettings(file, { updateChannel: 'beta', telemetryEnabled: true, theme: 'dark' })
+    saveSettings(file, {
+      updateChannel: 'beta',
+      telemetryEnabled: true,
+      theme: 'dark',
+      density: 'compact',
+      gamification: { profile: 'sober' },
+    })
     expect(loadSettings(file)).toEqual({
       updateChannel: 'beta',
       telemetryEnabled: true,
       theme: 'dark',
+      density: 'compact',
+      gamification: { profile: 'sober' },
     })
   })
 })
@@ -50,20 +58,42 @@ describe('SettingsStore', () => {
       updateChannel: 'beta',
       telemetryEnabled: false,
       theme: 'system',
+      density: 'comfortable',
+      gamification: { profile: 'arcade' },
     })
     expect(store.get().updateChannel).toBe('beta')
     expect(loadSettings(file).updateChannel).toBe('beta')
 
     expect(store.setTelemetryEnabled(true).telemetryEnabled).toBe(true)
     expect(store.setTheme('dark').theme).toBe('dark')
+    expect(store.setDensity('compact').density).toBe('compact')
+    expect(store.setGamificationProfile('sober').gamification).toEqual({ profile: 'sober' })
     // Earlier changes survive a later, unrelated one.
-    expect(store.get()).toEqual({ updateChannel: 'beta', telemetryEnabled: true, theme: 'dark' })
+    expect(store.get()).toEqual({
+      updateChannel: 'beta',
+      telemetryEnabled: true,
+      theme: 'dark',
+      density: 'compact',
+      gamification: { profile: 'sober' },
+    })
   })
 
   it('reloads a previously saved file on construction', () => {
-    saveSettings(file, { updateChannel: 'beta', telemetryEnabled: true, theme: 'dark' })
+    saveSettings(file, {
+      updateChannel: 'beta',
+      telemetryEnabled: true,
+      theme: 'dark',
+      density: 'compact',
+      gamification: { profile: 'sober' },
+    })
     const store = new SettingsStore(file)
-    expect(store.get()).toEqual({ updateChannel: 'beta', telemetryEnabled: true, theme: 'dark' })
+    expect(store.get()).toEqual({
+      updateChannel: 'beta',
+      telemetryEnabled: true,
+      theme: 'dark',
+      density: 'compact',
+      gamification: { profile: 'sober' },
+    })
   })
 })
 
