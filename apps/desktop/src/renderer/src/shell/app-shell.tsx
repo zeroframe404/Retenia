@@ -101,8 +101,14 @@ export function AppShell() {
           />
           <Group orientation="horizontal" className="flex-1 overflow-hidden">
             <Panel className="h-full overflow-y-auto">
-              <StickyRegion />
-              <Outlet />
+              {/* Skip-link target (WCAG 2.2 SC 2.4.1 Bypass Blocks) and the page's single
+               * `main` landmark — `tabIndex={-1}` lets the skip link move keyboard focus
+               * here even though a `<main>` is not itself normally focusable. `Panel`
+               * always renders its own wrapping `<div>`, so `main` nests one level in. */}
+              <main id="main-content" tabIndex={-1} className="outline-none">
+                <StickyRegion />
+                <Outlet />
+              </main>
             </Panel>
           </Group>
           <ProcessingTray

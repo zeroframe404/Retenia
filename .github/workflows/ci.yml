@@ -68,6 +68,9 @@ jobs:
       - name: Check i18n key parity
         run: pnpm run i18n:check
 
+      - name: Check WCAG 2.2 AA token contrast
+        run: pnpm run contrast:check
+
       - name: Lint
         run: pnpm lint
 

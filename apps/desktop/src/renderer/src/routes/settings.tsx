@@ -1,4 +1,18 @@
-import { Button } from '@retenia/ui'
+import {
+  Button,
+  Slider,
+  SliderControl,
+  SliderIndicator,
+  SliderThumb,
+  SliderTrack,
+  SliderValue,
+  Switch,
+  TYPOGRAPHY_FONT_SIZE_MAX,
+  TYPOGRAPHY_FONT_SIZE_MIN,
+  TYPOGRAPHY_LINE_HEIGHT_MAX,
+  TYPOGRAPHY_LINE_HEIGHT_MIN,
+  useTypographySettingsStore,
+} from '@retenia/ui'
 import { createFileRoute } from '@tanstack/react-router'
 import { z } from 'zod'
 import { useT } from '../i18n/use-t'
@@ -7,9 +21,10 @@ import { useSetDensity, useSetGamificationProfile, useSettings } from '../shell/
 const settingsSearchSchema = z.object({
   /** Which control gets focus-scrolled on load — a small, typed example of zod-validated
    * search params (the other is `/library`'s `q`). The full Settings screen (AI providers,
-   * voice, scheduler, …) lands in sub-phase 7.5/13.5; this phase only wires the two fields
-   * the shell itself reads (density, gamification profile). */
-  tab: z.enum(['density', 'gamification']).optional(),
+   * voice, scheduler, …) lands in sub-phase 7.5/13.5; this phase only wires the fields the
+   * shell itself reads (density, gamification profile) plus typography, which is purely
+   * local to `@retenia/ui`'s `useTypographySettingsStore`. */
+  tab: z.enum(['density', 'gamification', 'typography']).optional(),
 })
 
 function SettingsScreen() {
@@ -21,6 +36,14 @@ function SettingsScreen() {
 
   const density = settings.data?.density ?? 'comfortable'
   const profile = settings.data?.gamification.profile ?? 'arcade'
+
+  const fontSize = useTypographySettingsStore((s) => s.fontSize)
+  const lineHeight = useTypographySettingsStore((s) => s.lineHeight)
+  const dyslexiaFont = useTypographySettingsStore((s) => s.dyslexiaFont)
+  const setFontSize = useTypographySettingsStore((s) => s.setFontSize)
+  const setLineHeight = useTypographySettingsStore((s) => s.setLineHeight)
+  const setDyslexiaFont = useTypographySettingsStore((s) => s.setDyslexiaFont)
+  const resetTypography = useTypographySettingsStore((s) => s.reset)
 
   return (
     <div data-testid="screen-settings" className="flex flex-col gap-6 p-6">
@@ -72,6 +95,77 @@ function SettingsScreen() {
           >
             {t('gamification.sober')}
           </Button>
+        </div>
+      </section>
+
+      <section
+        data-testid="settings-typography"
+        data-focused={tab === 'typography'}
+        className="flex max-w-sm flex-col gap-4"
+      >
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold">{t('typography.label')}</h2>
+          <Button variant="ghost" size="sm" onClick={() => resetTypography()}>
+            {t('typography.reset')}
+          </Button>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          {/* Visible caption only — the accessible name for the slider's actual `<input>`
+           * comes from `SliderThumb`'s `getAriaLabel` below (a plain `<label>`/`htmlFor`
+           * here would target `Slider.Root`'s wrapping `<div>`, not a labelable control). */}
+          <span className="text-muted text-sm">
+            {t('typography.fontSize')} ({fontSize}px)
+          </span>
+          <Slider
+            value={fontSize}
+            onValueChange={(value) => setFontSize(value as number)}
+            min={TYPOGRAPHY_FONT_SIZE_MIN}
+            max={TYPOGRAPHY_FONT_SIZE_MAX}
+            step={1}
+          >
+            <SliderControl>
+              <SliderTrack>
+                <SliderIndicator />
+                {/* The accessible name has to reach the hidden `<input type="range">` Base UI
+                 * renders inside the thumb — `aria-label` on `Slider.Root` lands on its outer
+                 * `<div>` instead, which axe-core's `aria-input-field-name` rule correctly
+                 * flags as not naming the actual form control. */}
+                <SliderThumb getAriaLabel={() => t('typography.fontSize')} />
+              </SliderTrack>
+            </SliderControl>
+            <SliderValue />
+          </Slider>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <span className="text-muted text-sm">
+            {t('typography.lineHeight')} ({lineHeight.toFixed(1)})
+          </span>
+          <Slider
+            value={lineHeight}
+            onValueChange={(value) => setLineHeight(value as number)}
+            min={TYPOGRAPHY_LINE_HEIGHT_MIN}
+            max={TYPOGRAPHY_LINE_HEIGHT_MAX}
+            step={0.1}
+          >
+            <SliderControl>
+              <SliderTrack>
+                <SliderIndicator />
+                <SliderThumb getAriaLabel={() => t('typography.lineHeight')} />
+              </SliderTrack>
+            </SliderControl>
+            <SliderValue />
+          </Slider>
+        </div>
+
+        <div className="flex items-center justify-between gap-4 text-sm">
+          <span id="typography-dyslexia-font-label">{t('typography.dyslexiaFont')}</span>
+          <Switch
+            checked={dyslexiaFont}
+            onCheckedChange={setDyslexiaFont}
+            aria-labelledby="typography-dyslexia-font-label"
+          />
         </div>
       </section>
     </div>

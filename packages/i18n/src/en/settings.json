@@ -10,5 +10,12 @@
     "label": "Gamification profile",
     "arcade": "Arcade",
     "sober": "Sober"
+  },
+  "typography": {
+    "label": "Typography",
+    "fontSize": "Font size",
+    "lineHeight": "Line height",
+    "dyslexiaFont": "Dyslexia-friendly font (Atkinson Hyperlegible)",
+    "reset": "Reset"
   }
 }

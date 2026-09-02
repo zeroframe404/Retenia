@@ -98,10 +98,18 @@
   --color-surface: white;
   --color-text: var(--color-neutral-900);
   --color-muted: var(--color-neutral-500);
-  --color-border: var(--color-neutral-200);
+  /* `neutral-500`, not the barely-visible `neutral-200` this was before the WCAG 2.2 AA pass:
+   * a border is often the only visual boundary of an interactive control (inputs, the
+   * `outline` button variant), which SC 1.4.11 Non-text Contrast holds to the same 3:1 floor
+   * as focus indicators — `tooling/scripts/contrast-check.mjs` checks it against both `bg`
+   * and `surface`. */
+  --color-border: var(--color-neutral-500);
   --color-correct: var(--color-teal-600);
   --color-incorrect: var(--color-red-600);
-  --color-xp: var(--color-amber-500);
+  /* `amber-600`, not `amber-500`: amber only clears 4.5:1 text contrast against the light
+   * `bg`/`surface` from this step down — `streak` already used `amber-600` for the same
+   * reason, `xp` just hadn't been checked yet. */
+  --color-xp: var(--color-amber-600);
   --color-streak: var(--color-amber-600);
 
   /* ---- Radii ------------------------------------------------------------------------- */
@@ -151,7 +159,9 @@
   --color-surface: var(--color-neutral-900);
   --color-text: var(--color-neutral-50);
   --color-muted: var(--color-neutral-400);
-  --color-border: var(--color-neutral-800);
+  /* Same `neutral-500` reasoning as the light value above — `contrast-check.mjs` checks it
+   * against both dark-theme `bg` and `surface` too. */
+  --color-border: var(--color-neutral-500);
   --color-correct: var(--color-teal-400);
   --color-incorrect: var(--color-red-400);
   --color-xp: var(--color-amber-400);
@@ -159,10 +169,59 @@
   --shadow-soft: 0 2px 8px -2px oklch(0% 0 0 / 32%), 0 1px 2px oklch(0% 0 0 / 24%);
 }
 
+/**
+ * Typography settings (`packages/ui/src/typography/typography-store.ts`, WCAG 2.2 AA).
+ * `useApplyTypography` stamps `--user-font-size`/`--user-line-height` onto `<html>` and
+ * toggles `data-dyslexia-font` there; these two rules are the only thing that has to exist
+ * ahead of that for the defaults to already render correctly (Storybook, a first paint
+ * before the store hydrates, tests that never mount the hook).
+ */
+:root {
+  --user-font-size: 16px;
+  --user-line-height: 1.5;
+}
+
+html {
+  font-size: var(--user-font-size);
+}
+
 body {
   background-color: var(--color-bg);
   color: var(--color-text);
   font-family: var(--font-sans);
+  line-height: var(--user-line-height);
+}
+
+/** Swaps the body font for the bundled Atkinson Hyperlegible (Braille Institute, OFL-1.1) —
+ * `--font-sans` is a plain CSS custom property, so this override cascades into every
+ * `font-sans` utility class without touching the components that use it. */
+[data-dyslexia-font="true"] {
+  --font-sans:
+    "Atkinson Hyperlegible", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/**
+ * `prefers-reduced-motion` (WCAG 2.2 SC 2.3.3 Animation from Interactions). Motion's own
+ * presets (`packages/ui/src/motion.ts`) already respect it through `<MotionConfig
+ * reducedMotion="user">`, mounted once at the app root — but a handful of surfaces animate
+ * with plain CSS (`animate-pulse` skeletons, hover/focus `transition-*` utilities, the
+ * mermaid pan/zoom cursor), which Motion never sees. `!important` is the only way to win
+ * against Tailwind's own utility specificity here, the same tradeoff `theme.css`'s Shiki
+ * dark-mode override below already makes.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    /* biome-ignore lint/complexity/noImportantStyles: only way to override arbitrary Tailwind animation/transition utilities regardless of specificity. */
+    animation-duration: 0.01ms !important;
+    /* biome-ignore lint/complexity/noImportantStyles: same as above. */
+    animation-iteration-count: 1 !important;
+    /* biome-ignore lint/complexity/noImportantStyles: same as above. */
+    transition-duration: 0.01ms !important;
+    /* biome-ignore lint/complexity/noImportantStyles: same as above. */
+    scroll-behavior: auto !important;
+  }
 }
 
 /**

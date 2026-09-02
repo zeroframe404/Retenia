@@ -19,7 +19,8 @@
     "storybook:build": "turbo run storybook:build",
     "format": "biome check --write .",
     "licenses:check": "node tooling/scripts/check-licenses.mjs",
-    "i18n:check": "node tooling/scripts/i18n-check.mjs"
+    "i18n:check": "node tooling/scripts/i18n-check.mjs",
+    "contrast:check": "node tooling/scripts/contrast-check.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.11",

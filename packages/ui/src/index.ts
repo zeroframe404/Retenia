@@ -1,3 +1,8 @@
+// Re-exported so consumers don't need their own `motion` dependency just to wrap the app
+// root in `<MotionConfig reducedMotion="user">` (WCAG 2.2 AA `prefers-reduced-motion`) —
+// every `packages/ui/src/motion.ts` preset already assumes this package owns the `motion`
+// version in play.
+export { MotionConfig } from 'motion/react'
 export type { AppShellPlaceholderProps } from './app-shell-placeholder'
 export { AppShellPlaceholder } from './app-shell-placeholder'
 export type { BadgeProps } from './components/badge'
@@ -173,3 +178,11 @@ export { useSoundKit } from './sound/use-sound-kit'
 export type { ResolvedTheme, ThemePreference } from './theme/theme-store'
 export { useThemeStore } from './theme/theme-store'
 export { useApplyTheme } from './theme/use-apply-theme'
+export {
+  TYPOGRAPHY_FONT_SIZE_MAX,
+  TYPOGRAPHY_FONT_SIZE_MIN,
+  TYPOGRAPHY_LINE_HEIGHT_MAX,
+  TYPOGRAPHY_LINE_HEIGHT_MIN,
+  useTypographySettingsStore,
+} from './typography/typography-store'
+export { useApplyTypography } from './typography/use-apply-typography'
