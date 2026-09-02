@@ -1,0 +1,3 @@
+# Retenia
+
+Retenia is a local-first desktop learning & memory app built on Electron, React, and TypeScript, combining spaced repetition (FSRS), rich content ingestion, and AI-assisted study tools while keeping your data on your machine by default. **Status: pre-alpha** — the repository is bootstrapped but no application code exists yet. To run it once apps land: install [pnpm](https://pnpm.io) 11 and Node 24 (see `.nvmrc`), then `pnpm i` to install workspace dependencies, `pnpm dev` to start the desktop app in development mode, and `pnpm build`/`pnpm test`/`pnpm typecheck`/`pnpm lint`/`pnpm e2e` for the respective checks — see `CLAUDE.md` for the full command reference.
