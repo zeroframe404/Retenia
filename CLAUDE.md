@@ -49,6 +49,13 @@ Not inferrable from the code — follow exactly:
 - CSP is strict in the renderer: no `unsafe-inline`, no remote script sources.
 - Secrets (API keys, tokens) are only ever stored via Electron's `safeStorage`, in the main process — never in renderer state, localStorage, or plain files.
 
+## Subagents
+
+- Use the `reviewer` subagent at the end of each phase against the relevant `docs/spec/*.md` file, to check every requirement is implemented and edge cases are tested.
+- Use the `tester` subagent when a module needs Vitest (or Playwright E2E) coverage written against a list of edge cases.
+- Use the `security-reviewer` subagent before merging any change that touches Electron main/preload/IPC code or AI provider integrations, to audit contextIsolation, CSP, IPC validation, secrets handling, and prompt-injection surfaces.
+- Use the `explorer` subagent for quick read-only "where is X" / "which files reference Y" lookups instead of manual grepping.
+
 ## Commit etiquette
 
 - Conventional Commits (`feat(memory): …`, `fix(db): …`).
