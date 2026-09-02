@@ -12,6 +12,7 @@ import { settingsSchema } from '@retenia/ipc-contract'
 export const defaultSettings: Settings = {
   updateChannel: 'latest',
   telemetryEnabled: false,
+  theme: 'system',
 }
 
 /** Read `file`, falling back to `defaultSettings` when it is missing, unreadable, or its
@@ -60,5 +61,9 @@ export class SettingsStore {
 
   setTelemetryEnabled(enabled: boolean): Settings {
     return this.#update({ telemetryEnabled: enabled })
+  }
+
+  setTheme(theme: Settings['theme']): Settings {
+    return this.#update({ theme })
   }
 }

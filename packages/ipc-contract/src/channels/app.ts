@@ -6,9 +6,16 @@ import { defineContract } from '../define'
 export const updateChannelSchema = z.enum(['latest', 'beta'])
 export type UpdateChannel = z.infer<typeof updateChannelSchema>
 
+/** The user's theme preference. `system` follows the OS (`nativeTheme.shouldUseDarkColors`
+ * in main); `app.themeChanged` always carries the *resolved* `light`/`dark` value, never
+ * `system` itself (docs/spec/08-ux.md §5). */
+export const themePreferenceSchema = z.enum(['light', 'dark', 'system'])
+export type ThemePreference = z.infer<typeof themePreferenceSchema>
+
 export const settingsSchema = z.object({
   updateChannel: updateChannelSchema,
   telemetryEnabled: z.boolean(),
+  theme: themePreferenceSchema,
 })
 export type Settings = z.infer<typeof settingsSchema>
 
@@ -64,6 +71,12 @@ export const appChannels = defineContract({
   /** Opt-in Sentry crash reporting (main, renderer, utility); off until the user consents. */
   'app.setTelemetryEnabled': {
     input: z.object({ enabled: z.boolean() }),
+    output: settingsSchema,
+  },
+  /** Sets `nativeTheme.themeSource`; main resolves `system` and broadcasts the concrete
+   * result on `app.themeChanged`, same as an OS-level theme switch does. */
+  'app.setTheme': {
+    input: z.object({ theme: themePreferenceSchema }),
     output: settingsSchema,
   },
   /** Manually trigger an update check outside the launch/6h cadence (e.g. a "Check now" button). */

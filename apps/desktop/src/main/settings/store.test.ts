@@ -32,8 +32,12 @@ describe('loadSettings', () => {
   })
 
   it('round-trips a saved value', () => {
-    saveSettings(file, { updateChannel: 'beta', telemetryEnabled: true })
-    expect(loadSettings(file)).toEqual({ updateChannel: 'beta', telemetryEnabled: true })
+    saveSettings(file, { updateChannel: 'beta', telemetryEnabled: true, theme: 'dark' })
+    expect(loadSettings(file)).toEqual({
+      updateChannel: 'beta',
+      telemetryEnabled: true,
+      theme: 'dark',
+    })
   })
 })
 
@@ -45,19 +49,21 @@ describe('SettingsStore', () => {
     expect(store.setUpdateChannel('beta')).toEqual({
       updateChannel: 'beta',
       telemetryEnabled: false,
+      theme: 'system',
     })
     expect(store.get().updateChannel).toBe('beta')
     expect(loadSettings(file).updateChannel).toBe('beta')
 
     expect(store.setTelemetryEnabled(true).telemetryEnabled).toBe(true)
-    // Earlier change survives a later, unrelated one.
-    expect(store.get()).toEqual({ updateChannel: 'beta', telemetryEnabled: true })
+    expect(store.setTheme('dark').theme).toBe('dark')
+    // Earlier changes survive a later, unrelated one.
+    expect(store.get()).toEqual({ updateChannel: 'beta', telemetryEnabled: true, theme: 'dark' })
   })
 
   it('reloads a previously saved file on construction', () => {
-    saveSettings(file, { updateChannel: 'beta', telemetryEnabled: true })
+    saveSettings(file, { updateChannel: 'beta', telemetryEnabled: true, theme: 'dark' })
     const store = new SettingsStore(file)
-    expect(store.get()).toEqual({ updateChannel: 'beta', telemetryEnabled: true })
+    expect(store.get()).toEqual({ updateChannel: 'beta', telemetryEnabled: true, theme: 'dark' })
   })
 })
 

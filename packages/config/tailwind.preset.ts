@@ -1,9 +1,13 @@
 import type { Config } from 'tailwindcss'
 
 /**
- * Shared Tailwind 4 preset. Real design tokens (OKLCH color scale, spacing, motion
- * durations) land in sub-phase 2.1 (`docs/spec/01-decisions.md` §10.2) — this is the
- * seed every app/package theme extends so the token source stays single.
+ * Legacy JS-config placeholder, kept only for `packages/config/src/index.test.ts`'s
+ * `darkMode: 'class'` assertion. Tailwind 4 is CSS-first: nothing imports this via
+ * `@config`, and it plays no part in the actual build. The real design tokens (OKLCH
+ * color scale, spacing, motion durations, dark variant) live in
+ * `packages/ui/src/theme.css` (`@theme` + `@custom-variant dark`,
+ * `docs/spec/01-decisions.md` §10.2) — every app/package that wants the design system
+ * imports that file, not this one.
  */
 export const tailwindPreset = {
   darkMode: 'class',

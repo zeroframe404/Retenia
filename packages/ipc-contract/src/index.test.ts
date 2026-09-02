@@ -30,6 +30,7 @@ describe('contract', () => {
       'app.quitAndInstall',
       'app.reportRendererError',
       'app.setTelemetryEnabled',
+      'app.setTheme',
       'app.setUpdateChannel',
     ])
     expect([...eventNames].sort()).toEqual(['app.deepLink', 'app.themeChanged', 'app.updateStatus'])
@@ -125,12 +126,13 @@ describe('app.devMediaSampleUrl', () => {
   })
 })
 
-describe('app.getSettings / app.setUpdateChannel / app.setTelemetryEnabled', () => {
+describe('app.getSettings / app.setUpdateChannel / app.setTelemetryEnabled / app.setTheme', () => {
   it('shares the same settings output shape', () => {
-    const settings = { updateChannel: 'beta', telemetryEnabled: true }
+    const settings = { updateChannel: 'beta', telemetryEnabled: true, theme: 'system' }
     expect(contract['app.getSettings'].output.safeParse(settings).success).toBe(true)
     expect(contract['app.setUpdateChannel'].output.safeParse(settings).success).toBe(true)
     expect(contract['app.setTelemetryEnabled'].output.safeParse(settings).success).toBe(true)
+    expect(contract['app.setTheme'].output.safeParse(settings).success).toBe(true)
   })
 
   it('accepts no input for getSettings', () => {
@@ -148,6 +150,14 @@ describe('app.getSettings / app.setUpdateChannel / app.setTelemetryEnabled', () 
     const { input } = contract['app.setTelemetryEnabled']
     expect(input.safeParse({ enabled: true }).success).toBe(true)
     expect(input.safeParse({ enabled: 'true' }).success).toBe(false)
+  })
+
+  it('only accepts light, dark or system for theme', () => {
+    const { input } = contract['app.setTheme']
+    expect(input.safeParse({ theme: 'light' }).success).toBe(true)
+    expect(input.safeParse({ theme: 'dark' }).success).toBe(true)
+    expect(input.safeParse({ theme: 'system' }).success).toBe(true)
+    expect(input.safeParse({ theme: 'sepia' }).success).toBe(false)
   })
 })
 

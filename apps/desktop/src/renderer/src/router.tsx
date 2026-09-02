@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { DeepLinkBanner } from './components/deep-link-banner'
 import { IpcDemo } from './components/ipc-demo'
 import { MediaDevTest } from './components/media-dev-test'
+import { ThemeSync } from './components/theme-sync'
 import { UpdateStatusLog } from './components/update-status-log'
 import { useAppStore } from './store'
 
@@ -11,11 +12,12 @@ function HomePage() {
   const ready = useAppStore((state) => state.ready)
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-6 bg-white text-slate-900 dark:bg-slate-950 dark:text-slate-50">
+    <main className="flex min-h-screen flex-col items-center justify-center gap-6 bg-bg text-text">
+      <ThemeSync />
       <div className="flex flex-col items-center gap-2">
-        <h1 className="text-3xl font-semibold">{t('appTitle')}</h1>
+        <h1 className="font-display text-3xl font-semibold">{t('appTitle')}</h1>
         <p className="text-lg">{t('greeting')}</p>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
+        <p className="text-muted text-sm">
           {i18n.language} · {ready ? 'ready' : 'loading'}
         </p>
       </div>

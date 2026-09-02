@@ -1,6 +1,6 @@
 import { is } from '@electron-toolkit/utils'
 import type { Contract } from '@retenia/ipc-contract'
-import { app, BrowserWindow, dialog } from 'electron'
+import { app, BrowserWindow, dialog, nativeTheme } from 'electron'
 import { ensureDevMediaSample } from '../dev/media-sample'
 import { collectSystemInfo, exportDiagnostics } from '../diagnostics/export'
 import { getBlobsRoot, getDevMediaSamplePath, getLogsDir } from '../paths'
@@ -46,6 +46,15 @@ export function createHandlers({
     'app.setUpdateChannel': ({ channel }) => settings.setUpdateChannel(channel),
 
     'app.setTelemetryEnabled': ({ enabled }) => settings.setTelemetryEnabled(enabled),
+
+    // `nativeTheme.themeSource = …` synchronously fires the `'updated'` listener registered
+    // in `main/theme/sync.ts`, which broadcasts the resolved value on `app.themeChanged` —
+    // the same path an OS-level theme switch takes. So the only thing this handler owns is
+    // persisting the preference.
+    'app.setTheme': ({ theme }) => {
+      nativeTheme.themeSource = theme
+      return settings.setTheme(theme)
+    },
 
     'app.checkForUpdates': () => {
       updater.checkForUpdates()
