@@ -1,0 +1,23 @@
+{
+  "name": "@retenia/ipc-contract",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Typed, zod-validated main<->renderer IPC channel declarations.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "lint": "biome check ."
+  },
+  "dependencies": {
+    "zod": "4.5.4"
+  },
+  "devDependencies": {
+    "@retenia/config": "workspace:*",
+    "typescript": "7.0.2",
+    "vitest": "4.1.11"
+  }
+}

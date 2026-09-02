@@ -1,0 +1,23 @@
+{
+  "name": "@retenia/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Drizzle schema, SQL migrations, and better-sqlite3 repositories (Node adapter). The real SQLite layer lands in sub-phase 3.x.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "lint": "biome check ."
+  },
+  "dependencies": {
+    "@retenia/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@retenia/config": "workspace:*",
+    "typescript": "7.0.2",
+    "vitest": "4.1.11"
+  }
+}

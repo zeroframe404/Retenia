@@ -1,0 +1,23 @@
+{
+  "name": "@retenia/config",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Shared base tsconfig and Tailwind preset. Biome/formatting is applied repo-wide by the root biome.json (Biome has no per-package composition story worth duplicating here).",
+  "exports": {
+    ".": "./src/index.ts",
+    "./tsconfig.base.json": "./tsconfig.base.json",
+    "./tailwind.preset": "./tailwind.preset.ts",
+    "./vitest.base": "./vitest.base.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "lint": "biome check ."
+  },
+  "devDependencies": {
+    "tailwindcss": "4.3.3",
+    "typescript": "7.0.2",
+    "vitest": "4.1.11"
+  }
+}

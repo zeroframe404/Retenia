@@ -1,0 +1,23 @@
+{
+  "name": "@retenia/importers",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "External format importers (Anki, RemNote, Obsidian, CSV) and Markdown/apkg exporters. Real formats land in sub-phase 13.4.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "lint": "biome check ."
+  },
+  "dependencies": {
+    "@retenia/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@retenia/config": "workspace:*",
+    "typescript": "7.0.2",
+    "vitest": "4.1.11"
+  }
+}
