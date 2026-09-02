@@ -1,19 +1,7 @@
 {
   "appTitle": "Retenia",
   "greeting": "Learn it, and never forget it again.",
-  "ipc": {
-    "heading": "IPC bridge",
-    "versions": "Versions",
-    "ping": "Ping the main process",
-    "pinging": "Sending…",
-    "roundTrip": "Round trip: {ms} ms",
-    "failed": "Failed: {message}",
-    "loading": "Loading…"
-  },
   "deepLink": {
     "received": "Deep link received: {link}"
-  },
-  "mediaDevTest": {
-    "heading": "media:// playback test"
   }
 }

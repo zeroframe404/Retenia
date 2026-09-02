@@ -1,4 +1,4 @@
-import { SearchIcon } from 'lucide-react'
+import { SearchIcon, WifiOffIcon } from 'lucide-react'
 import { cn } from '../lib/cn'
 import { Badge } from './badge'
 import { Button } from './button'
@@ -15,6 +15,14 @@ export interface TopBarProps {
    * (`docs/spec/08-ux.md` §4 "Sober mode": XP is one of the things it hides). */
   xpLabel?: string
   xpHidden?: boolean
+  /** Connection status (docs/spec/08-ux.md §1.6 "offline without surprises"): everything
+   * local keeps working, so this is an ambient indicator, never a blocking banner. Only
+   * the offline state is shown — a permanent "online" chip would be noise in a
+   * local-first app. */
+  offline?: boolean
+  /** Visible text for the offline indicator (e.g. "Sin conexión"). It is the badge's
+   * accessible name too — the icon is decorative. */
+  offlineLabel?: string
   className?: string
 }
 
@@ -26,6 +34,8 @@ export function TopBar({
   searchLabel,
   xpLabel,
   xpHidden,
+  offline,
+  offlineLabel,
   className,
 }: TopBarProps) {
   return (
@@ -49,6 +59,12 @@ export function TopBar({
           ))}
         </ol>
       </nav>
+      {offline && (
+        <Badge variant="neutral" data-testid="offline-badge">
+          <WifiOffIcon className="size-3.5" aria-hidden="true" />
+          {offlineLabel}
+        </Badge>
+      )}
       {xpLabel && !xpHidden && (
         <Badge variant="xp" data-testid="xp-badge">
           {xpLabel}

@@ -42,4 +42,24 @@ describe('SplitPane', () => {
     }
     expect(handle).toHaveAttribute('aria-valuenow', '20')
   })
+
+  // WCAG 2.2 SC 2.5.8 Target Size (Minimum). Asserted on the utility class rather than a
+  // measured box: jsdom applies no Tailwind stylesheet, so every element measures 0x0 here.
+  it.each([
+    ['horizontal', 'w-6'],
+    ['vertical', 'h-6'],
+  ] as const)('gives the %s handle a 24px grab target', (direction, sizeClass) => {
+    render(
+      <SplitPane
+        aria-label="Resize"
+        direction={direction}
+        start={<div>Start</div>}
+        end={<div>End</div>}
+      />,
+    )
+    const handle = screen.getByRole('separator')
+    expect(handle).toHaveClass(sizeClass)
+    // The hairline is the pseudo-element, so the 1px rule must not size the element itself.
+    expect(handle.className).not.toMatch(/(^|\s)[wh]-px(\s|$)/)
+  })
 })

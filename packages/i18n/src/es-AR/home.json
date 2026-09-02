@@ -1,4 +1,7 @@
 {
   "title": "Hoy",
-  "subtitle": "Tu resumen del día llega en una fase posterior — por ahora, esto prueba que el puente IPC y la reproducción de medios funcionan."
+  "dueSummary": "{count, plural, one {# tarjeta pendiente} other {# tarjetas pendientes}}",
+  "nothingDue": "No hay nada pendiente por ahora.",
+  "startReview": "Empezar a repasar",
+  "comingSoon": "Tu racha, el mapa de calor, los caminos activos y los insights llegan en una fase posterior."
 }

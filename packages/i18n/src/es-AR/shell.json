@@ -15,7 +15,8 @@
   },
   "topBar": {
     "search": "Buscar",
-    "searchHint": "Abrir la paleta de comandos"
+    "searchHint": "Abrir la paleta de comandos",
+    "offline": "Sin conexión"
   },
   "xpBadge": "{xp} XP",
   "processingTray": {

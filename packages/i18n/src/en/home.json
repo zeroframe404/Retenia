@@ -1,4 +1,7 @@
 {
   "title": "Today",
-  "subtitle": "Your daily summary lands in a later phase — for now, this proves the IPC bridge and media playback work."
+  "dueSummary": "{count, plural, one {# card due} other {# cards due}}",
+  "nothingDue": "Nothing due right now.",
+  "startReview": "Start review",
+  "comingSoon": "Your streak, heatmap, active paths and insights land in a later phase."
 }

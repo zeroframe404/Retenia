@@ -100,8 +100,18 @@ export function SplitPane({
         onPointerDown={startDragging}
         onKeyDown={handleKeyDown}
         className={cn(
-          'bg-border hover:bg-brand-500 focus-visible:bg-brand-500 shrink-0 outline-none transition-colors duration-fast ease-standard',
-          isHorizontal ? 'w-px cursor-col-resize' : 'h-px cursor-row-resize',
+          // WCAG 2.2 SC 2.5.8 Target Size (Minimum): the handle *looks* like a 1px rule but
+          // has to be grabbable, so the element itself is 24px across the resize axis and
+          // transparent, with the visible hairline drawn by a centered `before:` pseudo-
+          // element. Sizing the element itself (rather than overhanging the panes with a
+          // negative-inset pseudo-element) keeps the grab zone from swallowing clicks on
+          // whatever the adjacent panes render.
+          'relative shrink-0 bg-transparent outline-none',
+          "before:absolute before:bg-border before:content-[''] before:transition-colors before:duration-fast before:ease-standard",
+          'hover:before:bg-brand-500 focus-visible:before:bg-brand-500',
+          isHorizontal
+            ? 'w-6 cursor-col-resize before:inset-y-0 before:left-1/2 before:w-px before:-translate-x-1/2'
+            : 'h-6 cursor-row-resize before:inset-x-0 before:top-1/2 before:h-px before:-translate-y-1/2',
         )}
         {...props}
       />
