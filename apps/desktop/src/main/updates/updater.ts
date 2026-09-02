@@ -1,6 +1,14 @@
 import type { Settings, UpdateStatus } from '@retenia/ipc-contract'
-import { autoUpdater } from 'electron-updater'
+// `electron-updater` ships CJS-only and exposes `autoUpdater` through a lazy getter
+// (`Object.defineProperty(exports, 'autoUpdater', { get() {...} })`), which Node's
+// ESM/CJS interop cannot always statically resolve as a named export — this is left
+// external by `electron-vite` (see electron.vite.config.ts), so it's the real installed
+// package Node loads at runtime, not a Vite-bundled reinterpretation of it. Importing the
+// module's default and destructuring off it is the interop-safe form either way.
+import electronUpdater from 'electron-updater'
 import { log } from '../logging/log'
+
+const { autoUpdater } = electronUpdater
 
 const LAUNCH_CHECK_DELAY_MS = 10_000
 const RECHECK_INTERVAL_MS = 6 * 60 * 60 * 1000

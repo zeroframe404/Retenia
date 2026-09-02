@@ -7,7 +7,12 @@ import { flipFuses, FuseVersion, FuseV1Options } from '@electron/fuses'
 /** @param {import('electron-builder').AfterPackContext} context */
 export default async function afterPack(context) {
   const { electronPlatformName, appOutDir, packager } = context
-  const executableName = packager.executableName
+  // `packager.executableName` only exists on `LinuxPackager` (app-builder-lib's own
+  // `getElectronDestinationPath` branches the same way) — everywhere else, including
+  // win32, the packaged binary is named after `appInfo.productFilename` (the
+  // `executableName` build config, falling back to the sanitized product name).
+  const executableName =
+    electronPlatformName === 'linux' ? packager.executableName : packager.appInfo.productFilename
 
   const executablePath =
     electronPlatformName === 'darwin'

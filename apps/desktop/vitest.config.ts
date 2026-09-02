@@ -22,7 +22,7 @@ export default baseVitestConfig({
         test: {
           name: 'renderer',
           environment: 'jsdom',
-          setupFiles: ['./vitest.setup.ts'],
+          setupFiles: ['@retenia/config/vitest.setup'],
           include: ['src/renderer/**/*.test.{ts,tsx}'],
         },
       },

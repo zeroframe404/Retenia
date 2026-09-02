@@ -1,0 +1,4 @@
+@import "tailwindcss";
+
+/* Real design tokens (OKLCH color scale, spacing, motion durations) land with the shared
+   preset in sub-phase 2.1 — see @retenia/config/tailwind.preset (docs/spec/01-decisions.md §10.2). */

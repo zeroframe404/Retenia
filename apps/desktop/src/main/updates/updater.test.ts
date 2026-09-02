@@ -26,7 +26,7 @@ class FakeAutoUpdater {
 
 const autoUpdater = new FakeAutoUpdater()
 
-vi.mock('electron-updater', () => ({ autoUpdater }))
+vi.mock('electron-updater', () => ({ autoUpdater, default: { autoUpdater } }))
 vi.mock('../logging/log', () => ({ log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }))
 
 const { createUpdater } = await import('./updater')
