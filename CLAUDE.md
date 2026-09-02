@@ -87,6 +87,14 @@ Not inferrable from the code — follow exactly:
 
 Hooks in `.claude/hooks/` are bash scripts run via Git Bash. Install **Git for Windows** and make sure `jq` is on `PATH` (the hooks fall back to `node` if it is missing) for them to parse tool-call JSON. There is no non-bash fallback: without Git Bash the hooks do not run at all, so `guard.sh` will not be blocking anything.
 
+## MCP
+
+`.mcp.json` declares the project-scoped MCP servers: **github** (issues/PRs) and
+**playwright** (app screenshots). Claude Code asks for approval the first time it loads
+them. No secrets live in the file — `github` reads `${GITHUB_TOKEN}` from the environment,
+so export a fine-grained PAT (repo, issues, pull requests) before starting a session, or
+skip the server. Add per-user servers such as Context7 with `claude mcp add --scope user`.
+
 ## Compacting
 
 When compacting, preserve the list of modified files and the test commands used to verify them.
