@@ -9,15 +9,23 @@ Adding an activity type to `packages/activities` touches several places. Follow 
 
 ## Checklist
 
-1. **Register the type** — create `packages/activities/types/<id>.ts` exporting an object implementing:
-   - `type` — the activity type id (string, kebab-case)
-   - `family` — which payload family it belongs to
+1. **Register the type** — create `packages/activities/types/<id>.ts` (the id is `snake_case`, e.g. `mcq_single.ts`) exporting an object with exactly this shape (`docs/spec/03-activities.md` §9):
+
+   ```ts
+   { type, family, Renderer, grader, validate,
+     generator: { promptTemplate, schemaRef, needsMedia, itemsPerCall, sourceMode },
+     review: { strategy, expectedSeconds, progression },
+     capabilities: { offline, needsMic, needsSandbox } }
+   ```
+
+   - `type` — the activity type id (string, `snake_case`, matching the file name)
+   - `family` — which of the 22 payload families it belongs to (`docs/spec/03-activities.md` §7)
    - `Renderer` — the React component that renders the activity
    - `grader` — pure function scoring a user's response
    - `validate` — zod validation for the activity's payload
-   - `generator` — function/prompt hook producing new instances of this activity
-   - `review` — how this activity type feeds into the FSRS review cycle
-   - `capabilities` — declared capabilities (e.g. supports hints, supports media, supports voice)
+   - `generator` — how `packages/ai` produces instances: which prompt template and response schema, whether it needs media, how many items per call, and the source mode
+   - `review` — how instances feed the scheduler: rating `strategy`, `expectedSeconds`, and `progression`
+   - `capabilities` — `offline`, `needsMic`, `needsSandbox`
 
 2. **Family payload schema** — if `family` is new (not an existing payload shape), add its zod schema alongside the other family schemas so `validate` can reuse it.
 
