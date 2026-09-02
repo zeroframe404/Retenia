@@ -5,5 +5,7 @@ packages:
 allowBuilds:
   esbuild: true
   electron: true
+  # Windows Squirrel installer pulled in transitively by electron-builder; we ship NSIS.
+  electron-winstaller: false
 minimumReleaseAgeExclude:
   - electron@44.1.1

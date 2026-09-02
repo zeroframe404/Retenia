@@ -1,8 +1,8 @@
-import type { ElectronAPI } from '@electron-toolkit/preload'
+import type { RendererApi } from '@retenia/ipc-contract'
 
 declare global {
   interface Window {
-    electron: ElectronAPI
-    api: Record<string, never>
+    /** Generated from `packages/ipc-contract`; see `apps/desktop/src/preload/build-api.ts`. */
+    api: RendererApi
   }
 }

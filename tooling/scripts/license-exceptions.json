@@ -4,6 +4,14 @@
     "@csstools/color-helpers": "MIT-0 (MIT with the attribution clause removed) — strictly more permissive than MIT; transitive dep of Tailwind 4/lightningcss.",
     "@csstools/css-syntax-patches-for-csstree": "MIT-0 (MIT with the attribution clause removed) — strictly more permissive than MIT; transitive dep of Tailwind 4/lightningcss.",
     "caniuse-lite": "CC-BY-4.0 — attribution-only browser support data, not code; transitive dep of browserslist (Vite/PostCSS toolchain).",
-    "lru-cache": "BlueOak-1.0.0 — OSI-approved permissive license; common transitive dep across the toolchain."
+    "chownr": "BlueOak-1.0.0 — OSI-approved permissive license; transitive dep of electron-builder (dev-only, not shipped in the app).",
+    "isexe": "BlueOak-1.0.0 — OSI-approved permissive license; transitive dep of electron-builder (dev-only, not shipped in the app).",
+    "lru-cache": "BlueOak-1.0.0 — OSI-approved permissive license; common transitive dep across the toolchain.",
+    "minimatch": "BlueOak-1.0.0 — OSI-approved permissive license; transitive dep of electron-builder (dev-only, not shipped in the app).",
+    "minipass": "BlueOak-1.0.0 — OSI-approved permissive license; transitive dep of electron-builder (dev-only, not shipped in the app).",
+    "sax": "BlueOak-1.0.0 — OSI-approved permissive license; transitive dep of electron-builder (dev-only, not shipped in the app).",
+    "tar": "BlueOak-1.0.0 — OSI-approved permissive license; transitive dep of electron-builder (dev-only, not shipped in the app).",
+    "truncate-utf8-bytes": "WTFPL — public-domain-equivalent, no conditions; transitive dep of electron-builder (dev-only, not shipped in the app).",
+    "yallist": "BlueOak-1.0.0 — OSI-approved permissive license; transitive dep of electron-builder (dev-only, not shipped in the app)."
   }
 }

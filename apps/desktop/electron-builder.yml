@@ -1,0 +1,25 @@
+# Minimal packaging configuration. Its job in sub-phase 1.2 is to give the Electron fuses
+# an `afterPack` hook to run in; auto-update, publishing and code signing land in 1.4/14.3.
+appId: app.retenia.desktop
+productName: Retenia
+# Without this the Linux binary is named after the package (`@reteniadesktop`).
+executableName: retenia
+directories:
+  output: release
+  buildResources: build
+files:
+  - out/**
+  - package.json
+  # Main leaves a few dependencies external (and better-sqlite3 will join them in 3.x),
+  # so their packages have to ship. electron-builder prunes this to production deps.
+  - node_modules/**
+# Required by the OnlyLoadAppFromAsar and EnableEmbeddedAsarIntegrityValidation fuses.
+asar: true
+afterPack: ./build/after-pack.mjs
+win:
+  target:
+    - nsis
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
