@@ -10,6 +10,7 @@ import { KeyboardShortcutsSheet } from './keyboard-shortcuts-sheet'
 import { SECTIONS } from './sections'
 import { StickyRegion } from './sticky-outlet'
 import { useDueCount } from './use-due-count'
+import { useOnlineStatus } from './use-online-status'
 import { useProcessingJobs } from './use-processing-jobs'
 import { useSettings } from './use-settings'
 import { useXp } from './use-xp'
@@ -35,6 +36,7 @@ export function AppShell() {
   const dueCount = useDueCount()
   const jobs = useProcessingJobs()
   const xp = useXp()
+  const online = useOnlineStatus()
   const settings = useSettings()
 
   const [paletteOpen, setPaletteOpen] = useState(false)
@@ -98,6 +100,8 @@ export function AppShell() {
             }
             onSearchClick={() => setPaletteOpen(true)}
             searchLabel={t('topBar.search')}
+            offline={!online}
+            offlineLabel={t('topBar.offline')}
             xpLabel={t('xpBadge', { xp })}
             xpHidden={soberMode}
           />

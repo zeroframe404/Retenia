@@ -40,4 +40,24 @@ describe('TopBar', () => {
     )
     expect(screen.queryByTestId('xp-badge')).not.toBeInTheDocument()
   })
+
+  // docs/spec/08-ux.md §1.6 "offline without surprises".
+  it('shows an offline indicator only while offline', () => {
+    const { rerender } = render(
+      <TopBar breadcrumbs={breadcrumbs} onSearchClick={() => {}} searchLabel="Search" />,
+    )
+    // Local-first: online is the unremarkable state and gets no permanent chip.
+    expect(screen.queryByTestId('offline-badge')).not.toBeInTheDocument()
+
+    rerender(
+      <TopBar
+        breadcrumbs={breadcrumbs}
+        onSearchClick={() => {}}
+        searchLabel="Search"
+        offline
+        offlineLabel="Sin conexión"
+      />,
+    )
+    expect(screen.getByTestId('offline-badge')).toHaveTextContent('Sin conexión')
+  })
 })

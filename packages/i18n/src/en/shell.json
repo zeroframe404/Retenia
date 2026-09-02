@@ -15,7 +15,8 @@
   },
   "topBar": {
     "search": "Search",
-    "searchHint": "Open the command palette"
+    "searchHint": "Open the command palette",
+    "offline": "Offline"
   },
   "xpBadge": "{xp} XP",
   "processingTray": {

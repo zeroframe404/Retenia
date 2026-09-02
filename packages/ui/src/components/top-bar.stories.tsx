@@ -24,3 +24,13 @@ export const Sober: Story = {
     xpHidden: true,
   },
 }
+
+/** docs/spec/08-ux.md §1.6 "offline without surprises": an ambient indicator, not a
+ * blocking banner — everything local keeps working, only AI features are unavailable. */
+export const Offline: Story = {
+  args: {
+    ...Arcade.args,
+    offline: true,
+    offlineLabel: 'Sin conexión',
+  },
+}
