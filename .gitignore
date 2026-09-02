@@ -9,6 +9,9 @@ node_modules/
 dist/
 out/
 build/
+# electron-builder's `buildResources` dir (electron-builder.yml) — tracked source
+# (the fuses afterPack hook, eventually icons/installer assets), not build output.
+!apps/desktop/build/
 *.tsbuildinfo
 
 # Electron-builder

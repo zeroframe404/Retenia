@@ -1,11 +1,11 @@
-# Minimal packaging configuration. Its job in sub-phase 1.2 is to give the Electron fuses
-# an `afterPack` hook to run in; auto-update, publishing and code signing land in 1.4/14.3.
+# Packaging, auto-update and fuses configuration (sub-phases 1.2 and 1.4).
 appId: app.retenia.desktop
 productName: Retenia
 # Without this the Linux binary is named after the package (`@reteniadesktop`).
 executableName: retenia
 directories:
-  output: release
+  # Matches the `apps/desktop/dist/` path the CI and release workflows publish from.
+  output: dist
   buildResources: build
 files:
   - out/**
@@ -13,19 +13,54 @@ files:
   # Main leaves a few dependencies external (and better-sqlite3 will join them in 3.x),
   # so their packages have to ship. electron-builder prunes this to production deps.
   - node_modules/**
-# Required by the OnlyLoadAppFromAsar and EnableEmbeddedAsarIntegrityValidation fuses.
+# Native modules (better-sqlite3, sqlite-vec, onnxruntime, …) and the bundled sidecar
+# binaries (ffmpeg, whisper-cli — see docs/spec/07-architecture.md §7) can't live inside
+# the asar: a `.node` file has to be `dlopen`ed from a real path, and a sidecar has to be
+# `spawn`ed as its own process.
+asarUnpack:
+  - resources/bin/**
+  - '**/*.node'
 asar: true
 afterPack: ./build/after-pack.mjs
+artifactName: '${productName}-${version}-${os}-${arch}.${ext}'
 # Lets the installer register `retenia://` with the OS, so `app.setAsDefaultProtocolClient`
 # (apps/desktop/src/main/deep-links/register.ts) has something to associate with.
 protocols:
   name: Retenia deep link
   schemes:
     - retenia
+# GitHub Releases today (docs/spec/07-architecture.md §4); the `generic` provider is the
+# documented migration path to a self-hosted update server without touching the client.
+# `owner`/`repo` are deliberately not hardcoded here: with only `provider` set,
+# electron-builder resolves them from the `repository` field in package.json (see
+# apps/desktop/package.json), so this file doesn't have to change if the repository is
+# ever renamed or forked. The update channel (latest vs beta) is likewise not fixed here —
+# it comes from the version's prerelease tag (e.g. `0.3.0-beta.1`), which
+# .github/workflows/release.yml's `channel` input controls via the version it publishes.
+publish:
+  provider: github
 win:
   target:
     - nsis
+  # Only meaningful once the app is actually signed (sub-phase 14.3, Certum/SSL.com
+  # certificate). Until then every build is unsigned, so there is no certificate for the
+  # downloaded update to be checked against, and this setting has no effect — it is left on
+  # so nothing has to change here when signing lands.
+  verifyUpdateCodeSignature: true
 nsis:
-  oneClick: false
+  oneClick: true
   perMachine: false
-  allowToChangeInstallationDirectory: true
+  # Fixed per-user install location; a one-click installer that also prompts for a
+  # directory is a contradiction, and it keeps the update path predictable.
+  allowToChangeInstallationDirectory: false
+# Prepared for sub-phase 14.5 but not part of any current build target: electron-builder
+# only touches this section when a build is explicitly invoked with `--mac`, which none of
+# the desktop package's scripts do. Left here so macOS packaging is a CLI flag away instead
+# of a config to write from scratch.
+mac:
+  target:
+    - dmg
+    - zip
+  category: public.app-category.education
+  hardenedRuntime: true
+  gatekeeperAssess: false

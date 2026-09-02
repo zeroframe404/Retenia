@@ -8,6 +8,8 @@ export type {
   ContractApi,
   DomainOf,
 } from './api-types'
+export type { Settings, UpdateChannel } from './channels/app'
+export { settingsSchema, updateChannelSchema } from './channels/app'
 export type {
   ChannelDefinition,
   ContractShape,
@@ -19,7 +21,8 @@ export type {
 export { defineContract, defineEvents } from './define'
 export type { IpcError, IpcErrorCode, IpcResult } from './envelope'
 export { ipcErrorCodes, ipcErrorSchema, ipcFail, ipcOk } from './envelope'
-export type { DeepLink } from './events/app'
+export type { DeepLink, UpdateStatus } from './events/app'
+export { updateStatusSchema } from './events/app'
 
 /**
  * Every main<->renderer request/response channel. Merge one object per domain; the

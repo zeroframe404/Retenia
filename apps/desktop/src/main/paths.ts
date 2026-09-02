@@ -7,6 +7,17 @@ export function getBlobsRoot(): string {
   return join(app.getPath('userData'), 'blobs')
 }
 
+/** `userData/settings.json`: a placeholder store until the real `settings` table lands in
+ * sub-phase 3.5 (see `src/main/settings/store.ts`). */
+export function getSettingsPath(): string {
+  return join(app.getPath('userData'), 'settings.json')
+}
+
+/** `userData/logs`, where electron-log rotates the main/renderer/preload log files. */
+export function getLogsDir(): string {
+  return join(app.getPath('userData'), 'logs')
+}
+
 /**
  * `resources/dev/sample.ogg`, shipped only for the dev-only media test page.
  *
