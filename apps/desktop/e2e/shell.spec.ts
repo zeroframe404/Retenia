@@ -79,6 +79,30 @@ test('opens the keyboard shortcuts sheet with Shift+? and lists the reserved sho
   await expect(sheet).toContainText('esc')
 })
 
+test('density: switching to compact actually shrinks the shell chrome', async ({ window }) => {
+  await gotoReady(window)
+  const topBar = window.locator('header').first()
+  const before = (await topBar.boundingBox())?.height
+
+  await window.getByTestId('sidebar-item-settings').click()
+  await window.getByTestId('screen-settings').getByText('Compacta').click()
+
+  await expect(window.locator('[data-density="compact"]')).toBeVisible()
+  await expect
+    .poll(async () => (await topBar.boundingBox())?.height)
+    .toBeLessThan(before ?? Number.POSITIVE_INFINITY)
+})
+
+test('sober mode hides the XP badge', async ({ window }) => {
+  await gotoReady(window)
+  await expect(window.getByTestId('xp-badge')).toBeVisible()
+
+  await window.getByTestId('sidebar-item-settings').click()
+  await window.getByTestId('screen-settings').getByText('Sobrio').click()
+
+  await expect(window.getByTestId('xp-badge')).not.toBeVisible()
+})
+
 test('the review screen stays mounted (via Activity) when navigating away and back', async ({
   window,
 }) => {

@@ -111,6 +111,11 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                   <PaletteItem
                     key={`recent-${c.id}`}
                     commandId={c.id}
+                    // cmdk tracks selection by `value`, inferred from children when not
+                    // given explicitly — recents render the same label text as their
+                    // counterpart below, so both would collide on one inferred value
+                    // without this override.
+                    value={`recent-${c.id}`}
                     onSelect={() => runAndClose(c.id, c.run)}
                   >
                     {c.label}
@@ -158,14 +163,19 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
 function PaletteItem({
   children,
   commandId,
+  value,
   onSelect,
 }: {
   children: string
   commandId: string
+  /** Overrides cmdk's own value inference (children/textContent) — needed wherever two
+   * items could render identical text (recents duplicate a label from the main list). */
+  value?: string
   onSelect: () => void
 }) {
   return (
     <Command.Item
+      value={value}
       onSelect={onSelect}
       data-testid={`command-item-${commandId}`}
       className="text-text data-[selected=true]:bg-brand-100 dark:data-[selected=true]:bg-brand-900 cursor-pointer rounded-md px-2 py-2 text-sm"

@@ -19,6 +19,9 @@ export interface ProcessingTrayProps {
   emptyState: string
   collapseLabel: string
   expandLabel: string
+  /** Full ICU-pluralized sentence ("3 jobs running") for the count badge's accessible
+   * name — the visible badge stays a compact digit, screen readers get the whole sentence. */
+  jobCountLabel?: string
   className?: string
 }
 
@@ -33,14 +36,15 @@ export function ProcessingTray({
   emptyState,
   collapseLabel,
   expandLabel,
+  jobCountLabel,
   className,
 }: ProcessingTrayProps) {
   return (
     <div className={cn('border-border bg-surface shrink-0 border-t', className)}>
-      <div className="flex h-9 items-center gap-2 px-3">
+      <div className="flex h-9 items-center gap-2 px-3 compact:h-7 compact:px-2">
         <span className="text-text text-xs font-medium">{title}</span>
         {jobs.length > 0 && (
-          <Badge variant="neutral" data-testid="processing-tray-count">
+          <Badge variant="neutral" aria-label={jobCountLabel} data-testid="processing-tray-count">
             {jobs.length}
           </Badge>
         )}

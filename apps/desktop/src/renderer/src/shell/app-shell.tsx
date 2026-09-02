@@ -1,4 +1,4 @@
-import { ProcessingTray, Sidebar, TopBar } from '@retenia/ui'
+import { ProcessingTray, SHORTCUTS, Sidebar, TopBar } from '@retenia/ui'
 import { Outlet, useNavigate, useRouterState } from '@tanstack/react-router'
 import { useState } from 'react'
 import { useHotkeys } from 'react-hotkeys-hook'
@@ -12,6 +12,8 @@ import { StickyRegion } from './sticky-outlet'
 import { useDueCount } from './use-due-count'
 import { useProcessingJobs } from './use-processing-jobs'
 import { useSettings } from './use-settings'
+
+const GLOBAL_SHORTCUTS = SHORTCUTS.filter((s) => s.scope === 'global')
 
 /**
  * The application shell: sidebar + top bar + main content (with the sticky Review region
@@ -36,16 +38,34 @@ export function AppShell() {
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
 
-  useHotkeys('ctrl+k', () => setPaletteOpen(true), { scopes: ['global'] }, [])
-  // react-hotkeys-hook matches by `KeyboardEvent.code` by default, not `.key` — "," and "?"
-  // (SHORTCUTS' display strings, shown as-is in the shortcuts sheet) don't match their own
-  // codes ("Comma"/"Slash"), so the registration uses the code-based names instead.
-  useHotkeys('ctrl+comma', () => navigate({ to: '/settings' }), { scopes: ['global'] }, [navigate])
-  useHotkeys('shift+slash', () => setShortcutsOpen(true), { scopes: ['global'] }, [])
+  // The registry (`packages/ui/src/shortcuts.ts`) is the single source of truth for both
+  // *what* the global shortcuts are and *which combo* actually fires them (`matchKeys`,
+  // when a shortcut's display string doesn't match its own `KeyboardEvent.code`) — one
+  // `useHotkeys` call, dispatching by which combo matched, rather than one call per
+  // shortcut with its combo typed out a second time.
+  useHotkeys(
+    GLOBAL_SHORTCUTS.map((s) => s.matchKeys ?? s.keys).join(','),
+    (_event, handler) => {
+      const shortcut = GLOBAL_SHORTCUTS.find((s) => (s.matchKeys ?? s.keys) === handler.hotkey)
+      switch (shortcut?.id) {
+        case 'shell.commandPalette':
+          setPaletteOpen(true)
+          break
+        case 'shell.openSettings':
+          navigate({ to: '/settings' })
+          break
+        case 'shell.shortcutsSheet':
+          setShortcutsOpen(true)
+          break
+      }
+    },
+    { scopes: ['global'] },
+    [navigate],
+  )
 
   const density = settings.data?.density ?? 'comfortable'
   const soberMode = settings.data?.gamification.profile === 'sober'
-  const activeSection = SECTIONS.find((s) => s.path === pathname) ?? SECTIONS[0]
+  const activeSection = SECTIONS.find((s) => s.path === pathname)
 
   return (
     <div data-density={density} className="flex h-screen flex-col overflow-hidden">
@@ -69,10 +89,11 @@ export function AppShell() {
         />
         <div className="flex flex-1 flex-col overflow-hidden">
           <TopBar
-            breadcrumbs={[
-              { label: tCommon('appTitle') },
-              { label: t(activeSection?.labelKey ?? 'nav.home') },
-            ]}
+            breadcrumbs={
+              activeSection
+                ? [{ label: tCommon('appTitle') }, { label: t(activeSection.labelKey) }]
+                : [{ label: tCommon('appTitle') }, { label: t('notFound.title') }]
+            }
             onSearchClick={() => setPaletteOpen(true)}
             searchLabel={t('topBar.search')}
             xpLabel={t('xpBadge', { xp: 1240 })}
@@ -92,6 +113,7 @@ export function AppShell() {
             emptyState={t('processingTray.emptyState')}
             collapseLabel={t('processingTray.collapse')}
             expandLabel={t('processingTray.expand')}
+            jobCountLabel={t('processingTray.jobCount', { count: jobs.length })}
           />
         </div>
       </div>

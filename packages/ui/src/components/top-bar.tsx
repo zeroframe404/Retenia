@@ -32,6 +32,7 @@ export function TopBar({
     <header
       className={cn(
         'border-border bg-surface flex h-14 shrink-0 items-center gap-4 border-b px-4',
+        'compact:h-11 compact:gap-2 compact:px-3',
         className,
       )}
     >

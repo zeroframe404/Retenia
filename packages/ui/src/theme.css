@@ -138,6 +138,14 @@
  */
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
+/**
+ * `AppShell` stamps the density setting onto its own root as `data-density="compact"` (the
+ * `comfortable` default needs no override — `docs/spec/08-ux.md` §1 principle 5). Same
+ * `:where([attr] *)` shape as the `dark` variant above, so `compact:h-8` etc. work on any
+ * descendant regardless of nesting depth.
+ */
+@custom-variant compact (&:where([data-density="compact"], [data-density="compact"] *));
+
 :root[data-theme="dark"] {
   --color-bg: var(--color-neutral-950);
   --color-surface: var(--color-neutral-900);

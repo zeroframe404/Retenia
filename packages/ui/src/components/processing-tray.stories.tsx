@@ -43,6 +43,7 @@ export const WithJobs: Story = {
       { id: '1', label: 'Ingesting "Cálculo I.pdf"', progress: 42 },
       { id: '2', label: 'Generating embeddings' },
     ],
+    jobCountLabel: '2 jobs running',
   },
   render: (args) => {
     function Demo() {

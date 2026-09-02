@@ -1,17 +1,20 @@
 import { useRouterState } from '@tanstack/react-router'
 import type { ComponentType } from 'react'
-import { Activity, useEffect, useState } from 'react'
-import { ReviewScreen } from './screens/review-screen'
+import { Activity, lazy, Suspense, useEffect, useState } from 'react'
 
 /**
  * Routes that stay mounted (via React 19.2's `<Activity>`) instead of unmounting when the
  * user navigates elsewhere — today just Review; the task also names "Player", which has no
  * route until sub-phase 9.2 (the lesson player lands under `/path`), so this list — and
  * `STICKY_SCREENS` below — is the extension point for it rather than something built against
- * a route that doesn't exist yet.
+ * a route that doesn't exist yet. `lazy()` keeps each screen in its own chunk (the whole
+ * point of route-level code splitting) instead of a static import pulling it into the shell
+ * chunk that loads on every route.
  */
 const STICKY_SCREENS: Record<string, ComponentType> = {
-  '/review': ReviewScreen,
+  '/review': lazy(() =>
+    import('./screens/review-screen').then((m) => ({ default: m.ReviewScreen })),
+  ),
 }
 
 /**
@@ -37,7 +40,9 @@ export function StickyRegion() {
         if (!Screen) return null
         return (
           <Activity key={path} mode={pathname === path ? 'visible' : 'hidden'}>
-            <Screen />
+            <Suspense fallback={null}>
+              <Screen />
+            </Suspense>
           </Activity>
         )
       })}

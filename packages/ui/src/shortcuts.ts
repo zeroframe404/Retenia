@@ -3,8 +3,16 @@ export type ShortcutScope = 'global' | 'review'
 export interface ShortcutDef {
   /** Stable id, `scope.action` (e.g. `review.grade1`). */
   id: string
-  /** Key combo as `react-hotkeys-hook` expects it, e.g. `ctrl+k`, `shift+?`, `1`. */
+  /** Human-readable key combo, shown as-is in the shortcuts sheet (e.g. `ctrl+k`, `shift+?`). */
   keys: string
+  /**
+   * The actual combo to hand `react-hotkeys-hook`'s `useHotkeys`, only when it differs from
+   * `keys` — the library matches `KeyboardEvent.code` by default, and a couple of displayed
+   * symbols don't equal their own code name (`,` is physically the "Comma" key, `?` is
+   * "Slash" held with Shift). Omitted when `keys` already matches directly (letters, digits,
+   * space/enter/esc all resolve the same way via either name).
+   */
+  matchKeys?: string
   scope: ShortcutScope
   /**
    * i18n key, relative to the `shell` namespace's `shortcuts.*` block (see
@@ -30,12 +38,14 @@ export const SHORTCUTS: ShortcutDef[] = [
   {
     id: 'shell.openSettings',
     keys: 'ctrl+,',
+    matchKeys: 'ctrl+comma',
     scope: 'global',
     description: 'shortcuts.openSettings',
   },
   {
     id: 'shell.shortcutsSheet',
     keys: 'shift+?',
+    matchKeys: 'shift+slash',
     scope: 'global',
     description: 'shortcuts.shortcutsSheet',
   },

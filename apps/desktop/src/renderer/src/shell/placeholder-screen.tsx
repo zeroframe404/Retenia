@@ -15,7 +15,7 @@ export interface PlaceholderScreenProps {
 export function PlaceholderScreen({ ns, children }: PlaceholderScreenProps) {
   const t = useT(ns)
   return (
-    <div data-testid={`screen-${ns}`} className="flex flex-col gap-2 p-6">
+    <div data-testid={`screen-${ns}`} className="flex flex-col gap-2 p-6 compact:gap-1 compact:p-4">
       <h1 className="font-display text-2xl font-semibold">{t('title')}</h1>
       <p className="text-muted">{t('comingSoon')}</p>
       {children}

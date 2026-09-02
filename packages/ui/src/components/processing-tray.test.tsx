@@ -19,7 +19,7 @@ describe('ProcessingTray', () => {
     expect(screen.queryByTestId('processing-tray-count')).not.toBeInTheDocument()
   })
 
-  it('lists jobs and shows a count badge', () => {
+  it('lists jobs and shows a count badge with the full sentence as its accessible name', () => {
     render(
       <ProcessingTray
         jobs={[
@@ -32,9 +32,14 @@ describe('ProcessingTray', () => {
         emptyState="No background jobs"
         collapseLabel="Collapse"
         expandLabel="Expand"
+        jobCountLabel="2 jobs running"
       />,
     )
     expect(screen.getByTestId('processing-tray-count')).toHaveTextContent('2')
+    expect(screen.getByTestId('processing-tray-count')).toHaveAttribute(
+      'aria-label',
+      '2 jobs running',
+    )
     expect(screen.getByText('Ingesting a PDF')).toBeInTheDocument()
     expect(screen.getByText('Generating embeddings')).toBeInTheDocument()
   })

@@ -99,6 +99,7 @@ function SidebarNavButton({ item, onSelect, children, className }: SidebarNavBut
       onClick={() => onSelect(item.id)}
       className={cn(
         'flex h-10 w-full items-center gap-3 rounded-md px-3 text-sm font-medium transition-colors duration-fast ease-standard',
+        'compact:h-8 compact:gap-2 compact:px-2',
         'hover:bg-neutral-100 dark:hover:bg-neutral-800',
         item.active
           ? 'bg-brand-100 text-brand-800 dark:bg-brand-900 dark:text-brand-100'

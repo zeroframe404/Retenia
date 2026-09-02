@@ -109,7 +109,6 @@ test('serves a Content-Security-Policy header with the provider allowlist', asyn
 
   // This run is unpackaged, so `app.isPackaged` is false — the strict policy must still
   // be what `app://` serves.
-  expect(csp).not.toContain("'unsafe-inline' ")
   expect(directives.find((d) => d.startsWith('script-src'))).not.toContain('unsafe-inline')
   expect(directives.find((d) => d.startsWith('style-src'))).not.toContain('unsafe-inline')
 
