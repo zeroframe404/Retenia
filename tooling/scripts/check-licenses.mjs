@@ -9,7 +9,7 @@
  * Exceptions can be configured in tooling/scripts/license-exceptions.json
  */
 
-import { execFileSync } from 'node:child_process'
+import { execSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -108,7 +108,10 @@ export function isLicenseAllowed(licenseStr) {
 function getAllPackageLicenses() {
   let output
   try {
-    output = execFileSync('pnpm', ['licenses', 'list', '--json'], {
+    // Goes through the shell on purpose: on Windows `pnpm` is a .cmd shim, and
+    // Node refuses to execFile those directly. The command is a constant, so
+    // there is no argument-injection surface.
+    output = execSync('pnpm licenses list --json', {
       cwd: projectRoot,
       encoding: 'utf-8',
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -117,6 +120,9 @@ function getAllPackageLicenses() {
   } catch (error) {
     console.error('Failed to run `pnpm licenses list --json`.')
     console.error('Run `pnpm install` first, then retry.')
+    if (error?.message) {
+      console.error(String(error.message).trim())
+    }
     if (error?.stderr) {
       console.error(String(error.stderr).trim())
     }
