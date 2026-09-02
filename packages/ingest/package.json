@@ -1,0 +1,23 @@
+{
+  "name": "@retenia/ingest",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Extractors, chunking, embeddings, jobs (Node only), sidecar manager. Real steps land in sub-phase 6.x.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "lint": "biome check ."
+  },
+  "dependencies": {
+    "@retenia/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@retenia/config": "workspace:*",
+    "typescript": "7.0.2",
+    "vitest": "4.1.11"
+  }
+}

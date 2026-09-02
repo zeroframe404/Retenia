@@ -1,0 +1,20 @@
+{
+  "name": "@retenia/i18n",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "i18next resources (es-AR default, en second).",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "lint": "biome check ."
+  },
+  "devDependencies": {
+    "@retenia/config": "workspace:*",
+    "typescript": "7.0.2",
+    "vitest": "4.1.11"
+  }
+}
