@@ -4,11 +4,13 @@ import type { HandlerDeps } from './handlers'
 const app = { getVersion: () => '0.1.0' }
 const showSaveDialog = vi.fn()
 const fromWebContents = vi.fn()
+const nativeTheme = { themeSource: 'system' }
 
 vi.mock('electron', () => ({
   app,
   BrowserWindow: { fromWebContents },
   dialog: { showSaveDialog },
+  nativeTheme,
 }))
 
 let devMode = false
@@ -36,14 +38,25 @@ const { createHandlers } = await import('./handlers')
 function makeDeps(): HandlerDeps {
   return {
     settings: {
-      get: vi.fn(() => ({ updateChannel: 'latest' as const, telemetryEnabled: false })),
+      get: vi.fn(() => ({
+        updateChannel: 'latest' as const,
+        telemetryEnabled: false,
+        theme: 'system' as const,
+      })),
       setUpdateChannel: vi.fn((channel: 'latest' | 'beta') => ({
         updateChannel: channel,
         telemetryEnabled: false,
+        theme: 'system' as const,
       })),
       setTelemetryEnabled: vi.fn((enabled: boolean) => ({
         updateChannel: 'latest' as const,
         telemetryEnabled: enabled,
+        theme: 'system' as const,
+      })),
+      setTheme: vi.fn((theme: 'light' | 'dark' | 'system') => ({
+        updateChannel: 'latest' as const,
+        telemetryEnabled: false,
+        theme,
       })),
     } as unknown as HandlerDeps['settings'],
     updater: {
@@ -68,7 +81,7 @@ beforeEach(() => {
   exportDiagnostics.mockClear()
 })
 
-describe('app.getSettings / setUpdateChannel / setTelemetryEnabled', () => {
+describe('app.getSettings / setUpdateChannel / setTelemetryEnabled / setTheme', () => {
   it('delegates straight to the settings store', () => {
     const deps = makeDeps()
     const handlers = createHandlers(deps)
@@ -77,11 +90,26 @@ describe('app.getSettings / setUpdateChannel / setTelemetryEnabled', () => {
     expect(handlers['app.setUpdateChannel']({ channel: 'beta' }, fakeEvent)).toEqual({
       updateChannel: 'beta',
       telemetryEnabled: false,
+      theme: 'system',
     })
     expect(handlers['app.setTelemetryEnabled']({ enabled: true }, fakeEvent)).toEqual({
       updateChannel: 'latest',
       telemetryEnabled: true,
+      theme: 'system',
     })
+  })
+
+  it('sets nativeTheme.themeSource and persists the preference', () => {
+    const deps = makeDeps()
+    const handlers = createHandlers(deps)
+
+    expect(handlers['app.setTheme']({ theme: 'dark' }, fakeEvent)).toEqual({
+      updateChannel: 'latest',
+      telemetryEnabled: false,
+      theme: 'dark',
+    })
+    expect(nativeTheme.themeSource).toBe('dark')
+    expect(deps.settings.setTheme).toHaveBeenCalledWith('dark')
   })
 })
 

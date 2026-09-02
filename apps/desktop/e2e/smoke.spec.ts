@@ -60,6 +60,7 @@ test('exposes only the generated api, never ipcRenderer', async ({ window }) => 
       'quitAndInstall',
       'reportRendererError',
       'setTelemetryEnabled',
+      'setTheme',
       'setUpdateChannel',
     ],
     events: 'function',

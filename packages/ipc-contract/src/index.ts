@@ -8,8 +8,8 @@ export type {
   ContractApi,
   DomainOf,
 } from './api-types'
-export type { Settings, UpdateChannel } from './channels/app'
-export { settingsSchema, updateChannelSchema } from './channels/app'
+export type { Settings, ThemePreference, UpdateChannel } from './channels/app'
+export { settingsSchema, themePreferenceSchema, updateChannelSchema } from './channels/app'
 export type {
   ChannelDefinition,
   ContractShape,

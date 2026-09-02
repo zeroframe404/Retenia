@@ -5,7 +5,9 @@
   "type": "module",
   "description": "Shared design system: Tailwind tokens, components, Motion presets, icons.",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./theme.css": "./src/theme.css",
+    "./fonts/*": "./fonts/*"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
@@ -15,13 +17,22 @@
     "storybook:build": "storybook build -o storybook-static"
   },
   "dependencies": {
+    "@base-ui/react": "1.7.0",
     "@retenia/core": "workspace:*",
+    "class-variance-authority": "0.7.1",
+    "clsx": "2.1.1",
+    "lucide-react": "1.39.0",
+    "motion": "13.1.1",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "sonner": "2.0.8",
+    "tailwind-merge": "3.6.0",
+    "zustand": "5.0.15"
   },
   "devDependencies": {
     "@retenia/config": "workspace:*",
     "@retenia/i18n": "workspace:*",
+    "@storybook/addon-themes": "10.5.10",
     "@storybook/react-vite": "10.2.0",
     "@tailwindcss/vite": "4.3.3",
     "@testing-library/jest-dom": "7.0.1",

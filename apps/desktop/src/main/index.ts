@@ -17,6 +17,7 @@ import { applySecurity } from './security/apply'
 import { buildCsp } from './security/csp'
 import { allowedRendererOrigins } from './security/origins'
 import { SettingsStore } from './settings/store'
+import { initThemeSync } from './theme/sync'
 import { createUpdater } from './updates/updater'
 import { broadcast, getWindows, openWindow, WindowKind } from './windows/manager'
 
@@ -108,6 +109,11 @@ if (gotLock) {
       enabled: !is.dev && process.env.RETENIA_UPDATES_ENABLED === '1',
     })
     app.on('before-quit', () => updater.stop())
+
+    const stopThemeSync = initThemeSync(settings.get().theme, (theme) =>
+      broadcast('app.themeChanged', { theme }),
+    )
+    app.on('before-quit', () => stopThemeSync())
 
     const handlers = createHandlers({
       settings,
