@@ -12,6 +12,14 @@ export {
   CardHeader,
   CardTitle,
 } from './components/card'
+export type { CodeBlockProps } from './components/code-block'
+export { CodeBlock } from './components/code-block'
+export type { ConfirmDialogProps } from './components/confirm-dialog'
+export { ConfirmDialog } from './components/confirm-dialog'
+export type { CostBadgeProps, CostLineItem } from './components/cost-badge'
+export { CostBadge } from './components/cost-badge'
+export type { CountdownProps, Duration } from './components/countdown'
+export { Countdown } from './components/countdown'
 export {
   Dialog,
   DialogClose,
@@ -37,8 +45,35 @@ export {
   DropdownMenuSubTriggerContent,
   DropdownMenuTrigger,
 } from './components/dropdown-menu'
+export type { EmptyStateProps } from './components/empty-state'
+export { EmptyState } from './components/empty-state'
+export type { ErrorStateProps } from './components/error-state'
+export { ErrorState } from './components/error-state'
+export type { FileDropZoneProps } from './components/file-drop-zone'
+export { FileDropZone } from './components/file-drop-zone'
+export type { HeatmapPoint, HeatmapProps } from './components/heatmap'
+export { Heatmap } from './components/heatmap'
+export type {
+  ImportanceBadgeProps,
+  ImportanceLevel,
+} from './components/importance-badge'
+export {
+  IMPORTANCE_LEVELS,
+  ImportanceBadge,
+  importanceBadgeVariants,
+} from './components/importance-badge'
 export { Input } from './components/input'
+export type { KatexInlineProps } from './components/katex-inline'
+export { KatexInline } from './components/katex-inline'
 export { Kbd } from './components/kbd'
+export type { MarkdownViewProps } from './components/markdown-view'
+export { MarkdownView } from './components/markdown-view'
+export type { MemoryStrengthBarProps } from './components/memory-strength-bar'
+export { MemoryStrengthBar } from './components/memory-strength-bar'
+export type { MermaidViewProps } from './components/mermaid-view'
+export { MermaidView } from './components/mermaid-view'
+export type { PageHeaderProps } from './components/page-header'
+export { PageHeader } from './components/page-header'
 export type { ProcessingJob, ProcessingTrayProps } from './components/processing-tray'
 export { ProcessingTray } from './components/processing-tray'
 export type { ProgressRingProps } from './components/progress'
@@ -51,6 +86,11 @@ export {
   ProgressValue,
 } from './components/progress'
 export { ScrollArea } from './components/scroll-area'
+export type {
+  SegmentedControlOption,
+  SegmentedControlProps,
+} from './components/segmented-control'
+export { SegmentedControl } from './components/segmented-control'
 export {
   Select,
   SelectContent,
@@ -84,6 +124,12 @@ export {
   SliderTrack,
   SliderValue,
 } from './components/slider'
+export type { SplitPaneProps } from './components/split-pane'
+export { SplitPane } from './components/split-pane'
+export type { StatTileProps } from './components/stat-tile'
+export { StatTile } from './components/stat-tile'
+export type { StepperProps, StepperStep } from './components/stepper'
+export { Stepper } from './components/stepper'
 export { Switch } from './components/switch'
 export {
   Tabs,
@@ -94,6 +140,8 @@ export {
 } from './components/tabs'
 export { Textarea } from './components/textarea'
 export { Toaster, toast } from './components/toast'
+export type { ToolbarProps } from './components/toolbar'
+export { Toolbar } from './components/toolbar'
 export {
   Tooltip,
   TooltipContent,

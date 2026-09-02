@@ -164,3 +164,17 @@ body {
   color: var(--color-text);
   font-family: var(--font-sans);
 }
+
+/**
+ * Shiki dual-theme output (`packages/ui/src/lib/shiki.ts`) embeds both the light and dark
+ * colors of every token as inline CSS custom properties and defaults to the light ones —
+ * this is the documented override that switches to the dark set, keyed off the same
+ * `data-theme` attribute every other dark-mode style in this file uses.
+ */
+[data-theme="dark"] .shiki,
+[data-theme="dark"] .shiki span {
+  /* biome-ignore lint/complexity/noImportantStyles: overriding Shiki's own per-token inline `style` (its documented dual-theme mechanism) is only reachable with !important. */
+  color: var(--shiki-dark) !important;
+  /* biome-ignore lint/complexity/noImportantStyles: same as above, for the token background. */
+  background-color: var(--shiki-dark-bg) !important;
+}
