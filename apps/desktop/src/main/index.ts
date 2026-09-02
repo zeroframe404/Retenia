@@ -1,6 +1,21 @@
 import { join } from 'node:path'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
-import { app, BrowserWindow, shell } from 'electron'
+import { contract } from '@retenia/ipc-contract'
+import { app, BrowserWindow } from 'electron'
+import { handlers } from './ipc/handlers'
+import { registerHandlers } from './ipc/register-handlers'
+import { makeSenderGuard } from './ipc/sender'
+import { handleAppProtocol, registerAppScheme } from './protocol/app-protocol'
+import { applySecurity } from './security/apply'
+import { buildCsp } from './security/csp'
+import { APP_INDEX_URL, allowedRendererOrigins } from './security/origins'
+
+// Must run before `app.whenReady()`: privileges are read when the scheme is first used.
+registerAppScheme()
+
+const devServerUrl = is.dev ? process.env.ELECTRON_RENDERER_URL : undefined
+const allowedOrigins = allowedRendererOrigins(devServerUrl)
+const csp = buildCsp({ isDev: is.dev, devServerUrl })
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -10,11 +25,15 @@ function createWindow(): void {
     show: false,
     autoHideMenuBar: true,
     webPreferences: {
-      preload: join(__dirname, '../preload/index.mjs'),
-      // Non-negotiable per CLAUDE.md, even though the full IPC contract lands in 1.2.
+      // A sandboxed preload cannot be an ES module, hence `.cjs` (see electron.vite.config.ts).
+      preload: join(__dirname, '../preload/index.cjs'),
+      // Non-negotiable per CLAUDE.md and docs/spec/07-architecture.md §4.
       contextIsolation: true,
       sandbox: true,
       nodeIntegration: false,
+      nodeIntegrationInSubFrames: false,
+      webSecurity: true,
+      webviewTag: false,
     },
   })
 
@@ -22,24 +41,21 @@ function createWindow(): void {
     mainWindow.show()
   })
 
-  // Open links the OS handles (http/https) in the default browser instead of a new
-  // Electron window; deny everything else.
-  mainWindow.webContents.setWindowOpenHandler((details) => {
-    if (details.url.startsWith('https:') || details.url.startsWith('http:')) {
-      shell.openExternal(details.url)
-    }
-    return { action: 'deny' }
-  })
-
-  if (is.dev && process.env.ELECTRON_RENDERER_URL) {
-    mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL)
+  if (devServerUrl) {
+    void mainWindow.loadURL(devServerUrl)
   } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+    // `app://`, never `file://`: the renderer needs a real origin for CSP and for the
+    // sender checks on every IPC message.
+    void mainWindow.loadURL(APP_INDEX_URL)
   }
 }
 
 app.whenReady().then(() => {
   electronApp.setAppUserModelId('app.retenia.desktop')
+
+  handleAppProtocol(join(__dirname, '../renderer'), csp)
+  applySecurity({ allowedOrigins, csp })
+  registerHandlers(contract, handlers, { isAllowedSender: makeSenderGuard(allowedOrigins) })
 
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
