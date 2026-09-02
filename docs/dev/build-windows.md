@@ -51,13 +51,19 @@ signed build exists to check downloaded updates against.
 
 ## Publishing a release
 
-`.github/workflows/release.yml` runs `pnpm --filter @retenia/desktop run release`
+`.github/workflows/release.yml` bumps `apps/desktop/package.json`'s version (a plain patch
+bump for `latest`, a `-beta.N` prerelease for `beta` — `npm version`, not committed back to
+the repo) and then runs `pnpm --filter @retenia/desktop run release`
 (`electron-vite build && electron-builder --win --publish always`) on `windows-latest`,
-using the workflow's own `GITHUB_TOKEN` to publish a **draft** GitHub Release. Owner/repo
-are not hardcoded in `electron-builder.yml` — electron-builder reads them from the
-`repository` field in `apps/desktop/package.json`. The update channel (`latest` vs `beta`)
-is decided by whether the version being published carries a prerelease tag (e.g.
-`0.4.0-beta.1`), not by an env var.
+using the workflow's own `GITHUB_TOKEN`. electron-builder itself publishes a **draft**
+GitHub Release from that version — the workflow has no separate release-creation step, to
+avoid publishing two releases for one run. Owner/repo are not hardcoded in
+`electron-builder.yml` — electron-builder reads them from the `repository` field in
+`apps/desktop/package.json`. The update channel (`latest` vs `beta`) is decided by whether
+the version being published carries a prerelease tag, which is also why
+`src/main/updates/updater.ts` sets `autoUpdater.allowPrerelease = channel !== 'latest'` —
+`channel` alone only selects which feed file (`latest.yml`/`beta.yml`) to read; without
+`allowPrerelease` a prerelease entry in that feed is still skipped.
 
 ## Known gaps until later sub-phases
 
@@ -66,7 +72,13 @@ is decided by whether the version being published carries a prerelease tag (e.g.
   actually checking something.
 - **macOS** (sub-phase 14.5): `electron-builder.yml`'s `mac` section is prepared but
   inert — nothing here invokes `electron-builder --mac`.
-- **Sentry**: `initSentryMain` only sends anything once `SENTRY_DSN` is set at build time
-  *and* the user has opted in via `app.setTelemetryEnabled` (default off). Neither the env
-  var nor an onboarding opt-in screen exist yet, so crash reporting is wired but dormant
-  until both land.
+- **Sentry**: `initSentryMain` only sends anything once `SENTRY_DSN` is set (currently read
+  from `process.env` at launch, not baked into the build — a real install would need an
+  actual env var, which nothing sets yet) *and* the user has opted in via
+  `app.setTelemetryEnabled` (default off). Neither exists yet, so crash reporting is wired
+  but dormant. Also note: `Sentry.init` only runs once, at startup, so flipping the opt-in
+  on takes full effect after a restart; flipping it off takes effect immediately for
+  renderer-forwarded errors (`app.reportRendererError` re-checks the setting on every call)
+  but not for anything the SDK's own global hooks might still catch in that same session.
+- **Source maps**: nothing uploads them to Sentry yet (spec §10), so a packaged build's
+  minified stack traces are unreadable until a `release.yml` step does that.

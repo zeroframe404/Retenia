@@ -13,9 +13,11 @@ export function getSettingsPath(): string {
   return join(app.getPath('userData'), 'settings.json')
 }
 
-/** `userData/logs`, where electron-log rotates the main/renderer/preload log files. */
+/** Where electron-log rotates the main process's log files — `userData/logs` on Windows
+ * and Linux, `~/Library/Logs/<app>` on macOS. Matches electron-log's own default
+ * (`app.getPath('logs')`) so `app.exportDiagnostics` zips the files that actually exist. */
 export function getLogsDir(): string {
-  return join(app.getPath('userData'), 'logs')
+  return app.getPath('logs')
 }
 
 /**

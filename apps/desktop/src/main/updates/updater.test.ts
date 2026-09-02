@@ -5,6 +5,7 @@ type Listener = (...args: unknown[]) => void
 class FakeAutoUpdater {
   autoDownload = false
   autoInstallOnAppQuit = true
+  allowPrerelease = false
   logger: unknown
   channel: string | null = null
   checkForUpdates = vi.fn(async () => null)
@@ -108,5 +109,19 @@ describe('createUpdater', () => {
     updater.checkForUpdates()
     expect(autoUpdater.checkForUpdates).toHaveBeenCalledOnce()
     expect(autoUpdater.channel).toBe('beta')
+  })
+
+  it('only allows a prerelease version on the beta channel', () => {
+    const updater = createUpdater({ getChannel: () => 'latest', onStatus: vi.fn(), enabled: false })
+    updater.checkForUpdates()
+    expect(autoUpdater.allowPrerelease).toBe(false)
+
+    const betaUpdater = createUpdater({
+      getChannel: () => 'beta',
+      onStatus: vi.fn(),
+      enabled: false,
+    })
+    betaUpdater.checkForUpdates()
+    expect(autoUpdater.allowPrerelease).toBe(true)
   })
 })
