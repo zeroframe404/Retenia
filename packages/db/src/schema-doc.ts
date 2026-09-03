@@ -254,6 +254,8 @@ export function renderSchemaDoc(): string {
       '0002_embeddings_int8': `\`embeddings_i8\` (vec0, \`int8[${EMBEDDING_DIMENSIONS}]\`, partition \`source_id\`): the quantized companion a KNN query scans, rescored against the exact float vectors, plus its maintenance triggers.`,
       '0003_review_logs_algorithm_version':
         "`review_logs.algorithm_version` (`TEXT NOT NULL DEFAULT 'fsrs6'`): which scheduler produced each row, so an FSRS variant or an SM-2 import can be told apart in the optimizer's training set (`02-memory-system.md` §17).",
+      '0004_card_importance_override_expiry':
+        '`cards.importance_override_expires_at` (nullable) and its partial index: when a per-card importance override lapses. `NULL` is a permanent override; a timestamp makes it urgent mode, the temporary 48–72 h push to desired retention 0.97 (`02-memory-system.md` §7 rule 5).',
     }
     for (const [index, migration] of loadMigrations().entries()) {
       line(

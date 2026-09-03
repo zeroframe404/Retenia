@@ -155,7 +155,7 @@ describe('openDatabase()', () => {
       it('can run the plain (unencrypted) path through the cipher driver too', () => {
         const db = track(openDatabase(IN_MEMORY, { driver: 'better-sqlite3-multiple-ciphers' }))
         expect(db.driver).toBe('better-sqlite3-multiple-ciphers')
-        expect(migrate(db).applied).toHaveLength(4)
+        expect(migrate(db).applied).toHaveLength(5)
       })
     },
   )

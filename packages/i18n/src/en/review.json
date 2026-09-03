@@ -7,5 +7,31 @@
     "increment": "Increment",
     "lastShortcut": "Last shortcut: {key}",
     "lastShortcutNone": "None yet"
+  },
+  "importance": {
+    "levels": {
+      "urgent": "Urgent",
+      "high": "High",
+      "normal": "Normal",
+      "maintenance": "Maintenance",
+      "paused": "Paused"
+    },
+    "share": "{percent} % of your items",
+    "biasWarning": "If everything is urgent, nothing is: {percent} % of your items are urgent or high importance."
+  },
+  "strength": {
+    "label": "~{percent} % today",
+    "unknown": "No data yet",
+    "bands": {
+      "critical": "Critical",
+      "weak": "Weak",
+      "good": "Good",
+      "strong": "Strong"
+    }
+  },
+  "urgentMode": {
+    "active": "Urgent mode until {date}",
+    "start": "Turn on urgent mode",
+    "hours": "{hours} h"
   }
 }

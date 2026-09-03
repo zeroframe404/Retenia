@@ -17,6 +17,7 @@ import { createChunkRepository } from './chunks'
 import { auditValues, type RepositoryContext } from './context'
 import { createExamRepository, createItemBankRepository } from './exams'
 import { createGamificationRepository } from './gamification'
+import { createImportanceLevelRepository } from './importance-levels'
 import { createJobRepository } from './jobs'
 import { createKnowledgeItemRepository } from './knowledge-items'
 import { createOutboxRepository } from './outbox'
@@ -95,6 +96,7 @@ export function createRepositories(opened: OpenedDatabase, options: RepositoryOp
     chunks: createChunkRepository(ctx),
     exams: createExamRepository(ctx),
     gamification: createGamificationRepository(ctx),
+    importanceLevels: createImportanceLevelRepository(ctx),
     itemBank: createItemBankRepository(ctx),
     jobs: createJobRepository(ctx),
     knowledgeItems: createKnowledgeItemRepository(ctx),

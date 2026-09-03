@@ -11,6 +11,7 @@ export {
   blobsContract,
   cardsContract,
   chunksContract,
+  importanceLevelsContract,
   jobsContract,
   outboxContract,
   reviewLogsContract,
@@ -34,6 +35,11 @@ export {
   fakeClock,
   fakeLiveness,
 } from './in-memory-job-repository'
-export type { InMemoryReviewStore } from './in-memory-review-store'
+export type { InMemoryReviewStore, StoreRepositories } from './in-memory-review-store'
 export { createInMemoryReviewStore } from './in-memory-review-store'
-export { cardFixture, knowledgeItemFixture, reviewLogFixture } from './memory-fixtures'
+export {
+  cardFixture,
+  examFixture,
+  knowledgeItemFixture,
+  reviewLogFixture,
+} from './memory-fixtures'

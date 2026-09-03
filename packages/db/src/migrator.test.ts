@@ -84,6 +84,7 @@ describe('loadMigrations()', () => {
       '0001_fts5_vec0_seed',
       '0002_embeddings_int8',
       '0003_review_logs_algorithm_version',
+      '0004_card_importance_override_expiry',
     ])
     for (const migration of migrations) expect(migration.sql.length).toBeGreaterThan(0)
   })
@@ -122,6 +123,7 @@ describe('migrate()', () => {
       '0001_fts5_vec0_seed',
       '0002_embeddings_int8',
       '0003_review_logs_algorithm_version',
+      '0004_card_importance_override_expiry',
     ])
     expect(result.alreadyApplied).toEqual([])
     expect(listTables(opened)).toEqual([...EXPECTED_TABLES])
@@ -138,6 +140,7 @@ describe('migrate()', () => {
       '0001_fts5_vec0_seed',
       '0002_embeddings_int8',
       '0003_review_logs_algorithm_version',
+      '0004_card_importance_override_expiry',
     ])
     expect(listTables(opened)).toEqual([...EXPECTED_TABLES])
     expect(opened.sqlite.prepare('SELECT count(*) AS n FROM importance_levels').get()).toEqual({
@@ -167,7 +170,7 @@ describe('migrate()', () => {
 
   it('accepts the raw handle and the Drizzle instance as targets too', () => {
     opened = openDatabase(IN_MEMORY)
-    expect(migrate(opened.sqlite).applied).toHaveLength(4)
+    expect(migrate(opened.sqlite).applied).toHaveLength(5)
     expect(migrate(opened.db).applied).toHaveLength(0)
   })
 

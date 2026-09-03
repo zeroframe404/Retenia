@@ -1,3 +1,4 @@
+import { strengthBand } from '@retenia/core'
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { MemoryStrengthBar } from './memory-strength-bar'
@@ -75,5 +76,26 @@ describe('MemoryStrengthBar', () => {
 
     rerender(<MemoryStrengthBar retrievability={0.95} bandLabels={bandLabels} />)
     expect(screen.getByText('Fuerte')).toBeInTheDocument()
+  })
+})
+
+describe('band parity with the scheduler', () => {
+  /**
+   * The bar's colour and the band a scheduler query reports must never disagree: both come
+   * from `@retenia/core`'s `strengthBand`, and this is the assertion that keeps the
+   * component honest if someone reintroduces a local threshold table.
+   */
+  it.each([
+    [0.2, 'Critical'],
+    [0.3, 'Critical'],
+    [0.5, 'Weak'],
+    [0.6, 'Weak'],
+    [0.7, 'Good'],
+    [0.85, 'Good'],
+    [0.9, 'Strong'],
+  ])('paints R = %s as %s, exactly as core classifies it', (retrievability, label) => {
+    render(<MemoryStrengthBar retrievability={retrievability} />)
+    expect(strengthBand(retrievability)).toBe(label.toLowerCase())
+    expect(screen.getByText(label)).toBeInTheDocument()
   })
 })

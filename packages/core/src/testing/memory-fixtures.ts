@@ -1,8 +1,8 @@
-import type { Card, KnowledgeItem, ReviewLog } from '../entities'
+import type { Card, Exam, KnowledgeItem, ReviewLog } from '../entities'
 
 /**
- * Entity builders for scheduler and review tests: a `New` card, an active item, a log —
- * every field present, every override optional.
+ * Entity builders for scheduler and review tests: a `New` card, an active item, a log, an
+ * upcoming dated exam — every field present, every override optional.
  */
 
 const EPOCH = new Date('2026-01-05T08:00:00.000Z')
@@ -51,6 +51,7 @@ export function cardFixture(overrides: Partial<Card> = {}): Card {
     buriedUntil: null,
     leech: false,
     importanceOverride: null,
+    importanceOverrideExpiresAt: null,
     examId: null,
     ...audit(),
     ...overrides,
@@ -76,6 +77,27 @@ export function reviewLogFixture(overrides: Partial<ReviewLog> = {}): ReviewLog 
     device: null,
     attemptId: null,
     algorithmVersion: 'fsrs6',
+    ...audit(),
+    ...overrides,
+  }
+}
+
+/** A planned, dated exam two weeks out, with the spec's 0.95 target and 3-day final
+ *  window (`docs/spec/02-memory-system.md` §8). */
+export function examFixture(overrides: Partial<Exam> = {}): Exam {
+  return {
+    id: '019a0000-0000-7000-8000-00000000bbbb',
+    title: 'Physiology final',
+    kind: 'dated',
+    date: '2026-01-19',
+    pathId: null,
+    scope: {},
+    blueprint: [],
+    targetRetention: 0.95,
+    finalWindowDays: 3,
+    studyDaysMask: 127,
+    dailyCapacityMinutes: null,
+    status: 'active',
     ...audit(),
     ...overrides,
   }

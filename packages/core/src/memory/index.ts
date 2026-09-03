@@ -1,5 +1,18 @@
 export type { CardReviewedEvent, MemorySnapshot } from './events'
 export { memorySnapshot } from './events'
+export type {
+  ExamOverrideOptions,
+  ExamOverrideSource,
+  ExamRetentionInput,
+  ExamSchedulingOverride,
+} from './exam-override'
+export {
+  createExamOverrides,
+  daysUntilExam,
+  examDesiredRetention,
+  examOverrideFor,
+  NO_EXAM_OVERRIDES,
+} from './exam-override'
 export type { ForgettingCurveConstants, FuzzWindow, NextStateOptions } from './formulas'
 export {
   assertParameters,
@@ -28,6 +41,37 @@ export {
 } from './formulas'
 export type { FsrsSchedulerConfig } from './fsrs-scheduler'
 export { createFsrsScheduler, FsrsScheduler } from './fsrs-scheduler'
+export type {
+  ImportanceCatalog,
+  ImportanceLevelSettings,
+  ImportanceLevelValues,
+  ImportancePolicy,
+  NewItemPolicy,
+  PostponePolicy,
+} from './importance'
+export {
+  createImportanceCatalog,
+  DEFAULT_IMPORTANCE_CATALOG,
+  DEFAULT_IMPORTANCE_LEVEL,
+  DEFAULT_IMPORTANCE_LEVELS,
+  DESIRED_RETENTION_MAX,
+  DESIRED_RETENTION_MIN,
+  IMPORTANCE_POLICIES,
+  MAINTENANCE_RETENTION_MAX,
+  MAINTENANCE_RETENTION_MIN,
+  POSTPONE_FACTOR,
+  PRIORITY_BIAS_THRESHOLD,
+  URGENT_EXAM_WINDOW_DAYS,
+  URGENT_MODE_RETENTION,
+  URGENT_MODE_STEPS,
+} from './importance'
+export type {
+  ImportanceMix,
+  ImportanceMixDeps,
+  ImportanceMixEntry,
+  ImportanceMixQuery,
+} from './importance-mix'
+export { createImportanceMix, queuedTotal } from './importance-mix'
 export type { FsrsCardFields, FsrsReviewLogFields } from './mappers'
 export { fromFsrsCard, fromFsrsReviewLog, toFsrsCard, toFsrsReviewLog } from './mappers'
 export type { FsrsParameters, SchedulerProfileParameters } from './parameters'
@@ -46,6 +90,23 @@ export {
 } from './parameters'
 export { fuzzSeed, hashString, mulberry32 } from './prng'
 export type {
+  RescheduleCandidate,
+  RescheduleChange,
+  RescheduleImpact,
+  RescheduleNow,
+  RescheduleNowDeps,
+  RescheduleNowInput,
+  RescheduleNowResult,
+  RescheduleReadRepositories,
+  RescheduleSelection,
+  RescheduleUnitOfWork,
+  RescheduleWindow,
+  RescheduleWriteRepositories,
+  SimulateReschedule,
+  SimulateRescheduleDeps,
+} from './reschedule'
+export { createRescheduleNow, createSimulateReschedule, projectReschedule } from './reschedule'
+export type {
   ReviewCard,
   ReviewCardDeps,
   ReviewCardInput,
@@ -54,8 +115,22 @@ export type {
   ReviewUnitOfWork,
 } from './review-card'
 export { createReviewCard } from './review-card'
-export type { SchedulingPolicy, SchedulingPolicyInput } from './scheduling-policy'
-export { createDefaultSchedulingPolicy } from './scheduling-policy'
+export type {
+  ImportancePolicyDeps,
+  ImportanceResolution,
+  ImportanceSource,
+  SchedulingPolicy,
+  SchedulingPolicyInput,
+} from './scheduling-policy'
+export {
+  createDefaultSchedulingPolicy,
+  createImportanceResolver,
+  createImportanceSchedulingPolicy,
+  isUrgentModeActive,
+  resolveImportance,
+} from './scheduling-policy'
+export type { RetrievabilityOptions, StrengthBand, StrengthLabel } from './strength'
+export { retrievabilityNow, STRENGTH_BANDS, strengthBand, strengthLabel } from './strength'
 export type { DayBoundary } from './study-day'
 export {
   DAY_MS,
@@ -89,3 +164,23 @@ export type {
   Weekday,
 } from './types'
 export { CARD_STATE, GRADES, RATING, SCHEDULER_ALGORITHM_VERSION } from './types'
+export type {
+  EndUrgentMode,
+  ExpireUrgentMode,
+  StartUrgentMode,
+  StartUrgentModeInput,
+  UrgentModeCounts,
+  UrgentModeDeps,
+  UrgentModeHours,
+  UrgentModeRepositories,
+  UrgentModeResult,
+  UrgentModeUnitOfWork,
+} from './urgent-mode'
+export {
+  createEndUrgentMode,
+  createExpireUrgentMode,
+  createStartUrgentMode,
+  DEFAULT_URGENT_MODE_HOURS,
+  URGENT_MODE_HOURS,
+  urgentModeExpiry,
+} from './urgent-mode'

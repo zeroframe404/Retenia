@@ -1,11 +1,15 @@
 import { is } from '@electron-toolkit/utils'
 import type {
   BlobStore,
+  ImportanceLevel,
   JsonValue,
+  RescheduleImpact,
+  RescheduleSelection,
   SecretName,
   SecretStore,
   SettingsKey,
   SettingsRepository,
+  UrgentModeHours,
 } from '@retenia/core'
 import { SETTINGS } from '@retenia/core'
 import type { Contract } from '@retenia/ipc-contract'
@@ -14,6 +18,7 @@ import type { BackupService } from '../backups/service'
 import { ensureDevMediaSample } from '../dev/media-sample'
 import { collectSystemInfo, exportDiagnostics } from '../diagnostics/export'
 import type { JobsFacade } from '../jobs/facade'
+import type { MemoryService } from '../memory/service'
 import { getDevMediaSamplePath, getLogsDir } from '../paths'
 import { maskSecret } from '../secrets/store'
 import type { SettingsStore } from '../settings/store'
@@ -38,6 +43,7 @@ export interface HandlerDeps {
   secrets: SecretStore | null
   backups: BackupService | null
   settingsRepo: SettingsRepository | null
+  memory: MemoryService | null
   /** Computed once at startup (`../backups/synced-folder.ts`). */
   syncedFolderWarning: boolean
   /** Closes the shared database, swaps in the chosen backup file, and relaunches the app.
@@ -46,6 +52,33 @@ export interface HandlerDeps {
   dbUnavailableReason: string
   /** Broadcasts `settings.changed`; what makes `useSetting` a "subscription" in practice. */
   emitSettingsChanged: (key: string, value: JsonValue) => void
+}
+
+/** The bridge speaks ISO strings; the use cases speak `Date`. */
+function toSelection(input: {
+  cardIds?: readonly string[]
+  itemIds?: readonly string[]
+  levels?: readonly string[]
+  limit?: number
+}): RescheduleSelection {
+  return {
+    ...(input.cardIds === undefined ? {} : { cardIds: input.cardIds }),
+    ...(input.itemIds === undefined ? {} : { itemIds: input.itemIds }),
+    ...(input.levels === undefined ? {} : { levels: input.levels as ImportanceLevel[] }),
+    ...(input.limit === undefined ? {} : { limit: input.limit }),
+  }
+}
+
+function toImpactDto(impact: RescheduleImpact) {
+  return {
+    ...impact,
+    changes: impact.changes.map((change) => ({
+      ...change,
+      currentDue: change.currentDue.toISOString(),
+      newDue: change.newDue.toISOString(),
+    })),
+    computedAt: impact.computedAt.toISOString(),
+  }
 }
 
 /** The implementation of every channel in the contract. */
@@ -58,6 +91,7 @@ export function createHandlers({
   secrets,
   backups,
   settingsRepo,
+  memory,
   syncedFolderWarning,
   restoreFromBackup,
   dbUnavailableReason,
@@ -139,6 +173,46 @@ export function createHandlers({
     'jobs.retry': ({ id }) => jobs.retry(id),
 
     'jobs.enqueueDemo': (input) => jobs.enqueueDemo(input),
+
+    // --- memory: importance, urgent mode, reschedule (docs/spec/02-memory-system.md §7) ---
+
+    'items.setImportance': async ({ ids, level }) => {
+      if (!memory) unavailable('memory', dbUnavailableReason)
+      return { updated: await memory.setItemImportance(ids, level as ImportanceLevel) }
+    },
+
+    'cards.overrideImportance': async ({ ids, level, expiresAt }) => {
+      if (!memory) unavailable('memory', dbUnavailableReason)
+      const updated = await memory.overrideCardImportance(
+        ids,
+        level as ImportanceLevel | null,
+        expiresAt === undefined || expiresAt === null ? null : new Date(expiresAt),
+      )
+      return { updated }
+    },
+
+    'memory.importanceMix': async () => {
+      if (!memory) unavailable('memory', dbUnavailableReason)
+      const mix = await memory.importanceMix()
+      return { ...mix, entries: [...mix.entries], computedAt: mix.computedAt.toISOString() }
+    },
+
+    'memory.simulateReschedule': async (selection) => {
+      if (!memory) unavailable('memory', dbUnavailableReason)
+      return toImpactDto(await memory.simulateReschedule(toSelection(selection)))
+    },
+
+    'memory.rescheduleNow': async ({ confirm: _confirm, ...selection }) => {
+      if (!memory) unavailable('memory', dbUnavailableReason)
+      const { impact, applied } = await memory.rescheduleNow(toSelection(selection))
+      return { impact: toImpactDto(impact), applied }
+    },
+
+    'memory.startUrgentMode': async ({ itemIds, hours }) => {
+      if (!memory) unavailable('memory', dbUnavailableReason)
+      const result = await memory.startUrgentMode(itemIds, hours as UrgentModeHours | undefined)
+      return { ...result, expiresAt: result.expiresAt.toISOString() }
+    },
 
     'secrets.set': async ({ name, value }) => {
       if (!secrets) unavailable('secrets', dbUnavailableReason)

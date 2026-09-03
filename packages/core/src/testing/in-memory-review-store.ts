@@ -1,11 +1,14 @@
-import type { Card, KnowledgeItem, ReviewLog } from '../entities'
-import type { ReviewRepositories, ReviewUnitOfWork } from '../memory/review-card'
-import type { EntityPatch, FindOptions, NewEntity } from '../ports/audit'
+import type { Card, ImportanceLevel, KnowledgeItem, ReviewLog } from '../entities'
+import type { EntityPatch, FindOptions, ListOptions, NewEntity } from '../ports/audit'
+import type { CardRepository } from '../ports/card-repository'
 import type { Clock } from '../ports/clock'
 import { EntityNotFoundError, OptimisticConcurrencyError } from '../ports/errors'
+import type { KnowledgeItemRepository } from '../ports/knowledge-item-repository'
+import type { ReviewLogRepository } from '../ports/review-log-repository'
 
 /**
- * An in-memory `ReviewUnitOfWork` — the slice of the repositories `reviewCard` touches —
+ * An in-memory unit of work over the slice of the repositories the memory-system use cases
+ * touch — `reviewCard`, urgent mode and reschedule —
  * so the use case can be tested in `packages/core`, which by rule cannot reach the SQLite
  * adapter (`tooling/scripts/check-deps.mjs`). `packages/db` proves the real repositories
  * against the shared contracts; this double only reproduces what the use case leans on:
@@ -13,18 +16,40 @@ import { EntityNotFoundError, OptimisticConcurrencyError } from '../ports/errors
  * log, and a transaction that really rolls its writes back.
  */
 
-export interface InMemoryReviewStore extends ReviewUnitOfWork {
-  cards: ReviewRepositories['cards'] & {
+/**
+ * Everything the memory-system use cases call, in one bag. Written out rather than composed
+ * from their `…UnitOfWork` types: each of those narrows `cards` differently, and the store
+ * is structurally assignable to all of them anyway.
+ */
+export interface StoreRepositories {
+  cards: Pick<
+    CardRepository,
+    | 'findById'
+    | 'findMany'
+    | 'list'
+    | 'listByItems'
+    | 'findDue'
+    | 'update'
+    | 'overrideImportance'
+    | 'clearExpiredOverrides'
+  >
+  knowledgeItems: Pick<KnowledgeItemRepository, 'findById' | 'findMany'>
+  reviewLogs: Pick<ReviewLogRepository, 'append'>
+}
+
+export interface InMemoryReviewStore extends StoreRepositories {
+  cards: StoreRepositories['cards'] & {
     create(input: NewEntity<Card>): Promise<Card>
     all(): Card[]
   }
-  knowledgeItems: ReviewRepositories['knowledgeItems'] & {
+  knowledgeItems: StoreRepositories['knowledgeItems'] & {
     create(input: NewEntity<KnowledgeItem>): Promise<KnowledgeItem>
   }
-  reviewLogs: ReviewRepositories['reviewLogs'] & {
+  reviewLogs: StoreRepositories['reviewLogs'] & {
     listByCard(cardId: string): Promise<ReviewLog[]>
     all(): ReviewLog[]
   }
+  transaction<T>(work: (repos: InMemoryReviewStore) => Promise<T> | T): Promise<T>
   /** Every `append` call, including those a rolled-back transaction discarded. */
   readonly appendCalls: number
   /** Every `update` call, including those a rolled-back transaction discarded. */
@@ -54,6 +79,13 @@ export function createInMemoryReviewStore(
     return { createdAt: now, updatedAt: now, deletedAt: null, deviceId, version: 1 }
   }
 
+  const applyList = <T>(rows: T[], listOptions?: ListOptions): T[] => {
+    const from = listOptions?.offset ?? 0
+    return listOptions?.limit === undefined
+      ? rows.slice(from)
+      : rows.slice(from, from + listOptions.limit)
+  }
+
   const live = <T extends { deletedAt: Date | null }>(
     row: T | undefined,
     findOptions?: FindOptions,
@@ -62,9 +94,59 @@ export function createInMemoryReviewStore(
       ? row
       : undefined
 
-  const repos: ReviewRepositories = {
+  const liveCards = (): Card[] =>
+    [...cards.values()]
+      .filter((card) => card.deletedAt === null)
+      .sort((a, b) => a.id.localeCompare(b.id))
+
+  const repos: StoreRepositories = {
     cards: {
       findById: async (id, findOptions) => live(cards.get(id), findOptions),
+      findMany: async (ids, findOptions) =>
+        ids.map((id) => live(cards.get(id), findOptions)).filter((card) => card !== undefined),
+      list: async (listOptions?: ListOptions) => applyList(liveCards(), listOptions),
+      listByItems: async (itemIds, listOptions) =>
+        applyList(
+          liveCards().filter((card) => itemIds.includes(card.itemId)),
+          listOptions,
+        ),
+      findDue: async (now) => liveCards().filter((card) => card.due.getTime() <= now.getTime()),
+      overrideImportance: async (
+        ids: readonly string[],
+        level: ImportanceLevel | null,
+        expiresAt: Date | null = null,
+      ) => {
+        let written = 0
+        for (const id of ids) {
+          const card = live(cards.get(id))
+          if (card === undefined) continue
+          cards.set(id, {
+            ...card,
+            importanceOverride: level,
+            importanceOverrideExpiresAt: level === null ? null : expiresAt,
+            updatedAt: clock.now(),
+            version: card.version + 1,
+          })
+          written += 1
+        }
+        return written
+      },
+      clearExpiredOverrides: async (now) => {
+        let cleared = 0
+        for (const card of liveCards()) {
+          const at = card.importanceOverrideExpiresAt
+          if (at === null || at.getTime() > now.getTime()) continue
+          cards.set(card.id, {
+            ...card,
+            importanceOverride: null,
+            importanceOverrideExpiresAt: null,
+            updatedAt: clock.now(),
+            version: card.version + 1,
+          })
+          cleared += 1
+        }
+        return cleared
+      },
       update: async (id, patch: EntityPatch<Card>) => {
         updateCalls += 1
         const card = live(cards.get(id))
@@ -85,6 +167,8 @@ export function createInMemoryReviewStore(
     },
     knowledgeItems: {
       findById: async (id, findOptions) => live(items.get(id), findOptions),
+      findMany: async (ids, findOptions) =>
+        ids.map((id) => live(items.get(id), findOptions)).filter((item) => item !== undefined),
     },
     reviewLogs: {
       append: async (input) => {

@@ -5,6 +5,7 @@ import type { CardRepository } from './card-repository'
 import type { ChunkRepository } from './chunk-repository'
 import type { ExamRepository } from './exam-repository'
 import type { GamificationRepository } from './gamification-repository'
+import type { ImportanceLevelRepository } from './importance-level-repository'
 import type { ItemBankRepository } from './item-bank-repository'
 import type { JobRepository } from './job-repository'
 import type { KnowledgeItemRepository } from './knowledge-item-repository'
@@ -24,6 +25,7 @@ export interface Repositories {
   chunks: ChunkRepository
   exams: ExamRepository
   gamification: GamificationRepository
+  importanceLevels: ImportanceLevelRepository
   itemBank: ItemBankRepository
   jobs: JobRepository
   knowledgeItems: KnowledgeItemRepository

@@ -52,6 +52,7 @@ const codec: TableCodec<Card, NewCard, CardPatch> = {
     buriedUntil: toDateOrNull(row.buriedUntil),
     leech: toBool(row.leech),
     importanceOverride: toTextOrNull(row.importanceOverride) as ImportanceLevel | null,
+    importanceOverrideExpiresAt: toDateOrNull(row.importanceOverrideExpiresAt),
     examId: toTextOrNull(row.examId),
     createdAt: toDate(row.createdAt),
     updatedAt: toDate(row.updatedAt),
@@ -77,6 +78,7 @@ const codec: TableCodec<Card, NewCard, CardPatch> = {
       buriedUntil: fromDateOrNull(input.buriedUntil),
       leech: fromBool(input.leech),
       importanceOverride: input.importanceOverride ?? null,
+      importanceOverrideExpiresAt: fromDateOrNull(input.importanceOverrideExpiresAt),
       examId: input.examId ?? null,
     }),
   toUpdate: (patch) =>
@@ -97,6 +99,10 @@ const codec: TableCodec<Card, NewCard, CardPatch> = {
       buriedUntil: patch.buriedUntil === undefined ? undefined : fromDateOrNull(patch.buriedUntil),
       leech: patch.leech === undefined ? undefined : fromBool(patch.leech),
       importanceOverride: patch.importanceOverride,
+      importanceOverrideExpiresAt:
+        patch.importanceOverrideExpiresAt === undefined
+          ? undefined
+          : fromDateOrNull(patch.importanceOverrideExpiresAt),
       examId: patch.examId,
     }),
 }
@@ -215,6 +221,14 @@ export function createCardRepository(ctx: RepositoryContext): CardRepository {
         orderBy: [asc(cards.template), asc(cards.id)],
       }),
 
+    listByItems: (itemIds, options) =>
+      itemIds.length === 0
+        ? Promise.resolve([])
+        : base.findWhere(inArray(cards.itemId, [...itemIds]), {
+            ...options,
+            orderBy: [asc(cards.itemId), asc(cards.template), asc(cards.id)],
+          }),
+
     listByExam: (examId, options) =>
       base.findWhere(eq(cards.examId, examId), {
         ...options,
@@ -254,6 +268,57 @@ export function createCardRepository(ctx: RepositoryContext): CardRepository {
       if (batch.length === 0) return
       await ctx.run(async () => {
         for (const card of batch) await base.save(card)
+      })
+    },
+
+    /**
+     * The level and its expiry are always written together, so an expiry can never outlive
+     * the override it qualifies — the invariant SQLite cannot express as a CHECK on a
+     * column added by `ALTER TABLE` (`../schema/memory.ts`). Clearing the level clears the
+     * expiry with it.
+     *
+     * One row at a time inside one transaction, as `bulkSave` does: a raw bulk `UPDATE`
+     * would bypass the audit bump and the outbox writer.
+     */
+    overrideImportance: async (ids, level, expiresAt = null) => {
+      if (ids.length === 0) return 0
+      const at = level === null ? null : (expiresAt ?? null)
+      return ctx.run(async () => {
+        let written = 0
+        for (const id of ids) {
+          await base.updateColumns(id, {
+            importanceOverride: level,
+            importanceOverrideExpiresAt: fromDateOrNull(at),
+          })
+          written += 1
+        }
+        return written
+      })
+    },
+
+    /** The urgent-mode sweep. Hygiene only: `resolveImportance` already ignores an expired
+     *  override, so a collection that has not been opened for a week never reviews at the
+     *  urgent retention even before this runs. */
+    clearExpiredOverrides: async (now) => {
+      const at = now.getTime()
+      const expired = (
+        await base.findWhere(
+          and(
+            sql`${cards.importanceOverrideExpiresAt} is not null`,
+            lte(cards.importanceOverrideExpiresAt, at),
+          ),
+          { orderBy: [asc(cards.id)] },
+        )
+      ).map((card) => card.id)
+      if (expired.length === 0) return 0
+      return ctx.run(async () => {
+        for (const id of expired) {
+          await base.updateColumns(id, {
+            importanceOverride: null,
+            importanceOverrideExpiresAt: null,
+          })
+        }
+        return expired.length
       })
     },
 

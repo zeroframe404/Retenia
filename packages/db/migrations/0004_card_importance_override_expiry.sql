@@ -1,0 +1,2 @@
+ALTER TABLE `cards` ADD `importance_override_expires_at` integer;--> statement-breakpoint
+CREATE INDEX `cards_override_expiry` ON `cards` (`importance_override_expires_at`) WHERE "cards"."importance_override_expires_at" IS NOT NULL;

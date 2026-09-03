@@ -38,6 +38,10 @@ export {
 export type { ExamRepository } from './exam-repository'
 export type { GamificationRepository, XpRange } from './gamification-repository'
 export type { IdGenerator } from './id-generator'
+export type {
+  ImportanceLevelPatch,
+  ImportanceLevelRepository,
+} from './importance-level-repository'
 export type { ItemBankRepository } from './item-bank-repository'
 export type { EnqueueOptions, JobRepository } from './job-repository'
 export type { KnowledgeItemRepository } from './knowledge-item-repository'

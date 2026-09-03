@@ -75,6 +75,48 @@ function makeSettingsRepo(): HandlerDeps['settingsRepo'] {
   } as unknown as HandlerDeps['settingsRepo']
 }
 
+/** Every method a spy, so a test can assert what the handler forwarded. */
+function makeMemory(): HandlerDeps['memory'] {
+  const impact = {
+    affected: 0,
+    skipped: { notInReview: 0, noMemoryState: 0, unchanged: 0 },
+    dueInSevenDays: { before: 0, after: 0, delta: 0 },
+    reviewsPerDay: { before: 0, after: 0, delta: 0 },
+    byLevel: {
+      urgent: { affected: 0, dueInSevenDaysDelta: 0 },
+      high: { affected: 0, dueInSevenDaysDelta: 0 },
+      normal: { affected: 0, dueInSevenDaysDelta: 0 },
+      maintenance: { affected: 0, dueInSevenDaysDelta: 0 },
+      paused: { affected: 0, dueInSevenDaysDelta: 0 },
+    },
+    changes: [],
+    computedAt: new Date('2026-09-02T00:00:00.000Z'),
+  }
+  return {
+    setItemImportance: vi.fn(async (ids: readonly string[]) => ids.length),
+    overrideCardImportance: vi.fn(async (ids: readonly string[]) => ids.length),
+    importanceMix: vi.fn(async () => ({
+      entries: [],
+      totalItems: 0,
+      totalCards: 0,
+      prioritizedShare: 0,
+      threshold: 0.3,
+      biasWarning: false,
+      computedAt: new Date('2026-09-02T00:00:00.000Z'),
+    })),
+    simulateReschedule: vi.fn(async () => impact),
+    rescheduleNow: vi.fn(async () => ({ impact, applied: 0 })),
+    startUrgentMode: vi.fn(async (itemIds: readonly string[]) => ({
+      items: itemIds.length,
+      cards: itemIds.length,
+      expiresAt: new Date('2026-09-04T00:00:00.000Z'),
+    })),
+    expireUrgentMode: vi.fn(async () => 0),
+    resolve: vi.fn(),
+    refresh: vi.fn(async () => {}),
+  } as unknown as HandlerDeps['memory']
+}
+
 function makeDeps(overrides: Partial<HandlerDeps> = {}): HandlerDeps {
   return {
     settings: {
@@ -153,6 +195,7 @@ function makeDeps(overrides: Partial<HandlerDeps> = {}): HandlerDeps {
       runIntegrityCheck: vi.fn(() => 'ok' as const),
     },
     settingsRepo: makeSettingsRepo(),
+    memory: makeMemory(),
     syncedFolderWarning: false,
     restoreFromBackup: vi.fn(async () => true),
     dbUnavailableReason: 'the database did not open',
@@ -490,5 +533,89 @@ describe('settings channels', () => {
     await expect(handlers['settings.get']({ key: 'ui.theme' }, fakeEvent)).rejects.toThrow(
       /unavailable/,
     )
+  })
+})
+
+describe('memory channels', () => {
+  const ID = '019213cd-0000-7000-8000-000000000001'
+
+  it('forwards an item importance change and reports how many rows moved', async () => {
+    const deps = makeDeps()
+    const handlers = createHandlers(deps)
+
+    expect(
+      await handlers['items.setImportance']({ ids: [ID], level: 'urgent' }, fakeEvent),
+    ).toEqual({ updated: 1 })
+    expect(deps.memory?.setItemImportance).toHaveBeenCalledExactlyOnceWith([ID], 'urgent')
+  })
+
+  it('turns the override’s ISO expiry back into a Date for the use case', async () => {
+    const deps = makeDeps()
+    const handlers = createHandlers(deps)
+
+    await handlers['cards.overrideImportance'](
+      { ids: [ID], level: 'urgent', expiresAt: '2026-09-04T00:00:00.000Z' },
+      fakeEvent,
+    )
+    expect(deps.memory?.overrideCardImportance).toHaveBeenCalledExactlyOnceWith(
+      [ID],
+      'urgent',
+      new Date('2026-09-04T00:00:00.000Z'),
+    )
+  })
+
+  it('treats a missing or null expiry as "permanent"', async () => {
+    const deps = makeDeps()
+    const handlers = createHandlers(deps)
+
+    await handlers['cards.overrideImportance']({ ids: [ID], level: 'high' }, fakeEvent)
+    await handlers['cards.overrideImportance'](
+      { ids: [ID], level: null, expiresAt: null },
+      fakeEvent,
+    )
+    expect(deps.memory?.overrideCardImportance).toHaveBeenNthCalledWith(1, [ID], 'high', null)
+    expect(deps.memory?.overrideCardImportance).toHaveBeenNthCalledWith(2, [ID], null, null)
+  })
+
+  it('sends every Date across the bridge as an ISO string', async () => {
+    const deps = makeDeps()
+    const handlers = createHandlers(deps)
+
+    const mix = await handlers['memory.importanceMix'](undefined, fakeEvent)
+    expect(mix.computedAt).toBe('2026-09-02T00:00:00.000Z')
+
+    const impact = await handlers['memory.simulateReschedule']({}, fakeEvent)
+    expect(impact.computedAt).toBe('2026-09-02T00:00:00.000Z')
+
+    const urgent = await handlers['memory.startUrgentMode']({ itemIds: [ID], hours: 72 }, fakeEvent)
+    expect(urgent.expiresAt).toBe('2026-09-04T00:00:00.000Z')
+    expect(deps.memory?.startUrgentMode).toHaveBeenCalledExactlyOnceWith([ID], 72)
+  })
+
+  it('drops the confirmation flag before handing the selection to the use case', async () => {
+    const deps = makeDeps()
+    const handlers = createHandlers(deps)
+
+    await handlers['memory.rescheduleNow']({ cardIds: [ID], confirm: true }, fakeEvent)
+    expect(deps.memory?.rescheduleNow).toHaveBeenCalledExactlyOnceWith({ cardIds: [ID] })
+  })
+
+  it('reports the failure rather than pretending, when the database did not open', async () => {
+    const handlers = createHandlers(makeDeps({ memory: null }))
+    const channels = [
+      ['items.setImportance', { ids: [ID], level: 'normal' }],
+      ['cards.overrideImportance', { ids: [ID], level: null }],
+      ['memory.importanceMix', undefined],
+      ['memory.simulateReschedule', {}],
+      ['memory.rescheduleNow', { confirm: true }],
+      ['memory.startUrgentMode', { itemIds: [ID] }],
+    ] as const
+
+    for (const [channel, input] of channels) {
+      await expect(
+        // biome-ignore lint/suspicious/noExplicitAny: one loop over heterogeneous channels.
+        (handlers[channel] as any)(input, fakeEvent),
+      ).rejects.toThrow('memory is unavailable')
+    }
   })
 })

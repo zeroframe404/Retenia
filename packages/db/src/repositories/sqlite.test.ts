@@ -166,6 +166,7 @@ describe('append-only review logs at the database level', () => {
       buriedUntil: null,
       leech: false,
       importanceOverride: null,
+      importanceOverrideExpiresAt: null,
       examId: null,
     })
     return repos.reviewLogs.append({

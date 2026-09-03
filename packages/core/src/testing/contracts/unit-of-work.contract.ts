@@ -159,6 +159,7 @@ function newCard(itemId: string, due: Date) {
     buriedUntil: null,
     leech: false,
     importanceOverride: null,
+    importanceOverrideExpiresAt: null,
     examId: null,
   }
 }

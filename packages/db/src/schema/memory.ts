@@ -250,6 +250,18 @@ export const cards = sqliteTable(
     leech: integer('leech').notNull().default(0),
     /** Per-card importance, overriding the item's level (the exam override wins over both). */
     importanceOverride: text('importance_override', { enum: IMPORTANCE_LEVELS }),
+    /**
+     * When the override lapses. `NULL` is a permanent override the user set by hand; a
+     * timestamp makes it **urgent mode** — the temporary 48–72 h push to desired retention
+     * 0.97 of docs/spec/02-memory-system.md §7 rule 5.
+     *
+     * Added by migration `0004`, so it carries no CHECK: SQLite's `ALTER TABLE ADD COLUMN`
+     * cannot add a table constraint, and rebuilding `cards` to gain one is not worth it.
+     * "An expiry only ever accompanies an override" is enforced by the repository
+     * (`overrideImportance` writes both columns together) and honoured on read
+     * (`resolveImportance` ignores an expiry with no override).
+     */
+    importanceOverrideExpiresAt: timestampColumn('importance_override_expires_at'),
     /** The dated exam currently driving this card's desired retention and interval cap. */
     examId: text('exam_id').references(() => exams.id),
     ...auditColumns(),
@@ -258,6 +270,11 @@ export const cards = sqliteTable(
     // The daily queue's index (docs/spec/02-memory-system.md §14).
     index('cards_due').on(t.due).where(sql`${t.suspended} = 0 AND ${t.deletedAt} IS NULL`),
     index('cards_item').on(t.itemId),
+    // The urgent-mode sweep: a handful of rows out of tens of thousands, so a partial index
+    // keeps `clearExpiredOverrides` off a full scan.
+    index('cards_override_expiry')
+      .on(t.importanceOverrideExpiresAt)
+      .where(sql`${t.importanceOverrideExpiresAt} IS NOT NULL`),
     index('cards_exam').on(t.examId),
     index('cards_state').on(t.state),
     // No uniqueness on (item_id, template): one skill may be rendered by several cards of

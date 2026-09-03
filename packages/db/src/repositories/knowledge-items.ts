@@ -6,6 +6,7 @@ import type {
   ListOptions,
   NewEntity,
 } from '@retenia/core'
+import { IMPORTANCE_LEVELS } from '@retenia/core'
 import { asc, count, eq, isNull } from 'drizzle-orm'
 import type { SQLiteColumn } from 'drizzle-orm/sqlite-core'
 import { knowledgeItems } from '../schema'
@@ -111,6 +112,21 @@ export function createKnowledgeItemRepository(ctx: RepositoryContext): Knowledge
 
     setImportance: (id, importance) => base.update(id, { importance }),
 
+    /** One row at a time inside one transaction, as `cards.bulkSave` does: a raw bulk
+     *  `UPDATE` would bypass the audit bump and the outbox writer. Changing the level moves
+     *  no due date (docs/spec/02-memory-system.md §7 rule 2). */
+    setImportanceMany: async (ids, importance) => {
+      if (ids.length === 0) return 0
+      return ctx.run(async () => {
+        let written = 0
+        for (const id of ids) {
+          await base.update(id, { importance })
+          written += 1
+        }
+        return written
+      })
+    },
+
     countByStatus: async () => {
       const rows = ctx.db
         .select({ status: knowledgeItems.status, value: count() })
@@ -124,6 +140,22 @@ export function createKnowledgeItemRepository(ctx: RepositoryContext): Knowledge
         archived: 0,
       }
       for (const row of rows) totals[row.status] = row.value
+      return totals
+    },
+
+    countByImportance: async () => {
+      const rows = ctx.db
+        .select({ importance: knowledgeItems.importance, value: count() })
+        .from(knowledgeItems)
+        .where(isNull(knowledgeItems.deletedAt))
+        .groupBy(knowledgeItems.importance)
+        .all() as Array<{ importance: ImportanceLevel; value: number }>
+      // Always total: every level present, zeroes included, so no caller handles undefined.
+      const totals = Object.fromEntries(IMPORTANCE_LEVELS.map((level) => [level, 0])) as Record<
+        ImportanceLevel,
+        number
+      >
+      for (const row of rows) totals[row.importance] = row.value
       return totals
     },
   }

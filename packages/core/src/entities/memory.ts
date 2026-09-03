@@ -91,5 +91,11 @@ export interface Card extends Entity {
   leech: boolean
   /** Beats the item's importance when set (`docs/spec/02-memory-system.md` §7 rule 1). */
   importanceOverride: ImportanceLevel | null
+  /**
+   * When the override stops applying. `null` is a permanent override the user set by hand;
+   * a date makes it **urgent mode** — the temporary 48–72 h DR 0.97 push of §7 rule 5. Once
+   * it has passed the override is ignored on read and swept away by `expireUrgentMode`.
+   */
+  importanceOverrideExpiresAt: Date | null
   examId: string | null
 }
