@@ -1,3 +1,4 @@
+import { resolve } from 'node:path'
 import tailwindcss from '@tailwindcss/vite'
 import { tanstackRouter } from '@tanstack/router-plugin/vite'
 import react from '@vitejs/plugin-react'
@@ -7,10 +8,25 @@ export default defineConfig({
   main: {
     build: {
       // Externalization is on by default (`build.externalizeDeps ?? true`), which is what
-      // native modules like better-sqlite3 will need later. `@retenia/ipc-contract` is
-      // published as TypeScript source with no build step, and zod comes along with it, so
-      // both have to be bundled instead.
-      externalizeDeps: { exclude: ['@retenia/ipc-contract', 'zod'] },
+      // native modules like better-sqlite3 need: `sqlite-vec` also resolves a loadable
+      // extension from its own package directory, and neither survives being bundled.
+      //
+      // The workspace packages are the other way round: `@retenia/ipc-contract`,
+      // `@retenia/core` and `@retenia/db` all ship TypeScript source with no build step, so
+      // Node could not `require` them at runtime and they have to be bundled. `zod` comes
+      // along with the contract.
+      externalizeDeps: {
+        exclude: ['@retenia/ipc-contract', '@retenia/core', '@retenia/db', 'zod'],
+      },
+      rollupOptions: {
+        input: {
+          index: resolve(__dirname, 'src/main/index.ts'),
+          // The job worker, forked by `utilityProcess` (docs/spec/07-architecture.md §7).
+          // Emitted alongside `index.js` so `getJobWorkerPath()` can resolve it from
+          // `__dirname` in a dev run, a packaged asar and under Playwright alike.
+          'job-worker': resolve(__dirname, 'src/worker/index.ts'),
+        },
+      },
     },
   },
   preload: {

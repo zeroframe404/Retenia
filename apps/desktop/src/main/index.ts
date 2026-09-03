@@ -8,6 +8,7 @@ import { deepLinkFromArgv, registerDeepLinks } from './deep-links/register'
 import { createHandlers } from './ipc/handlers'
 import { registerHandlers } from './ipc/register-handlers'
 import { makeSenderGuard } from './ipc/sender'
+import { bootstrapJobs } from './jobs/bootstrap'
 import { initLogging, log } from './logging/log'
 import { initSentryMain } from './observability/sentry'
 import { getBlobsRoot, getSettingsPath } from './paths'
@@ -115,9 +116,18 @@ if (gotLock) {
     )
     app.on('before-quit', () => stopThemeSync())
 
+    const jobs = bootstrapJobs({
+      deviceId: settings.deviceId,
+      emit: (event) => broadcast('jobs.progress', event),
+      // Same gate as `app.devMediaSampleUrl`: nothing in the shipped product enqueues from
+      // the renderer, so the demo channel refuses outside a dev run or the e2e suite.
+      demoEnabled: is.dev || process.env.RETENIA_E2E === '1',
+    })
+
     const handlers = createHandlers({
       settings,
       updater,
+      jobs: jobs.facade,
       reportRendererError: (error) => {
         log.error('[renderer]', error.name, error.message, error.stack)
         // Re-checked per call rather than captured once at startup: `Sentry.init` only
@@ -131,6 +141,15 @@ if (gotLock) {
       },
     })
     registerHandlers(contract, handlers, { isAllowedSender: makeSenderGuard(allowedOrigins) })
+
+    // Orphan recovery runs inside `start`, before any worker can claim: everything still
+    // marked `running` belongs to the process that died.
+    void jobs.start().catch((error: unknown) => {
+      log.error('[jobs] the runner failed to start:', error)
+    })
+    app.on('before-quit', () => {
+      void jobs.stop()
+    })
 
     app.on('browser-window-created', (_, window) => {
       optimizer.watchWindowShortcuts(window)

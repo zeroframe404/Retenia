@@ -1,6 +1,8 @@
 import { readFileSync, writeFileSync } from 'node:fs'
+import { uuidv7 } from '@retenia/core'
 import type { Settings } from '@retenia/ipc-contract'
 import { settingsSchema } from '@retenia/ipc-contract'
+import { z } from 'zod'
 
 /**
  * Sober placeholder for the real `settings` table landing in sub-phase 3.5
@@ -17,19 +19,42 @@ export const defaultSettings: Settings = {
   gamification: { profile: 'arcade' },
 }
 
+/**
+ * What the file holds: everything the renderer may see, plus the device id, which it may not.
+ *
+ * `deviceId` stamps every row this installation writes (`docs/spec/07-architecture.md` §5's
+ * sync-ready conventions) and is what a future sync layer uses to attribute a change. The
+ * renderer has no use for it and a stable per-installation identifier is exactly the sort of
+ * thing not to hand to a context that renders remote content, so it is deliberately outside
+ * `settingsSchema` — the output type of `app.getSettings`. Zod strips unknown keys, so
+ * `get()` returning `Settings` drops it without any extra work here.
+ *
+ * Sub-phase 3.5 moves it to the `settings` table under `app.deviceId`, which
+ * `RepositoryOptions` already anticipates.
+ */
+const storedSettingsSchema = settingsSchema.extend({ deviceId: z.uuid() })
+type StoredSettings = z.infer<typeof storedSettingsSchema>
+
 /** Read `file`, falling back to `defaultSettings` when it is missing, unreadable, or its
- * contents no longer match the schema (e.g. a future migration changed its shape). */
-export function loadSettings(file: string): Settings {
+ * contents no longer match the schema (e.g. a future migration changed its shape). A file
+ * written before device ids existed is topped up with one rather than discarded. */
+export function loadSettings(file: string): StoredSettings {
   try {
     const raw: unknown = JSON.parse(readFileSync(file, 'utf-8'))
-    const parsed = settingsSchema.safeParse(raw)
-    return parsed.success ? parsed.data : defaultSettings
+    const parsed = storedSettingsSchema.safeParse(raw)
+    if (parsed.success) return parsed.data
+    // The device id is the only field that cannot be defaulted — losing it would orphan
+    // every row this installation has already written — so an otherwise-valid file missing
+    // just that gets a fresh id rather than being reset wholesale.
+    const withoutDeviceId = settingsSchema.safeParse(raw)
+    if (withoutDeviceId.success) return { ...withoutDeviceId.data, deviceId: uuidv7() }
+    return { ...defaultSettings, deviceId: uuidv7() }
   } catch {
-    return defaultSettings
+    return { ...defaultSettings, deviceId: uuidv7() }
   }
 }
 
-export function saveSettings(file: string, settings: Settings): void {
+export function saveSettings(file: string, settings: StoredSettings): void {
   writeFileSync(file, JSON.stringify(settings, null, 2))
 }
 
@@ -40,21 +65,31 @@ export function saveSettings(file: string, settings: Settings): void {
  */
 export class SettingsStore {
   #file: string
-  #settings: Settings
+  #settings: StoredSettings
 
   constructor(file: string) {
     this.#file = file
     this.#settings = loadSettings(file)
+    // Persist immediately so a freshly minted device id survives a crash before the first
+    // settings change — otherwise the next launch would mint a different one and the rows
+    // written in between would be attributed to a device that never existed again.
+    saveSettings(file, this.#settings)
   }
 
+  /** What crosses the IPC bridge. `settingsSchema.parse` strips `deviceId`. */
   get(): Settings {
-    return this.#settings
+    return settingsSchema.parse(this.#settings)
+  }
+
+  /** This installation's identity, for `createRepositories`. Main-process only. */
+  get deviceId(): string {
+    return this.#settings.deviceId
   }
 
   #update(patch: Partial<Settings>): Settings {
     this.#settings = { ...this.#settings, ...patch }
     saveSettings(this.#file, this.#settings)
-    return this.#settings
+    return this.get()
   }
 
   setUpdateChannel(channel: Settings['updateChannel']): Settings {

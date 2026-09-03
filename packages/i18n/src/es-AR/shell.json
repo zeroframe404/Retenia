@@ -24,7 +24,14 @@
     "collapse": "Contraer",
     "expand": "Expandir",
     "emptyState": "No hay trabajos en segundo plano",
-    "jobCount": "{count, plural, =0 {Sin trabajos} one {# trabajo en curso} other {# trabajos en curso}}"
+    "jobCount": "{count, plural, =0 {Sin trabajos} one {# trabajo en curso} other {# trabajos en curso}}",
+    "cancel": "Cancelar",
+    "retry": "Reintentar",
+    "queued": "En cola",
+    "kind": {
+      "sleep": "Trabajo de prueba",
+      "hashFile": "Calculando el hash de un archivo"
+    }
   },
   "commandPalette": {
     "placeholder": "Escribí un comando o buscá…",

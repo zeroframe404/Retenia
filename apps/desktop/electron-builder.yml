@@ -25,7 +25,18 @@ files:
 asarUnpack:
   - resources/bin/**
   - '**/*.node'
+  # sqlite-vec's loadable extension is a plain `.dll`/`.so`, not a `.node`, so the pattern
+  # above does not reach it — and `sqlite.loadExtension` hands its path to SQLite, which
+  # opens it with the OS loader and cannot see inside the asar. Migration 0001 creates a
+  # `vec0` virtual table, so without this a packaged build cannot build its database at all.
+  # `resolveUnpacked` in src/main/paths.ts points at the copy this leaves on disk.
+  - '**/node_modules/sqlite-vec-*/**'
 asar: true
+# better-sqlite3 13 ships N-API prebuilds for every platform inside its tarball, which is why
+# `pnpm-workspace.yaml` already sets `allowBuilds.better-sqlite3: false`. Letting
+# electron-builder run its own `node-gyp` rebuild would demand a full toolchain on the build
+# machine to produce a binary we already have.
+npmRebuild: false
 afterPack: ./build/after-pack.mjs
 artifactName: '${productName}-${version}-${os}-${arch}.${ext}'
 # Lets the installer register `retenia://` with the OS, so `app.setAsDefaultProtocolClient`

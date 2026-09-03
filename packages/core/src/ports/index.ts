@@ -36,6 +36,7 @@ export type { EnqueueOptions, JobRepository } from './job-repository'
 export type { KnowledgeItemRepository } from './knowledge-item-repository'
 export type { OutboxAppend, OutboxRepository } from './outbox-repository'
 export type { PathRepository, PathTree } from './path-repository'
+export type { ProcessLiveness } from './process-liveness'
 export type {
   RerankDocument,
   Reranker,

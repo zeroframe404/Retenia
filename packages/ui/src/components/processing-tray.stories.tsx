@@ -61,26 +61,30 @@ export const WithJobs: Story = {
 }
 
 /** docs/spec/08-ux.md §1.6: "long operations live in a progress panel with cancel/resume".
- * Cancelling drops the job; pausing flips it to Resume and holds its progress. */
-export const CancellableAndPausable: Story = {
+ * The queue has no `paused` status, so the controls are cancel and — for a failure — retry.
+ * Cancelling drops the row; retrying puts the job back at the front of the queue. */
+export const WithFailure: Story = {
   args: {
     ...baseArgs,
     jobs: [
       { id: '1', label: 'Ingesting "Cálculo I.pdf"', progress: 42 },
-      { id: '2', label: 'Transcribing "Clase 03.mp4"', progress: 18, status: 'paused' },
-      { id: '3', label: 'Generating embeddings' },
+      {
+        id: '2',
+        label: 'Transcribing "Clase 03.mp4"',
+        status: 'failed',
+        error: 'ffmpeg exited with code 1: Invalid data found when processing input',
+      },
+      { id: '3', label: 'Generating embeddings', status: 'queued' },
     ],
     jobCountLabel: '3 jobs running',
     cancelLabel: 'Cancel',
-    pauseLabel: 'Pause',
-    resumeLabel: 'Resume',
+    retryLabel: 'Retry',
+    queuedLabel: 'Queued',
   },
   render: (args) => {
     function Demo() {
       const [collapsed, setCollapsed] = useState(args.collapsed)
       const [jobs, setJobs] = useState(args.jobs)
-      const setStatus = (id: string, status: 'running' | 'paused') =>
-        setJobs((current) => current.map((job) => (job.id === id ? { ...job, status } : job)))
 
       return (
         <ProcessingTray
@@ -89,8 +93,13 @@ export const CancellableAndPausable: Story = {
           collapsed={collapsed}
           onToggleCollapsed={() => setCollapsed((c) => !c)}
           onCancelJob={(id) => setJobs((current) => current.filter((job) => job.id !== id))}
-          onPauseJob={(id) => setStatus(id, 'paused')}
-          onResumeJob={(id) => setStatus(id, 'running')}
+          onRetryJob={(id) =>
+            setJobs((current) =>
+              current.map((job) =>
+                job.id === id ? { ...job, status: 'queued', error: undefined } : job,
+              ),
+            )
+          }
         />
       )
     }

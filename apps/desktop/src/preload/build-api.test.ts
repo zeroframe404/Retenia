@@ -121,7 +121,9 @@ describe('api.events.on', () => {
   it('refuses to subscribe to an undeclared event', () => {
     const { bridge } = makeBridge()
     const api = buildApi(bridge)
-    expect(() => api.events.on('jobs.progress' as never, vi.fn())).toThrow(
+    // Deliberately a name no domain has ever used: `jobs.progress` stood here until the
+    // job queue declared it, which is exactly the trap to avoid twice.
+    expect(() => api.events.on('nothing.happened' as never, vi.fn())).toThrow(
       /not a declared IPC event/,
     )
     expect(() => api.events.on('__proto__' as never, vi.fn())).toThrow(/not a declared IPC event/)

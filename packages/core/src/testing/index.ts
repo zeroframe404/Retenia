@@ -28,3 +28,9 @@ export type {
   HarnessOptions,
   RepositoryContractHarness,
 } from './harness'
+export type { FakeClock, FakeLiveness, InMemoryJobRepository } from './in-memory-job-repository'
+export {
+  createInMemoryJobRepository,
+  fakeClock,
+  fakeLiveness,
+} from './in-memory-job-repository'

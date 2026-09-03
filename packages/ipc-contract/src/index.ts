@@ -1,6 +1,8 @@
 import type { ContractApi } from './api-types'
 import { appChannels } from './channels/app'
+import { jobsChannels } from './channels/jobs'
 import { appEvents } from './events/app'
+import { jobsEvents } from './events/jobs'
 
 export type {
   ActionOf,
@@ -10,6 +12,8 @@ export type {
 } from './api-types'
 export type { Settings, ThemePreference, UpdateChannel } from './channels/app'
 export { settingsSchema, themePreferenceSchema, updateChannelSchema } from './channels/app'
+export type { JobStatus, JobSummary } from './channels/jobs'
+export { JOB_STATUSES, jobStatusSchema, jobSummarySchema } from './channels/jobs'
 export type {
   ChannelDefinition,
   ContractShape,
@@ -23,6 +27,8 @@ export type { IpcError, IpcErrorCode, IpcResult } from './envelope'
 export { ipcErrorCodes, ipcErrorSchema, ipcFail, ipcOk } from './envelope'
 export type { DeepLink, UpdateStatus } from './events/app'
 export { updateStatusSchema } from './events/app'
+export type { JobProgressEvent } from './events/jobs'
+export { jobProgressSchema } from './events/jobs'
 
 /**
  * Every main<->renderer request/response channel. Merge one object per domain; the
@@ -30,11 +36,13 @@ export { updateStatusSchema } from './events/app'
  */
 export const contract = {
   ...appChannels,
+  ...jobsChannels,
 }
 
 /** Every push channel main can send to the renderer (`webContents.send`). */
 export const events = {
   ...appEvents,
+  ...jobsEvents,
 }
 
 export type Contract = typeof contract

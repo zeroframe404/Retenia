@@ -199,7 +199,8 @@ export function createJobRepository(ctx: RepositoryContext): JobRepository {
       }),
 
     /** Re-queues when a `retryAt` is given and there are attempts left; otherwise the job
-     *  is `failed` for good. Backoff itself is the queue's policy (sub-phase 3.4). */
+     *  is `failed` for good. Backoff itself is the queue's policy: `JobScheduler.failed`
+     *  in `@retenia/core` computes the `retryAt` this receives. */
     fail: async (id, error, at, retryAt) =>
       ctx.run(async () => {
         const job = await base.findById(id)

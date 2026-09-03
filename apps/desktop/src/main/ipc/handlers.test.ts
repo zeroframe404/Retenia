@@ -35,6 +35,25 @@ vi.mock('../paths', () => ({
 
 const { createHandlers } = await import('./handlers')
 
+/** A stand-in job row, so the jobs fake returns something schema-shaped. */
+const jobSummary = {
+  id: '019213cd-0000-7000-8000-000000000001',
+  kind: 'hashFile',
+  status: 'queued' as const,
+  priority: 0,
+  progress: null,
+  progressMessage: null,
+  attempts: 0,
+  maxAttempts: 3,
+  error: null,
+  subjectId: null,
+  result: null,
+  runAfter: '2026-09-02T00:00:00.000Z',
+  createdAt: '2026-09-02T00:00:00.000Z',
+  startedAt: null,
+  finishedAt: null,
+}
+
 function makeDeps(): HandlerDeps {
   return {
     settings: {
@@ -81,6 +100,12 @@ function makeDeps(): HandlerDeps {
         gamification: { profile },
       })),
     } as unknown as HandlerDeps['settings'],
+    jobs: {
+      list: vi.fn(async () => []),
+      cancel: vi.fn(async (id: string) => ({ ...jobSummary, id, status: 'cancelled' as const })),
+      retry: vi.fn(async (id: string) => ({ ...jobSummary, id, status: 'queued' as const })),
+      enqueueDemo: vi.fn(async () => ({ job: jobSummary, subject: '/resources/dev/sample.ogg' })),
+    },
     updater: {
       checkForUpdates: vi.fn(),
       quitAndInstall: vi.fn(),
@@ -250,5 +275,43 @@ describe('app.devMediaSampleUrl', () => {
       '/resources/dev/sample.ogg',
       '/userData/blobs',
     )
+  })
+})
+
+describe('jobs channels', () => {
+  it('lists jobs, passing the filter straight through', async () => {
+    const deps = makeDeps()
+    const handlers = createHandlers(deps)
+    const result = await handlers['jobs.list']({ statuses: ['running'], limit: 10 }, fakeEvent)
+
+    expect(result).toEqual({ jobs: [] })
+    expect(deps.jobs.list).toHaveBeenCalledExactlyOnceWith({
+      statuses: ['running'],
+      limit: 10,
+    })
+  })
+
+  it('cancels and retries by id', async () => {
+    const deps = makeDeps()
+    const handlers = createHandlers(deps)
+
+    expect(await handlers['jobs.cancel']({ id: jobSummary.id }, fakeEvent)).toMatchObject({
+      status: 'cancelled',
+    })
+    expect(deps.jobs.cancel).toHaveBeenCalledExactlyOnceWith(jobSummary.id)
+
+    expect(await handlers['jobs.retry']({ id: jobSummary.id }, fakeEvent)).toMatchObject({
+      status: 'queued',
+    })
+    expect(deps.jobs.retry).toHaveBeenCalledExactlyOnceWith(jobSummary.id)
+  })
+
+  it('queues a demo job', async () => {
+    const deps = makeDeps()
+    const handlers = createHandlers(deps)
+    const result = await handlers['jobs.enqueueDemo']({ kind: 'sleep', ms: 100 }, fakeEvent)
+
+    expect(result.job).toMatchObject({ kind: 'hashFile' })
+    expect(deps.jobs.enqueueDemo).toHaveBeenCalledExactlyOnceWith({ kind: 'sleep', ms: 100 })
   })
 })

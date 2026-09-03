@@ -26,6 +26,12 @@ importers:
       '@electron-toolkit/utils':
         specifier: 4.0.0
         version: 4.0.0(electron@44.1.1(supports-color@7.2.0))
+      '@retenia/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@retenia/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       '@retenia/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
@@ -47,9 +53,15 @@ importers:
       archiver:
         specifier: 8.0.0
         version: 8.0.0
+      better-sqlite3:
+        specifier: 13.0.3
+        version: 13.0.3
       cmdk:
         specifier: 1.1.1
         version: 1.1.1(@types/react-dom@19.2.5(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      drizzle-orm:
+        specifier: 0.45.2
+        version: 0.45.2(@opentelemetry/api@1.9.1)(@types/better-sqlite3@9.6.0)(better-sqlite3@13.0.3)
       electron-log:
         specifier: 5.4.4
         version: 5.4.4
@@ -80,6 +92,9 @@ importers:
       react-resizable-panels:
         specifier: 4.12.3
         version: 4.12.3(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      sqlite-vec:
+        specifier: 0.1.9
+        version: 0.1.9
       zod:
         specifier: 4.5.4
         version: 4.5.4
@@ -117,6 +132,9 @@ importers:
       '@types/archiver':
         specifier: 8.0.0
         version: 8.0.0
+      '@types/better-sqlite3':
+        specifier: 9.6.0
+        version: 9.6.0
       '@types/node':
         specifier: 24.13.3
         version: 24.13.3
