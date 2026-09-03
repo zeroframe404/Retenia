@@ -9,6 +9,7 @@ export type {
   SaveEntity,
 } from './audit'
 export type { BlobRepository } from './blob-repository'
+export type { BlobPutResult, BlobStore } from './blob-store'
 export type {
   CardRepository,
   DueFilters,
@@ -45,6 +46,8 @@ export type {
 } from './reranker'
 export { passthroughReranker } from './reranker'
 export type { ReviewLogRepository } from './review-log-repository'
+export type { SecretName, SecretStore } from './secret-store'
+export { SECRET_NAMES } from './secret-store'
 export type { SettingsMap, SettingsRepository } from './settings-repository'
 export { SETTINGS, SETTINGS_DEFAULTS, type SettingsKey } from './settings-repository'
 export type { SourceRepository } from './source-repository'

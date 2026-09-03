@@ -1,8 +1,12 @@
 import type { ContractApi } from './api-types'
 import { appChannels } from './channels/app'
+import { backupsChannels } from './channels/backups'
 import { jobsChannels } from './channels/jobs'
+import { secretsChannels } from './channels/secrets'
+import { settingsChannels } from './channels/settings'
 import { appEvents } from './events/app'
 import { jobsEvents } from './events/jobs'
+import { settingsEvents } from './events/settings'
 
 export type {
   ActionOf,
@@ -12,8 +16,12 @@ export type {
 } from './api-types'
 export type { Settings, ThemePreference, UpdateChannel } from './channels/app'
 export { settingsSchema, themePreferenceSchema, updateChannelSchema } from './channels/app'
+export type { BackupSummary } from './channels/backups'
+export { backupSummarySchema } from './channels/backups'
 export type { JobStatus, JobSummary } from './channels/jobs'
 export { JOB_STATUSES, jobStatusSchema, jobSummarySchema } from './channels/jobs'
+export type { SecretName } from './channels/secrets'
+export { SECRET_NAMES, secretNameSchema } from './channels/secrets'
 export type {
   ChannelDefinition,
   ContractShape,
@@ -37,12 +45,16 @@ export { jobProgressSchema } from './events/jobs'
 export const contract = {
   ...appChannels,
   ...jobsChannels,
+  ...secretsChannels,
+  ...backupsChannels,
+  ...settingsChannels,
 }
 
 /** Every push channel main can send to the renderer (`webContents.send`). */
 export const events = {
   ...appEvents,
   ...jobsEvents,
+  ...settingsEvents,
 }
 
 export type Contract = typeof contract

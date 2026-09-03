@@ -2,7 +2,16 @@ import { join } from 'node:path'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 import { contract, type DeepLink } from '@retenia/ipc-contract'
 import * as Sentry from '@sentry/electron/main'
-import { app, protocol } from 'electron'
+import type { OpenDialogOptions } from 'electron'
+import { app, dialog, protocol } from 'electron'
+import {
+  createBackupService,
+  shouldRunDailyBackup,
+  shouldRunWeeklyIntegrityCheck,
+  swapInBackup,
+} from './backups/service'
+import { isPathInSyncedFolder } from './backups/synced-folder'
+import { createFsBlobStore } from './blobs/store'
 import { parseDeepLink } from './deep-links/parse'
 import { deepLinkFromArgv, registerDeepLinks } from './deep-links/register'
 import { createHandlers } from './ipc/handlers'
@@ -11,9 +20,10 @@ import { makeSenderGuard } from './ipc/sender'
 import { bootstrapJobs } from './jobs/bootstrap'
 import { initLogging, log } from './logging/log'
 import { initSentryMain } from './observability/sentry'
-import { getBlobsRoot, getSettingsPath } from './paths'
+import { getBackupsRoot, getBlobsRoot, getDatabasePath, getSettingsPath } from './paths'
 import { APP_SCHEME_PRIVILEGES, handleAppProtocol } from './protocol/app-protocol'
 import { handleMediaProtocol, MEDIA_SCHEME_PRIVILEGES } from './protocol/media-protocol'
+import { createSecretStore } from './secrets/store'
 import { applySecurity } from './security/apply'
 import { buildCsp } from './security/csp'
 import { allowedRendererOrigins } from './security/origins'
@@ -124,10 +134,107 @@ if (gotLock) {
       demoEnabled: is.dev || process.env.RETENIA_E2E === '1',
     })
 
+    // Settings, blobs, secrets and backups all read and write through the one connection
+    // `bootstrapJobs` opened — `jobs.stop()` is what closes it. `database` is `null` only
+    // when that connection never opened, in which case every one of these degrades the
+    // same way the job queue does (`../jobs/bootstrap.ts`'s `unavailableFacade`).
+    const database = jobs.database
+    const dbUnavailableReason = 'see the earlier "[jobs] the database did not open" log line'
+    const blobStore = createFsBlobStore(getBlobsRoot())
+    const secretStore = database ? createSecretStore(database.repos.settings) : null
+    const backupService = database
+      ? createBackupService({
+          sqlite: database.opened.sqlite,
+          backupsRoot: getBackupsRoot(),
+          blobsRoot: getBlobsRoot(),
+        })
+      : null
+    const syncedFolderWarning = isPathInSyncedFolder(app.getPath('userData'))
+    if (syncedFolderWarning) {
+      log.warn(
+        '[backups] userData is inside what looks like a cloud-synced folder ' +
+          '(OneDrive/Dropbox/Google Drive); this can corrupt the database ' +
+          '(docs/spec/07-architecture.md §11).',
+      )
+    }
+
+    if (database && backupService) {
+      // Daily backup + weekly integrity check, both checked once per launch rather than on
+      // a timer: a desktop app is not expected to stay open across the boundary, and
+      // "on quit" (below) already covers the common case of a session that does.
+      void (async () => {
+        try {
+          const lastBackupAt = await database.repos.settings.getRaw('backups.lastBackupAt')
+          if (
+            shouldRunDailyBackup(typeof lastBackupAt === 'string' ? lastBackupAt : null, new Date())
+          ) {
+            await backupService.backupNow()
+            await database.repos.settings.setRaw('backups.lastBackupAt', new Date().toISOString())
+          }
+          const lastCheckAt = await database.repos.settings.getRaw('backups.lastIntegrityCheckAt')
+          if (
+            shouldRunWeeklyIntegrityCheck(
+              typeof lastCheckAt === 'string' ? lastCheckAt : null,
+              new Date(),
+            )
+          ) {
+            const result = backupService.runIntegrityCheck()
+            if (result !== 'ok') {
+              log.error('[backups] weekly integrity_check found problems:', result)
+            }
+            await database.repos.settings.setRaw(
+              'backups.lastIntegrityCheckAt',
+              new Date().toISOString(),
+            )
+          }
+        } catch (error) {
+          log.error('[backups] the startup backup/integrity check failed:', error)
+        }
+      })()
+    }
+
+    app.on('before-quit', () => {
+      if (!backupService) return
+      void backupService.backupNow().catch((error: unknown) => {
+        log.error('[backups] the on-quit backup failed:', error)
+      })
+    })
+
+    /** Prompts for a `.db` backup file, closes the shared database, swaps it in, and
+     *  relaunches. Returns `false` (without touching anything) when the user cancels. */
+    async function restoreFromBackupAndRelaunch(): Promise<boolean> {
+      if (!database) return false
+      const [window] = getWindows(WindowKind.Main)
+      const dialogOptions: OpenDialogOptions = {
+        title: 'Restore from backup',
+        filters: [{ name: 'Retenia backup', extensions: ['db'] }],
+        properties: ['openFile'],
+      }
+      const { canceled, filePaths } = window
+        ? await dialog.showOpenDialog(window, dialogOptions)
+        : await dialog.showOpenDialog(dialogOptions)
+      const backupFile = filePaths[0]
+      if (canceled || !backupFile) return false
+
+      await jobs.stop()
+      await swapInBackup(backupFile, getDatabasePath())
+      app.relaunch()
+      app.exit(0)
+      return true
+    }
+
     const handlers = createHandlers({
       settings,
       updater,
       jobs: jobs.facade,
+      blobStore,
+      secrets: secretStore,
+      backups: backupService,
+      settingsRepo: database ? database.repos.settings : null,
+      syncedFolderWarning,
+      restoreFromBackup: restoreFromBackupAndRelaunch,
+      dbUnavailableReason,
+      emitSettingsChanged: (key, value) => broadcast('settings.changed', { key, value }),
       reportRendererError: (error) => {
         log.error('[renderer]', error.name, error.message, error.stack)
         // Re-checked per call rather than captured once at startup: `Sentry.init` only

@@ -23,6 +23,10 @@ import { createJobRunner, type JobRunner } from './runner'
 
 export interface JobsSubsystem {
   readonly facade: JobsFacade
+  /** The shared connection jobs, settings, blobs, secrets and backups all read and write
+   *  through — `null` when it failed to open, in which case every one of those subsystems
+   *  degrades the same way `unavailableFacade` does below. */
+  readonly database: AppDatabase | null
   /** Recovers orphans and starts claiming. No-op when the database did not open. */
   start(): Promise<void>
   stop(): Promise<void>
@@ -62,6 +66,7 @@ export function bootstrapJobs({
     log.error('[jobs] the database did not open; background jobs are disabled:', reason)
     return {
       facade: unavailableFacade(reason),
+      database: null,
       start: async () => {},
       stop: async () => {},
     }
@@ -105,6 +110,7 @@ export function bootstrapJobs({
 
   return {
     facade: createJobsFacade({ scheduler, runner, demoEnabled }),
+    database,
     start: () => runner.start(),
     stop: async () => {
       await runner.stop()

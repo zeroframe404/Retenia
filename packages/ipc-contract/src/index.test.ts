@@ -34,16 +34,26 @@ describe('contract', () => {
       'app.setTelemetryEnabled',
       'app.setTheme',
       'app.setUpdateChannel',
+      'backups.backupNow',
+      'backups.exportCopy',
+      'backups.restoreFromBackup',
+      'backups.status',
       'jobs.cancel',
       'jobs.enqueueDemo',
       'jobs.list',
       'jobs.retry',
+      'secrets.delete',
+      'secrets.get',
+      'secrets.set',
+      'settings.get',
+      'settings.set',
     ])
     expect([...eventNames].sort()).toEqual([
       'app.deepLink',
       'app.themeChanged',
       'app.updateStatus',
       'jobs.progress',
+      'settings.changed',
     ])
   })
 
