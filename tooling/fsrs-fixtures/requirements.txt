@@ -1,0 +1,4 @@
+# The reference implementation the fixtures are generated from. Pinned exactly: the
+# fixtures record this version, and the regression test's list of known discrepancies is
+# written against it (see README.md).
+fsrs==6.3.2

@@ -19,7 +19,8 @@
       "!**/storybook-static",
       "!**/*.local.json",
       "!**/routeTree.gen.ts",
-      "!**/migrations/meta"
+      "!**/migrations/meta",
+      "!packages/core/test/fixtures"
     ]
   },
   "formatter": {

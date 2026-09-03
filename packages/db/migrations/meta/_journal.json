@@ -22,6 +22,13 @@
       "when": 1788470400000,
       "tag": "0002_embeddings_int8",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1788451483820,
+      "tag": "0003_review_logs_algorithm_version",
+      "breakpoints": true
     }
   ]
 }

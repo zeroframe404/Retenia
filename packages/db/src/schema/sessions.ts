@@ -173,10 +173,11 @@ export const attempts = sqliteTable(
  *
  * The nine FSRS columns are `ts-fsrs`'s `ReviewLog` verbatim: `rating`, `state`, `due`,
  * `stability`, `difficulty`, `elapsed_days`, `scheduled_days`, `learning_steps`, `review`.
- * As in `ts-fsrs`, `state`/`due`/`stability`/`difficulty` are the card's values *before*
- * the review (what `f.rollback` restores); `review` is when it happened (Unix ms, UTC).
- * `scheduled_days` is the real FSRS interval even under an exam cap, so the optimizer is
- * never contaminated.
+ * As in `ts-fsrs`, `state`/`stability`/`difficulty` are the card's values *before* the
+ * review and `due` is the card's previous `last_review` — or its `due` when it had never
+ * been reviewed — exactly what `f.rollback` restores; `review` is when it happened (Unix
+ * ms, UTC). `scheduled_days` is the real FSRS interval even under an exam cap, so the
+ * optimizer is never contaminated.
  */
 export const reviewLogs = sqliteTable(
   'review_logs',
@@ -207,6 +208,13 @@ export const reviewLogs = sqliteTable(
     device: text('device'),
     /** The activity attempt that produced this review, when there was one. */
     attemptId: text('attempt_id').references(() => attempts.id),
+    /**
+     * Which scheduler produced this row — `fsrs6` today (docs/spec/02-memory-system.md §17:
+     * "abstract the scheduler and store `algorithm_version`"). Lets a future FSRS variant
+     * ("-S", "-F") or an SM-2 import be told apart when the optimizer selects its training
+     * set, without a second table.
+     */
+    algorithmVersion: text('algorithm_version').notNull().default('fsrs6'),
     ...auditColumns(),
   },
   (t) => [

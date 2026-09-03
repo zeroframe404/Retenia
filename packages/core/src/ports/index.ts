@@ -23,6 +23,12 @@ export type {
 } from './chunk-repository'
 export type { Clock } from './clock'
 export { systemClock } from './clock'
+export type {
+  DomainEvent,
+  DomainEventOf,
+  DomainEventPublisher,
+  DomainEventType,
+} from './domain-events'
 export type { EmbeddingProvider } from './embedding-provider'
 export {
   AppendOnlyViolationError,

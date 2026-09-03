@@ -32,5 +32,6 @@ describe('docs/spec/07a-schema.md', () => {
     expect(rendered).toContain('| 0 | `0000_domain_schema` |')
     expect(rendered).toContain('| 1 | `0001_fts5_vec0_seed` |')
     expect(rendered).toContain('| 2 | `0002_embeddings_int8` |')
+    expect(rendered).toContain('| 3 | `0003_review_logs_algorithm_version` |')
   })
 })

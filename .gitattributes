@@ -40,3 +40,4 @@
 
 # Generated: keep out of diffs and language stats.
 pnpm-lock.yaml linguist-generated=true -diff
+packages/core/test/fixtures/fsrs/*.json linguist-generated=true -diff

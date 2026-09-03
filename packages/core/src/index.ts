@@ -1,5 +1,7 @@
 export * from './entities'
+export * from './events'
 export * from './ids'
 export * from './jobs'
 export * from './locators'
+export * from './memory'
 export * from './ports'
