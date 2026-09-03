@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Card, ImportanceLevel } from '../entities'
 import { fakeClock } from '../testing/in-memory-job-repository'
 import {
@@ -8,7 +8,12 @@ import {
 import { cardFixture, knowledgeItemFixture } from '../testing/memory-fixtures'
 import { intervalForRetention } from './formulas'
 import { createFsrsScheduler } from './fsrs-scheduler'
-import { createRescheduleNow, createSimulateReschedule, projectReschedule } from './reschedule'
+import {
+  createRescheduleNow,
+  createSimulateReschedule,
+  DEFAULT_RESCHEDULE_LIMIT,
+  projectReschedule,
+} from './reschedule'
 import { createImportanceResolver } from './scheduling-policy'
 import { DAY_MS } from './study-day'
 import { CARD_STATE, RATING } from './types'
@@ -209,6 +214,28 @@ describe('createSimulateReschedule / createRescheduleNow', () => {
     expect((await simulate()()).affected).toBe(0)
   })
 
+  /**
+   * Every field of the selection is optional, so `{}` is a legal call. Without a default
+   * it would mean "every live card" — one synchronous read of the whole table, and for the
+   * apply half a transaction writing four rows per card.
+   */
+  it('bounds an unnarrowed selection rather than loading the whole table', async () => {
+    const list = vi.spyOn(store.cards, 'list')
+    await simulate()()
+    expect(list).toHaveBeenCalledWith({ limit: DEFAULT_RESCHEDULE_LIMIT })
+
+    await simulate()({ limit: 5 })
+    expect(list).toHaveBeenLastCalledWith({ limit: 5 })
+    list.mockRestore()
+  })
+
+  it('bounds an item-scoped selection too', async () => {
+    const byItems = vi.spyOn(store.cards, 'listByItems')
+    await simulate()({ itemIds: [itemId] })
+    expect(byItems).toHaveBeenCalledWith([itemId], { limit: DEFAULT_RESCHEDULE_LIMIT })
+    byItems.mockRestore()
+  })
+
   it('takes an explicit `now` over the clock', async () => {
     const now = new Date('2026-04-01T00:00:00.000Z')
     expect((await simulate()({ now })).computedAt).toEqual(now)
@@ -277,6 +304,27 @@ describe('createSimulateReschedule / createRescheduleNow', () => {
     const { applied } = await apply()({ cardIds: ['nobody'], confirm: true })
     expect(applied).toBe(0)
     expect(store.appendCalls).toBe(0)
+  })
+
+  /**
+   * The apply re-reads and re-projects rather than replaying the summary the dialog showed,
+   * so a review that lands between the simulation and the confirmation is respected instead
+   * of being overwritten with a due date computed from stale stability. The cost is that
+   * the confirmed numbers are a preview, not a contract — binding the two would need a
+   * projection token the user's confirmation carries back.
+   */
+  it('applies current state, not the projection the user was shown', async () => {
+    const projected = await simulate()()
+    expect(projected.affected).toBe(1)
+
+    // A review lands in between: the card is now far more stable.
+    await store.cards.update(cardId, { stability: 300 })
+
+    const { impact } = await apply()({ confirm: true })
+    expect(impact.changes[0]?.newIntervalDays).not.toBe(projected.changes[0]?.newIntervalDays)
+    const after = await store.cards.findById(cardId)
+    expect(after?.scheduledDays).toBe(impact.changes[0]?.newIntervalDays)
+    expect(after?.stability).toBe(300)
   })
 
   it('rolls the card update and its log back together', async () => {

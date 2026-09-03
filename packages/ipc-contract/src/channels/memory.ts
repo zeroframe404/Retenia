@@ -24,6 +24,13 @@ export const IMPORTANCE_LEVELS = ['urgent', 'high', 'normal', 'maintenance', 'pa
 export const importanceLevelSchema = z.enum(IMPORTANCE_LEVELS)
 export type ImportanceLevel = z.infer<typeof importanceLevelSchema>
 
+/**
+ * The ceiling on a temporary override's window. Urgent mode itself is 48 or 72 hours; the
+ * general form allows longer for a level that is not `urgent`, but never indefinitely —
+ * a temporary override with no real end is a permanent one wearing a disguise.
+ */
+export const MAX_OVERRIDE_WINDOW_MS = 30 * 24 * 60 * 60 * 1000
+
 /** §7 rule 5: urgent mode lasts 48 or 72 hours, and nothing else. */
 export const URGENT_MODE_HOURS = [48, 72] as const
 export const urgentModeHoursSchema = z.union([z.literal(48), z.literal(72)])
@@ -54,6 +61,18 @@ export const importanceMixSchema = z.object({
   computedAt: z.iso.datetime(),
 })
 export type ImportanceMix = z.infer<typeof importanceMixSchema>
+
+/**
+ * How many cards one projection may cover.
+ *
+ * `limit` has a **default**, not just a ceiling: every field of the selection is optional,
+ * so `{}` is a legal input, and without a default it would mean "every live card" — one
+ * synchronous read of the whole table on the main thread, and, for `rescheduleNow`, one
+ * transaction writing four rows per card. The default is generous enough that a real
+ * "reschedule everything" is one call, and bounded enough that it cannot wedge the process.
+ */
+export const RESCHEDULE_LIMIT_DEFAULT = 2_000
+export const RESCHEDULE_LIMIT_MAX = 20_000
 
 const rescheduleWindowSchema = z.object({
   before: z.number(),
@@ -89,17 +108,18 @@ export const rescheduleImpactSchema = z.object({
     importanceLevelSchema,
     z.object({ affected: z.int().nonnegative(), dueInSevenDaysDelta: z.int() }),
   ),
-  changes: z.array(rescheduleChangeSchema),
+  changes: z.array(rescheduleChangeSchema).max(RESCHEDULE_LIMIT_MAX),
   computedAt: z.iso.datetime(),
 })
 export type RescheduleImpact = z.infer<typeof rescheduleImpactSchema>
 
-/** Which cards to project. Omit everything and it is every live, queued card. */
+/** Which cards to project. Omit everything and it is the first `RESCHEDULE_LIMIT_DEFAULT`
+ *  live, queued cards. */
 export const rescheduleSelectionSchema = z.object({
   cardIds: idList.optional(),
   itemIds: idList.optional(),
   levels: z.array(importanceLevelSchema).min(1).max(IMPORTANCE_LEVELS.length).optional(),
-  limit: z.int().min(1).max(20_000).optional(),
+  limit: z.int().min(1).max(RESCHEDULE_LIMIT_MAX).default(RESCHEDULE_LIMIT_DEFAULT),
 })
 
 export const memoryChannels = defineContract({
@@ -116,16 +136,34 @@ export const memoryChannels = defineContract({
   /**
    * The per-card override, which beats the item's level. `level: null` clears it.
    *
-   * `expiresAt` makes the override temporary — that is what urgent mode is. Prefer
-   * `memory.startUrgentMode`, which takes items and applies §7 rule 5's window; this
-   * channel is the general form.
+   * `expiresAt` makes the override temporary. It is bounded and must lie in the future:
+   * an unbounded expiry on the `urgent` level would be a *permanent* desired retention of
+   * 0.97, which is exactly what §7 rule 5 says urgent mode must never be, and which no
+   * sweep would ever clear. For urgent mode proper, prefer `memory.startUrgentMode`, which
+   * applies §7's 48/72-hour window; this channel is the general form.
    */
   'cards.overrideImportance': {
-    input: z.object({
-      ids: idList,
-      level: importanceLevelSchema.nullable(),
-      expiresAt: z.iso.datetime().nullable().optional(),
-    }),
+    input: z
+      .object({
+        ids: idList,
+        level: importanceLevelSchema.nullable(),
+        expiresAt: z.iso.datetime().nullable().optional(),
+      })
+      .refine(({ level, expiresAt }) => level !== null || expiresAt == null, {
+        message: 'expiresAt is meaningless when the override is being cleared',
+        path: ['expiresAt'],
+      })
+      .refine(
+        ({ expiresAt }) => {
+          if (expiresAt == null) return true
+          const at = Date.parse(expiresAt) - Date.now()
+          return at > 0 && at <= MAX_OVERRIDE_WINDOW_MS
+        },
+        {
+          message: 'expiresAt must be in the future and at most 30 days out',
+          path: ['expiresAt'],
+        },
+      ),
     output: z.object({ updated: z.int().nonnegative() }),
   },
 
@@ -162,6 +200,8 @@ export const memoryChannels = defineContract({
       items: z.int().nonnegative(),
       cards: z.int().nonnegative(),
       expiresAt: z.iso.datetime(),
+      /** The selection held more cards than one call applies; the rest were left alone. */
+      truncated: z.boolean(),
     }),
   },
 })

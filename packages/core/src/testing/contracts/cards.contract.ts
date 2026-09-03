@@ -299,6 +299,57 @@ export function cardsContract(harness: RepositoryContractHarness): void {
       })
     })
 
+    /**
+     * The scheduler ignores a lapsed override on every read, so SQL must too. The sweep
+     * only runs at startup, so without this the two would disagree for the whole of a
+     * session in which a 48-hour urgent window closed: the queue would still order those
+     * cards as urgent and the bias warning would still count them.
+     */
+    it('stops counting and queueing an override once its window has closed', async () => {
+      const item = await ctx.seed.knowledgeItem({ importance: 'normal' })
+      const card = await ctx.seed.card({
+        itemId: item.id,
+        due: new Date(ctx.clock.now().getTime() - DAY),
+      })
+      await ctx.repos.cards.overrideImportance(
+        [card.id],
+        'urgent',
+        new Date(ctx.clock.now().getTime() + DAY),
+      )
+
+      expect((await ctx.repos.cards.countByImportance()).urgent).toBe(1)
+      const beforeQueue = await ctx.repos.cards.findDue(ctx.clock.now(), {
+        importance: ['urgent'],
+      })
+      expect(beforeQueue.map((entry) => entry.id)).toEqual([card.id])
+
+      // The window closes. Nothing is swept — the read alone must be enough.
+      ctx.clock.advance(2 * DAY)
+      const counts = await ctx.repos.cards.countByImportance()
+      expect(counts.urgent).toBe(0)
+      expect(counts.normal).toBe(1)
+      expect(await ctx.repos.cards.findDue(ctx.clock.now(), { importance: ['urgent'] })).toEqual([])
+      const asNormal = await ctx.repos.cards.findDue(ctx.clock.now(), {
+        importance: ['normal'],
+      })
+      expect(asNormal.map((entry) => entry.id)).toEqual([card.id])
+    })
+
+    /** `paused` is out of the queue — but only while the override that set it is live. */
+    it('brings a card back into the queue when a paused override lapses', async () => {
+      const card = await ctx.seed.card({ due: new Date(ctx.clock.now().getTime() - DAY) })
+      await ctx.repos.cards.overrideImportance(
+        [card.id],
+        'paused',
+        new Date(ctx.clock.now().getTime() + DAY),
+      )
+      expect(await ctx.repos.cards.findDue(ctx.clock.now())).toEqual([])
+
+      ctx.clock.advance(2 * DAY)
+      const due = await ctx.repos.cards.findDue(ctx.clock.now())
+      expect(due.map((entry) => entry.id)).toEqual([card.id])
+    })
+
     describe('listByItems', () => {
       it('returns every live card of every named item', async () => {
         const one = await ctx.seed.knowledgeItem()

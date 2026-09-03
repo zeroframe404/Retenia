@@ -107,9 +107,26 @@ const codec: TableCodec<Card, NewCard, CardPatch> = {
     }),
 }
 
-/** `cards.importance_override ?? knowledge_items.importance` — the level that actually
- *  governs this card (`docs/spec/02-memory-system.md` §7 rule 1). */
-const effectiveImportance = sql<ImportanceLevel>`coalesce(${cards.importanceOverride}, ${knowledgeItems.importance})`
+/**
+ * The level that actually governs this card at `nowMs`
+ * (`docs/spec/02-memory-system.md` §7 rule 1): its override, falling back to its item's.
+ *
+ * A **lapsed** override does not count. `resolveImportance` in `packages/core` ignores an
+ * expiry that has passed on every read, and `clearExpiredOverrides` only sweeps at startup,
+ * so without the same condition here SQL and the scheduler would disagree for the whole of
+ * a session in which a 48-hour urgent window closed — the queue would still order those
+ * cards as urgent, and the §7 rule 4 bias warning would still count them.
+ */
+function effectiveImportanceAt(nowMs: number) {
+  return sql<ImportanceLevel>`coalesce(
+    case
+      when ${cards.importanceOverrideExpiresAt} is null
+        or ${cards.importanceOverrideExpiresAt} > ${nowMs}
+      then ${cards.importanceOverride}
+    end,
+    ${knowledgeItems.importance}
+  )`
+}
 
 /**
  * The conjuncts of the `cards_due` partial index (`WHERE suspended = 0 AND deleted_at IS
@@ -133,6 +150,7 @@ const liveUnsuspended = sql`${cards.suspended} = 0 and ${cards.deletedAt} is nul
  * "generated but not scheduled" and `archived` means "out of the queue for good".
  */
 function duePredicate(nowMs: number, filters: DueFilters): SQL | undefined {
+  const importance = effectiveImportanceAt(nowMs)
   const predicates: Array<SQL | undefined> = [
     liveUnsuspended,
     lte(cards.due, nowMs),
@@ -140,9 +158,9 @@ function duePredicate(nowMs: number, filters: DueFilters): SQL | undefined {
     isNull(knowledgeItems.deletedAt),
     eq(knowledgeItems.status, 'active'),
   ]
-  if (filters.includePaused !== true) predicates.push(ne(effectiveImportance, 'paused'))
+  if (filters.includePaused !== true) predicates.push(ne(importance, 'paused'))
   if (filters.importance !== undefined) {
-    predicates.push(inArray(effectiveImportance, [...filters.importance]))
+    predicates.push(inArray(importance, [...filters.importance]))
   }
   if (filters.states !== undefined) predicates.push(inArray(cards.state, [...filters.states]))
   if (filters.examId !== undefined) {
@@ -248,12 +266,16 @@ export function createCardRepository(ctx: RepositoryContext): CardRepository {
     },
 
     countByImportance: async (options = {}) => {
+      // The same instant the predicate uses, so a window that closes mid-query cannot put a
+      // card in one bucket and out of the filter.
+      const at = (options.dueBefore ?? ctx.clock.now()).getTime()
+      const importance = effectiveImportanceAt(at)
       const rows = ctx.db
-        .select({ importance: effectiveImportance, value: count() })
+        .select({ importance, value: count() })
         .from(cards)
         .innerJoin(knowledgeItems, eq(cards.itemId, knowledgeItems.id))
         .where(countPredicate(options))
-        .groupBy(effectiveImportance)
+        .groupBy(importance)
         .all() as Array<{ importance: ImportanceLevel; value: number }>
       // Always total: every level present, zeroes included, so no caller handles undefined.
       const totals = Object.fromEntries(IMPORTANCE_LEVELS.map((level) => [level, 0])) as Record<

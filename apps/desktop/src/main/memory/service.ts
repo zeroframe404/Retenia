@@ -1,4 +1,6 @@
 import type {
+  DayBoundary,
+  ExamOverrideSource,
   ImportanceCatalog,
   ImportanceLevel,
   ImportanceMix,
@@ -12,8 +14,10 @@ import type {
   SimulateReschedule,
   UnitOfWork,
   UrgentModeHours,
+  UrgentModeResult,
 } from '@retenia/core'
 import {
+  createExamOverrides,
   createExpireUrgentMode,
   createFsrsScheduler,
   createImportanceCatalog,
@@ -23,6 +27,7 @@ import {
   createSimulateReschedule,
   createStartUrgentMode,
   DEFAULT_DAY_START_HOUR,
+  DEFAULT_TIME_ZONE,
 } from '@retenia/core'
 import { log } from '../logging/log'
 
@@ -47,10 +52,7 @@ export interface MemoryService {
   rescheduleNow(
     selection: RescheduleSelection,
   ): Promise<{ impact: RescheduleImpact; applied: number }>
-  startUrgentMode(
-    itemIds: readonly string[],
-    hours?: UrgentModeHours,
-  ): Promise<{ items: number; cards: number; expiresAt: Date }>
+  startUrgentMode(itemIds: readonly string[], hours?: UrgentModeHours): Promise<UrgentModeResult>
   /** Clears every lapsed urgent-mode override. Run at startup; safe to run again. */
   expireUrgentMode(): Promise<number>
   /** What the level catalog currently says — the scheduling half of the review screen. */
@@ -67,9 +69,15 @@ export interface MemoryServiceOptions {
   scheduler?: Scheduler
 }
 
-/** The pieces that have to be rebuilt when the level rows change. */
-function build(repos: UnitOfWork, scheduler: Scheduler, catalog: ImportanceCatalog) {
-  const resolve = createImportanceResolver({ catalog })
+/** The pieces that have to be rebuilt when the level rows or the exam set change. */
+function build(
+  repos: UnitOfWork,
+  scheduler: Scheduler,
+  catalog: ImportanceCatalog,
+  exams: ExamOverrideSource,
+  dayBoundary: DayBoundary,
+) {
+  const resolve = createImportanceResolver({ catalog, exams, dayBoundary })
   return {
     catalog,
     resolve,
@@ -95,11 +103,32 @@ export async function createMemoryService(options: MemoryServiceOptions): Promis
       ...(options.timeZone === undefined ? {} : { timeZone: options.timeZone }),
     })
 
-  const load = async () => createImportanceCatalog(await repos.importanceLevels.listOrdered())
+  const dayBoundary: DayBoundary = {
+    dayStartHour,
+    timeZone: options.timeZone ?? DEFAULT_TIME_ZONE,
+  }
+
+  /**
+   * The catalog and the exam set, read together.
+   *
+   * The exams are what make §7's urgent row and §8's cap real in the running app rather
+   * than only in tests: without them `createImportanceResolver` falls back to
+   * `NO_EXAM_OVERRIDES` and `cards.exam_id` changes nothing. Only dated exams still ahead
+   * of now are loaded, and the set is rebuilt on `refresh` — sub-phase 10.1 replaces this
+   * with the full phase machine behind the same `ExamOverrideSource`.
+   */
+  const load = async (): Promise<[ImportanceCatalog, ExamOverrideSource]> => {
+    const [levels, upcoming] = await Promise.all([
+      repos.importanceLevels.listOrdered(),
+      repos.exams.listUpcoming(new Date()),
+    ])
+    return [createImportanceCatalog(levels), createExamOverrides(upcoming, { dayBoundary })]
+  }
+
   // Rebuilt wholesale on `refresh` rather than mutated: the policy memoizes its
   // `SchedulingOptions` per resolution, and a stale memo would outlive the rows it came
   // from.
-  let current = build(repos, scheduler, await load())
+  let current = build(repos, scheduler, ...(await load()), dayBoundary)
 
   const startUrgentMode = createStartUrgentMode({ uow: repos })
   const expireUrgentMode = createExpireUrgentMode({ uow: repos })
@@ -131,7 +160,7 @@ export async function createMemoryService(options: MemoryServiceOptions): Promis
     resolve: (input) => current.resolve(input),
 
     refresh: async () => {
-      current = build(repos, scheduler, await load())
+      current = build(repos, scheduler, ...(await load()), dayBoundary)
     },
   }
 }

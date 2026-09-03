@@ -3,6 +3,7 @@ import { cardFixture, examFixture } from '../testing/memory-fixtures'
 import {
   createExamOverrides,
   daysUntilExam,
+  EXAM_TARGET_RETENTION,
   examDesiredRetention,
   examOverrideFor,
   NO_EXAM_OVERRIDES,
@@ -36,7 +37,21 @@ describe('examDesiredRetention', () => {
   it('clamps a target the schema would not have accepted', () => {
     expect(examDesiredRetention(30, { targetRetention: 0.2, finalWindowDays: 3 })).toBe(0.7)
     expect(examDesiredRetention(30, { targetRetention: 2, finalWindowDays: 3 })).toBe(0.99)
-    expect(examDesiredRetention(30, { targetRetention: Number.NaN, finalWindowDays: 3 })).toBe(0.99)
+  })
+
+  /** Not the 0.99 ceiling: §7 puts 0.97 at the top of what is useful, so a row with no
+   *  usable number falls back to §8's `r_target`. */
+  it('falls back to §8’s 0.95 when the exam carries no usable target', () => {
+    expect(EXAM_TARGET_RETENTION).toBe(0.95)
+    for (const targetRetention of [Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(examDesiredRetention(30, { targetRetention, finalWindowDays: 3 })).toBe(
+        EXAM_TARGET_RETENTION,
+      )
+    }
+    // Still ramps to 0.97 inside the last week from that fallback.
+    expect(examDesiredRetention(2, { targetRetention: Number.NaN, finalWindowDays: 3 })).toBe(
+      URGENT_MODE_RETENTION,
+    )
   })
 })
 

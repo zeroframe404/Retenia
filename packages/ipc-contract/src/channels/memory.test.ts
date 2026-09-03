@@ -3,6 +3,9 @@ import { contract } from '../index'
 import {
   IMPORTANCE_LEVELS,
   importanceMixSchema,
+  MAX_OVERRIDE_WINDOW_MS,
+  RESCHEDULE_LIMIT_DEFAULT,
+  RESCHEDULE_LIMIT_MAX,
   rescheduleImpactSchema,
   URGENT_MODE_HOURS,
 } from './memory'
@@ -84,14 +87,32 @@ describe('cards.overrideImportance', () => {
     expect(input.parse({ ids: [ID], level: null })).toEqual({ ids: [ID], level: null })
   })
 
-  it('takes an optional expiry, which is what makes it urgent mode', () => {
-    expect(
-      input.parse({ ids: [ID], level: 'urgent', expiresAt: '2026-09-04T00:00:00.000Z' }),
-    ).toMatchObject({ expiresAt: '2026-09-04T00:00:00.000Z' })
+  it('takes an optional expiry, which is what makes the override temporary', () => {
+    const soon = new Date(Date.now() + 3_600_000).toISOString()
+    expect(input.parse({ ids: [ID], level: 'urgent', expiresAt: soon })).toMatchObject({
+      expiresAt: soon,
+    })
     expect(input.safeParse({ ids: [ID], level: 'urgent', expiresAt: null }).success).toBe(true)
     expect(input.safeParse({ ids: [ID], level: 'urgent', expiresAt: 'tomorrow' }).success).toBe(
       false,
     )
+  })
+
+  /**
+   * An unbounded expiry on the `urgent` level is a *permanent* desired retention of 0.97 —
+   * exactly what §7 rule 5 says urgent mode must never be, and which no sweep would clear.
+   */
+  it('refuses an expiry that is in the past or further out than the ceiling', () => {
+    const past = new Date(Date.now() - 1000).toISOString()
+    const tooFar = new Date(Date.now() + MAX_OVERRIDE_WINDOW_MS + 60_000).toISOString()
+    expect(input.safeParse({ ids: [ID], level: 'urgent', expiresAt: past }).success).toBe(false)
+    expect(input.safeParse({ ids: [ID], level: 'urgent', expiresAt: tooFar }).success).toBe(false)
+  })
+
+  it('refuses an expiry on a cleared override, which would mean nothing', () => {
+    const soon = new Date(Date.now() + 3_600_000).toISOString()
+    expect(input.safeParse({ ids: [ID], level: null, expiresAt: soon }).success).toBe(false)
+    expect(input.safeParse({ ids: [ID], level: null, expiresAt: null }).success).toBe(true)
   })
 })
 
@@ -134,21 +155,35 @@ describe('memory.importanceMix', () => {
 describe('memory.simulateReschedule', () => {
   const { input, output } = contract['memory.simulateReschedule']
 
-  it('takes no selection at all — that means every queued card', () => {
-    expect(input.parse({})).toEqual({})
+  /**
+   * Every field is optional, so `{}` is a legal call — which is why `limit` has a default
+   * rather than only a ceiling. Without it, one bridge call would read the whole `cards`
+   * table synchronously on the main thread.
+   */
+  it('bounds an unnarrowed selection by default', () => {
+    expect(input.parse({})).toEqual({ limit: RESCHEDULE_LIMIT_DEFAULT })
+    expect(input.parse({ cardIds: [ID] })).toEqual({
+      cardIds: [ID],
+      limit: RESCHEDULE_LIMIT_DEFAULT,
+    })
   })
 
   it('accepts each way of narrowing it', () => {
     expect(input.safeParse({ cardIds: [ID] }).success).toBe(true)
     expect(input.safeParse({ itemIds: [ID] }).success).toBe(true)
     expect(input.safeParse({ levels: ['urgent', 'high'] }).success).toBe(true)
-    expect(input.safeParse({ limit: 20_000 }).success).toBe(true)
-    expect(input.safeParse({ limit: 20_001 }).success).toBe(false)
+    expect(input.safeParse({ limit: RESCHEDULE_LIMIT_MAX }).success).toBe(true)
+    expect(input.safeParse({ limit: RESCHEDULE_LIMIT_MAX + 1 }).success).toBe(false)
     expect(input.safeParse({ levels: [] }).success).toBe(false)
   })
 
   it('round-trips an impact summary', () => {
     expect(output.parse(impact)).toEqual(impact)
+  })
+
+  it('refuses to serialise a projection larger than one call may cover', () => {
+    const changes = Array.from({ length: RESCHEDULE_LIMIT_MAX + 1 }, () => impact.changes[0])
+    expect(output.safeParse({ ...impact, changes }).success).toBe(false)
   })
 
   it('requires real timestamps on every projected move', () => {
@@ -199,10 +234,21 @@ describe('memory.startUrgentMode', () => {
     expect(input.safeParse({ itemIds: [ID], hours: 168 }).success).toBe(false)
   })
 
-  it('reports when the window closes', () => {
+  it('reports when the window closes, and whether the selection was truncated', () => {
     expect(
-      output.parse({ items: 1, cards: 2, expiresAt: '2026-09-04T00:00:00.000Z' }),
-    ).toMatchObject({ cards: 2 })
-    expect(output.safeParse({ items: 1, cards: 2, expiresAt: null }).success).toBe(false)
+      output.parse({
+        items: 1,
+        cards: 2,
+        expiresAt: '2026-09-04T00:00:00.000Z',
+        truncated: false,
+      }),
+    ).toMatchObject({ cards: 2, truncated: false })
+    expect(
+      output.safeParse({ items: 1, cards: 2, expiresAt: null, truncated: false }).success,
+    ).toBe(false)
+    // One item can own many cards, so the caller has to be told when the cap bit.
+    expect(
+      output.safeParse({ items: 1, cards: 2, expiresAt: '2026-09-04T00:00:00.000Z' }).success,
+    ).toBe(false)
   })
 })

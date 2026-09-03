@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { ImportanceLevel } from '../entities'
+import { IMPORTANCE_LEVELS, type ImportanceLevel } from '../entities'
 import { cardFixture, examFixture, knowledgeItemFixture } from '../testing/memory-fixtures'
 import { createExamOverrides } from './exam-override'
 import { createFsrsScheduler } from './fsrs-scheduler'
@@ -17,6 +17,7 @@ import {
   isUrgentModeActive,
   resolveImportance,
 } from './scheduling-policy'
+import { retrievabilityNow, strengthLabel } from './strength'
 import { CARD_STATE, RATING } from './types'
 
 const NOW = new Date('2026-01-05T08:00:00.000Z')
@@ -233,6 +234,40 @@ describe('resolveImportance: urgent mode (§7 rule 5)', () => {
     expect(after.options.learningSteps).toEqual([...DEFAULT_SCHEDULING_OPTIONS.learningSteps])
   })
 
+  /**
+   * `cards.overrideImportance` is the general form and accepts an expiry with any level,
+   * so "temporary" must not mean "urgent". Promoting a temporary `maintenance` override to
+   * 0.97 would be the exact opposite of what the user asked for.
+   */
+  it('is not urgent mode just because it is temporary', () => {
+    const card = matureCard({
+      importanceOverride: 'maintenance',
+      importanceOverrideExpiresAt: new Date(NOW.getTime() + 48 * 3_600_000),
+    })
+    const resolution = resolveImportance({ card, item: knowledgeItemFixture(), now: NOW })
+
+    expect(isUrgentModeActive(card, NOW)).toBe(false)
+    expect(resolution.source).toBe('card_override')
+    expect(resolution.level).toBe('maintenance')
+    expect(resolution.options.desiredRetention).toBe(0.85)
+    expect(resolution.finalDrill).toBe(false)
+    expect(resolution.urgentModeExpiresAt).toBeNull()
+    expect(resolution.options.learningSteps).toEqual([...DEFAULT_SCHEDULING_OPTIONS.learningSteps])
+  })
+
+  it('lets a temporary override lapse back to the item, whatever its level', () => {
+    const expiresAt = new Date(NOW.getTime() + 3_600_000)
+    const card = matureCard({
+      importanceOverride: 'maintenance',
+      importanceOverrideExpiresAt: expiresAt,
+    })
+    const item = knowledgeItemFixture({ importance: 'high' })
+    expect(resolveImportance({ card, item, now: NOW }).level).toBe('maintenance')
+    expect(resolveImportance({ card, item, now: new Date(expiresAt.getTime() + 1) }).level).toBe(
+      'high',
+    )
+  })
+
   it('is exactly the expiry at the boundary instant', () => {
     const expiresAt = new Date(NOW.getTime() + 1000)
     expect(isUrgentModeActive(expiring(expiresAt), NOW)).toBe(true)
@@ -260,6 +295,29 @@ describe('resolveImportance: urgent mode (§7 rule 5)', () => {
     )
     expect(resolution.source).toBe('exam')
     expect(resolution.options.desiredRetention).toBe(URGENT_MODE_RETENTION)
+  })
+})
+
+describe('importance never touches the memory state', () => {
+  /**
+   * §7's principle in one assertion: `R` is a property of the item-user pair, so the level
+   * a card sits at cannot move it. This is the cheapest place a regression would show.
+   */
+  it('leaves retrievability and its label identical across every level', () => {
+    const card = matureCard()
+    const labels = IMPORTANCE_LEVELS.map((level) => {
+      const resolution = resolveImportance({
+        card,
+        item: knowledgeItemFixture({ importance: level }),
+        now: NOW,
+      })
+      // The request differs per level…
+      expect(resolution.level).toBe(level)
+      return strengthLabel(card, NOW)
+    })
+    // …but what the user is told they recall does not.
+    expect(new Set(labels.map((label) => JSON.stringify(label))).size).toBe(1)
+    expect(retrievabilityNow(card, NOW)).toBeGreaterThan(0)
   })
 })
 

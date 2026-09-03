@@ -163,7 +163,17 @@ export function projectReschedule(
   }
 }
 
-/** Which cards to project. Every field is optional; with none of them, every live card. */
+/**
+ * How many cards one projection covers when the caller names none.
+ *
+ * The IPC schema defaults `limit` too, so this is defence in depth for a caller that does
+ * not come through the bridge: an unbounded `list()` here is one synchronous read of the
+ * whole `cards` table, and for `rescheduleNow` a transaction writing four rows per card.
+ */
+export const DEFAULT_RESCHEDULE_LIMIT = 2_000
+
+/** Which cards to project. Every field is optional; with none of them, the first
+ *  `DEFAULT_RESCHEDULE_LIMIT` live, queued cards. */
 export interface RescheduleSelection {
   cardIds?: readonly string[]
   itemIds?: readonly string[]
@@ -196,12 +206,13 @@ async function loadCandidates(
   selection: RescheduleSelection,
   now: Date,
 ): Promise<RescheduleCandidate[]> {
+  const limit = selection.limit ?? DEFAULT_RESCHEDULE_LIMIT
   const cards =
     selection.cardIds !== undefined
       ? await deps.repos.cards.findMany(selection.cardIds)
       : selection.itemIds !== undefined
-        ? await deps.repos.cards.listByItems(selection.itemIds, { limit: selection.limit })
-        : await deps.repos.cards.list({ limit: selection.limit })
+        ? await deps.repos.cards.listByItems(selection.itemIds, { limit })
+        : await deps.repos.cards.list({ limit })
 
   const items = new Map(
     (await deps.repos.knowledgeItems.findMany([...new Set(cards.map((card) => card.itemId))])).map(
@@ -269,6 +280,12 @@ export type RescheduleNow = (input: RescheduleNowInput) => Promise<RescheduleNow
  * Apply the projection. One transaction: each card's `due` and `scheduled_days` move and
  * nothing else — never `stability`, `difficulty`, `last_review`, `reps` or `lapses` — and
  * one append-only `review_logs` row per card records the move.
+ *
+ * It **re-projects from current state** rather than replaying the summary the confirmation
+ * dialog showed. A review that lands between the two is therefore respected, instead of
+ * being overwritten by a due date computed from a stability that has since changed. The
+ * trade-off is that the confirmed figures are a preview, not a contract: binding them would
+ * need the confirmation to carry a token identifying the projection it approved.
  */
 export function createRescheduleNow(deps: RescheduleNowDeps): RescheduleNow {
   const clock = deps.clock ?? systemClock

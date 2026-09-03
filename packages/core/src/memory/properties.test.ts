@@ -58,7 +58,11 @@ describe('stability monotonicity', () => {
     }
   })
 
-  it('holds through the scheduler for cards in Review', () => {
+  // 2,000 cases through the full scheduler. Vitest's 5 s default is enough on an idle
+  // core and not on a shared CI runner, where this has timed out on `main` with the code
+  // unchanged; the assertions below are what matter, not how long the runner takes to get
+  // through them.
+  it('holds through the scheduler for cards in Review', { timeout: 60_000 }, () => {
     const scheduler = createFsrsScheduler()
     const options = { ...DEFAULT_SCHEDULING_OPTIONS, fuzz: false }
     const now = new Date('2026-06-01T12:00:00Z')

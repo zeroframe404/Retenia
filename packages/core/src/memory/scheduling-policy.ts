@@ -126,15 +126,20 @@ export interface ImportancePolicyDeps {
 }
 
 /**
- * True while a card's override is urgent mode: an override *with* an expiry that has not
- * passed.
+ * True while a card is in urgent mode: an override at the **`urgent`** level, with an
+ * expiry that has not passed.
+ *
+ * The level matters. `cards.overrideImportance` is the general form and accepts an expiry
+ * with any level, so a temporary `maintenance` override is a legitimate thing to ask for —
+ * and it must schedule at 0.85, not be silently promoted to urgent mode's 0.97 just for
+ * being temporary.
  *
  * The expiry is honoured on read as well as swept (`expireUrgentMode`), so a missed sweep —
  * the app was closed for a week — can never leave a card reviewing at DR 0.97.
  */
 export function isUrgentModeActive(card: Card, now: Date): boolean {
   return (
-    card.importanceOverride !== null &&
+    card.importanceOverride === 'urgent' &&
     card.importanceOverrideExpiresAt !== null &&
     card.importanceOverrideExpiresAt.getTime() > now.getTime()
   )

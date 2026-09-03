@@ -21,6 +21,14 @@ import { type DayBoundary, resolveDayBoundary, studyDayNumber } from './study-da
  * they slot in behind the same `ExamOverrideSource` interface.
  */
 
+/**
+ * §8's `r_target`, and the schema's default for `exams.target_retention`. Used when a row
+ * carries no usable number: falling back to the 0.99 ceiling instead would push the exam
+ * above §7's stated 0.97 limit, "above which spaced repetition turns into massed
+ * repetition".
+ */
+export const EXAM_TARGET_RETENTION = 0.95
+
 export interface ExamSchedulingOverride {
   examId: string
   /** `DR_exam` — beats the importance level's retention (§7 rule 1: "the exam wins"). */
@@ -54,7 +62,7 @@ export type ExamRetentionInput = Pick<Exam, 'targetRetention' | 'finalWindowDays
 export function examDesiredRetention(daysUntilExam: number, exam: ExamRetentionInput): number {
   const target = Number.isFinite(exam.targetRetention)
     ? Math.min(Math.max(exam.targetRetention, DESIRED_RETENTION_MIN), DESIRED_RETENTION_MAX)
-    : DESIRED_RETENTION_MAX
+    : EXAM_TARGET_RETENTION
   return daysUntilExam <= URGENT_EXAM_WINDOW_DAYS ? Math.max(target, URGENT_MODE_RETENTION) : target
 }
 

@@ -11,6 +11,7 @@ import {
   createExpireUrgentMode,
   createStartUrgentMode,
   DEFAULT_URGENT_MODE_HOURS,
+  MAX_URGENT_MODE_CARDS,
   URGENT_MODE_HOURS,
   urgentModeExpiry,
 } from './urgent-mode'
@@ -43,6 +44,7 @@ describe('createStartUrgentMode', () => {
       items: 1,
       cards: 2,
       expiresAt: new Date(NOW.getTime() + 72 * HOUR_MS),
+      truncated: false,
     })
     for (const id of cardIds) {
       const card = await store.cards.findById(id)
@@ -77,6 +79,22 @@ describe('createStartUrgentMode', () => {
       RangeError,
     )
     expect([...URGENT_MODE_HOURS]).toEqual([48, 72])
+  })
+
+  /** One item can own many cards, so the channel's id cap bounds nothing on its own. */
+  it('stops at the card cap and says so, rather than writing without a bound', async () => {
+    const many = await store.knowledgeItems.create(knowledgeItemFixture({ id: undefined }))
+    for (let i = 0; i < MAX_URGENT_MODE_CARDS + 5; i++) {
+      await store.cards.create(cardFixture({ id: undefined, itemId: many.id, template: `t${i}` }))
+    }
+    const result = await createStartUrgentMode({ uow: store, clock })({ itemIds: [many.id] })
+    expect(result.cards).toBe(MAX_URGENT_MODE_CARDS)
+    expect(result.truncated).toBe(true)
+  })
+
+  it('is not truncated when the selection fits', async () => {
+    const result = await createStartUrgentMode({ uow: store, clock })({ itemIds: [itemId] })
+    expect(result).toMatchObject({ cards: 2, truncated: false })
   })
 
   it('refuses anything that is not a list of ids', async () => {

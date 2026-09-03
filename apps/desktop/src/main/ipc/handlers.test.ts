@@ -110,6 +110,7 @@ function makeMemory(): HandlerDeps['memory'] {
       items: itemIds.length,
       cards: itemIds.length,
       expiresAt: new Date('2026-09-04T00:00:00.000Z'),
+      truncated: false,
     })),
     expireUrgentMode: vi.fn(async () => 0),
     resolve: vi.fn(),
@@ -584,7 +585,7 @@ describe('memory channels', () => {
     const mix = await handlers['memory.importanceMix'](undefined, fakeEvent)
     expect(mix.computedAt).toBe('2026-09-02T00:00:00.000Z')
 
-    const impact = await handlers['memory.simulateReschedule']({}, fakeEvent)
+    const impact = await handlers['memory.simulateReschedule']({ limit: 2_000 }, fakeEvent)
     expect(impact.computedAt).toBe('2026-09-02T00:00:00.000Z')
 
     const urgent = await handlers['memory.startUrgentMode']({ itemIds: [ID], hours: 72 }, fakeEvent)
@@ -596,8 +597,14 @@ describe('memory channels', () => {
     const deps = makeDeps()
     const handlers = createHandlers(deps)
 
-    await handlers['memory.rescheduleNow']({ cardIds: [ID], confirm: true }, fakeEvent)
-    expect(deps.memory?.rescheduleNow).toHaveBeenCalledExactlyOnceWith({ cardIds: [ID] })
+    await handlers['memory.rescheduleNow'](
+      { cardIds: [ID], limit: 2_000, confirm: true },
+      fakeEvent,
+    )
+    expect(deps.memory?.rescheduleNow).toHaveBeenCalledExactlyOnceWith({
+      cardIds: [ID],
+      limit: 2_000,
+    })
   })
 
   it('reports the failure rather than pretending, when the database did not open', async () => {
@@ -606,8 +613,8 @@ describe('memory channels', () => {
       ['items.setImportance', { ids: [ID], level: 'normal' }],
       ['cards.overrideImportance', { ids: [ID], level: null }],
       ['memory.importanceMix', undefined],
-      ['memory.simulateReschedule', {}],
-      ['memory.rescheduleNow', { confirm: true }],
+      ['memory.simulateReschedule', { limit: 2_000 }],
+      ['memory.rescheduleNow', { limit: 2_000, confirm: true }],
       ['memory.startUrgentMode', { itemIds: [ID] }],
     ] as const
 

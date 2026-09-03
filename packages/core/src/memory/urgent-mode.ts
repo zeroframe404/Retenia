@@ -28,6 +28,16 @@ export type UrgentModeHours = (typeof URGENT_MODE_HOURS)[number]
 
 export const DEFAULT_URGENT_MODE_HOURS: UrgentModeHours = 48
 
+/**
+ * How many cards one call may put into urgent mode.
+ *
+ * The channel caps `itemIds`, but one item can own many cards, so the id cap alone bounds
+ * nothing: without this the fan-out is unbounded and every card is written inside a single
+ * transaction. `truncated` in the result is how the UI tells the user the window was
+ * applied to part of the selection.
+ */
+export const MAX_URGENT_MODE_CARDS = 2_000
+
 export interface UrgentModeRepositories {
   cards: Pick<CardRepository, 'listByItems' | 'overrideImportance' | 'clearExpiredOverrides'>
 }
@@ -59,6 +69,8 @@ export interface UrgentModeCounts {
 export interface UrgentModeResult extends UrgentModeCounts {
   /** When the window closes. */
   expiresAt: Date
+  /** The selection had more cards than `MAX_URGENT_MODE_CARDS`; the rest were left alone. */
+  truncated: boolean
 }
 
 export type StartUrgentMode = (input: StartUrgentModeInput) => Promise<UrgentModeResult>
@@ -92,12 +104,15 @@ export function createStartUrgentMode(deps: UrgentModeDeps): StartUrgentMode {
     const hours = assertHours(input.hours ?? DEFAULT_URGENT_MODE_HOURS)
     const now = input.now ?? clock.now()
     const expiresAt = new Date(now.getTime() + hours * HOUR_MS)
-    if (itemIds.length === 0) return { items: 0, cards: 0, expiresAt }
+    if (itemIds.length === 0) return { items: 0, cards: 0, expiresAt, truncated: false }
 
     // The read is outside the transaction: `UnitOfWork.transaction`'s contract is that its
-    // body only awaits the repositories it is handed.
-    const cards = await deps.uow.cards.listByItems(itemIds)
-    if (cards.length === 0) return { items: 0, cards: 0, expiresAt }
+    // body only awaits the repositories it is handed. One extra row is read so a selection
+    // sitting exactly on the cap is not reported as truncated.
+    const found = await deps.uow.cards.listByItems(itemIds, { limit: MAX_URGENT_MODE_CARDS + 1 })
+    const truncated = found.length > MAX_URGENT_MODE_CARDS
+    const cards = truncated ? found.slice(0, MAX_URGENT_MODE_CARDS) : found
+    if (cards.length === 0) return { items: 0, cards: 0, expiresAt, truncated: false }
 
     const written = await deps.uow.transaction((repos) =>
       repos.cards.overrideImportance(
@@ -106,7 +121,12 @@ export function createStartUrgentMode(deps: UrgentModeDeps): StartUrgentMode {
         expiresAt,
       ),
     )
-    return { items: new Set(cards.map((card) => card.itemId)).size, cards: written, expiresAt }
+    return {
+      items: new Set(cards.map((card) => card.itemId)).size,
+      cards: written,
+      expiresAt,
+      truncated,
+    }
   }
 }
 
