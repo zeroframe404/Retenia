@@ -88,7 +88,11 @@ export type { MermaidViewProps } from './components/mermaid-view'
 export { MermaidView } from './components/mermaid-view'
 export type { PageHeaderProps } from './components/page-header'
 export { PageHeader } from './components/page-header'
-export type { ProcessingJob, ProcessingTrayProps } from './components/processing-tray'
+export type {
+  ProcessingJob,
+  ProcessingJobStatus,
+  ProcessingTrayProps,
+} from './components/processing-tray'
 export { ProcessingTray } from './components/processing-tray'
 export type { ProgressRingProps } from './components/progress'
 export {

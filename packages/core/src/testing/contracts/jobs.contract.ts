@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { ContractContext, RepositoryContractHarness } from '../harness'
 
 /** The persisted job queue (`docs/spec/07-architecture.md` §7). The worker pool that
- *  drives it is sub-phase 3.4; what matters here is that the claim is atomic. */
+ *  drives it is covered by `jobs/scheduler.test.ts`; what matters here is that the claim
+ *  is atomic. */
 export function jobsContract(harness: RepositoryContractHarness): void {
   describe('job queue', () => {
     let ctx: ContractContext

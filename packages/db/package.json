@@ -6,6 +6,7 @@
   "description": "Drizzle schema, SQL migrations, FTS5 + sqlite-vec search and the better-sqlite3 Node adapter. Main/utility process only \u2014 never imported from the renderer.",
   "exports": {
     ".": "./src/index.ts",
+    "./migrations-bundled": "./src/migrations-bundled.ts",
     "./schema": "./src/schema/index.ts",
     "./testing": "./src/testing.ts"
   },

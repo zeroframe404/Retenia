@@ -28,17 +28,7 @@ export const test = base.extend<Fixtures>({
   electronApp: async ({}, use) => {
     const userDataDir = await mkdtemp(path.join(tmpdir(), 'retenia-e2e-'))
 
-    const app = await electron.launch({
-      args: [mainEntry, `--user-data-dir=${userDataDir}`],
-      env: {
-        ...process.env,
-        // `is.dev` is true for an unpackaged app, so the dev-server URL must be absent or the
-        // window would try to load a Vite server that is not running instead of `app://`.
-        ELECTRON_RENDERER_URL: '',
-        NODE_ENV: 'production',
-        RETENIA_E2E: '1',
-      },
-    })
+    const app = await launchApp(userDataDir)
 
     await use(app)
 
@@ -55,6 +45,33 @@ export const test = base.extend<Fixtures>({
 
 export { expect } from '@playwright/test'
 
+/** The env every launch shares. Kept beside the fixture so a second, manual launch (see
+ *  `launchApp`) cannot drift from it. */
+function launchEnv(): NodeJS.ProcessEnv {
+  return {
+    ...process.env,
+    // `is.dev` is true for an unpackaged app, so the dev-server URL must be absent or the
+    // window would try to load a Vite server that is not running instead of `app://`.
+    ELECTRON_RENDERER_URL: '',
+    NODE_ENV: 'production',
+    RETENIA_E2E: '1',
+  }
+}
+
+/**
+ * Launch the app against a `userData` directory the caller owns.
+ *
+ * The `electronApp` fixture mints a fresh directory per test, which is what isolation wants
+ * — but it makes "kill the app and start it again over the same database" impossible to
+ * write. Orphan recovery is exactly that scenario, so it gets this instead.
+ */
+export async function launchApp(userDataDir: string): Promise<ElectronApplication> {
+  return electron.launch({
+    args: [mainEntry, `--user-data-dir=${userDataDir}`],
+    env: launchEnv(),
+  })
+}
+
 /**
  * Calls `window.api.<namespace>.<method>(...)` inside the renderer and returns the result.
  * `fn` runs in the Electron page context, not this Node process — Playwright serializes it
@@ -70,6 +87,32 @@ export async function callApi<T>(
   const apiHandle = await page.evaluateHandle(() => window.api)
   try {
     return await page.evaluate(fn, apiHandle)
+  } finally {
+    await apiHandle.dispose()
+  }
+}
+
+/**
+ * `callApi` for a call that needs a value from this file.
+ *
+ * `callApi`'s callback is serialized and re-evaluated in the page, so anything it closes over
+ * here is `undefined` there — and only at runtime, as a `ReferenceError`, never at compile
+ * time. Whenever a call is parameterised (a job id, a channel input built in Node), use this
+ * and read the value off the callback's own argument instead.
+ */
+export async function callApiWith<T, A>(
+  page: Page,
+  fn: (context: { api: Window['api']; arg: A }) => T | Promise<T>,
+  arg: A,
+): Promise<T> {
+  const apiHandle = await page.evaluateHandle(() => window.api)
+  try {
+    // Playwright resolves a JSHandle nested inside a plain-object argument, so the live
+    // `window.api` and the serializable `arg` can travel together.
+    return await page.evaluate(fn, { api: apiHandle, arg } as unknown as {
+      api: Window['api']
+      arg: A
+    })
   } finally {
     await apiHandle.dispose()
   }

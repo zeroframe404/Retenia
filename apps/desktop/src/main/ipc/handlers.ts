@@ -3,6 +3,7 @@ import type { Contract } from '@retenia/ipc-contract'
 import { app, BrowserWindow, dialog, nativeTheme } from 'electron'
 import { ensureDevMediaSample } from '../dev/media-sample'
 import { collectSystemInfo, exportDiagnostics } from '../diagnostics/export'
+import type { JobsFacade } from '../jobs/facade'
 import { getBlobsRoot, getDevMediaSamplePath, getLogsDir } from '../paths'
 import type { SettingsStore } from '../settings/store'
 import type { Updater } from '../updates/updater'
@@ -11,6 +12,7 @@ import type { Handlers } from './register-handlers'
 export interface HandlerDeps {
   settings: SettingsStore
   updater: Updater
+  jobs: JobsFacade
   /** Forwarded to the main-process Sentry client, once telemetry is on. */
   reportRendererError: (error: { name: string; message: string; stack?: string }) => void
 }
@@ -19,6 +21,7 @@ export interface HandlerDeps {
 export function createHandlers({
   settings,
   updater,
+  jobs,
   reportRendererError,
 }: HandlerDeps): Handlers<Contract> {
   return {
@@ -89,5 +92,13 @@ export function createHandlers({
     'app.reportRendererError': (error) => {
       reportRendererError(error)
     },
+
+    'jobs.list': async (input) => ({ jobs: await jobs.list(input) }),
+
+    'jobs.cancel': ({ id }) => jobs.cancel(id),
+
+    'jobs.retry': ({ id }) => jobs.retry(id),
+
+    'jobs.enqueueDemo': (input) => jobs.enqueueDemo(input),
   }
 }

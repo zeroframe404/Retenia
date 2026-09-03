@@ -4,7 +4,7 @@ import type { AiCallStatus, JobStatus, OutboxOp } from './enums'
 /** The job queue, the AI cost log, settings and the (v1-empty) sync outbox. */
 
 /** A unit of background work (`docs/spec/07-architecture.md` §7). The worker pool that runs
- *  them is sub-phase 3.4; this is only the persisted record. */
+ *  them is `JobRunner` in the desktop app; this is only the persisted record. */
 export interface Job extends Entity {
   kind: string
   status: JobStatus

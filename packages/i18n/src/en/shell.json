@@ -24,7 +24,14 @@
     "collapse": "Collapse",
     "expand": "Expand",
     "emptyState": "No background jobs",
-    "jobCount": "{count, plural, =0 {No jobs} one {# job running} other {# jobs running}}"
+    "jobCount": "{count, plural, =0 {No jobs} one {# job running} other {# jobs running}}",
+    "cancel": "Cancel",
+    "retry": "Retry",
+    "queued": "Queued",
+    "kind": {
+      "sleep": "Test job",
+      "hashFile": "Hashing a file"
+    }
   },
   "commandPalette": {
     "placeholder": "Type a command or search…",

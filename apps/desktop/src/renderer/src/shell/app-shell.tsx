@@ -34,7 +34,7 @@ export function AppShell() {
   const toggleTrayCollapsed = useChromeStore((s) => s.toggleProcessingTrayCollapsed)
 
   const dueCount = useDueCount()
-  const jobs = useProcessingJobs()
+  const { jobs, cancel: cancelJob, retry: retryJob } = useProcessingJobs()
   const xp = useXp()
   const online = useOnlineStatus()
   const settings = useSettings()
@@ -126,6 +126,11 @@ export function AppShell() {
             collapseLabel={t('processingTray.collapse')}
             expandLabel={t('processingTray.expand')}
             jobCountLabel={t('processingTray.jobCount', { count: jobs.length })}
+            onCancelJob={cancelJob}
+            onRetryJob={retryJob}
+            cancelLabel={t('processingTray.cancel')}
+            retryLabel={t('processingTray.retry')}
+            queuedLabel={t('processingTray.queued')}
           />
         </div>
       </div>

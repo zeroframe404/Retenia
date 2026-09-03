@@ -33,6 +33,15 @@ export interface OpenDatabaseOptions {
   driver?: SqliteDriver
   /** Load the sqlite-vec extension (needed for `embeddings`). Defaults to `true`. */
   loadVec?: boolean
+  /**
+   * Where to find sqlite-vec's loadable extension, overriding the path the package reports.
+   *
+   * `loadExtension` hands the path to SQLite, which opens it with the real OS loader — so
+   * Electron's asar filesystem shim does not apply and the file has to exist on disk. A
+   * packaged build therefore passes the `app.asar.unpacked` path here (see
+   * `apps/desktop/src/main/db/open.ts`). Everywhere else the default is correct.
+   */
+  vecExtensionPath?: string
   /** Open read-only (backups, integrity checks). */
   readonly?: boolean
   /** `busy_timeout` in milliseconds; defaults to 5000. */
@@ -132,7 +141,7 @@ export function openDatabase(path: string, options: OpenDatabaseOptions = {}): O
 
     const vecLoaded = options.loadVec ?? true
     if (vecLoaded) {
-      sqlite.loadExtension(getLoadablePath())
+      sqlite.loadExtension(options.vecExtensionPath ?? getLoadablePath())
     }
 
     const db = drizzle(sqlite, { schema })

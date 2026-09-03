@@ -34,8 +34,17 @@ describe('contract', () => {
       'app.setTelemetryEnabled',
       'app.setTheme',
       'app.setUpdateChannel',
+      'jobs.cancel',
+      'jobs.enqueueDemo',
+      'jobs.list',
+      'jobs.retry',
     ])
-    expect([...eventNames].sort()).toEqual(['app.deepLink', 'app.themeChanged', 'app.updateStatus'])
+    expect([...eventNames].sort()).toEqual([
+      'app.deepLink',
+      'app.themeChanged',
+      'app.updateStatus',
+      'jobs.progress',
+    ])
   })
 
   it('never declares a domain called "events"', () => {

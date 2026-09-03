@@ -15,7 +15,8 @@ export interface EnqueueOptions {
 
 /**
  * The persisted job queue (`docs/spec/07-architecture.md` §7). This is the storage half
- * only: the `utilityProcess` pool that consumes it is sub-phase 3.4.
+ * only. The policy that drives it lives in `JobScheduler` (`../jobs/scheduler.ts`), and the
+ * `utilityProcess` pool that consumes it lives in the desktop app.
  */
 export interface JobRepository extends CrudRepository<Job> {
   enqueue(kind: string, payload: JsonObject, options?: EnqueueOptions): Promise<Job>

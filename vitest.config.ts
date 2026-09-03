@@ -24,7 +24,14 @@ export default defineConfig({
           name: 'desktop-main',
           root: 'apps/desktop',
           environment: 'node',
-          include: ['src/main/**/*.test.ts', 'src/preload/**/*.test.ts'],
+          include: [
+            'src/main/**/*.test.ts',
+            'src/preload/**/*.test.ts',
+            // The job definitions and the worker entry are plain Node, shared by main and
+            // the `utilityProcess` bundle, so they live outside `src/main`.
+            'src/jobs/**/*.test.ts',
+            'src/worker/**/*.test.ts',
+          ],
         },
       },
       {
