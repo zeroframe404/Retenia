@@ -2,6 +2,7 @@ import type {
   Activity,
   Card,
   Chunk,
+  EmbeddingProvider,
   IdGenerator,
   KnowledgeItem,
   LearningPath,
@@ -66,6 +67,12 @@ export interface ContractContext {
   ids: IdGenerator
   seed: ContractSeeds
   capabilities: ContractCapabilities
+  /**
+   * Embeds every live chunk with `provider` and writes the vectors to the adapter's index —
+   * what the embedding job does for real. Present only when `capabilities.vectorSearch` is
+   * true, since an adapter without a vector index has nowhere to put them.
+   */
+  embedChunks?(provider: EmbeddingProvider): Promise<void>
   /** Every outbox row, oldest first. Empty whenever the adapter was built with the flag off. */
   listOutbox(): Promise<readonly OutboxEntry[]>
   /** Live row count straight from storage, bypassing the repositories — this is how the

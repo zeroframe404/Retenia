@@ -56,8 +56,8 @@ const TABLE_GROUPS: readonly { title: string; blurb: string; tables: readonly st
   },
   {
     title: 'Search indexes (virtual tables)',
-    blurb: `FTS5 over \`chunks\` and the sqlite-vec store. Created by the raw-SQL migration, queried through \`src/search.ts\`. \`chunks_fts\` is kept in sync by triggers, including on soft delete; \`embeddings\` is derived data that the embedding job deletes and rebuilds, so it carries no audit columns (\`vec0\` has no NOT NULL/CHECK).`,
-    tables: ['chunks_fts', 'embeddings'],
+    blurb: `FTS5 over \`chunks\` and the sqlite-vec store. Created by the raw-SQL migrations, queried through \`src/search.ts\`. \`chunks_fts\` is kept in sync by triggers, including on soft delete; \`embeddings\` (exact \`float\`) and \`embeddings_i8\` (its quantized companion, what a KNN query scans) are derived data that the embedding job deletes and rebuilds, so they carry no audit columns (\`vec0\` has no NOT NULL/CHECK).`,
+    tables: ['chunks_fts', 'embeddings', 'embeddings_i8'],
   },
   {
     title: 'Learning paths',
@@ -102,7 +102,14 @@ const TABLE_GROUPS: readonly { title: string; blurb: string; tables: readonly st
   },
 ]
 
-const SHADOW_TABLE = /^(chunks_fts|embeddings)_/
+/** The internal tables FTS5 and vec0 create beside a virtual table (`embeddings_chunks`,
+ *  `chunks_fts_data`…). Their prefixes also prefix real tables, so the real ones win. */
+const VIRTUAL_TABLES = ['chunks_fts', 'embeddings', 'embeddings_i8']
+
+function isShadowTable(name: string): boolean {
+  if (VIRTUAL_TABLES.includes(name)) return false
+  return VIRTUAL_TABLES.some((table) => name.startsWith(`${table}_`))
+}
 
 function escapeCell(value: string): string {
   return value.replace(/\|/g, '\\|').replace(/\n/g, ' ')
@@ -150,7 +157,7 @@ export function renderSchemaDoc(): string {
       )
       .all()
     const tables = master
-      .filter((row) => row.type === 'table' && !SHADOW_TABLE.test(row.name))
+      .filter((row) => row.type === 'table' && !isShadowTable(row.name))
       .map((row) => row.name)
     const triggers = master.filter((row) => row.type === 'trigger')
     const indexSql = new Map(
@@ -244,6 +251,7 @@ export function renderSchemaDoc(): string {
     const contents: Record<string, string> = {
       '0000_domain_schema': 'All Drizzle tables, indexes, foreign keys and CHECKs.',
       '0001_fts5_vec0_seed': `\`chunks_fts\` (FTS5, \`${FTS_TOKENIZER}\`) + sync triggers, \`embeddings\` (vec0, \`float[${EMBEDDING_DIMENSIONS}]\`, partition \`source_id\`), the vector-maintenance and source soft-delete cascade triggers, the five \`importance_levels\` rows.`,
+      '0002_embeddings_int8': `\`embeddings_i8\` (vec0, \`int8[${EMBEDDING_DIMENSIONS}]\`, partition \`source_id\`): the quantized companion a KNN query scans, rescored against the exact float vectors, plus its maintenance triggers.`,
     }
     for (const [index, migration] of loadMigrations().entries()) {
       line(

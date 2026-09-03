@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Drizzle schema, SQL migrations, FTS5 + sqlite-vec search and the better-sqlite3 Node adapter. Main/utility process only — never imported from the renderer.",
+  "description": "Drizzle schema, SQL migrations, FTS5 + sqlite-vec search and the better-sqlite3 Node adapter. Main/utility process only \u2014 never imported from the renderer.",
   "exports": {
     ".": "./src/index.ts",
     "./schema": "./src/schema/index.ts",
@@ -12,6 +12,7 @@
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
+    "bench": "vitest bench --run",
     "lint": "biome check .",
     "migrations:generate": "drizzle-kit generate",
     "migrations:custom": "drizzle-kit generate --custom",

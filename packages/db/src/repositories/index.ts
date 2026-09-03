@@ -2,10 +2,12 @@ import type {
   Clock,
   IdGenerator,
   Repositories,
+  Reranker,
   TransactionOptions,
   UnitOfWork,
 } from '@retenia/core'
 import { createUuidV7Generator, systemClock } from '@retenia/core'
+import type { VectorIndex } from '../hybrid-search'
 import type { OpenedDatabase } from '../open-database'
 import { createAiCallRepository } from './ai-calls'
 import { createAttemptRepository } from './attempts'
@@ -38,6 +40,17 @@ export interface RepositoryOptions {
    * transaction would be impossible to reason about.
    */
   outboxEnabled?: boolean
+  /**
+   * Where chunk vectors live. Defaults to sqlite-vec over the same connection; a corpus past
+   * ~200k chunks (`docs/spec/05-ingestion-rag.md` §3) swaps in a LanceDB implementation here
+   * without any other change.
+   */
+  vectorIndex?: VectorIndex
+  /**
+   * The optional last stage of hybrid retrieval (a local cross-encoder, or Cohere/Voyage).
+   * Absent means the RRF order is final, which is what v1 ships.
+   */
+  reranker?: Reranker
 }
 
 /**
@@ -63,7 +76,16 @@ export function createRepositories(opened: OpenedDatabase, options: RepositoryOp
         )
       : disabledOutboxWriter
 
-  ctx = { db: opened.db, clock, ids, deviceId: options.deviceId, outbox, run }
+  ctx = {
+    db: opened.db,
+    clock,
+    ids,
+    deviceId: options.deviceId,
+    outbox,
+    run,
+    ...(options.vectorIndex === undefined ? {} : { vectorIndex: options.vectorIndex }),
+    ...(options.reranker === undefined ? {} : { reranker: options.reranker }),
+  }
 
   const repositories: Repositories = {
     aiCalls: createAiCallRepository(ctx),

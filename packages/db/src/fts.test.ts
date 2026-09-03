@@ -37,7 +37,8 @@ describe('chunks_fts (FTS5, unicode61 remove_diacritics 2)', () => {
     expect(hits).toHaveLength(1)
     expect(hits[0]).toMatchObject({ chunkId: chunkIds[1], sourceId })
     expect(hits[0]?.snippet).toContain('<b>mitocondrias</b>')
-    expect(hits[0]?.rank).toBeLessThan(0)
+    expect(hits[0]?.rank).toBe(1)
+    expect(hits[0]?.bm25).toBeLessThan(0)
   })
 
   it('ignores diacritics and case in both the query and the text', () => {
@@ -67,7 +68,7 @@ describe('chunks_fts (FTS5, unicode61 remove_diacritics 2)', () => {
     const other = seedSourceWithChunks(opened, ids, clock.nowMs(), ['La aorta es una arteria.'])
     expect(searchChunksFts(opened.sqlite, ftsQuery('aorta'))).toHaveLength(2)
     expect(
-      searchChunksFts(opened.sqlite, ftsQuery('aorta'), { sourceId: other.sourceId }).map(
+      searchChunksFts(opened.sqlite, ftsQuery('aorta'), { sourceIds: [other.sourceId] }).map(
         (h) => h.chunkId,
       ),
     ).toEqual(other.chunkIds)
@@ -138,5 +139,60 @@ describe('chunks_fts (FTS5, unicode61 remove_diacritics 2)', () => {
     expect(() => searchChunksFts(opened.sqlite, ftsQuery('NOT ( OR "unbalanced'))).not.toThrow()
     // Raw syntax, by contrast, is passed through and can fail.
     expect(() => searchChunksFts(opened.sqlite, '"unbalanced')).toThrow()
+  })
+
+  it('returns a highlighted heading path beside the snippet', () => {
+    const [hit] = searchChunksFts(opened.sqlite, ftsQuery('capitulo mitocondrias'))
+    expect(hit?.headingHighlight).toBe('Fisiología > <b>Capítulo</b> 2')
+    expect(hit?.snippet).toContain('<b>mitocondrias</b>')
+  })
+
+  it('weights a body hit above a heading-only hit', () => {
+    const inBody = searchChunksFts(opened.sqlite, ftsQuery('mitocondrias'))[0]?.bm25 as number
+    const inHeading = searchChunksFts(opened.sqlite, ftsQuery('capitulo'))[0]?.bm25 as number
+    // bm25() is negative and lower is better, so the body hit must be the more negative one.
+    expect(inBody).toBeLessThan(inHeading)
+  })
+
+  it('an empty source filter means no source, not every source', () => {
+    expect(searchChunksFts(opened.sqlite, ftsQuery('aorta'), { sourceIds: [] })).toEqual([])
+  })
+})
+
+describe('ftsQuery()', () => {
+  it('quotes every term, so index operators are only ever words', () => {
+    expect(ftsQuery('sangre aorta')).toBe('"sangre" "aorta"')
+    expect(ftsQuery('sangre OR aorta')).toBe('"sangre" "OR" "aorta"')
+    expect(ftsQuery('text : sangre')).toBe('"text" ":" "sangre"')
+    expect(ftsQuery('NEAR(a b)')).toBe('"NEAR(a" "b)"')
+  })
+
+  it('keeps a double-quoted run together as one phrase', () => {
+    expect(ftsQuery('"impulso nervioso"')).toBe('"impulso nervioso"')
+    expect(ftsQuery('el "impulso nervioso" viaja')).toBe('"el" "impulso nervioso" "viaja"')
+  })
+
+  it('runs an unterminated quote to the end rather than failing', () => {
+    expect(ftsQuery('"impulso nervioso')).toBe('"impulso nervioso"')
+  })
+
+  it('escapes a quote inside a term by doubling it, as FTS5 requires', () => {
+    expect(ftsQuery('a"b')).toBe('"a" "b"')
+    expect(ftsQuery('"di ""hola"" ahora"')).toBe('"di " "hola" " ahora"')
+  })
+
+  it('marks the last term as a prefix on request, and any term the user marks', () => {
+    expect(ftsQuery('mitoc', { prefix: true })).toBe('"mitoc"*')
+    expect(ftsQuery('la mitoc', { prefix: true })).toBe('"la" "mitoc"*')
+    // Only the last: an all-prefix query matches far too much.
+    expect(ftsQuery('mitoc atp')).toBe('"mitoc" "atp"')
+    expect(ftsQuery('mitoc* atp')).toBe('"mitoc"* "atp"')
+    expect(ftsQuery('"impulso nervioso"*')).toBe('"impulso nervioso"*')
+  })
+
+  it('drops whitespace-only input and whitespace-only phrases', () => {
+    expect(ftsQuery('')).toBe('')
+    expect(ftsQuery('   \t  ')).toBe('')
+    expect(ftsQuery('"   "')).toBe('')
   })
 })

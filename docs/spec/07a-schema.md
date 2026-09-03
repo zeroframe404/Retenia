@@ -44,6 +44,7 @@ Packaging note (Windows first): the `.node` binaries of both drivers and `sqlite
 |---|---|---|---|
 | 0 | `0000_domain_schema` | `17866f5172ad` | All Drizzle tables, indexes, foreign keys and CHECKs. |
 | 1 | `0001_fts5_vec0_seed` | `cecb877e1951` | `chunks_fts` (FTS5, `unicode61 remove_diacritics 2`) + sync triggers, `embeddings` (vec0, `float[768]`, partition `source_id`), the vector-maintenance and source soft-delete cascade triggers, the five `importance_levels` rows. |
+| 2 | `0002_embeddings_int8` | `4f58c9fdd7df` | `embeddings_i8` (vec0, `int8[768]`, partition `source_id`): the quantized companion a KNN query scans, rescored against the exact float vectors, plus its maintenance triggers. |
 
 ## Tables
 
@@ -56,6 +57,7 @@ Packaging note (Windows first): the `.node` binaries of both drivers and `sqlite
 | `annotations` | Source library | 15 | 2 | 2 | 7 |
 | `chunks_fts` | Search indexes (virtual tables) | 4 | 0 | 0 | 0 |
 | `embeddings` | Search indexes (virtual tables) | 5 | 0 | 0 | 0 |
+| `embeddings_i8` | Search indexes (virtual tables) | 5 | 0 | 0 | 0 |
 | `paths` | Learning paths | 15 | 0 | 1 | 8 |
 | `path_versions` | Learning paths | 13 | 1 | 1 | 8 |
 | `sections` | Learning paths | 12 | 1 | 1 | 6 |
@@ -231,6 +233,8 @@ Triggers:
 
 - `chunks_embeddings_ad`: AFTER DELETE ON chunks
 - `chunks_embeddings_au`: AFTER UPDATE OF deleted_at ON chunks
+- `chunks_embeddings_i8_ad`: AFTER DELETE ON chunks
+- `chunks_embeddings_i8_au`: AFTER UPDATE OF deleted_at ON chunks
 - `chunks_fts_ad`: AFTER DELETE ON chunks
 - `chunks_fts_ai`: AFTER INSERT ON chunks
 - `chunks_fts_au`: AFTER UPDATE OF source_id, text, heading_path, deleted_at ON chunks
@@ -272,7 +276,7 @@ Checks:
 
 ## Search indexes (virtual tables)
 
-FTS5 over `chunks` and the sqlite-vec store. Created by the raw-SQL migration, queried through `src/search.ts`. `chunks_fts` is kept in sync by triggers, including on soft delete; `embeddings` is derived data that the embedding job deletes and rebuilds, so it carries no audit columns (`vec0` has no NOT NULL/CHECK).
+FTS5 over `chunks` and the sqlite-vec store. Created by the raw-SQL migrations, queried through `src/search.ts`. `chunks_fts` is kept in sync by triggers, including on soft delete; `embeddings` (exact `float`) and `embeddings_i8` (its quantized companion, what a KNN query scans) are derived data that the embedding job deletes and rebuilds, so they carry no audit columns (`vec0` has no NOT NULL/CHECK).
 
 ### `chunks_fts`
 
@@ -299,6 +303,20 @@ CREATE VIRTUAL TABLE embeddings USING vec0(
 	chunk_id TEXT,
 	model_id TEXT,
 	embedding FLOAT[768]
+)
+```
+
+### `embeddings_i8`
+
+Virtual table — DDL as shipped:
+
+```sql
+CREATE VIRTUAL TABLE embeddings_i8 USING vec0(
+	id TEXT PRIMARY KEY,
+	source_id TEXT PARTITION KEY,
+	chunk_id TEXT,
+	model_id TEXT,
+	embedding INT8[768]
 )
 ```
 

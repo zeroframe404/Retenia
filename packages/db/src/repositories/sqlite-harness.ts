@@ -15,9 +15,10 @@ import type {
   HarnessOptions,
   RepositoryContractHarness,
 } from '@retenia/core/testing'
-import { asc } from 'drizzle-orm'
+import { asc, isNull } from 'drizzle-orm'
 import type { OpenedDatabase } from '../open-database'
-import { outbox } from '../schema'
+import { chunks, outbox } from '../schema'
+import { insertEmbedding } from '../search'
 import { openTestDatabase, TEST_DEVICE_ID, type TestClock, testClock, testIds } from '../testing'
 import { createRepositories } from './index'
 
@@ -274,6 +275,28 @@ export const sqliteHarness: RepositoryContractHarness = {
       ids,
       seed: createSeeds(repos, clock),
       capabilities: { vectorSearch: opened.vecLoaded, checkConstraints: true },
+
+      /** Embeds every live chunk and writes both vector indexes, in one transaction. */
+      embedChunks: async (provider) => {
+        const rows = opened.db
+          .select({ id: chunks.id, sourceId: chunks.sourceId, text: chunks.text })
+          .from(chunks)
+          .where(isNull(chunks.deletedAt))
+          .all()
+        const vectors = await provider.embed(rows.map((row) => row.text))
+        const write = opened.sqlite.transaction(() => {
+          for (const [index, row] of rows.entries()) {
+            insertEmbedding(opened.sqlite, {
+              id: ids.next(),
+              sourceId: row.sourceId,
+              chunkId: row.id,
+              modelId: provider.modelId,
+              embedding: vectors[index] as Float32Array,
+            })
+          }
+        })
+        write()
+      },
 
       /** Every outbox row, synced ones included — straight at the table, so the suites can
        *  assert that draining it appended nothing. */

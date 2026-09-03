@@ -1,4 +1,5 @@
-import type { Clock, IdGenerator, JsonObject } from '@retenia/core'
+import type { Clock, IdGenerator, JsonObject, Reranker } from '@retenia/core'
+import type { VectorIndex } from '../hybrid-search'
 import type { DrizzleDatabase } from '../open-database'
 import type { TransactionRunner } from './transaction'
 
@@ -11,6 +12,10 @@ export interface RepositoryContext {
   readonly deviceId: string
   readonly outbox: OutboxWriter
   readonly run: TransactionRunner
+  /** Where chunk vectors live; defaults to sqlite-vec over this same connection. */
+  readonly vectorIndex?: VectorIndex
+  /** Last stage of hybrid retrieval; absent means the fusion order is final. */
+  readonly reranker?: Reranker
 }
 
 /** The audit columns a fresh row gets. */
