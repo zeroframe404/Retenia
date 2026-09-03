@@ -1,53 +1,74 @@
-import { createHash } from 'node:crypto'
-import { join } from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const existsSync = vi.fn()
-const mkdirSync = vi.fn()
-const copyFileSync = vi.fn()
 const readFileSync = vi.fn()
-
-vi.mock('node:fs', () => ({ existsSync, mkdirSync, copyFileSync, readFileSync }))
+vi.mock('node:fs', () => ({ readFileSync }))
 
 const { ensureDevMediaSample } = await import('./media-sample')
 
 const content = Buffer.from('fake ogg bytes')
-const hash = createHash('sha256').update(content).digest('hex')
-const blobsRoot = '/blobs'
 const sourceFile = '/resources/dev/sample.ogg'
+const put = vi.fn()
+const blobStore = { put, has: vi.fn(), path: vi.fn(), get: vi.fn(), delete: vi.fn() }
 
 beforeEach(() => {
-  existsSync.mockReset()
-  mkdirSync.mockReset()
-  copyFileSync.mockReset()
   readFileSync.mockReset().mockReturnValue(content)
+  put.mockReset()
 })
 
 describe('ensureDevMediaSample', () => {
-  it('returns the media:// url keyed by the content hash', () => {
-    existsSync.mockReturnValue(false)
-    expect(ensureDevMediaSample(sourceFile, blobsRoot)).toBe(`media://blob/${hash}.ogg`)
+  it('puts the file into the blob store and returns its media:// url', async () => {
+    put.mockResolvedValue({
+      sha256: 'abc123',
+      bytes: content.byteLength,
+      mime: 'audio/ogg',
+      ext: 'ogg',
+    })
+
+    const url = await ensureDevMediaSample(sourceFile, blobStore)
+
+    expect(readFileSync).toHaveBeenCalledWith(sourceFile)
+    expect(put).toHaveBeenCalledWith(content, 'audio/ogg')
+    expect(url).toBe('media://blob/abc123.ogg')
   })
 
-  it('copies the file into <blobsRoot>/<aa>/<hash>.ogg when the blob is missing', () => {
-    existsSync.mockReturnValue(false)
-    ensureDevMediaSample(sourceFile, blobsRoot)
+  it('respects a custom mime type', async () => {
+    put.mockResolvedValue({
+      sha256: 'def456',
+      bytes: content.byteLength,
+      mime: 'audio/mpeg',
+      ext: 'mp3',
+    })
 
-    const dir = join(blobsRoot, hash.slice(0, 2))
-    expect(mkdirSync).toHaveBeenCalledWith(dir, { recursive: true })
-    expect(copyFileSync).toHaveBeenCalledWith(sourceFile, join(dir, `${hash}.ogg`))
+    const url = await ensureDevMediaSample(sourceFile, blobStore, 'audio/mpeg')
+
+    expect(put).toHaveBeenCalledWith(content, 'audio/mpeg')
+    expect(url).toBe('media://blob/def456.mp3')
   })
 
-  it('is idempotent: does not copy again once the blob already exists', () => {
-    existsSync.mockReturnValue(true)
-    ensureDevMediaSample(sourceFile, blobsRoot)
+  it('omits the extension when the mime maps to none', async () => {
+    put.mockResolvedValue({
+      sha256: 'ghi789',
+      bytes: content.byteLength,
+      mime: 'x/unknown',
+      ext: null,
+    })
 
-    expect(copyFileSync).not.toHaveBeenCalled()
-    expect(mkdirSync).not.toHaveBeenCalled()
+    const url = await ensureDevMediaSample(sourceFile, blobStore, 'x/unknown')
+
+    expect(url).toBe('media://blob/ghi789')
   })
 
-  it('respects a custom extension', () => {
-    existsSync.mockReturnValue(false)
-    expect(ensureDevMediaSample(sourceFile, blobsRoot, 'mp3')).toBe(`media://blob/${hash}.mp3`)
+  it('is idempotent by construction: `put` itself dedupes identical bytes', async () => {
+    put.mockResolvedValue({
+      sha256: 'abc123',
+      bytes: content.byteLength,
+      mime: 'audio/ogg',
+      ext: 'ogg',
+    })
+
+    await ensureDevMediaSample(sourceFile, blobStore)
+    await ensureDevMediaSample(sourceFile, blobStore)
+
+    expect(put).toHaveBeenCalledTimes(2)
   })
 })

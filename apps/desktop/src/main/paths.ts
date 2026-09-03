@@ -38,6 +38,12 @@ export function getDatabasePath(): string {
   return join(app.getPath('userData'), 'retenia.db')
 }
 
+/** `userData/backups`, where `db.backup()` snapshots land daily and on quit, rotated to the
+ * newest 7 (`docs/spec/07-architecture.md` §5). */
+export function getBackupsRoot(): string {
+  return join(app.getPath('userData'), 'backups')
+}
+
 /**
  * `out/main/job-worker.js`, the entry point `utilityProcess.fork` runs.
  *

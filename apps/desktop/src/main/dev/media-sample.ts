@@ -1,23 +1,19 @@
-import { createHash } from 'node:crypto'
-import { copyFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { readFileSync } from 'node:fs'
+import type { BlobStore } from '@retenia/core'
 import { MEDIA_BLOB_HOST, MEDIA_SCHEME } from '../protocol/media-protocol'
 
 /**
- * Copy `sourceFile` into the blob store under its own sha256 hash (idempotent) and return
- * its `media://` URL. Backs the dev-only test page that proves seeking works against a real
- * file end to end (sub-phase 1.3) — there is no blob store writer yet (that lands in 3.5),
- * so this is a narrow, dev-only stand-in for one.
+ * Puts `sourceFile` into the blob store (idempotent — content-addressed dedupe means a
+ * second call for the same bytes is a no-op) and returns its `media://` URL. Backs the
+ * dev-only test page that proves seeking works against a real file end to end (sub-phase
+ * 1.3); the real writer landed with the blob store in sub-phase 3.5.
  */
-export function ensureDevMediaSample(sourceFile: string, blobsRoot: string, ext = 'ogg'): string {
-  const hash = createHash('sha256').update(readFileSync(sourceFile)).digest('hex')
-  const dir = join(blobsRoot, hash.slice(0, 2))
-  const dest = join(dir, `${hash}.${ext}`)
-
-  if (!existsSync(dest)) {
-    mkdirSync(dir, { recursive: true })
-    copyFileSync(sourceFile, dest)
-  }
-
-  return `${MEDIA_SCHEME}://${MEDIA_BLOB_HOST}/${hash}.${ext}`
+export async function ensureDevMediaSample(
+  sourceFile: string,
+  blobStore: BlobStore,
+  mime = 'audio/ogg',
+): Promise<string> {
+  const { sha256, ext } = await blobStore.put(readFileSync(sourceFile), mime)
+  const suffix = ext ? `.${ext}` : ''
+  return `${MEDIA_SCHEME}://${MEDIA_BLOB_HOST}/${sha256}${suffix}`
 }

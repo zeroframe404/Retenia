@@ -1,3 +1,4 @@
+import { SETTINGS_DEFAULTS } from '@retenia/core'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { HandlerDeps } from './handlers'
 
@@ -20,7 +21,7 @@ vi.mock('@electron-toolkit/utils', () => ({
   },
 }))
 
-const ensureDevMediaSample = vi.fn(() => 'media://blob/sample.ogg')
+const ensureDevMediaSample = vi.fn(async () => 'media://blob/sample.ogg')
 vi.mock('../dev/media-sample', () => ({ ensureDevMediaSample }))
 
 const collectSystemInfo = vi.fn(async () => ({ appVersion: '0.1.0' }))
@@ -28,7 +29,6 @@ const exportDiagnostics = vi.fn(async () => {})
 vi.mock('../diagnostics/export', () => ({ collectSystemInfo, exportDiagnostics }))
 
 vi.mock('../paths', () => ({
-  getBlobsRoot: () => '/userData/blobs',
   getDevMediaSamplePath: () => '/resources/dev/sample.ogg',
   getLogsDir: () => '/userData/logs',
 }))
@@ -54,7 +54,28 @@ const jobSummary = {
   finishedAt: null,
 }
 
-function makeDeps(): HandlerDeps {
+function makeSettingsRepo(): HandlerDeps['settingsRepo'] {
+  const store = new Map<string, unknown>()
+  return {
+    get: vi.fn(async (key: keyof typeof SETTINGS_DEFAULTS) =>
+      store.has(key) ? store.get(key) : SETTINGS_DEFAULTS[key],
+    ),
+    getStored: vi.fn(async () => ({})),
+    getRaw: vi.fn(async (key: string) => store.get(key)),
+    set: vi.fn(async (key: string, value: unknown) => {
+      store.set(key, value)
+    }),
+    setRaw: vi.fn(async (key: string, value: unknown) => {
+      store.set(key, value)
+    }),
+    all: vi.fn(async () => Object.fromEntries(store)),
+    unset: vi.fn(async (key: string) => {
+      store.delete(key)
+    }),
+  } as unknown as HandlerDeps['settingsRepo']
+}
+
+function makeDeps(overrides: Partial<HandlerDeps> = {}): HandlerDeps {
   return {
     settings: {
       get: vi.fn(() => ({
@@ -106,12 +127,37 @@ function makeDeps(): HandlerDeps {
       retry: vi.fn(async (id: string) => ({ ...jobSummary, id, status: 'queued' as const })),
       enqueueDemo: vi.fn(async () => ({ job: jobSummary, subject: '/resources/dev/sample.ogg' })),
     },
+    blobStore: {
+      put: vi.fn(),
+      has: vi.fn(),
+      path: vi.fn(),
+      get: vi.fn(),
+      delete: vi.fn(),
+    } as unknown as HandlerDeps['blobStore'],
     updater: {
       checkForUpdates: vi.fn(),
       quitAndInstall: vi.fn(),
       stop: vi.fn(),
     },
     reportRendererError: vi.fn(),
+    secrets: {
+      setSecret: vi.fn(async () => {}),
+      getSecret: vi.fn(async () => undefined),
+      deleteSecret: vi.fn(async () => {}),
+      hasSecret: vi.fn(async () => false),
+    },
+    backups: {
+      backupNow: vi.fn(async () => '/userData/backups/retenia-20260101-0000.db'),
+      list: vi.fn(async () => []),
+      exportCopy: vi.fn(async () => {}),
+      runIntegrityCheck: vi.fn(() => 'ok' as const),
+    },
+    settingsRepo: makeSettingsRepo(),
+    syncedFolderWarning: false,
+    restoreFromBackup: vi.fn(async () => true),
+    dbUnavailableReason: 'the database did not open',
+    emitSettingsChanged: vi.fn(),
+    ...overrides,
   }
 }
 
@@ -258,23 +304,21 @@ describe('app.reportRendererError', () => {
 })
 
 describe('app.devMediaSampleUrl', () => {
-  it('returns null outside dev', () => {
+  it('returns null outside dev', async () => {
     devMode = false
     const handlers = createHandlers(makeDeps())
-    expect(handlers['app.devMediaSampleUrl'](undefined, fakeEvent)).toEqual({ url: null })
+    expect(await handlers['app.devMediaSampleUrl'](undefined, fakeEvent)).toEqual({ url: null })
     expect(ensureDevMediaSample).not.toHaveBeenCalled()
   })
 
-  it('copies the sample into the blob store in dev', () => {
+  it('puts the sample into the blob store in dev', async () => {
     devMode = true
-    const handlers = createHandlers(makeDeps())
-    expect(handlers['app.devMediaSampleUrl'](undefined, fakeEvent)).toEqual({
+    const deps = makeDeps()
+    const handlers = createHandlers(deps)
+    expect(await handlers['app.devMediaSampleUrl'](undefined, fakeEvent)).toEqual({
       url: 'media://blob/sample.ogg',
     })
-    expect(ensureDevMediaSample).toHaveBeenCalledWith(
-      '/resources/dev/sample.ogg',
-      '/userData/blobs',
-    )
+    expect(ensureDevMediaSample).toHaveBeenCalledWith('/resources/dev/sample.ogg', deps.blobStore)
   })
 })
 
@@ -313,5 +357,138 @@ describe('jobs channels', () => {
 
     expect(result.job).toMatchObject({ kind: 'hashFile' })
     expect(deps.jobs.enqueueDemo).toHaveBeenCalledExactlyOnceWith({ kind: 'sleep', ms: 100 })
+  })
+})
+
+describe('secrets channels', () => {
+  it('sets, reads back a masked preview of, and deletes a secret', async () => {
+    const deps = makeDeps()
+    // A minimal fake that actually remembers the value, so `get` can prove the preview is
+    // derived from it rather than hard-coded.
+    let stored: string | undefined
+    deps.secrets = {
+      setSecret: vi.fn(async (_name, value: string) => {
+        stored = value
+      }),
+      getSecret: vi.fn(async () => stored),
+      deleteSecret: vi.fn(async () => {
+        stored = undefined
+      }),
+      hasSecret: vi.fn(async () => stored !== undefined),
+    }
+    const handlers = createHandlers(deps)
+
+    expect(
+      await handlers['secrets.set']({ name: 'anthropic', value: 'sk-ant-abcdwxyz' }, fakeEvent),
+    ).toEqual({ ok: true })
+
+    expect(await handlers['secrets.get']({ name: 'anthropic' }, fakeEvent)).toEqual({
+      hasSecret: true,
+      preview: '••••wxyz',
+    })
+
+    expect(await handlers['secrets.delete']({ name: 'anthropic' }, fakeEvent)).toEqual({
+      ok: true,
+    })
+    expect(await handlers['secrets.get']({ name: 'anthropic' }, fakeEvent)).toEqual({
+      hasSecret: false,
+      preview: null,
+    })
+  })
+
+  it('fails every secrets channel when the database never opened', async () => {
+    const deps = makeDeps({ secrets: null })
+    const handlers = createHandlers(deps)
+
+    await expect(
+      handlers['secrets.set']({ name: 'anthropic', value: 'x' }, fakeEvent),
+    ).rejects.toThrow(/unavailable/)
+    await expect(handlers['secrets.get']({ name: 'anthropic' }, fakeEvent)).rejects.toThrow(
+      /unavailable/,
+    )
+    await expect(handlers['secrets.delete']({ name: 'anthropic' }, fakeEvent)).rejects.toThrow(
+      /unavailable/,
+    )
+  })
+})
+
+describe('backups channels', () => {
+  it('reports status, backs up now, and exports a copy', async () => {
+    const deps = makeDeps()
+    fromWebContents.mockReturnValue(null)
+    showSaveDialog.mockResolvedValue({ canceled: false, filePath: '/tmp/retenia-export.zip' })
+    const handlers = createHandlers(deps)
+
+    expect(await handlers['backups.status'](undefined, fakeEvent)).toEqual({
+      backups: [],
+      syncedFolderWarning: false,
+    })
+
+    expect(await handlers['backups.backupNow'](undefined, fakeEvent)).toEqual({
+      file: '/userData/backups/retenia-20260101-0000.db',
+    })
+
+    const result = await handlers['backups.exportCopy'](undefined, fakeEvent)
+    expect(result).toEqual({ savedTo: '/tmp/retenia-export.zip' })
+    expect(deps.backups?.exportCopy).toHaveBeenCalledWith('/tmp/retenia-export.zip')
+  })
+
+  it('restoreFromBackup delegates to the injected relaunch flow', async () => {
+    const deps = makeDeps()
+    const handlers = createHandlers(deps)
+
+    expect(await handlers['backups.restoreFromBackup'](undefined, fakeEvent)).toEqual({
+      restored: true,
+    })
+    expect(deps.restoreFromBackup).toHaveBeenCalledOnce()
+  })
+
+  it('fails every backups channel when the database never opened', async () => {
+    const deps = makeDeps({ backups: null })
+    const handlers = createHandlers(deps)
+
+    await expect(handlers['backups.status'](undefined, fakeEvent)).rejects.toThrow(/unavailable/)
+    await expect(handlers['backups.backupNow'](undefined, fakeEvent)).rejects.toThrow(/unavailable/)
+  })
+})
+
+describe('settings channels', () => {
+  it('round-trips a registered key and broadcasts the change', async () => {
+    const deps = makeDeps()
+    const handlers = createHandlers(deps)
+
+    expect(await handlers['settings.get']({ key: 'ui.theme' }, fakeEvent)).toEqual({
+      value: 'system',
+    })
+
+    expect(await handlers['settings.set']({ key: 'ui.soberMode', value: true }, fakeEvent)).toEqual(
+      { value: true },
+    )
+    expect(deps.emitSettingsChanged).toHaveBeenCalledWith('ui.soberMode', true)
+
+    expect(await handlers['settings.get']({ key: 'ui.soberMode' }, fakeEvent)).toEqual({
+      value: true,
+    })
+  })
+
+  it('rejects a key outside the registry rather than crashing', async () => {
+    const deps = makeDeps()
+    const handlers = createHandlers(deps)
+
+    await expect(handlers['settings.get']({ key: 'not.a.real.key' }, fakeEvent)).rejects.toThrow(
+      /not a registered setting/,
+    )
+    await expect(
+      handlers['settings.set']({ key: 'not.a.real.key', value: 1 }, fakeEvent),
+    ).rejects.toThrow(/not a registered setting/)
+  })
+
+  it('fails when the database never opened', async () => {
+    const deps = makeDeps({ settingsRepo: null })
+    const handlers = createHandlers(deps)
+
+    await expect(handlers['settings.get']({ key: 'ui.theme' }, fakeEvent)).rejects.toThrow(
+      /unavailable/,
+    )
   })
 })
