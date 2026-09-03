@@ -721,7 +721,7 @@ describe('ts-fsrs itself', () => {
 })
 
 describe('throughput', () => {
-  it('applies 10,000 reviews in under 200 ms (best of three)', () => {
+  it('stays within a small multiple of ts-fsrs itself (best of three)', () => {
     // `performance` is not in the ES2023 lib this package compiles against.
     const clock = (globalThis as unknown as { performance: { now(): number } }).performance
     const scheduler = createFsrsScheduler()
@@ -740,13 +740,20 @@ describe('throughput', () => {
     for (let i = 0; i < 1000; i++) scheduler.apply(card, NOW, 3, DEFAULT_SCHEDULING_OPTIONS)
 
     // ts-fsrs alone is the floor the wrapper cannot beat. On an idle core it takes ~60 ms
-    // and the wrapper ~150 ms, well inside the 200 ms budget; a loaded CI runner or V8's
-    // coverage instrumentation slow both alike, so under load the budget becomes
-    // relative instead of failing for reasons that have nothing to do with the code.
+    // and the wrapper ~150 ms; a loaded CI runner or V8's coverage instrumentation slow
+    // both, so the budget is relative rather than a wall-clock number that would fail for
+    // reasons having nothing to do with the code.
+    //
+    // The multiple is deliberately loose. What this guards against is an accidental
+    // *asymptotic* regression — a cache that stops hitting, a validation that starts
+    // running per review, an O(n²) mapper — which shows up as an order of magnitude, not
+    // as 3.2× versus 3×. Tightening it past the noise floor of a shared runner only buys
+    // red builds: the two runners this repo uses have both produced ratios above 3 on
+    // unchanged code, and `fsrs-scheduler.bench.ts` is where real numbers are tracked.
     const baseline = measure(() => reference.next(raw, NOW, 3))
     const ours = measure(() => {
       scheduler.apply(card, NOW, 3, DEFAULT_SCHEDULING_OPTIONS)
     })
-    expect(ours).toBeLessThan(Math.max(200, 3 * baseline))
+    expect(ours).toBeLessThan(Math.max(400, 10 * baseline))
   })
 })

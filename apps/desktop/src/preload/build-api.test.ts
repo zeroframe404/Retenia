@@ -42,7 +42,7 @@ describe('buildApi', () => {
     const { bridge } = makeBridge()
     const api = buildApi(bridge) as unknown as Record<string, Record<string, unknown>>
 
-    expect(api.cards).toBeUndefined()
+    expect(api.notADomain).toBeUndefined()
     expect(api.app?.notAChannel).toBeUndefined()
     // And there is no escape hatch back to the raw bridge.
     expect((api as Record<string, unknown>).ipcRenderer).toBeUndefined()

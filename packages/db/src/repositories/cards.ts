@@ -52,6 +52,7 @@ const codec: TableCodec<Card, NewCard, CardPatch> = {
     buriedUntil: toDateOrNull(row.buriedUntil),
     leech: toBool(row.leech),
     importanceOverride: toTextOrNull(row.importanceOverride) as ImportanceLevel | null,
+    importanceOverrideExpiresAt: toDateOrNull(row.importanceOverrideExpiresAt),
     examId: toTextOrNull(row.examId),
     createdAt: toDate(row.createdAt),
     updatedAt: toDate(row.updatedAt),
@@ -77,6 +78,7 @@ const codec: TableCodec<Card, NewCard, CardPatch> = {
       buriedUntil: fromDateOrNull(input.buriedUntil),
       leech: fromBool(input.leech),
       importanceOverride: input.importanceOverride ?? null,
+      importanceOverrideExpiresAt: fromDateOrNull(input.importanceOverrideExpiresAt),
       examId: input.examId ?? null,
     }),
   toUpdate: (patch) =>
@@ -97,13 +99,34 @@ const codec: TableCodec<Card, NewCard, CardPatch> = {
       buriedUntil: patch.buriedUntil === undefined ? undefined : fromDateOrNull(patch.buriedUntil),
       leech: patch.leech === undefined ? undefined : fromBool(patch.leech),
       importanceOverride: patch.importanceOverride,
+      importanceOverrideExpiresAt:
+        patch.importanceOverrideExpiresAt === undefined
+          ? undefined
+          : fromDateOrNull(patch.importanceOverrideExpiresAt),
       examId: patch.examId,
     }),
 }
 
-/** `cards.importance_override ?? knowledge_items.importance` — the level that actually
- *  governs this card (`docs/spec/02-memory-system.md` §7 rule 1). */
-const effectiveImportance = sql<ImportanceLevel>`coalesce(${cards.importanceOverride}, ${knowledgeItems.importance})`
+/**
+ * The level that actually governs this card at `nowMs`
+ * (`docs/spec/02-memory-system.md` §7 rule 1): its override, falling back to its item's.
+ *
+ * A **lapsed** override does not count. `resolveImportance` in `packages/core` ignores an
+ * expiry that has passed on every read, and `clearExpiredOverrides` only sweeps at startup,
+ * so without the same condition here SQL and the scheduler would disagree for the whole of
+ * a session in which a 48-hour urgent window closed — the queue would still order those
+ * cards as urgent, and the §7 rule 4 bias warning would still count them.
+ */
+function effectiveImportanceAt(nowMs: number) {
+  return sql<ImportanceLevel>`coalesce(
+    case
+      when ${cards.importanceOverrideExpiresAt} is null
+        or ${cards.importanceOverrideExpiresAt} > ${nowMs}
+      then ${cards.importanceOverride}
+    end,
+    ${knowledgeItems.importance}
+  )`
+}
 
 /**
  * The conjuncts of the `cards_due` partial index (`WHERE suspended = 0 AND deleted_at IS
@@ -127,6 +150,7 @@ const liveUnsuspended = sql`${cards.suspended} = 0 and ${cards.deletedAt} is nul
  * "generated but not scheduled" and `archived` means "out of the queue for good".
  */
 function duePredicate(nowMs: number, filters: DueFilters): SQL | undefined {
+  const importance = effectiveImportanceAt(nowMs)
   const predicates: Array<SQL | undefined> = [
     liveUnsuspended,
     lte(cards.due, nowMs),
@@ -134,9 +158,9 @@ function duePredicate(nowMs: number, filters: DueFilters): SQL | undefined {
     isNull(knowledgeItems.deletedAt),
     eq(knowledgeItems.status, 'active'),
   ]
-  if (filters.includePaused !== true) predicates.push(ne(effectiveImportance, 'paused'))
+  if (filters.includePaused !== true) predicates.push(ne(importance, 'paused'))
   if (filters.importance !== undefined) {
-    predicates.push(inArray(effectiveImportance, [...filters.importance]))
+    predicates.push(inArray(importance, [...filters.importance]))
   }
   if (filters.states !== undefined) predicates.push(inArray(cards.state, [...filters.states]))
   if (filters.examId !== undefined) {
@@ -215,6 +239,14 @@ export function createCardRepository(ctx: RepositoryContext): CardRepository {
         orderBy: [asc(cards.template), asc(cards.id)],
       }),
 
+    listByItems: (itemIds, options) =>
+      itemIds.length === 0
+        ? Promise.resolve([])
+        : base.findWhere(inArray(cards.itemId, [...itemIds]), {
+            ...options,
+            orderBy: [asc(cards.itemId), asc(cards.template), asc(cards.id)],
+          }),
+
     listByExam: (examId, options) =>
       base.findWhere(eq(cards.examId, examId), {
         ...options,
@@ -234,12 +266,16 @@ export function createCardRepository(ctx: RepositoryContext): CardRepository {
     },
 
     countByImportance: async (options = {}) => {
+      // The same instant the predicate uses, so a window that closes mid-query cannot put a
+      // card in one bucket and out of the filter.
+      const at = (options.dueBefore ?? ctx.clock.now()).getTime()
+      const importance = effectiveImportanceAt(at)
       const rows = ctx.db
-        .select({ importance: effectiveImportance, value: count() })
+        .select({ importance, value: count() })
         .from(cards)
         .innerJoin(knowledgeItems, eq(cards.itemId, knowledgeItems.id))
         .where(countPredicate(options))
-        .groupBy(effectiveImportance)
+        .groupBy(importance)
         .all() as Array<{ importance: ImportanceLevel; value: number }>
       // Always total: every level present, zeroes included, so no caller handles undefined.
       const totals = Object.fromEntries(IMPORTANCE_LEVELS.map((level) => [level, 0])) as Record<
@@ -254,6 +290,57 @@ export function createCardRepository(ctx: RepositoryContext): CardRepository {
       if (batch.length === 0) return
       await ctx.run(async () => {
         for (const card of batch) await base.save(card)
+      })
+    },
+
+    /**
+     * The level and its expiry are always written together, so an expiry can never outlive
+     * the override it qualifies — the invariant SQLite cannot express as a CHECK on a
+     * column added by `ALTER TABLE` (`../schema/memory.ts`). Clearing the level clears the
+     * expiry with it.
+     *
+     * One row at a time inside one transaction, as `bulkSave` does: a raw bulk `UPDATE`
+     * would bypass the audit bump and the outbox writer.
+     */
+    overrideImportance: async (ids, level, expiresAt = null) => {
+      if (ids.length === 0) return 0
+      const at = level === null ? null : (expiresAt ?? null)
+      return ctx.run(async () => {
+        let written = 0
+        for (const id of ids) {
+          await base.updateColumns(id, {
+            importanceOverride: level,
+            importanceOverrideExpiresAt: fromDateOrNull(at),
+          })
+          written += 1
+        }
+        return written
+      })
+    },
+
+    /** The urgent-mode sweep. Hygiene only: `resolveImportance` already ignores an expired
+     *  override, so a collection that has not been opened for a week never reviews at the
+     *  urgent retention even before this runs. */
+    clearExpiredOverrides: async (now) => {
+      const at = now.getTime()
+      const expired = (
+        await base.findWhere(
+          and(
+            sql`${cards.importanceOverrideExpiresAt} is not null`,
+            lte(cards.importanceOverrideExpiresAt, at),
+          ),
+          { orderBy: [asc(cards.id)] },
+        )
+      ).map((card) => card.id)
+      if (expired.length === 0) return 0
+      return ctx.run(async () => {
+        for (const id of expired) {
+          await base.updateColumns(id, {
+            importanceOverride: null,
+            importanceOverrideExpiresAt: null,
+          })
+        }
+        return expired.length
       })
     },
 

@@ -1,7 +1,10 @@
+import { type StrengthBand, strengthBand } from '@retenia/core'
 import type { ComponentProps } from 'react'
 import { cn } from '../lib/cn'
 
-export type MemoryStrengthBand = 'critical' | 'weak' | 'good' | 'strong'
+/** The bands and their cut-offs live in `@retenia/core`'s `strengthBand`, so the colour a
+ *  bar paints and the band a scheduler query reports can never disagree. */
+export type MemoryStrengthBand = StrengthBand
 
 export interface MemoryStrengthBarProps extends Omit<ComponentProps<'div'>, 'children'> {
   /** Retrievability, 0–1 (docs/spec/02-memory-system.md — FSRS's R, the probability of
@@ -25,16 +28,12 @@ export interface MemoryStrengthBarProps extends Omit<ComponentProps<'div'>, 'chi
   bandLabels?: Record<MemoryStrengthBand, string>
 }
 
-const bands = [
-  { max: 0.3, key: 'critical', label: 'Critical', className: 'bg-red-500' },
-  { max: 0.6, key: 'weak', label: 'Weak', className: 'bg-amber-500' },
-  { max: 0.85, key: 'good', label: 'Good', className: 'bg-brand-500' },
-  { max: Number.POSITIVE_INFINITY, key: 'strong', label: 'Strong', className: 'bg-teal-500' },
-] as const satisfies readonly { max: number; key: MemoryStrengthBand; [k: string]: unknown }[]
-
-function bandFor(retrievability: number) {
-  // The last band's `max` is +Infinity, so `find` always matches.
-  return bands.find((band) => retrievability <= band.max) as (typeof bands)[number]
+/** Only the presentation is this component's: which band an `R` falls in is core's. */
+const bandStyles: Record<MemoryStrengthBand, { label: string; className: string }> = {
+  critical: { label: 'Critical', className: 'bg-red-500' },
+  weak: { label: 'Weak', className: 'bg-amber-500' },
+  good: { label: 'Good', className: 'bg-brand-500' },
+  strong: { label: 'Strong', className: 'bg-teal-500' },
 }
 
 /** Visualizes FSRS retrievability (0–1) as a labeled bar, optionally alongside stability
@@ -54,9 +53,10 @@ export function MemoryStrengthBar({
   ...props
 }: MemoryStrengthBarProps) {
   const clamped = Math.min(1, Math.max(0, retrievability))
-  const band = bandFor(clamped)
+  const band = strengthBand(clamped)
+  const style = bandStyles[band]
   const percent = Math.round(clamped * 100)
-  const bandText = bandLabels?.[band.key] ?? band.label
+  const bandText = bandLabels?.[band] ?? style.label
   const stabilityText =
     stabilityLabel ?? (stability === undefined ? undefined : `${formatDays(stability)} d`)
 
@@ -74,7 +74,7 @@ export function MemoryStrengthBar({
           <div
             className={cn(
               'h-full rounded-full transition-[width] duration-base ease-standard',
-              band.className,
+              style.className,
             )}
             style={{ width: `${percent}%` }}
           />

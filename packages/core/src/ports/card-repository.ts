@@ -36,12 +36,32 @@ export interface CardRepository extends CrudRepository<Card> {
    */
   findDue(now: Date, filters?: DueFilters): Promise<Card[]>
   findByItem(itemId: string, options?: ListOptions): Promise<Card[]>
+  /** Every live card of every one of these items — what urgent mode and a bulk importance
+   *  change operate on. */
+  listByItems(itemIds: readonly string[], options?: ListOptions): Promise<Card[]>
   listByExam(examId: string, options?: ListOptions): Promise<Card[]>
   /** Upserts many cards in one transaction — what a review batch or an import writes. */
   bulkSave(cards: readonly SaveEntity<Card>[]): Promise<void>
   /** Live cards per effective importance level, for the load and overload displays. Every
    *  level is present in the result, zeroes included. */
   countByImportance(options?: ImportanceCountOptions): Promise<Record<ImportanceLevel, number>>
+  /**
+   * Sets (or clears, with `level: null`) the per-card importance override on many cards at
+   * once. `expiresAt` makes it temporary — that is what urgent mode is (§7 rule 5); `null`
+   * makes it permanent.
+   *
+   * Never touches `due`, `stability`, `difficulty` or any other FSRS column: changing the
+   * level changes what the **next** review asks for, nothing that is already scheduled
+   * (§7 rule 2). Returns how many cards were written.
+   */
+  overrideImportance(
+    ids: readonly string[],
+    level: ImportanceLevel | null,
+    expiresAt?: Date | null,
+  ): Promise<number>
+  /** Clears every override whose `importanceOverrideExpiresAt` has passed — the urgent-mode
+   *  sweep. Returns how many. Idempotent. */
+  clearExpiredOverrides(now: Date): Promise<number>
   setSuspended(id: string, suspended: boolean): Promise<Card>
   /** `until = null` un-buries. */
   buryUntil(id: string, until: Date | null): Promise<Card>

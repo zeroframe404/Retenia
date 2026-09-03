@@ -1,5 +1,6 @@
 import { join } from 'node:path'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
+import type { UnitOfWork } from '@retenia/core'
 import { contract, type DeepLink } from '@retenia/ipc-contract'
 import * as Sentry from '@sentry/electron/main'
 import type { OpenDialogOptions } from 'electron'
@@ -19,6 +20,7 @@ import { registerHandlers } from './ipc/register-handlers'
 import { makeSenderGuard } from './ipc/sender'
 import { bootstrapJobs } from './jobs/bootstrap'
 import { initLogging, log } from './logging/log'
+import { createMemoryService, type MemoryService } from './memory/service'
 import { initSentryMain } from './observability/sentry'
 import { getBackupsRoot, getBlobsRoot, getDatabasePath, getSettingsPath } from './paths'
 import { APP_SCHEME_PRIVILEGES, handleAppProtocol } from './protocol/app-protocol'
@@ -97,7 +99,24 @@ if (gotLock) {
   const getCsp = () => buildCsp({ devServerUrl })
   const getAppProtocolCsp = () => buildCsp()
 
-  app.whenReady().then(() => {
+  async function createMemoryServiceOrNull(repos: UnitOfWork): Promise<MemoryService | null> {
+    try {
+      return await createMemoryService({
+        repos,
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        dayStartHour: await repos.settings.get('review.dayStartHour'),
+      })
+    } catch (error) {
+      log.error('[memory] the memory system did not start:', error)
+      return null
+    }
+  }
+
+  // `async`: the memory system reads its five `importance_levels` rows before the handlers
+  // are built. Every await below resolves on a microtask (better-sqlite3 is synchronous
+  // underneath), and the window still opens after `registerHandlers`, so no IPC call can
+  // arrive before its handler exists.
+  app.whenReady().then(async () => {
     electronApp.setAppUserModelId('app.retenia.desktop')
 
     handleAppProtocol(join(__dirname, '../renderer'), getAppProtocolCsp)
@@ -149,6 +168,23 @@ if (gotLock) {
           blobsRoot: getBlobsRoot(),
         })
       : null
+    // The memory system's catalog and use cases (docs/spec/02-memory-system.md §7).
+    //
+    // Degrades like every other database-backed subsystem rather than taking the window
+    // down with it: a read that throws here (a corrupt `importance_levels`, a locked file)
+    // leaves `memory` null and its channels reporting why, exactly as `unavailableFacade`
+    // does for jobs. Without the catch, an `await` in this callback would reject the whole
+    // of `whenReady` and nothing would ever open.
+    const memory = database ? await createMemoryServiceOrNull(database.repos) : null
+    if (memory) {
+      // The startup sweep clears urgent-mode overrides that lapsed while the app was
+      // closed. The policy already ignores them on read; this is what makes the badge go
+      // away, so it is fire-and-forget.
+      void memory.expireUrgentMode().catch((error: unknown) => {
+        log.error('[memory] the urgent-mode sweep failed:', error)
+      })
+    }
+
     const syncedFolderWarning = isPathInSyncedFolder(app.getPath('userData'))
     if (syncedFolderWarning) {
       log.warn(
@@ -231,6 +267,7 @@ if (gotLock) {
       secrets: secretStore,
       backups: backupService,
       settingsRepo: database ? database.repos.settings : null,
+      memory,
       syncedFolderWarning,
       restoreFromBackup: restoreFromBackupAndRelaunch,
       dbUnavailableReason,

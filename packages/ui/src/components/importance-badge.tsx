@@ -1,11 +1,13 @@
+import { IMPORTANCE_LEVELS, type ImportanceLevel } from '@retenia/core'
 import { cva, type VariantProps } from 'class-variance-authority'
 import { AlertOctagonIcon, ArchiveIcon, FlameIcon, PauseIcon, ShieldIcon } from 'lucide-react'
 import type { ComponentProps } from 'react'
 import { cn } from '../lib/cn'
 
-/** The 5 importance levels (docs/spec/02-memory-system.md), in urgency order. */
-export const IMPORTANCE_LEVELS = ['urgent', 'high', 'normal', 'maintenance', 'paused'] as const
-export type ImportanceLevel = (typeof IMPORTANCE_LEVELS)[number]
+/** The 5 importance levels (docs/spec/02-memory-system.md), in urgency order. Re-exported
+ *  from `@retenia/core` rather than redeclared, so the badge and the scheduler cannot drift
+ *  apart on what the levels are. */
+export { IMPORTANCE_LEVELS, type ImportanceLevel }
 
 const importanceIcons: Record<ImportanceLevel, typeof FlameIcon> = {
   urgent: AlertOctagonIcon,

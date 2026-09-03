@@ -7,5 +7,31 @@
     "increment": "Sumar",
     "lastShortcut": "Último atajo: {key}",
     "lastShortcutNone": "Todavía ninguno"
+  },
+  "importance": {
+    "levels": {
+      "urgent": "Urgente",
+      "high": "Alta",
+      "normal": "Normal",
+      "maintenance": "Mantenimiento",
+      "paused": "Pausado"
+    },
+    "share": "{percent} % de tus ítems",
+    "biasWarning": "Si todo es urgente, nada lo es: el {percent} % de tus ítems son urgentes o de importancia alta."
+  },
+  "strength": {
+    "label": "~{percent} % hoy",
+    "unknown": "Todavía sin datos",
+    "bands": {
+      "critical": "Crítica",
+      "weak": "Débil",
+      "good": "Buena",
+      "strong": "Firme"
+    }
+  },
+  "urgentMode": {
+    "active": "Modo urgente hasta {date}",
+    "start": "Activar modo urgente",
+    "hours": "{hours} h"
   }
 }

@@ -46,6 +46,7 @@ Packaging note (Windows first): the `.node` binaries of both drivers and `sqlite
 | 1 | `0001_fts5_vec0_seed` | `cecb877e1951` | `chunks_fts` (FTS5, `unicode61 remove_diacritics 2`) + sync triggers, `embeddings` (vec0, `float[768]`, partition `source_id`), the vector-maintenance and source soft-delete cascade triggers, the five `importance_levels` rows. |
 | 2 | `0002_embeddings_int8` | `4f58c9fdd7df` | `embeddings_i8` (vec0, `int8[768]`, partition `source_id`): the quantized companion a KNN query scans, rescored against the exact float vectors, plus its maintenance triggers. |
 | 3 | `0003_review_logs_algorithm_version` | `33b321d3f075` | `review_logs.algorithm_version` (`TEXT NOT NULL DEFAULT 'fsrs6'`): which scheduler produced each row, so an FSRS variant or an SM-2 import can be told apart in the optimizer's training set (`02-memory-system.md` §17). |
+| 4 | `0004_card_importance_override_expiry` | `02d281654f5e` | `cards.importance_override_expires_at` (nullable) and its partial index: when a per-card importance override lapses. `NULL` is a permanent override; a timestamp makes it urgent mode, the temporary 48–72 h push to desired retention 0.97 (`02-memory-system.md` §7 rule 5). |
 
 ## Tables
 
@@ -72,7 +73,7 @@ Packaging note (Windows first): the `.node` binaries of both drivers and `sqlite
 | `importance_levels` | Memory system | 14 | 0 | 1 | 11 |
 | `scheduler_profiles` | Memory system | 20 | 0 | 1 | 11 |
 | `knowledge_items` | Memory system | 18 | 3 | 5 | 10 |
-| `cards` | Memory system | 23 | 2 | 4 | 14 |
+| `cards` | Memory system | 24 | 2 | 5 | 14 |
 | `lesson_sessions` | Sessions, attempts and review log | 16 | 1 | 2 | 10 |
 | `attempts` | Sessions, attempts and review log | 23 | 5 | 5 | 14 |
 | `review_logs` | Sessions, attempts and review log | 22 | 2 | 3 | 13 |
@@ -865,9 +866,11 @@ Checks:
 | `deleted_at` | integer | yes |  |  |
 | `device_id` | text | no |  |  |
 | `version` | integer | no | `1` |  |
+| `importance_override_expires_at` | integer | yes |  |  |
 
 Indexes:
 
+- `cards_override_expiry` (`importance_override_expires_at`) WHERE `importance_override_expires_at IS NOT NULL`
 - `cards_state` (`state`)
 - `cards_exam` (`exam_id`)
 - `cards_item` (`item_id`)

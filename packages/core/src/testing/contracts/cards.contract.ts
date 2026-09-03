@@ -206,5 +206,204 @@ export function cardsContract(harness: RepositoryContractHarness): void {
       await dueCard(-DAY, { itemId: item.id, template: 'reverse' })
       expect(await ctx.repos.cards.findByItem(item.id)).toHaveLength(3)
     })
+
+    describe('bulk importance overrides', () => {
+      it('sets and clears the per-card override across many cards', async () => {
+        const item = await ctx.seed.knowledgeItem({ importance: 'normal' })
+        const a = await ctx.seed.card({ itemId: item.id, template: 'basic' })
+        const b = await ctx.seed.card({ itemId: item.id, template: 'reverse' })
+
+        expect(await ctx.repos.cards.overrideImportance([a.id, b.id], 'urgent')).toBe(2)
+        for (const id of [a.id, b.id]) {
+          const card = await ctx.repos.cards.findById(id)
+          expect(card?.importanceOverride).toBe('urgent')
+          expect(card?.importanceOverrideExpiresAt).toBeNull()
+        }
+        // The override is what the queue filters on, not the item's level.
+        const due = await ctx.repos.cards.findDue(new Date(ctx.clock.now().getTime() + DAY), {
+          importance: ['urgent'],
+        })
+        expect(due.map((card) => card.id).sort()).toEqual([a.id, b.id].sort())
+
+        expect(await ctx.repos.cards.overrideImportance([a.id, b.id], null)).toBe(2)
+        expect((await ctx.repos.cards.findById(a.id))?.importanceOverride).toBeNull()
+      })
+
+      /** An expiry is what makes an override urgent mode (§7 rule 5). */
+      it('stores an expiry with the level, and drops it when the level is cleared', async () => {
+        const card = await ctx.seed.card()
+        const expiresAt = new Date(ctx.clock.now().getTime() + 2 * DAY)
+
+        await ctx.repos.cards.overrideImportance([card.id], 'urgent', expiresAt)
+        expect((await ctx.repos.cards.findById(card.id))?.importanceOverrideExpiresAt).toEqual(
+          expiresAt,
+        )
+
+        await ctx.repos.cards.overrideImportance([card.id], null, expiresAt)
+        expect((await ctx.repos.cards.findById(card.id))?.importanceOverrideExpiresAt).toBeNull()
+      })
+
+      it('writes nothing for an empty list', async () => {
+        expect(await ctx.repos.cards.overrideImportance([], 'urgent')).toBe(0)
+      })
+
+      it('clears only the windows that have closed', async () => {
+        const lapsed = await ctx.seed.card({ template: 'a' })
+        const open = await ctx.seed.card({ template: 'b' })
+        const permanent = await ctx.seed.card({ template: 'c' })
+        const now = ctx.clock.now()
+        await ctx.repos.cards.overrideImportance(
+          [lapsed.id],
+          'urgent',
+          new Date(now.getTime() + DAY),
+        )
+        await ctx.repos.cards.overrideImportance(
+          [open.id],
+          'urgent',
+          new Date(now.getTime() + 5 * DAY),
+        )
+        await ctx.repos.cards.overrideImportance([permanent.id], 'high')
+
+        ctx.clock.advance(2 * DAY)
+        expect(await ctx.repos.cards.clearExpiredOverrides(ctx.clock.now())).toBe(1)
+        expect((await ctx.repos.cards.findById(lapsed.id))?.importanceOverride).toBeNull()
+        expect((await ctx.repos.cards.findById(open.id))?.importanceOverride).toBe('urgent')
+        expect((await ctx.repos.cards.findById(permanent.id))?.importanceOverride).toBe('high')
+
+        // Idempotent.
+        expect(await ctx.repos.cards.clearExpiredOverrides(ctx.clock.now())).toBe(0)
+      })
+
+      /**
+       * The acceptance criterion: a level change moves no due date. Anki's "reschedule
+       * cards on change = off" — the new retention applies from the next review
+       * (`docs/spec/02-memory-system.md` §7 rule 2).
+       */
+      it('never touches the schedule or the memory state', async () => {
+        const item = await ctx.seed.knowledgeItem({ importance: 'normal' })
+        const card = await ctx.seed.card({ itemId: item.id, stability: 30, difficulty: 5 })
+
+        await ctx.repos.knowledgeItems.setImportanceMany([item.id], 'urgent')
+        await ctx.repos.cards.overrideImportance([card.id], 'maintenance')
+
+        expect(await ctx.repos.cards.findById(card.id)).toMatchObject({
+          due: card.due,
+          stability: card.stability,
+          difficulty: card.difficulty,
+          scheduledDays: card.scheduledDays,
+          lastReview: card.lastReview,
+          state: card.state,
+          reps: card.reps,
+          lapses: card.lapses,
+        })
+      })
+    })
+
+    /**
+     * The scheduler ignores a lapsed override on every read, so SQL must too. The sweep
+     * only runs at startup, so without this the two would disagree for the whole of a
+     * session in which a 48-hour urgent window closed: the queue would still order those
+     * cards as urgent and the bias warning would still count them.
+     */
+    it('stops counting and queueing an override once its window has closed', async () => {
+      const item = await ctx.seed.knowledgeItem({ importance: 'normal' })
+      const card = await ctx.seed.card({
+        itemId: item.id,
+        due: new Date(ctx.clock.now().getTime() - DAY),
+      })
+      await ctx.repos.cards.overrideImportance(
+        [card.id],
+        'urgent',
+        new Date(ctx.clock.now().getTime() + DAY),
+      )
+
+      expect((await ctx.repos.cards.countByImportance()).urgent).toBe(1)
+      const beforeQueue = await ctx.repos.cards.findDue(ctx.clock.now(), {
+        importance: ['urgent'],
+      })
+      expect(beforeQueue.map((entry) => entry.id)).toEqual([card.id])
+
+      // The window closes. Nothing is swept — the read alone must be enough.
+      ctx.clock.advance(2 * DAY)
+      const counts = await ctx.repos.cards.countByImportance()
+      expect(counts.urgent).toBe(0)
+      expect(counts.normal).toBe(1)
+      expect(await ctx.repos.cards.findDue(ctx.clock.now(), { importance: ['urgent'] })).toEqual([])
+      const asNormal = await ctx.repos.cards.findDue(ctx.clock.now(), {
+        importance: ['normal'],
+      })
+      expect(asNormal.map((entry) => entry.id)).toEqual([card.id])
+    })
+
+    /** `paused` is out of the queue — but only while the override that set it is live. */
+    it('brings a card back into the queue when a paused override lapses', async () => {
+      const card = await ctx.seed.card({ due: new Date(ctx.clock.now().getTime() - DAY) })
+      await ctx.repos.cards.overrideImportance(
+        [card.id],
+        'paused',
+        new Date(ctx.clock.now().getTime() + DAY),
+      )
+      expect(await ctx.repos.cards.findDue(ctx.clock.now())).toEqual([])
+
+      ctx.clock.advance(2 * DAY)
+      const due = await ctx.repos.cards.findDue(ctx.clock.now())
+      expect(due.map((entry) => entry.id)).toEqual([card.id])
+    })
+
+    describe('listByItems', () => {
+      it('returns every live card of every named item', async () => {
+        const one = await ctx.seed.knowledgeItem()
+        const two = await ctx.seed.knowledgeItem()
+        const a = await ctx.seed.card({ itemId: one.id, template: 'basic' })
+        const b = await ctx.seed.card({ itemId: one.id, template: 'reverse' })
+        const c = await ctx.seed.card({ itemId: two.id, template: 'basic' })
+
+        const found = await ctx.repos.cards.listByItems([one.id, two.id])
+        expect(found.map((card) => card.id).sort()).toEqual([a.id, b.id, c.id].sort())
+        expect(await ctx.repos.cards.listByItems([])).toEqual([])
+        expect(await ctx.repos.cards.listByItems(['nobody'])).toEqual([])
+      })
+
+      it('leaves a soft-deleted card out', async () => {
+        const item = await ctx.seed.knowledgeItem()
+        const card = await ctx.seed.card({ itemId: item.id })
+        await ctx.repos.cards.softDelete(card.id)
+        expect(await ctx.repos.cards.listByItems([item.id])).toEqual([])
+      })
+    })
+
+    describe('knowledgeItems.countByImportance and setImportanceMany', () => {
+      it('counts live items per level, every level present', async () => {
+        await ctx.seed.knowledgeItem({ importance: 'urgent' })
+        await ctx.seed.knowledgeItem({ importance: 'urgent' })
+        const parked = await ctx.seed.knowledgeItem({ importance: 'paused' })
+
+        expect(await ctx.repos.knowledgeItems.countByImportance()).toEqual({
+          urgent: 2,
+          high: 0,
+          normal: 0,
+          maintenance: 0,
+          paused: 1,
+        })
+
+        await ctx.repos.knowledgeItems.softDelete(parked.id)
+        expect((await ctx.repos.knowledgeItems.countByImportance()).paused).toBe(0)
+      })
+
+      it('moves many items at once, bumping every row version', async () => {
+        const one = await ctx.seed.knowledgeItem({ importance: 'normal' })
+        const two = await ctx.seed.knowledgeItem({ importance: 'normal' })
+
+        expect(await ctx.repos.knowledgeItems.setImportanceMany([one.id, two.id], 'high')).toBe(2)
+        expect(await ctx.repos.knowledgeItems.findById(one.id)).toMatchObject({
+          importance: 'high',
+          version: 2,
+        })
+        expect(await ctx.repos.knowledgeItems.findById(two.id)).toMatchObject({
+          importance: 'high',
+        })
+        expect(await ctx.repos.knowledgeItems.setImportanceMany([], 'normal')).toBe(0)
+      })
+    })
   })
 }

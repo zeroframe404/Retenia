@@ -47,6 +47,7 @@ function newCardDefaults(due: Date) {
     buriedUntil: null,
     leech: false,
     importanceOverride: null,
+    importanceOverrideExpiresAt: null,
     examId: null,
   }
 }
