@@ -47,10 +47,12 @@ export interface Attempt extends Entity {
 }
 
 /**
- * `ts-fsrs`'s `ReviewLog`, 1:1, plus Retenia's context. Append-only: `state`, `due`,
- * `stability` and `difficulty` are the card's values *before* the review, so the history can
- * be replayed or rolled back. `elapsedDays` is not range-checked — an import or a clock step
- * can make it negative, and a review must never be lost to a constraint.
+ * `ts-fsrs`'s `ReviewLog`, 1:1, plus Retenia's context. Append-only: `state`, `stability`
+ * and `difficulty` are the card's values *before* the review, and `due` is — as in
+ * `ts-fsrs` — the card's previous `lastReview`, or its `due` when it had never been
+ * reviewed; that is exactly what `rollback` needs to restore the card, and what
+ * `reschedule` replays. `elapsedDays` is not range-checked — an import or a clock step can
+ * make it negative, and a review must never be lost to a constraint.
  */
 export interface ReviewLog extends Entity {
   cardId: string
@@ -73,4 +75,7 @@ export interface ReviewLog extends Entity {
   exerciseScore: number | null
   device: string | null
   attemptId: string | null
+  /** The scheduler that produced the row: `fsrs6` today (`docs/spec/02-memory-system.md`
+   *  §17). Lets an FSRS variant or an SM-2 import be told apart in the training set. */
+  algorithmVersion: string
 }

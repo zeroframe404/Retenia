@@ -580,7 +580,7 @@ describe('v1 schema', () => {
       expect(count(table), table).toBeGreaterThanOrEqual(1)
     }
     expect(count('importance_levels')).toBe(5)
-    expect(count('_migrations')).toBe(3)
+    expect(count('_migrations')).toBe(4)
     expect(count('lessons')).toBe(2)
   })
 

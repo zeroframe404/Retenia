@@ -27,6 +27,9 @@ apps/desktop/e2e/__screenshots__/*.png
 # Storybook
 storybook-static/
 
+# Python virtualenv of the fixture generator (tooling/fsrs-fixtures/README.md)
+.venv/
+
 # Env & local-only config
 .env
 .env.*

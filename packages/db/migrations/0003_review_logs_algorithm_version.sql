@@ -1,0 +1,1 @@
+ALTER TABLE `review_logs` ADD `algorithm_version` text DEFAULT 'fsrs6' NOT NULL;

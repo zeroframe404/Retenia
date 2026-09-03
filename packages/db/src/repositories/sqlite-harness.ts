@@ -145,6 +145,7 @@ function createSeeds(repos: UnitOfWork, clock: TestClock): ContractSeeds {
         exerciseScore: null,
         device: null,
         attemptId: null,
+        algorithmVersion: 'fsrs6',
         ...overrides,
       })
     },

@@ -34,3 +34,6 @@ export {
   fakeClock,
   fakeLiveness,
 } from './in-memory-job-repository'
+export type { InMemoryReviewStore } from './in-memory-review-store'
+export { createInMemoryReviewStore } from './in-memory-review-store'
+export { cardFixture, knowledgeItemFixture, reviewLogFixture } from './memory-fixtures'
