@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { createReadStream } from 'node:fs'
 import { realpath, stat } from 'node:fs/promises'
-import { resolve, sep } from 'node:path'
+import path, { resolve } from 'node:path'
 import { type JobContext, type JobDefinition, registerJob } from '@retenia/core'
 
 /**
@@ -74,6 +74,44 @@ export interface HashFileInput {
 }
 
 /**
+ * Put a root in the same form `realpath` gives the candidate.
+ *
+ * A directory that does not exist yet — the blob store before anything has been ingested —
+ * cannot be resolved, so it falls back to `resolve`. That is the safe direction: nothing can
+ * be *inside* a directory that does not exist, so the comparison simply fails to match.
+ */
+async function canonicalize(root: string): Promise<string> {
+  try {
+    return await realpath(resolve(root))
+  } catch {
+    return resolve(root)
+  }
+}
+
+/**
+ * Whether `candidate` is `root` or sits underneath it.
+ *
+ * Uses `relative` rather than comparing strings with `startsWith`, because a prefix test is
+ * wrong on Windows in two ways that a Linux run never shows: paths differ in case while the
+ * filesystem does not, and `os.tmpdir()` hands back 8.3 short names (`RUNNER~1`) that
+ * `realpath` expands. `path.win32.relative` handles both — it compares case-insensitively and
+ * works in path segments, so it also cannot be fooled by a sibling directory whose name
+ * merely starts with the root's (`…\blobs-evil` vs `…\blobs`).
+ *
+ * The `path` module is a parameter so the win32 behaviour is testable from any platform.
+ */
+export function isInsideRoot(
+  pathModule: Pick<typeof path, 'relative' | 'isAbsolute'>,
+  root: string,
+  candidate: string,
+): boolean {
+  const difference = pathModule.relative(root, candidate)
+  // '' is the root itself; '..' anywhere at the front means the candidate escaped it, and an
+  // absolute result means the two are not even on the same drive.
+  return difference === '' || (!difference.startsWith('..') && !pathModule.isAbsolute(difference))
+}
+
+/**
  * sha256 of a file, streamed.
  *
  * Streamed rather than read whole: a source in this app can be a 2 GB video, and the point of
@@ -85,17 +123,18 @@ export interface HashFileInput {
  * is here regardless, because this definition is the template the ingestion jobs will copy,
  * and a job payload is persisted data: no more trustworthy than whoever wrote it.
  *
- * `realpath` before the prefix test, so a symlink inside a root cannot lead out of it.
+ * Both the candidate and the roots go through `realpath` before they are compared, so a
+ * symlink inside a root cannot lead out of it — and so the two sides are in the same form to
+ * begin with (see `isInsideRoot`).
  */
 export function createHashFileJob(
   roots: readonly string[],
 ): JobDefinition<HashFileInput, { sha256: string; bytes: number }> {
-  const allowed = roots.map((root) => resolve(root))
-
   /** The real path of `candidate`, or a throw if it is not inside one of `roots`. */
   const confine = async (candidate: string): Promise<string> => {
     const real = await realpath(resolve(candidate))
-    const inside = allowed.some((root) => real === root || real.startsWith(root + sep))
+    const resolvedRoots = await Promise.all(roots.map(canonicalize))
+    const inside = resolvedRoots.some((root) => isInsideRoot(path, root, real))
     if (!inside) {
       // Deliberately does not echo the path: this message reaches the renderer.
       throw new Error('hashFile refused a path outside the directories it may read')

@@ -1,10 +1,10 @@
 import { createHash, randomBytes } from 'node:crypto'
 import { mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import path, { join } from 'node:path'
 import type { JobContext } from '@retenia/core'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { createHashFileJob, JobCancelledError, sleepJob } from './definitions'
+import { createHashFileJob, isInsideRoot, JobCancelledError, sleepJob } from './definitions'
 
 /** A real `AbortController`, since that is what the worker passes. */
 function context(controller = new AbortController()) {
@@ -17,6 +17,71 @@ function context(controller = new AbortController()) {
   }
   return { ctx, controller, progress }
 }
+
+/**
+ * The comparison behind `hashFile`'s confinement, exercised against **both** platforms'
+ * `path` semantics.
+ *
+ * Windows-only rules are the reason this is a separate, parameterised test rather than a
+ * detail of the `hashFile` suite: the first version compared paths with `startsWith`, which
+ * passes every Linux test and rejects every legitimate path on Windows — where `os.tmpdir()`
+ * hands back 8.3 short names that `realpath` expands, and where case differs freely. CI on
+ * `windows-latest` caught it; these cases mean it cannot come back unnoticed.
+ */
+describe('isInsideRoot', () => {
+  describe('posix', () => {
+    const inside = (root: string, candidate: string) => isInsideRoot(path.posix, root, candidate)
+
+    it('accepts the root itself and anything under it', () => {
+      expect(inside('/data/blobs', '/data/blobs')).toBe(true)
+      expect(inside('/data/blobs', '/data/blobs/ab/cd.pdf')).toBe(true)
+    })
+
+    it('rejects a sibling whose name merely starts with the root', () => {
+      expect(inside('/data/blobs', '/data/blobs-evil/x')).toBe(false)
+    })
+
+    it('rejects anything outside', () => {
+      expect(inside('/data/blobs', '/etc/passwd')).toBe(false)
+      expect(inside('/data/blobs', '/data')).toBe(false)
+    })
+
+    it('is case-sensitive, as the filesystem is', () => {
+      expect(inside('/data/blobs', '/data/BLOBS/x')).toBe(false)
+    })
+  })
+
+  describe('win32', () => {
+    const inside = (root: string, candidate: string) => isInsideRoot(path.win32, root, candidate)
+
+    it('accepts the root itself and anything under it', () => {
+      expect(inside('C:\\Users\\ada\\blobs', 'C:\\Users\\ada\\blobs')).toBe(true)
+      expect(inside('C:\\Users\\ada\\blobs', 'C:\\Users\\ada\\blobs\\ab\\cd.pdf')).toBe(true)
+    })
+
+    it('ignores case, because the filesystem does', () => {
+      // The failure CI found: `realpath` and `resolve` disagreeing on case is not a reason to
+      // refuse a file the app itself just wrote.
+      expect(inside('C:\\Users\\ada\\blobs', 'c:\\users\\ADA\\Blobs\\x.pdf')).toBe(true)
+    })
+
+    it('accepts a mixed separator, which Node produces freely', () => {
+      expect(inside('C:\\Users\\ada\\blobs', 'C:/Users/ada/blobs/x.pdf')).toBe(true)
+    })
+
+    it('rejects a sibling whose name merely starts with the root', () => {
+      expect(inside('C:\\Users\\ada\\blobs', 'C:\\Users\\ada\\blobs-evil\\x')).toBe(false)
+    })
+
+    it('rejects a traversal back out', () => {
+      expect(inside('C:\\Users\\ada\\blobs', 'C:\\Users\\ada\\secrets\\x')).toBe(false)
+    })
+
+    it('rejects a path on another drive', () => {
+      expect(inside('C:\\Users\\ada\\blobs', 'D:\\blobs\\x')).toBe(false)
+    })
+  })
+})
 
 describe('sleep', () => {
   it('rejects a payload that is not a duration', () => {
