@@ -6,7 +6,8 @@
   "description": "zod envelope + 22 payload families, the 98-type registry, per-type validation rules, Claude-strict JSON Schema export, schemaVersion migrations and fixtures. Pure outside ./testing.",
   "exports": {
     ".": "./src/index.ts",
-    "./testing": "./src/testing/index.ts"
+    "./testing": "./src/testing/index.ts",
+    "./testing/samples": "./src/testing/samples.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
