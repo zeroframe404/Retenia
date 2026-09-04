@@ -352,6 +352,7 @@ function makeDeps(overrides: Partial<HandlerDeps> = {}): HandlerDeps {
     } as unknown as HandlerDeps['settings'],
     jobs: {
       list: vi.fn(async () => []),
+      find: vi.fn(async () => null),
       cancel: vi.fn(async (id: string) => ({ ...jobSummary, id, status: 'cancelled' as const })),
       retry: vi.fn(async (id: string) => ({ ...jobSummary, id, status: 'queued' as const })),
       enqueueDemo: vi.fn(async () => ({ job: jobSummary, subject: '/resources/dev/sample.ogg' })),

@@ -4,7 +4,7 @@ import type { JobProgressEvent, JobSummary } from '@retenia/ipc-contract'
 import { createJobDefinitions } from '../../jobs/definitions'
 import { type AppDatabase, openAppDatabase } from '../db/open'
 import { log } from '../logging/log'
-import { getBlobsRoot, getDevMediaSamplePath, getJobWorkerPath } from '../paths'
+import { getBlobsRoot, getDevMediaSamplePath, getJobWorkerPath, getWorkRoot } from '../paths'
 import { createJobsFacade, type JobsFacade } from './facade'
 import { createJobPool } from './pool'
 import { nodeProcessLiveness } from './process-liveness'
@@ -47,6 +47,7 @@ function unavailableFacade(reason: string): JobsFacade {
   }
   return {
     list: async (): Promise<JobSummary[]> => fail(),
+    find: fail,
     cancel: fail,
     retry: fail,
     enqueueDemo: fail,
@@ -79,7 +80,8 @@ export function bootstrapJobs({
    * Passed to the workers in their handshake, so the confinement travels with the definition
    * rather than depending on every enqueuer to have checked.
    */
-  const readableRoots = [getBlobsRoot(), dirname(getDevMediaSamplePath())]
+  // `getWorkRoot()` is where the optimizer stages its training CSV (sub-phase 4.6).
+  const readableRoots = [getBlobsRoot(), getWorkRoot(), dirname(getDevMediaSamplePath())]
 
   const registry = createJobRegistry(createJobDefinitions(readableRoots))
 

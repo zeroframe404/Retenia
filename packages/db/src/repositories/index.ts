@@ -26,6 +26,7 @@ import { createOutboxWriter, disabledOutboxWriter } from './outbox-writer'
 import { createPathRepository } from './paths'
 import { createReviewLogRepository } from './review-logs'
 import { createReviewSessionRepository } from './review-sessions'
+import { createSchedulerProfileRepository } from './scheduler-profiles'
 import { createSettingsRepository } from './settings'
 import { createSourceRepository } from './sources'
 import { createStatsRepository } from './stats'
@@ -108,6 +109,7 @@ export function createRepositories(opened: OpenedDatabase, options: RepositoryOp
     paths: createPathRepository(ctx),
     reviewLogs: createReviewLogRepository(ctx),
     reviewSessions: createReviewSessionRepository(ctx),
+    schedulerProfiles: createSchedulerProfileRepository(ctx),
     settings: createSettingsRepository(ctx),
     sources: createSourceRepository(ctx),
     stats: createStatsRepository(ctx),

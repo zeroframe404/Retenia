@@ -170,7 +170,13 @@ field. Fix `ts-fsrs` as the reference and cover it with regression tests against
 the retention curves after the 1st and 2nd review; then gradient descent. Anki 24.06+ does
 not require a review minimum; RemNote recommends ≥ 1,000. Re-optimize every 2ⁿ reviews
 (512, 1,024, 2,048…) or monthly. In Node: `@open-spaced-repetition/binding` (napi over
-`fsrs-rs`) in a worker, or `fsrs-browser` (WASM) to avoid native binaries.
+`fsrs-rs`) in a worker, with its own `wasm32-wasi` build as the fallback where no prebuild
+exists — implemented in sub-phase 4.6 as the `fsrsOptimize` job.
+
+> Two properties of that binding, measured rather than documented, that its callers depend
+> on: its `progress` callback never fires (so the job reports stages, not epochs), and its
+> `timeout` is a wall-clock budget the call always consumes rather than a quality knob —
+> 200 ms, 2 s and 15 s return byte-identical parameters on the same input.
 
 **Desired retention:** "the most important setting"; allowed 0.70–0.99; recommended
 0.80–0.95; **0.90 by default**; above 0.97 it "turns spaced repetition into massed
@@ -530,4 +536,8 @@ action; export/import the history in the `fsrs-optimizer` CSV and in `.apkg`.
    validate it with the simulator.
 3. The Hard/Easy thresholds of the automatic exercises are heuristic: measure true retention
    per type and adjust.
-4. Verify win32-x64 support of the optimizer binding before deciding between napi and WASM.
+4. ~~Verify win32-x64 support of the optimizer binding before deciding between napi and
+   WASM.~~ **Resolved in sub-phase 4.6:** `@open-spaced-repetition/binding` publishes a
+   win32-x64 N-API prebuild *and* a `wasm32-wasi` build behind the same API, so the choice
+   is not either/or — the napi path is the default and WASM is its fallback. See
+   `docs/spec/07-architecture.md` §13.4.

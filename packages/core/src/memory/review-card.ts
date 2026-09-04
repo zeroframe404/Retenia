@@ -9,7 +9,12 @@ import { EntityNotFoundError } from '../ports/errors'
 import type { KnowledgeItemRepository } from '../ports/knowledge-item-repository'
 import type { ReviewLogRepository } from '../ports/review-log-repository'
 import { type MemorySnapshot, memorySnapshot } from './events'
-import type { SchedulingPolicy } from './scheduling-policy'
+import { evaluateLeech, type LeechDecision } from './leech'
+import type {
+  ImportanceResolution,
+  SchedulingPolicy,
+  SchedulingPolicyInput,
+} from './scheduling-policy'
 import type { Grade, Scheduler, SchedulingOptions, SchedulingResult } from './types'
 
 /**
@@ -51,6 +56,15 @@ export interface ReviewCardDeps {
   events: DomainEventPublisher
   /** Only consulted when the input names no `now`. */
   clock?: Clock
+  /**
+   * The full importance resolution, when the caller has one.
+   *
+   * `policy.optionsFor` answers only "what should the scheduler do"; §4's leech handling
+   * also needs the level's `leechThreshold` and `leechAction`, which live on the same
+   * resolution. A caller that supplies this gets leech detection and pays for one resolve
+   * instead of two; one that does not keeps working exactly as before, minus leeches.
+   */
+  resolve?: (input: SchedulingPolicyInput) => ImportanceResolution | Promise<ImportanceResolution>
 }
 
 interface ReviewCardBase {
@@ -82,6 +96,9 @@ export interface ReviewCardResult {
   previous: MemorySnapshot
   /** The options the policy resolved for this review. */
   options: SchedulingOptions
+  /** §4's verdict on the card after this review, or `null` when the caller supplied no
+   *  `resolve` and leeches were therefore not evaluated. */
+  leech: LeechDecision | null
 }
 
 export type ReviewCard = (input: ReviewCardInput) => Promise<ReviewCardResult>
@@ -153,7 +170,9 @@ export function createReviewCard(deps: ReviewCardDeps): ReviewCard {
     const card = await uow.cards.findById(input.cardId)
     if (card === undefined) throw new EntityNotFoundError('cards', input.cardId)
     const item = (await uow.knowledgeItems.findById(card.itemId)) ?? null
-    const options = await policy.optionsFor({ card, item, now })
+    const resolution = deps.resolve === undefined ? null : await deps.resolve({ card, item, now })
+    const options =
+      resolution === null ? await policy.optionsFor({ card, item, now }) : resolution.options
 
     const previous = memorySnapshot(card)
     const retrievabilityBefore = scheduler.retrievability(card, now)
@@ -162,8 +181,23 @@ export function createReviewCard(deps: ReviewCardDeps): ReviewCard {
         ? scheduler.apply(card, now, rating as Grade, options)
         : scheduler.postpone(card, now, due)
 
+    // Evaluated on the card *after* the review, so `lapses` already counts this Again.
+    // Rating 0 is a postpone and never a lapse, so it can never make a card a leech.
+    const leech =
+      resolution === null
+        ? null
+        : evaluateLeech({ card: result.card, settings: resolution.settings })
+
     const written = await uow.transaction(async (repos) => {
-      const saved = await repos.cards.update(card.id, fsrsPatch(result.card, card.version))
+      // One write, not three. `setLeech`/`setSuspended` exist for the manual menu path;
+      // here they would be a second and third update of the same row inside one
+      // transaction, each bumping `version`, and the optimistic-concurrency token the
+      // first one checked would already be stale.
+      const saved = await repos.cards.update(card.id, {
+        ...fsrsPatch(result.card, card.version),
+        ...(leech?.tag === true ? { leech: true } : {}),
+        ...(leech?.suspend === true ? { suspended: true } : {}),
+      })
       const log = await repos.reviewLogs.append({
         ...result.log,
         durationMs,
@@ -196,6 +230,16 @@ export function createReviewCard(deps: ReviewCardDeps): ReviewCard {
       retrievabilityBefore,
       options,
     })
-    return { card: written.saved, log: written.log, previous, options }
+    // After `card.reviewed`: a listener that reacts to a leech wants the review it came
+    // from already accounted for.
+    if (leech !== null && resolution !== null && leech.stage !== 'none') {
+      events.publish({
+        type: 'card.leech',
+        card: written.saved,
+        decision: leech,
+        level: resolution.level,
+      })
+    }
+    return { card: written.saved, log: written.log, previous, options, leech }
   }
 }

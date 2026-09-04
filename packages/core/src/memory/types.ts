@@ -51,7 +51,23 @@ export type Weekday = 0 | 1 | 2 | 3 | 4 | 5 | 6
 /** §4 "Easy days": how much reviewing the user wants on a weekday. A missing day is
  *  `normal`. */
 export type EasyDayLevel = 'normal' | 'reduced' | 'minimum'
+export const EASY_DAY_LEVELS: readonly EasyDayLevel[] = Object.freeze([
+  'normal',
+  'reduced',
+  'minimum',
+] as const)
 export type EasyDays = Readonly<Partial<Record<Weekday, EasyDayLevel>>>
+
+/** A calendar day in the study timezone, `YYYY-MM-DD`. */
+export type StudyDateKey = `${number}-${number}-${number}`
+
+/**
+ * §4's "and specific dates": a level for one date, which beats that date's weekday.
+ *
+ * A map rather than a list of days to skip, so a single date can be `reduced` as well as
+ * `minimum` — a holiday and a half-day are not the same request.
+ */
+export type EasyDates = Readonly<Record<string, EasyDayLevel>>
 
 /**
  * §15: within the fuzz window the balancer picks the day with the fewest due cards. The
@@ -75,6 +91,7 @@ export interface SchedulingOptions {
   fuzz: boolean
   loadBalance?: LoadBalancer
   easyDays?: EasyDays
+  easyDates?: EasyDates
 }
 
 /** The DSR memory state of one card, without the calendar. */

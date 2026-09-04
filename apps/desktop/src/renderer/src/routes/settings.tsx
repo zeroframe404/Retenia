@@ -15,16 +15,17 @@ import {
 } from '@retenia/ui'
 import { createFileRoute } from '@tanstack/react-router'
 import { z } from 'zod'
+import { SchedulerSettings } from '../features/scheduler/scheduler-settings'
 import { useT } from '../i18n/use-t'
 import { useSetDensity, useSetGamificationProfile, useSettings } from '../shell/use-settings'
 
 const settingsSearchSchema = z.object({
   /** Which control gets focus-scrolled on load — a small, typed example of zod-validated
    * search params (the other is `/library`'s `q`). The full Settings screen (AI providers,
-   * voice, scheduler, …) lands in sub-phase 7.5/13.5; this phase only wires the fields the
-   * shell itself reads (density, gamification profile) plus typography, which is purely
-   * local to `@retenia/ui`'s `useTypographySettingsStore`. */
-  tab: z.enum(['density', 'gamification', 'typography']).optional(),
+   * voice, …) lands in sub-phase 7.5/13.5; this phase wires the fields the shell itself
+   * reads (density, gamification profile), typography (purely local to `@retenia/ui`'s
+   * `useTypographySettingsStore`), and the scheduler section of sub-phase 4.6. */
+  tab: z.enum(['density', 'gamification', 'typography', 'scheduler']).optional(),
 })
 
 function SettingsScreen() {
@@ -49,6 +50,8 @@ function SettingsScreen() {
     <div data-testid="screen-settings" className="flex flex-col gap-6 p-6">
       <h1 className="font-display text-2xl font-semibold">{t('title')}</h1>
       <p className="text-muted">{t('comingSoon')}</p>
+
+      <SchedulerSettings focused={tab === 'scheduler'} />
 
       <section
         data-testid="settings-density"

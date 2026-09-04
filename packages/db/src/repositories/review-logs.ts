@@ -18,6 +18,7 @@ import {
   isNotNull,
   isNull,
   lt,
+  ne,
   type SQL,
   sql,
 } from 'drizzle-orm'
@@ -194,6 +195,26 @@ export function createReviewLogRepository(ctx: RepositoryContext): ReviewLogRepo
         .select({ value: count() })
         .from(reviewLogs)
         .where(and(eq(reviewLogs.cardId, cardId), isNull(reviewLogs.deletedAt)))
+        .all() as Array<{ value: number }>
+      return rows[0]?.value ?? 0
+    },
+
+    /**
+     * How many reviews there are, for §16's optimizer cadence.
+     *
+     * `excludeManual` drops rating 0, which is what the optimizer trains on: a postpone
+     * is not evidence of recall (`fsrs-rules`), and counting it would advance the 2ⁿ
+     * threshold without adding anything the model can learn from.
+     */
+    count: async (options) => {
+      const clauses: SQL[] = [isNull(reviewLogs.deletedAt)]
+      if (options?.from !== undefined) clauses.push(gte(reviewLogs.review, options.from.getTime()))
+      if (options?.to !== undefined) clauses.push(lt(reviewLogs.review, options.to.getTime()))
+      if (options?.excludeManual === true) clauses.push(ne(reviewLogs.rating, 0))
+      const rows = ctx.db
+        .select({ value: count() })
+        .from(reviewLogs)
+        .where(and(...clauses))
         .all() as Array<{ value: number }>
       return rows[0]?.value ?? 0
     },

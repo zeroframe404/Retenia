@@ -14,6 +14,7 @@ import type { OutboxRepository } from './outbox-repository'
 import type { PathRepository } from './path-repository'
 import type { ReviewLogRepository } from './review-log-repository'
 import type { ReviewSessionRepository } from './review-session-repository'
+import type { SchedulerProfileRepository } from './scheduler-profile-repository'
 import type { SettingsRepository } from './settings-repository'
 import type { SourceRepository } from './source-repository'
 import type { StatsRepository } from './stats-repository'
@@ -38,6 +39,8 @@ export interface Repositories {
   paths: PathRepository
   reviewLogs: ReviewLogRepository
   reviewSessions: ReviewSessionRepository
+  /** The FSRS parameters in force (§6, §16). */
+  schedulerProfiles: SchedulerProfileRepository
   settings: SettingsRepository
   sources: SourceRepository
   /** Read-only projections for the statistics screen (§13). */

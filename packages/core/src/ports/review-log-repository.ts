@@ -20,6 +20,14 @@ export interface ReviewLogRepository {
   findLastByCard(cardId: string): Promise<ReviewLog | undefined>
   countByCard(cardId: string): Promise<number>
   /**
+   * How many reviews exist, for §16's optimizer cadence ("every 2ⁿ reviews" — 512, 1,024,
+   * …) and for the "you have enough history to optimize" threshold.
+   *
+   * `excludeManual` drops rating 0 rows, which is what the optimizer counts: a postpone
+   * is not evidence of recall and never reaches the training set (`fsrs-rules`).
+   */
+  count(options?: { from?: Date; to?: Date; excludeManual?: boolean }): Promise<number>
+  /**
    * The median `durationMs` over the graded reviews in the window — the daily session
    * composer's "how long does a card take me" (§12). `null` when the window holds no
    * review that recorded a duration, and the caller falls back to the spec's 8 s.

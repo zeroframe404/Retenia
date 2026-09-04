@@ -63,6 +63,9 @@ export interface JobScheduler {
   cancel(id: string): Promise<Job>
   /** Put a `failed` or `cancelled` job back in the queue with a clean slate. */
   retry(id: string): Promise<Job>
+  /** One job by id, or `undefined`. What a caller that queued its own job reads back,
+   *  and how a result dialog polls for the row it is waiting on. */
+  find(id: string): Promise<Job | undefined>
   /** `queued` and `running` together, the order they will run in. What the tray shows. */
   listActive(): Promise<Job[]>
   /**
@@ -139,6 +142,8 @@ export function createJobScheduler(deps: JobSchedulerDeps): JobScheduler {
       }
       return requeue(id, clock.now(), { attempts: 0, error: null, result: null })
     },
+
+    find: (id) => jobs.findById(id),
 
     listActive: async () => {
       const [queued, running] = await Promise.all([

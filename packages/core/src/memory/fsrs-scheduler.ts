@@ -6,6 +6,7 @@ import {
   type RecordLogItem,
 } from 'ts-fsrs'
 import type { Card } from '../entities'
+import { resolveEasyDayCalendar } from './easy-days'
 import { clampParameters, forgettingCurve, fuzzRange, intervalForRetention } from './formulas'
 import { fromFsrsCard, toFsrsCard, toFsrsReviewLog } from './mappers'
 import { assertSchedulingOptions, DEFAULT_FSRS_W, DEFAULT_SCHEDULING_OPTIONS } from './parameters'
@@ -15,7 +16,6 @@ import {
   type DayBoundary,
   HOUR_MS,
   resolveDayBoundary,
-  studyWeekday,
   timeZoneOffsetAtMs,
 } from './study-day'
 import {
@@ -366,7 +366,12 @@ export class FsrsScheduler implements Scheduler {
    */
   private finalize(items: GradeItems, ctx: ReviewContext): void {
     const { options } = ctx
-    if (!options.fuzz && options.loadBalance === undefined && options.easyDays === undefined) {
+    if (
+      !options.fuzz &&
+      options.loadBalance === undefined &&
+      options.easyDays === undefined &&
+      options.easyDates === undefined
+    ) {
       return
     }
     const elapsedForFuzz = Math.max(0, ctx.elapsedDays)
@@ -423,19 +428,24 @@ export class FsrsScheduler implements Scheduler {
     random: () => number,
   ): number {
     const { options } = ctx
-    if (options.easyDays === undefined && options.loadBalance === undefined) {
+    if (
+      options.easyDays === undefined &&
+      options.easyDates === undefined &&
+      options.loadBalance === undefined
+    ) {
       // Plain fuzz (only reached with fuzz on): ts-fsrs's own draw over the window.
       return Math.min(max, min + Math.floor(random() * (max - min + 1)))
     }
     let candidates: number[] = []
     for (let day = min; day <= max; day++) candidates.push(day)
 
-    if (options.easyDays !== undefined) {
-      const { dayStartHour, timeZone } = this.dayBoundary
-      const easyDays = options.easyDays
-      const level = (day: number) =>
-        easyDays[studyWeekday(new Date(ctx.nowMs + day * DAY_MS), dayStartHour, timeZone)] ??
-        'normal'
+    if (options.easyDays !== undefined || options.easyDates !== undefined) {
+      // `minimum` needs no tier of its own: every candidate is exactly one of the three
+      // levels, so once `normal` and `reduced` are both empty the remaining candidates
+      // *are* the minimum days, and the fallback already returns them. A card whose whole
+      // window is minimum still has to land somewhere.
+      const calendar = resolveEasyDayCalendar(options, this.dayBoundary)
+      const level = (day: number) => calendar.levelFor(new Date(ctx.nowMs + day * DAY_MS))
       const normal = candidates.filter((day) => level(day) === 'normal')
       const reduced = candidates.filter((day) => level(day) === 'reduced')
       candidates = normal.length > 0 ? normal : reduced.length > 0 ? reduced : candidates

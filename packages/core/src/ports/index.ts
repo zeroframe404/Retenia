@@ -47,6 +47,15 @@ export type {
 export type { ItemBankRepository } from './item-bank-repository'
 export type { EnqueueOptions, JobRepository } from './job-repository'
 export type { KnowledgeItemRepository } from './knowledge-item-repository'
+export type {
+  OptimizerEvaluation,
+  OptimizerStage,
+  OptimizerTrainer,
+  OptimizerTrainingInput,
+  OptimizerTrainingOptions,
+  OptimizerTrainingResult,
+} from './optimizer'
+export { OPTIMIZER_STAGES } from './optimizer'
 export type { OutboxAppend, OutboxRepository } from './outbox-repository'
 export type { PathRepository, PathTree } from './path-repository'
 export type { ProcessLiveness } from './process-liveness'
@@ -59,6 +68,11 @@ export type {
 export { passthroughReranker } from './reranker'
 export type { ReviewLogRepository } from './review-log-repository'
 export type { ReviewSessionRepository } from './review-session-repository'
+export type {
+  SchedulerProfileRepository,
+  TrainedParameters,
+} from './scheduler-profile-repository'
+export { GLOBAL_SCHEDULER_SCOPE } from './scheduler-profile-repository'
 export type { SecretName, SecretStore } from './secret-store'
 export { SECRET_NAMES } from './secret-store'
 export type { SettingsMap, SettingsRepository } from './settings-repository'

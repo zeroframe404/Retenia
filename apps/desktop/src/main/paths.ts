@@ -7,6 +7,19 @@ export function getBlobsRoot(): string {
   return join(app.getPath('userData'), 'blobs')
 }
 
+/**
+ * `userData/work`: scratch a job may read, owned by the app.
+ *
+ * Not the OS temp directory, which is world-writable on Linux and can be cleaned out
+ * between a job's attempts; and not the blob store, which is content-addressed and
+ * index-backed, so a throwaway training CSV there would either leak a row or need a
+ * garbage-collection exception. Added to the worker pool's readable roots, so a job's path
+ * is still confined to somewhere the app put it.
+ */
+export function getWorkRoot(): string {
+  return join(app.getPath('userData'), 'work')
+}
+
 /** `userData/settings.json`: a placeholder store until the real `settings` table lands in
  * sub-phase 3.5 (see `src/main/settings/store.ts`). */
 export function getSettingsPath(): string {

@@ -3,6 +3,7 @@ import { appChannels } from './channels/app'
 import { backupsChannels } from './channels/backups'
 import { jobsChannels } from './channels/jobs'
 import { memoryChannels } from './channels/memory'
+import { schedulerChannels } from './channels/scheduler'
 import { secretsChannels } from './channels/secrets'
 import { sessionChannels } from './channels/session'
 import { settingsChannels } from './channels/settings'
@@ -43,6 +44,16 @@ export {
   URGENT_MODE_HOURS,
   urgentModeHoursSchema,
 } from './channels/memory'
+export {
+  evaluationSchema,
+  LEECH_ACTIONS,
+  leechActionSchema,
+  optimizationOutcomeSchema,
+  optimizerStatusSchema,
+  schedulerProfileSchema,
+  stepSchema,
+  stepsSchema,
+} from './channels/scheduler'
 export type { SecretName } from './channels/secrets'
 export { SECRET_NAMES, secretNameSchema } from './channels/secrets'
 export type { SessionPlanDto } from './channels/session'
@@ -104,6 +115,7 @@ export const contract = {
   ...appChannels,
   ...jobsChannels,
   ...memoryChannels,
+  ...schedulerChannels,
   ...secretsChannels,
   ...sessionChannels,
   ...backupsChannels,
