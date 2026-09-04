@@ -1,0 +1,110 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-000000000007",
+    "schemaVersion": 1,
+    "type": "mcq_multi",
+    "family": "choice",
+    "lang": "es-AR",
+    "prompt": "¿Cuáles son planetas interiores?",
+    "skills": ["astro.planetas.interiores"],
+    "difficulty": 2,
+    "grading": {
+      "method": "det",
+      "partialCredit": true
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "partial"
+    },
+    "payload": {
+      "family": "choice",
+      "sets": [
+        {
+          "id": "m",
+          "multiple": true,
+          "options": [
+            {
+              "id": "a",
+              "text": "Mercurio",
+              "correct": true
+            },
+            {
+              "id": "b",
+              "text": "Plutón",
+              "correct": false
+            },
+            {
+              "id": "c",
+              "text": "Venus",
+              "correct": true
+            },
+            {
+              "id": "d",
+              "text": "Ceres",
+              "correct": false
+            }
+          ]
+        }
+      ],
+      "layout": "list"
+    }
+  },
+  "answers": [
+    {
+      "name": "exact set",
+      "response": {
+        "sets": [
+          {
+            "selected": ["a", "c"]
+          }
+        ]
+      },
+      "expect": {
+        "score": 1,
+        "correct": true
+      }
+    },
+    {
+      "name": "one of two",
+      "response": {
+        "sets": [
+          {
+            "selected": ["a"]
+          }
+        ]
+      },
+      "expect": {
+        "score": 0.5,
+        "correct": false
+      }
+    },
+    {
+      "name": "both plus one wrong",
+      "response": {
+        "sets": [
+          {
+            "selected": ["a", "c", "b"]
+          }
+        ]
+      },
+      "expect": {
+        "score": 0.75,
+        "correct": false
+      }
+    },
+    {
+      "name": "only wrong ones",
+      "response": {
+        "sets": [
+          {
+            "selected": ["b", "d"]
+          }
+        ]
+      },
+      "expect": {
+        "score": 0,
+        "correct": false
+      }
+    }
+  ]
+}

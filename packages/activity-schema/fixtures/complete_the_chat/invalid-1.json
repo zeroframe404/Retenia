@@ -1,0 +1,48 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-000000000018",
+    "schemaVersion": 1,
+    "type": "complete_the_chat",
+    "family": "choice",
+    "lang": "ES",
+    "prompt": "p",
+    "skills": ["s"],
+    "difficulty": 2,
+    "grading": {
+      "method": "det"
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "binary"
+    },
+    "payload": {
+      "family": "choice",
+      "sets": [
+        {
+          "multiple": false,
+          "options": [
+            {
+              "id": "r1",
+              "text": "Sure, see you at 8.",
+              "correct": true
+            },
+            {
+              "id": "r2",
+              "text": "I am twenty years old.",
+              "correct": false
+            },
+            {
+              "id": "r3",
+              "text": "It is raining cats and dogs.",
+              "correct": false
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "expect": {
+    "layer": "schema",
+    "codes": []
+  }
+}

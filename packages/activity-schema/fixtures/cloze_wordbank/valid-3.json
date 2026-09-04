@@ -1,0 +1,65 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-000000000026",
+    "schemaVersion": 1,
+    "type": "cloze_wordbank",
+    "family": "cloze",
+    "lang": "es-AR",
+    "prompt": "Ordená las palabras del banco en la frase.",
+    "skills": ["en.present-simple"],
+    "difficulty": 2,
+    "grading": {
+      "method": "det"
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "partial"
+    },
+    "payload": {
+      "family": "cloze",
+      "mode": "wordbank",
+      "segments": [
+        {
+          "kind": "text",
+          "text": "She "
+        },
+        {
+          "kind": "gap",
+          "id": "g1",
+          "answers": ["goes"],
+          "options": ["go", "goes", "going"]
+        },
+        {
+          "kind": "text",
+          "text": " to school every day."
+        }
+      ]
+    }
+  },
+  "answers": [
+    {
+      "name": "right",
+      "response": {
+        "gaps": {
+          "g1": "goes"
+        }
+      },
+      "expect": {
+        "score": 1,
+        "correct": true
+      }
+    },
+    {
+      "name": "wrong form",
+      "response": {
+        "gaps": {
+          "g1": "go"
+        }
+      },
+      "expect": {
+        "score": 0,
+        "correct": false
+      }
+    }
+  ]
+}

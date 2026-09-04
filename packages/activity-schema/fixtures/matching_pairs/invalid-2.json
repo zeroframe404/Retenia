@@ -1,0 +1,39 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-000000000050",
+    "schemaVersion": 1,
+    "type": "matching_pairs",
+    "family": "pairs",
+    "lang": "es-AR",
+    "prompt": "p",
+    "skills": ["s"],
+    "difficulty": 2,
+    "grading": {
+      "method": "det"
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "matching"
+    },
+    "payload": {
+      "family": "pairs",
+      "presentation": "drag",
+      "pairs": [
+        {
+          "id": "p1",
+          "left": "Francia",
+          "right": "París"
+        },
+        {
+          "id": "p2",
+          "left": "Italia",
+          "right": "París"
+        }
+      ]
+    }
+  },
+  "expect": {
+    "layer": "rules",
+    "codes": ["pairs-right-duplicate"]
+  }
+}

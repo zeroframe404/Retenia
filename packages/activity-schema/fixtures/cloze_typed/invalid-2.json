@@ -1,0 +1,33 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-00000000001e",
+    "schemaVersion": 1,
+    "type": "cloze_typed",
+    "family": "cloze",
+    "lang": "es-AR",
+    "prompt": "p",
+    "skills": ["s"],
+    "difficulty": 2,
+    "grading": {
+      "method": "fuzzy"
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "fuzzy"
+    },
+    "payload": {
+      "family": "cloze",
+      "mode": "typed",
+      "segments": [
+        {
+          "kind": "text",
+          "text": "Sin huecos."
+        }
+      ]
+    }
+  },
+  "expect": {
+    "layer": "rules",
+    "codes": ["cloze-no-gaps"]
+  }
+}

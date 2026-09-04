@@ -1,0 +1,80 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-000000000030",
+    "schemaVersion": 1,
+    "type": "numeric_answer",
+    "family": "text_input",
+    "lang": "es-AR",
+    "prompt": "¿Qué porcentaje del total representa la fracción 1/4?",
+    "skills": ["mat.porcentaje"],
+    "difficulty": 2,
+    "grading": {
+      "method": "det"
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "objective"
+    },
+    "payload": {
+      "family": "text_input",
+      "inputKind": "number",
+      "answers": [
+        {
+          "value": "25 %"
+        },
+        {
+          "value": "un cuarto"
+        }
+      ],
+      "numeric": {
+        "value": 25,
+        "unit": "%",
+        "tol": {
+          "abs": 0
+        }
+      }
+    }
+  },
+  "answers": [
+    {
+      "name": "percent",
+      "response": {
+        "value": "25%"
+      },
+      "expect": {
+        "score": 1,
+        "correct": true
+      }
+    },
+    {
+      "name": "spaced percent",
+      "response": {
+        "value": "25 %"
+      },
+      "expect": {
+        "score": 1,
+        "correct": true
+      }
+    },
+    {
+      "name": "text fallback",
+      "response": {
+        "value": "un cuarto"
+      },
+      "expect": {
+        "score": 1,
+        "correct": true
+      }
+    },
+    {
+      "name": "fraction is not a percent",
+      "response": {
+        "value": "0.25"
+      },
+      "expect": {
+        "score": 0,
+        "correct": false
+      }
+    }
+  ]
+}

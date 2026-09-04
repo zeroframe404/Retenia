@@ -1,0 +1,52 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-000000000048",
+    "schemaVersion": 1,
+    "type": "essay_rubric",
+    "family": "long_text",
+    "lang": "es-AR",
+    "prompt": "Escribí un párrafo sobre la importancia del sueño.",
+    "skills": ["salud.sueno"],
+    "difficulty": 2,
+    "grading": {
+      "method": "ai"
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "ai"
+    },
+    "payload": {
+      "family": "long_text",
+      "rubric": [
+        {
+          "id": "r2",
+          "criterion": "Uso de evidencia",
+          "levels": [
+            {
+              "score": 0,
+              "description": "Ninguna"
+            },
+            {
+              "score": 1,
+              "description": "Cita las fuentes"
+            }
+          ]
+        }
+      ],
+      "modelAnswer": "Dormir consolida la memoria y regula el estado de ánimo."
+    }
+  },
+  "answers": [
+    {
+      "name": "no key points: nothing the pure grader can score",
+      "response": {
+        "text": "Dormir es importante."
+      },
+      "expect": {
+        "score": 0,
+        "correct": false,
+        "engine": "keypoints"
+      }
+    }
+  ]
+}

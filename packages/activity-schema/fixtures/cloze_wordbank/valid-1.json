@@ -1,0 +1,102 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-000000000024",
+    "schemaVersion": 1,
+    "type": "cloze_wordbank",
+    "family": "cloze",
+    "lang": "es-AR",
+    "prompt": "Arrastrá cada palabra al hueco correcto.",
+    "skills": ["bio.fotosintesis"],
+    "difficulty": 2,
+    "grading": {
+      "method": "det"
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "partial"
+    },
+    "payload": {
+      "family": "cloze",
+      "mode": "wordbank",
+      "singleUseDraggables": true,
+      "bankDistractors": ["nitrógeno", "sal"],
+      "segments": [
+        {
+          "kind": "text",
+          "text": "Las plantas toman "
+        },
+        {
+          "kind": "gap",
+          "id": "g1",
+          "answers": ["dióxido de carbono"]
+        },
+        {
+          "kind": "text",
+          "text": " y agua, y con la luz producen "
+        },
+        {
+          "kind": "gap",
+          "id": "g2",
+          "answers": ["glucosa"]
+        },
+        {
+          "kind": "text",
+          "text": " y "
+        },
+        {
+          "kind": "gap",
+          "id": "g3",
+          "answers": ["oxígeno"]
+        },
+        {
+          "kind": "text",
+          "text": "."
+        }
+      ]
+    }
+  },
+  "answers": [
+    {
+      "name": "all",
+      "response": {
+        "gaps": {
+          "g1": "dióxido de carbono",
+          "g2": "glucosa",
+          "g3": "oxígeno"
+        }
+      },
+      "expect": {
+        "score": 1,
+        "correct": true
+      }
+    },
+    {
+      "name": "distractor in a gap",
+      "response": {
+        "gaps": {
+          "g1": "nitrógeno",
+          "g2": "glucosa",
+          "g3": "oxígeno"
+        }
+      },
+      "expect": {
+        "score": 0.6666666667,
+        "correct": false
+      }
+    },
+    {
+      "name": "swapped",
+      "response": {
+        "gaps": {
+          "g1": "dióxido de carbono",
+          "g2": "oxígeno",
+          "g3": "glucosa"
+        }
+      },
+      "expect": {
+        "score": 0.3333333333,
+        "correct": false
+      }
+    }
+  ]
+}

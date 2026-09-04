@@ -1,0 +1,62 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-000000000035",
+    "schemaVersion": 1,
+    "type": "flashcard_basic",
+    "family": "cards",
+    "lang": "es-AR",
+    "prompt": "Mirá la imagen [[media:m1]]",
+    "skills": ["bio.celula.mitocondria"],
+    "difficulty": 2,
+    "grading": {
+      "method": "self"
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "self"
+    },
+    "media": [
+      {
+        "id": "m1",
+        "kind": "image",
+        "generate": {
+          "by": "image",
+          "prompt": "Una mitocondria, corte esquemático"
+        }
+      }
+    ],
+    "payload": {
+      "family": "cards",
+      "cards": [
+        {
+          "id": "c1",
+          "front": "¿Qué orgánulo es?",
+          "back": "Mitocondria",
+          "media": ["m1"]
+        }
+      ]
+    }
+  },
+  "answers": [
+    {
+      "name": "good",
+      "response": {
+        "rating": 3
+      },
+      "expect": {
+        "score": 0.6666666667,
+        "correct": true
+      }
+    },
+    {
+      "name": "easy",
+      "response": {
+        "rating": 4
+      },
+      "expect": {
+        "score": 1,
+        "correct": true
+      }
+    }
+  ]
+}

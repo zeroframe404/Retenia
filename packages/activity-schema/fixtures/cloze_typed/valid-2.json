@@ -1,0 +1,102 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-00000000001b",
+    "schemaVersion": 1,
+    "type": "cloze_typed",
+    "family": "cloze",
+    "lang": "es-AR",
+    "prompt": "Completá con los astros.",
+    "skills": ["astro.sistema-solar"],
+    "difficulty": 2,
+    "grading": {
+      "method": "fuzzy",
+      "fuzzy": {
+        "synonyms": [["Sol", "astro rey"]],
+        "maxRelativeEditDistance": 0.25
+      }
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "fuzzy"
+    },
+    "payload": {
+      "family": "cloze",
+      "mode": "typed",
+      "segments": [
+        {
+          "kind": "text",
+          "text": "La Tierra gira alrededor del "
+        },
+        {
+          "kind": "gap",
+          "id": "g1",
+          "answers": ["Sol"]
+        },
+        {
+          "kind": "text",
+          "text": " y la "
+        },
+        {
+          "kind": "gap",
+          "id": "g2",
+          "answers": ["Luna"]
+        },
+        {
+          "kind": "text",
+          "text": " gira alrededor de la Tierra."
+        }
+      ]
+    }
+  },
+  "answers": [
+    {
+      "name": "both",
+      "response": {
+        "gaps": {
+          "g1": "sol",
+          "g2": "luna"
+        }
+      },
+      "expect": {
+        "score": 1,
+        "correct": true
+      }
+    },
+    {
+      "name": "synonym",
+      "response": {
+        "gaps": {
+          "g1": "astro rey",
+          "g2": "Luna"
+        }
+      },
+      "expect": {
+        "score": 1,
+        "correct": true
+      }
+    },
+    {
+      "name": "one empty",
+      "response": {
+        "gaps": {
+          "g1": "Sol",
+          "g2": ""
+        }
+      },
+      "expect": {
+        "score": 0.5,
+        "correct": false,
+        "perItem": [
+          {
+            "id": "g1",
+            "correct": true
+          },
+          {
+            "id": "g2",
+            "correct": false
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-000000000023",
+    "schemaVersion": 1,
+    "type": "cloze_dropdown",
+    "family": "cloze",
+    "lang": "es-AR",
+    "prompt": "p",
+    "skills": ["s"],
+    "difficulty": 2,
+    "grading": {
+      "method": "det"
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "partial"
+    },
+    "payload": {
+      "family": "cloze",
+      "mode": "dropdown",
+      "segments": [
+        {
+          "kind": "text",
+          "text": "x "
+        },
+        {
+          "kind": "gap",
+          "id": "g1",
+          "answers": ["a"]
+        }
+      ]
+    }
+  },
+  "expect": {
+    "layer": "rules",
+    "codes": ["cloze-gap-options-required"]
+  }
+}

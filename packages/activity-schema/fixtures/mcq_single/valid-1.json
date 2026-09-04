@@ -1,0 +1,130 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-000000000001",
+    "schemaVersion": 1,
+    "type": "mcq_single",
+    "family": "choice",
+    "lang": "es-AR",
+    "prompt": "¿Cuál es la capital de Francia?",
+    "skills": ["geo.francia.capital"],
+    "difficulty": 2,
+    "grading": {
+      "method": "det"
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "binary",
+      "expectedSeconds": 12
+    },
+    "explanation": "París es la capital de Francia desde la Edad Media.",
+    "hints": ["Está sobre el río Sena."],
+    "payload": {
+      "family": "choice",
+      "sets": [
+        {
+          "id": "s1",
+          "multiple": false,
+          "options": [
+            {
+              "id": "a",
+              "text": "París",
+              "correct": true,
+              "feedback": "¡Correcto!"
+            },
+            {
+              "id": "b",
+              "text": "Lyon",
+              "correct": false,
+              "feedback": "Lyon es la tercera ciudad."
+            },
+            {
+              "id": "c",
+              "text": "Marsella",
+              "correct": false
+            },
+            {
+              "id": "d",
+              "text": "Niza",
+              "correct": false
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "answers": [
+    {
+      "name": "correct",
+      "response": {
+        "sets": [
+          {
+            "selected": ["a"]
+          }
+        ]
+      },
+      "expect": {
+        "score": 1,
+        "correct": true,
+        "perItem": [
+          {
+            "id": "s1",
+            "correct": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "wrong",
+      "response": {
+        "sets": [
+          {
+            "selected": ["b"]
+          }
+        ]
+      },
+      "meta": {
+        "timeMs": 4000,
+        "attempts": 2,
+        "hintsUsed": 1
+      },
+      "expect": {
+        "score": 0,
+        "correct": false,
+        "perItem": [
+          {
+            "id": "s1",
+            "correct": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "two picks is not a single choice",
+      "response": {
+        "sets": [
+          {
+            "selected": ["a", "b"]
+          }
+        ]
+      },
+      "expect": {
+        "score": 0,
+        "correct": false
+      }
+    },
+    {
+      "name": "nothing selected",
+      "response": {
+        "sets": [
+          {
+            "selected": []
+          }
+        ]
+      },
+      "expect": {
+        "score": 0,
+        "correct": false
+      }
+    }
+  ]
+}

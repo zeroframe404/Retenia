@@ -1,0 +1,103 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-00000000001c",
+    "schemaVersion": 1,
+    "type": "cloze_typed",
+    "family": "cloze",
+    "lang": "es-AR",
+    "prompt": "Completá el código.",
+    "skills": ["py.for-loop"],
+    "difficulty": 2,
+    "grading": {
+      "method": "fuzzy",
+      "fuzzy": {
+        "caseSensitive": true
+      }
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "fuzzy"
+    },
+    "tags": ["python"],
+    "payload": {
+      "family": "cloze",
+      "mode": "typed",
+      "layout": "code",
+      "segments": [
+        {
+          "kind": "text",
+          "text": "for i in "
+        },
+        {
+          "kind": "gap",
+          "id": "g1",
+          "answers": ["range(10)"]
+        },
+        {
+          "kind": "text",
+          "text": ":\n    "
+        },
+        {
+          "kind": "gap",
+          "id": "g2",
+          "answers": ["print(i)"]
+        },
+        {
+          "kind": "text",
+          "text": "\n"
+        },
+        {
+          "kind": "gap",
+          "id": "g3",
+          "answers": ["pass", "continue"]
+        }
+      ]
+    }
+  },
+  "answers": [
+    {
+      "name": "all three",
+      "response": {
+        "gaps": {
+          "g1": "range(10)",
+          "g2": "print(i)",
+          "g3": "continue"
+        }
+      },
+      "expect": {
+        "score": 1,
+        "correct": true
+      }
+    },
+    {
+      "name": "two of three",
+      "response": {
+        "gaps": {
+          "g1": "range(10)",
+          "g2": "print(i)"
+        }
+      },
+      "expect": {
+        "score": 0.6666666667,
+        "correct": false
+      }
+    },
+    {
+      "name": "case matters here",
+      "response": {
+        "gaps": {
+          "g1": "RANGE(10)",
+          "g2": "print(i)",
+          "g3": "pass"
+        }
+      },
+      "expect": {
+        "score": {
+          "min": 0.6,
+          "max": 0.99
+        },
+        "correct": false
+      }
+    }
+  ]
+}

@@ -12,6 +12,7 @@ Retenia is a local-first desktop learning & memory app (Electron + React + TypeS
 - `pnpm typecheck` — TypeScript project-wide typecheck
 - `pnpm lint` — Biome lint + format check over the repo, then per-package lint
 - `pnpm licenses:check` — dependency license allowlist check
+- `pnpm run schema:check` — Claude strict-mode dry run of the activity JSON Schemas against the fixtures
 - `pnpm e2e` — Playwright end-to-end tests (Electron, via `_electron`)
 - `pnpm storybook` — component catalog
 
@@ -22,7 +23,9 @@ Retenia is a local-first desktop learning & memory app (Electron + React + TypeS
 - `packages/db` — SQLite schema, migrations, repositories (better-sqlite3)
 - `packages/ipc-contract` — zod schemas for every main↔renderer IPC channel
 - `packages/ui` — shared React components + Storybook
-- `packages/activities` — learning activity types/engines
+- `packages/activity-schema` — zod envelope + payload families, the 98-type registry, per-type rules, JSON Schema export, fixtures
+- `packages/activity-graders` — pure graders per family (text, numeric, ordering metrics); returns `GradeResult` for core's `toRating`
+- `packages/activities` — activity renderers (React host + Storybook); wires schema and graders
 - `packages/editor` — note/content editor
 - `packages/readers` — document/media readers (PDF, EPUB, …)
 - `packages/ai` — AI provider adapters, behind ports (AI SDK 7)

@@ -1,0 +1,32 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-000000000032",
+    "schemaVersion": 1,
+    "type": "numeric_answer",
+    "family": "text_input",
+    "lang": "es-AR",
+    "prompt": "p",
+    "skills": ["s"],
+    "difficulty": 2,
+    "grading": {
+      "method": "det"
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "objective"
+    },
+    "payload": {
+      "family": "text_input",
+      "inputKind": "number",
+      "answers": [
+        {
+          "value": "1"
+        }
+      ]
+    }
+  },
+  "expect": {
+    "layer": "rules",
+    "codes": ["numeric-block-required"]
+  }
+}

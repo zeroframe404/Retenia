@@ -1,0 +1,165 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-000000000010",
+    "schemaVersion": 1,
+    "type": "statement_set",
+    "family": "choice",
+    "lang": "es-AR",
+    "prompt": "Indicá si cada afirmación sobre los mamíferos es verdadera o falsa.",
+    "skills": ["bio.mamiferos"],
+    "difficulty": 2,
+    "grading": {
+      "method": "det"
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "partial"
+    },
+    "payload": {
+      "family": "choice",
+      "sets": [
+        {
+          "id": "s1",
+          "stem": "Los mamíferos tienen pelo.",
+          "multiple": false,
+          "options": [
+            {
+              "id": "s1v",
+              "text": "Verdadero",
+              "correct": true
+            },
+            {
+              "id": "s1f",
+              "text": "Falso",
+              "correct": false
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "stem": "Todos los mamíferos viven en tierra.",
+          "multiple": false,
+          "options": [
+            {
+              "id": "s2v",
+              "text": "Verdadero",
+              "correct": false
+            },
+            {
+              "id": "s2f",
+              "text": "Falso",
+              "correct": true
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "stem": "Las ballenas son mamíferos.",
+          "multiple": false,
+          "options": [
+            {
+              "id": "s3v",
+              "text": "Verdadero",
+              "correct": true
+            },
+            {
+              "id": "s3f",
+              "text": "Falso",
+              "correct": false
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "answers": [
+    {
+      "name": "all three",
+      "response": {
+        "sets": [
+          {
+            "selected": ["s1v"]
+          },
+          {
+            "selected": ["s2f"]
+          },
+          {
+            "selected": ["s3v"]
+          }
+        ]
+      },
+      "expect": {
+        "score": 1,
+        "correct": true
+      }
+    },
+    {
+      "name": "two of three",
+      "response": {
+        "sets": [
+          {
+            "selected": ["s1v"]
+          },
+          {
+            "selected": ["s2v"]
+          },
+          {
+            "selected": ["s3v"]
+          }
+        ]
+      },
+      "expect": {
+        "score": 0.6666666667,
+        "correct": false,
+        "perItem": [
+          {
+            "id": "s1",
+            "correct": true
+          },
+          {
+            "id": "s2",
+            "correct": false
+          },
+          {
+            "id": "s3",
+            "correct": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "none",
+      "response": {
+        "sets": [
+          {
+            "selected": ["s1f"]
+          },
+          {
+            "selected": ["s2v"]
+          },
+          {
+            "selected": ["s3f"]
+          }
+        ]
+      },
+      "expect": {
+        "score": 0,
+        "correct": false
+      }
+    },
+    {
+      "name": "missing sets count as unanswered",
+      "response": {
+        "sets": [
+          {
+            "selected": ["s1v"]
+          }
+        ]
+      },
+      "expect": {
+        "score": 0.3333333333,
+        "correct": false
+      }
+    }
+  ]
+}

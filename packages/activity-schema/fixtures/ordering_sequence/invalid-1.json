@@ -1,0 +1,46 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-000000000054",
+    "schemaVersion": 1,
+    "type": "ordering_sequence",
+    "family": "ordering",
+    "lang": "es-AR",
+    "prompt": "p",
+    "skills": ["s"],
+    "difficulty": 2,
+    "grading": {
+      "method": "det"
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "ordering"
+    },
+    "payload": {
+      "family": "ordering",
+      "items": [
+        {
+          "id": "i1",
+          "text": "Observación"
+        },
+        {
+          "id": "i2",
+          "text": "Hipótesis"
+        },
+        {
+          "id": "i3",
+          "text": "Experimento"
+        },
+        {
+          "id": "i4",
+          "text": "Conclusión"
+        }
+      ],
+      "correctOrder": ["i1", "i2", "i3", "i4"],
+      "scoring": "random"
+    }
+  },
+  "expect": {
+    "layer": "schema",
+    "codes": []
+  }
+}

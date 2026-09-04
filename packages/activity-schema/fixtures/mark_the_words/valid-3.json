@@ -1,0 +1,64 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-000000000062",
+    "schemaVersion": 1,
+    "type": "mark_the_words",
+    "family": "text_mark",
+    "lang": "es-AR",
+    "prompt": "Marcá las palabras que llevan tilde.",
+    "skills": ["es.ortografia.tilde"],
+    "difficulty": 2,
+    "grading": {
+      "method": "det"
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "partial"
+    },
+    "explanation": "Llevan tilde las esdrújulas y las agudas terminadas en vocal, n o s.",
+    "payload": {
+      "family": "text_mark",
+      "tokens": [
+        {
+          "id": "w1",
+          "text": "El"
+        },
+        {
+          "id": "w2",
+          "text": "médico"
+        },
+        {
+          "id": "w3",
+          "text": "llegó"
+        },
+        {
+          "id": "w4",
+          "text": "tarde"
+        }
+      ],
+      "correctIds": ["w2", "w3"]
+    }
+  },
+  "answers": [
+    {
+      "name": "both",
+      "response": {
+        "markedIds": ["w2", "w3"]
+      },
+      "expect": {
+        "score": 1,
+        "correct": true
+      }
+    },
+    {
+      "name": "unknown id ignored",
+      "response": {
+        "markedIds": ["w2", "w3", "w99"]
+      },
+      "expect": {
+        "score": 1,
+        "correct": true
+      }
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "name": "@retenia/activity-schema",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "zod envelope + 22 payload families, the 98-type registry, per-type validation rules, Claude-strict JSON Schema export, schemaVersion migrations and fixtures. Pure outside ./testing.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./testing": "./src/testing/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "lint": "biome check .",
+    "schema:check": "tsx ../../tooling/schema-check.ts"
+  },
+  "dependencies": {
+    "@retenia/core": "workspace:*",
+    "zod": "4.5.4"
+  },
+  "devDependencies": {
+    "@retenia/config": "workspace:*",
+    "@types/node": "24.13.3",
+    "@vitest/coverage-v8": "4.1.11",
+    "ajv": "8.20.0",
+    "tsx": "4.23.13",
+    "typescript": "7.0.2",
+    "vitest": "4.1.11"
+  }
+}

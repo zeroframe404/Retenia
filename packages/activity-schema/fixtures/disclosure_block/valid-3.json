@@ -1,0 +1,53 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-000000000067",
+    "schemaVersion": 1,
+    "type": "disclosure_block",
+    "family": "disclosure",
+    "lang": "es-AR",
+    "prompt": "Línea de tiempo: la imprenta",
+    "skills": [],
+    "difficulty": 2,
+    "grading": {
+      "method": "none"
+    },
+    "review": {
+      "eligible": false,
+      "ratingStrategy": "none"
+    },
+    "tags": ["historia"],
+    "payload": {
+      "family": "disclosure",
+      "presentation": "timeline",
+      "items": [
+        {
+          "id": "y1",
+          "title": "1440",
+          "body": "Gutenberg desarrolla la imprenta de tipos móviles."
+        }
+      ]
+    }
+  },
+  "answers": [
+    {
+      "name": "opened",
+      "response": {
+        "openedIds": ["y1"]
+      },
+      "expect": {
+        "score": 1,
+        "correct": true
+      }
+    },
+    {
+      "name": "closed",
+      "response": {
+        "openedIds": []
+      },
+      "expect": {
+        "score": 0,
+        "correct": false
+      }
+    }
+  ]
+}

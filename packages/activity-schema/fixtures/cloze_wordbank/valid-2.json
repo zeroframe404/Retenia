@@ -1,0 +1,76 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-000000000025",
+    "schemaVersion": 1,
+    "type": "cloze_wordbank",
+    "family": "cloze",
+    "lang": "es-AR",
+    "prompt": "Completá la definición.",
+    "skills": ["mat.triangulo"],
+    "difficulty": 2,
+    "grading": {
+      "method": "det"
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "partial"
+    },
+    "payload": {
+      "family": "cloze",
+      "mode": "wordbank",
+      "segments": [
+        {
+          "kind": "text",
+          "text": "Un triángulo tiene "
+        },
+        {
+          "kind": "gap",
+          "id": "g1",
+          "answers": ["tres"]
+        },
+        {
+          "kind": "text",
+          "text": " lados y la suma de sus ángulos es "
+        },
+        {
+          "kind": "gap",
+          "id": "g2",
+          "answers": ["180"]
+        },
+        {
+          "kind": "text",
+          "text": " grados."
+        }
+      ],
+      "bankDistractors": ["cuatro", "360"]
+    }
+  },
+  "answers": [
+    {
+      "name": "both",
+      "response": {
+        "gaps": {
+          "g1": "tres",
+          "g2": "180"
+        }
+      },
+      "expect": {
+        "score": 1,
+        "correct": true
+      }
+    },
+    {
+      "name": "none",
+      "response": {
+        "gaps": {
+          "g1": "cuatro",
+          "g2": "360"
+        }
+      },
+      "expect": {
+        "score": 0,
+        "correct": false
+      }
+    }
+  ]
+}

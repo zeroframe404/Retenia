@@ -1,0 +1,90 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-00000000005c",
+    "schemaVersion": 1,
+    "type": "categorize",
+    "family": "categorize",
+    "lang": "es-AR",
+    "prompt": "Agrupá las palabras según su clase.",
+    "skills": ["es.gramatica.clases-palabra"],
+    "difficulty": 2,
+    "grading": {
+      "method": "det"
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "partial"
+    },
+    "payload": {
+      "family": "categorize",
+      "categories": [
+        {
+          "id": "sus",
+          "label": "Sustantivo"
+        },
+        {
+          "id": "ver",
+          "label": "Verbo"
+        },
+        {
+          "id": "adj",
+          "label": "Adjetivo"
+        }
+      ],
+      "items": [
+        {
+          "id": "w1",
+          "text": "casa",
+          "categoryIds": ["sus"]
+        },
+        {
+          "id": "w2",
+          "text": "correr",
+          "categoryIds": ["ver"]
+        },
+        {
+          "id": "w3",
+          "text": "azul",
+          "categoryIds": ["adj"]
+        },
+        {
+          "id": "w4",
+          "text": "libro",
+          "categoryIds": ["sus"]
+        }
+      ]
+    }
+  },
+  "answers": [
+    {
+      "name": "all",
+      "response": {
+        "placements": {
+          "w1": ["sus"],
+          "w2": ["ver"],
+          "w3": ["adj"],
+          "w4": ["sus"]
+        }
+      },
+      "expect": {
+        "score": 1,
+        "correct": true
+      }
+    },
+    {
+      "name": "half",
+      "response": {
+        "placements": {
+          "w1": ["sus"],
+          "w2": ["adj"],
+          "w3": ["ver"],
+          "w4": ["sus"]
+        }
+      },
+      "expect": {
+        "score": 0.5,
+        "correct": false
+      }
+    }
+  ]
+}

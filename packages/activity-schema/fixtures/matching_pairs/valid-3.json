@@ -1,0 +1,76 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-00000000004e",
+    "schemaVersion": 1,
+    "type": "matching_pairs",
+    "family": "pairs",
+    "lang": "es-AR",
+    "prompt": "Match each English word with its Spanish translation.",
+    "skills": ["en.vocab.animales"],
+    "difficulty": 2,
+    "grading": {
+      "method": "det"
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "matching"
+    },
+    "instructions": "Arrastrá la palabra a su traducción.",
+    "payload": {
+      "family": "pairs",
+      "presentation": "drag",
+      "pairs": [
+        {
+          "id": "w1",
+          "left": "dog",
+          "right": "perro"
+        },
+        {
+          "id": "w2",
+          "left": "cat",
+          "right": "gato"
+        }
+      ]
+    }
+  },
+  "answers": [
+    {
+      "name": "both",
+      "response": {
+        "matches": [
+          {
+            "left": "w1",
+            "right": "w1"
+          },
+          {
+            "left": "w2",
+            "right": "w2"
+          }
+        ]
+      },
+      "expect": {
+        "score": 1,
+        "correct": true
+      }
+    },
+    {
+      "name": "unknown ids count as wrong",
+      "response": {
+        "matches": [
+          {
+            "left": "w1",
+            "right": "zz"
+          },
+          {
+            "left": "w9",
+            "right": "w2"
+          }
+        ]
+      },
+      "expect": {
+        "score": 0,
+        "correct": false
+      }
+    }
+  ]
+}

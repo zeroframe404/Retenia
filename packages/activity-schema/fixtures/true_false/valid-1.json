@@ -1,0 +1,71 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-00000000000b",
+    "schemaVersion": 1,
+    "type": "true_false",
+    "family": "choice",
+    "lang": "es-AR",
+    "prompt": "El agua hierve a 100 °C a nivel del mar.",
+    "skills": ["fis.ebullicion"],
+    "difficulty": 2,
+    "grading": {
+      "method": "det"
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "binary",
+      "expectedSeconds": 6
+    },
+    "explanation": "A 1 atm el punto de ebullición del agua es 100 °C.",
+    "payload": {
+      "family": "choice",
+      "sets": [
+        {
+          "multiple": false,
+          "options": [
+            {
+              "id": "v",
+              "text": "Verdadero",
+              "correct": true
+            },
+            {
+              "id": "f",
+              "text": "Falso",
+              "correct": false
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "answers": [
+    {
+      "name": "true",
+      "response": {
+        "sets": [
+          {
+            "selected": ["v"]
+          }
+        ]
+      },
+      "expect": {
+        "score": 1,
+        "correct": true
+      }
+    },
+    {
+      "name": "false",
+      "response": {
+        "sets": [
+          {
+            "selected": ["f"]
+          }
+        ]
+      },
+      "expect": {
+        "score": 0,
+        "correct": false
+      }
+    }
+  ]
+}

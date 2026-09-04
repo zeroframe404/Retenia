@@ -1,0 +1,64 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-000000000058",
+    "schemaVersion": 1,
+    "type": "sentence_builder",
+    "family": "ordering",
+    "lang": "es-AR",
+    "prompt": "Ordená las palabras: «¿Dónde está la biblioteca?»",
+    "skills": ["es.interrogativos"],
+    "difficulty": 2,
+    "grading": {
+      "method": "det"
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "binary"
+    },
+    "payload": {
+      "family": "ordering",
+      "items": [
+        {
+          "id": "t1",
+          "text": "¿Dónde"
+        },
+        {
+          "id": "t2",
+          "text": "está"
+        },
+        {
+          "id": "t3",
+          "text": "la"
+        },
+        {
+          "id": "t4",
+          "text": "biblioteca?"
+        }
+      ],
+      "correctOrder": ["t1", "t2", "t3", "t4"],
+      "scoring": "exact"
+    }
+  },
+  "answers": [
+    {
+      "name": "correct",
+      "response": {
+        "order": ["t1", "t2", "t3", "t4"]
+      },
+      "expect": {
+        "score": 1,
+        "correct": true
+      }
+    },
+    {
+      "name": "scrambled",
+      "response": {
+        "order": ["t3", "t4", "t1", "t2"]
+      },
+      "expect": {
+        "score": 0,
+        "correct": false
+      }
+    }
+  ]
+}

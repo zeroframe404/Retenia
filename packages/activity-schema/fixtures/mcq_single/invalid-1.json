@@ -1,0 +1,43 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-000000000004",
+    "schemaVersion": 1,
+    "type": "mcq_single",
+    "family": "choice",
+    "lang": "es-AR",
+    "prompt": "p",
+    "skills": ["s"],
+    "difficulty": 7,
+    "grading": {
+      "method": "det"
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "binary"
+    },
+    "payload": {
+      "family": "choice",
+      "sets": [
+        {
+          "multiple": false,
+          "options": [
+            {
+              "id": "a",
+              "text": "A",
+              "correct": true
+            },
+            {
+              "id": "b",
+              "text": "B",
+              "correct": false
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "expect": {
+    "layer": "schema",
+    "codes": []
+  }
+}

@@ -1,0 +1,115 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-000000000002",
+    "schemaVersion": 1,
+    "type": "mcq_single",
+    "family": "choice",
+    "lang": "es-AR",
+    "prompt": "Mirá el diagrama [[media:m1]]. ¿Qué orgánulo produce ATP?",
+    "skills": ["bio.celula.mitocondria"],
+    "difficulty": 2,
+    "grading": {
+      "method": "det",
+      "shuffle": true,
+      "maxAttempts": 2
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "binary"
+    },
+    "media": [
+      {
+        "id": "m1",
+        "kind": "image",
+        "src": "sha256:0f3a",
+        "alt": "Célula animal"
+      }
+    ],
+    "sources": [
+      {
+        "docId": "doc-bio-1",
+        "span": {
+          "start": 120,
+          "end": 340
+        },
+        "quote": "la mitocondria, central energética de la célula"
+      }
+    ],
+    "tags": ["biología", "célula"],
+    "payload": {
+      "family": "choice",
+      "layout": "grid",
+      "sets": [
+        {
+          "multiple": false,
+          "options": [
+            {
+              "id": "ribosoma",
+              "text": "Ribosoma",
+              "correct": false
+            },
+            {
+              "id": "mito",
+              "text": "Mitocondria",
+              "correct": true
+            },
+            {
+              "id": "golgi",
+              "text": "Aparato de Golgi",
+              "correct": false
+            },
+            {
+              "id": "nucleo",
+              "text": "Núcleo",
+              "correct": false
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "answers": [
+    {
+      "name": "correct",
+      "response": {
+        "sets": [
+          {
+            "selected": ["mito"]
+          }
+        ]
+      },
+      "expect": {
+        "score": 1,
+        "correct": true
+      }
+    },
+    {
+      "name": "wrong",
+      "response": {
+        "sets": [
+          {
+            "selected": ["nucleo"]
+          }
+        ]
+      },
+      "expect": {
+        "score": 0,
+        "correct": false
+      }
+    },
+    {
+      "name": "unknown option id counts as wrong",
+      "response": {
+        "sets": [
+          {
+            "selected": ["zzz"]
+          }
+        ]
+      },
+      "expect": {
+        "score": 0,
+        "correct": false
+      }
+    }
+  ]
+}

@@ -1,0 +1,151 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-00000000004c",
+    "schemaVersion": 1,
+    "type": "matching_pairs",
+    "family": "pairs",
+    "lang": "es-AR",
+    "prompt": "Uní cada país con su capital.",
+    "skills": ["geo.europa.capitales"],
+    "difficulty": 2,
+    "grading": {
+      "method": "det"
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "matching",
+      "expectedSeconds": 25
+    },
+    "payload": {
+      "family": "pairs",
+      "presentation": "drag",
+      "pairs": [
+        {
+          "id": "p1",
+          "left": "Francia",
+          "right": "París"
+        },
+        {
+          "id": "p2",
+          "left": "Italia",
+          "right": "Roma"
+        },
+        {
+          "id": "p3",
+          "left": "España",
+          "right": "Madrid"
+        },
+        {
+          "id": "p4",
+          "left": "Portugal",
+          "right": "Lisboa"
+        }
+      ],
+      "rightDistractors": [
+        {
+          "id": "d1",
+          "text": "Berlín"
+        }
+      ]
+    }
+  },
+  "answers": [
+    {
+      "name": "all four",
+      "response": {
+        "matches": [
+          {
+            "left": "p1",
+            "right": "p1"
+          },
+          {
+            "left": "p2",
+            "right": "p2"
+          },
+          {
+            "left": "p3",
+            "right": "p3"
+          },
+          {
+            "left": "p4",
+            "right": "p4"
+          }
+        ]
+      },
+      "expect": {
+        "score": 1,
+        "correct": true
+      }
+    },
+    {
+      "name": "three of four",
+      "response": {
+        "matches": [
+          {
+            "left": "p1",
+            "right": "p1"
+          },
+          {
+            "left": "p2",
+            "right": "p2"
+          },
+          {
+            "left": "p3",
+            "right": "p3"
+          },
+          {
+            "left": "p4",
+            "right": "d1"
+          }
+        ]
+      },
+      "expect": {
+        "score": 0.75,
+        "correct": false,
+        "perItem": [
+          {
+            "id": "p4",
+            "correct": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "two swapped",
+      "response": {
+        "matches": [
+          {
+            "left": "p1",
+            "right": "p2"
+          },
+          {
+            "left": "p2",
+            "right": "p1"
+          },
+          {
+            "left": "p3",
+            "right": "p3"
+          },
+          {
+            "left": "p4",
+            "right": "p4"
+          }
+        ]
+      },
+      "expect": {
+        "score": 0.5,
+        "correct": false
+      }
+    },
+    {
+      "name": "nothing matched",
+      "response": {
+        "matches": []
+      },
+      "expect": {
+        "score": 0,
+        "correct": false
+      }
+    }
+  ]
+}

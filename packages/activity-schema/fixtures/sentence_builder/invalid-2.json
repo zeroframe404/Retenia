@@ -1,0 +1,38 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-00000000005a",
+    "schemaVersion": 1,
+    "type": "sentence_builder",
+    "family": "ordering",
+    "lang": "es-AR",
+    "prompt": "p",
+    "skills": ["s"],
+    "difficulty": 2,
+    "grading": {
+      "method": "det"
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "binary"
+    },
+    "payload": {
+      "family": "ordering",
+      "items": [
+        {
+          "id": "a",
+          "text": "A"
+        },
+        {
+          "id": "b",
+          "text": "B"
+        }
+      ],
+      "correctOrder": ["a", "b"],
+      "scoring": "kendall"
+    }
+  },
+  "expect": {
+    "layer": "rules",
+    "codes": ["ordering-scoring-mismatch"]
+  }
+}

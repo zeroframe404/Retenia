@@ -1,0 +1,86 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-000000000056",
+    "schemaVersion": 1,
+    "type": "sentence_builder",
+    "family": "ordering",
+    "lang": "es-AR",
+    "prompt": "Armá la oración en inglés: «Ella va a la escuela».",
+    "skills": ["en.present-simple"],
+    "difficulty": 2,
+    "grading": {
+      "method": "det"
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "binary",
+      "expectedSeconds": 20
+    },
+    "payload": {
+      "family": "ordering",
+      "items": [
+        {
+          "id": "w1",
+          "text": "She"
+        },
+        {
+          "id": "w2",
+          "text": "goes"
+        },
+        {
+          "id": "w3",
+          "text": "to"
+        },
+        {
+          "id": "w4",
+          "text": "school"
+        }
+      ],
+      "correctOrder": ["w1", "w2", "w3", "w4"],
+      "distractors": [
+        {
+          "id": "d1",
+          "text": "go"
+        },
+        {
+          "id": "d2",
+          "text": "at"
+        }
+      ],
+      "scoring": "exact",
+      "axis": "horizontal"
+    }
+  },
+  "answers": [
+    {
+      "name": "correct",
+      "response": {
+        "order": ["w1", "w2", "w3", "w4"]
+      },
+      "expect": {
+        "score": 1,
+        "correct": true
+      }
+    },
+    {
+      "name": "wrong verb form",
+      "response": {
+        "order": ["w1", "d1", "w3", "w4"]
+      },
+      "expect": {
+        "score": 0,
+        "correct": false
+      }
+    },
+    {
+      "name": "wrong order",
+      "response": {
+        "order": ["w2", "w1", "w3", "w4"]
+      },
+      "expect": {
+        "score": 0,
+        "correct": false
+      }
+    }
+  ]
+}

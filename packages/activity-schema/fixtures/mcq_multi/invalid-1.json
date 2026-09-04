@@ -1,0 +1,27 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-000000000009",
+    "schemaVersion": 1,
+    "type": "mcq_multi",
+    "family": "choice",
+    "lang": "es-AR",
+    "prompt": "p",
+    "skills": ["s"],
+    "difficulty": 2,
+    "grading": {
+      "method": "det"
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "partial"
+    },
+    "payload": {
+      "family": "choice",
+      "sets": []
+    }
+  },
+  "expect": {
+    "layer": "schema",
+    "codes": []
+  }
+}

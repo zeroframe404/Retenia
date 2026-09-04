@@ -1,0 +1,96 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-000000000003",
+    "schemaVersion": 1,
+    "type": "mcq_single",
+    "family": "choice",
+    "lang": "es-AR",
+    "prompt": "¿En qué año se declaró la independencia argentina?",
+    "skills": ["hist.arg.independencia"],
+    "difficulty": 2,
+    "grading": {
+      "method": "det",
+      "partialCredit": true
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "binary"
+    },
+    "payload": {
+      "family": "choice",
+      "sets": [
+        {
+          "id": "q",
+          "stem": "Elegí el año.",
+          "multiple": false,
+          "options": [
+            {
+              "id": "1810",
+              "text": "1810",
+              "correct": false
+            },
+            {
+              "id": "1816",
+              "text": "1816",
+              "correct": true
+            },
+            {
+              "id": "1853",
+              "text": "1853",
+              "correct": false
+            },
+            {
+              "id": "1880",
+              "text": "1880",
+              "correct": false
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "answers": [
+    {
+      "name": "correct",
+      "response": {
+        "sets": [
+          {
+            "selected": ["1816"]
+          }
+        ]
+      },
+      "expect": {
+        "score": 1,
+        "correct": true
+      }
+    },
+    {
+      "name": "right plus one wrong pick",
+      "response": {
+        "sets": [
+          {
+            "selected": ["1816", "1810"]
+          }
+        ]
+      },
+      "expect": {
+        "score": 0.75,
+        "correct": false
+      }
+    },
+    {
+      "name": "wrong",
+      "response": {
+        "sets": [
+          {
+            "selected": ["1853"]
+          }
+        ]
+      },
+      "expect": {
+        "score": 0,
+        "correct": false
+      }
+    }
+  ]
+}

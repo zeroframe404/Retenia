@@ -1,0 +1,27 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-000000000046",
+    "schemaVersion": 1,
+    "type": "free_recall",
+    "family": "long_text",
+    "lang": "es-AR",
+    "prompt": "p",
+    "skills": ["s"],
+    "difficulty": 2,
+    "grading": {
+      "method": "ai"
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "ai"
+    },
+    "payload": {
+      "family": "long_text",
+      "modelAnswer": "x"
+    }
+  },
+  "expect": {
+    "layer": "rules",
+    "codes": ["key-points-required"]
+  }
+}
