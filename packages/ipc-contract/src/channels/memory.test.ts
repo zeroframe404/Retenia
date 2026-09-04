@@ -252,3 +252,33 @@ describe('memory.startUrgentMode', () => {
     ).toBe(false)
   })
 })
+
+describe('cards.setLeech', () => {
+  const { input, output } = contract['cards.setLeech']
+
+  it('takes a bounded list of ids and the flag', () => {
+    expect(input.parse({ ids: [ID], leech: true })).toEqual({ ids: [ID], leech: true })
+    expect(output.parse({ updated: 1 })).toEqual({ updated: 1 })
+  })
+
+  it('rejects an empty list', () => {
+    expect(input.safeParse({ ids: [], leech: true }).success).toBe(false)
+  })
+})
+
+describe('memory.seedReviewDemo', () => {
+  const { input, output } = contract['memory.seedReviewDemo']
+
+  it('bounds the count', () => {
+    expect(input.parse({ count: 20 })).toEqual({ count: 20 })
+    expect(input.safeParse({ count: 0 }).success).toBe(false)
+    expect(input.safeParse({ count: 201 }).success).toBe(false)
+  })
+
+  it('reports the seeded item and card ids', () => {
+    expect(output.parse({ itemIds: [ID], cardIds: [ID] })).toEqual({
+      itemIds: [ID],
+      cardIds: [ID],
+    })
+  })
+})

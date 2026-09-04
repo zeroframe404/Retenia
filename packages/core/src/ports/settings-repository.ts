@@ -34,6 +34,9 @@ export interface SettingsMap {
   'review.finalDrill': boolean
   /** The hour a "day" rolls over, so a 1 a.m. session counts as the previous day. */
   'review.dayStartHour': number
+  /** Two-button review screen (Forgot/Remembered, mapped to Again/Good) instead of the four
+   *  FSRS grades (`docs/spec/02-memory-system.md` §6 "Mochi (2 buttons)"). */
+  'review.simpleGrading': boolean
   'ai.budget.monthlyUsd': number
   'ai.providers.allowlist': string[]
   /** Whether repository mutations enqueue `outbox` rows. Off in v1 — there is nothing to
@@ -117,6 +120,7 @@ export const SETTINGS: { readonly [K in SettingsKey]: SettingSpec<SettingsMap[K]
   'review.queueOrder': oneOf(['relative_overdueness', 'retrievability'], 'relative_overdueness'),
   'review.finalDrill': booleanSetting(false),
   'review.dayStartHour': numberIn(0, 23, 4),
+  'review.simpleGrading': booleanSetting(false),
   'ai.budget.monthlyUsd': numberIn(0, 100000, 30),
   'ai.providers.allowlist': stringArray([]),
   'sync.outboxEnabled': booleanSetting(false),

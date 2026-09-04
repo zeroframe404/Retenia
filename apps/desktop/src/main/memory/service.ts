@@ -1,4 +1,5 @@
 import type {
+  Card,
   ComposeSessionQuery,
   DayBoundary,
   DomainEvent,
@@ -11,12 +12,15 @@ import type {
   ImportanceMix,
   ImportanceMixQuery,
   ImportanceResolution,
+  JsonObject,
+  KnowledgeItem,
   RescheduleImpact,
   RescheduleNow,
   RescheduleSelection,
   ReviewCard,
   Scheduler,
   SchedulingPolicyInput,
+  SchedulingPreview,
   SessionAnswerInput,
   SessionAnswerResult,
   SessionEntry,
@@ -34,6 +38,7 @@ import type {
   UrgentModeResult,
 } from '@retenia/core'
 import {
+  CARD_STATE,
   createComposeSession,
   createExamOverrides,
   createExpireUrgentMode,
@@ -52,6 +57,24 @@ import {
 } from '@retenia/core'
 import { log } from '../logging/log'
 
+/** The four v1 flashcard templates the review screen renders (`docs/spec/04-path-generation.md`
+ *  `Flashcard.v1`). Cycled by `seedReviewDemo` so a seeded session exercises every renderer. */
+const DEMO_TEMPLATES = ['basic', 'reverse', 'cloze:c1', 'type_in'] as const
+
+function demoFields(index: number, template: (typeof DEMO_TEMPLATES)[number]): JsonObject {
+  const n = index + 1
+  switch (template) {
+    case 'cloze:c1':
+      return {
+        cloze_text: `Retenia demo card ${n}: the capital of France is {{c1::Paris::country}}.`,
+      }
+    case 'type_in':
+      return { front: `Type the answer — demo card ${n}`, back: `answer-${n}` }
+    default:
+      return { front: `Demo front ${n}`, back: `Demo back ${n}` }
+  }
+}
+
 /**
  * The memory system's main-process service: everything the `items.*`, `cards.*` and
  * `memory.*` channels call (`docs/spec/02-memory-system.md` §7).
@@ -68,6 +91,8 @@ export interface MemoryService {
     level: ImportanceLevel | null,
     expiresAt: Date | null,
   ): Promise<number>
+  /** Marks or clears the manual leech flag ("Mark as leech / lower importance" menu). */
+  setCardLeech(ids: readonly string[], leech: boolean): Promise<number>
   importanceMix(): Promise<ImportanceMix>
   simulateReschedule(selection: RescheduleSelection): Promise<RescheduleImpact>
   rescheduleNow(
@@ -87,7 +112,15 @@ export interface MemoryService {
   planSession(settings?: SessionSettings): Promise<SessionPlan>
   /** Start, or resume a session left open earlier today. Applies burials and postpones. */
   startSession(settings?: SessionSettings): Promise<StartSessionResult>
-  sessionNext(): { entry: SessionEntry | null; progress: SessionRunnerState }
+  /** The entry the user is on, its knowledge item and the four-button interval preview —
+   *  everything the review screen renders one card with. `item`/`preview` are `null` for a
+   *  reinforcement entry or once the queue (final drill included) is exhausted. */
+  sessionNext(): Promise<{
+    entry: SessionEntry | null
+    progress: SessionRunnerState
+    item: KnowledgeItem | null
+    preview: SchedulingPreview | null
+  }>
   sessionAnswer(
     input: SessionAnswerInput,
   ): Promise<{ result: SessionAnswerResult; progress: SessionRunnerState }>
@@ -96,6 +129,8 @@ export interface MemoryService {
   sessionFinish(): Promise<SessionSummary>
   /** §13: cards and minutes per day, per level, with and without new. */
   forecast(days: number): Promise<Forecast>
+  /** Dev/e2e only — see `memory.seedReviewDemo`'s doc in `packages/ipc-contract`. */
+  seedReviewDemo(count: number): Promise<{ itemIds: string[]; cardIds: string[] }>
 }
 
 export interface MemoryServiceOptions {
@@ -252,6 +287,15 @@ export async function createMemoryService(options: MemoryServiceOptions): Promis
     overrideCardImportance: (ids, level, expiresAt) =>
       repos.cards.overrideImportance(ids, level, expiresAt),
 
+    setCardLeech: async (ids, leech) => {
+      let updated = 0
+      for (const id of ids) {
+        await repos.cards.setLeech(id, leech)
+        updated += 1
+      }
+      return updated
+    },
+
     importanceMix: () => current.importanceMix(),
 
     simulateReschedule: (selection) => current.simulate(selection),
@@ -290,9 +334,15 @@ export async function createMemoryService(options: MemoryServiceOptions): Promis
       return result
     },
 
-    sessionNext: () => {
+    sessionNext: async () => {
       const current_ = active()
-      return { entry: current_.next(), progress: current_.state() }
+      const entry = current_.next()
+      if (entry === null || entry.kind === 'reinforcement') {
+        return { entry, progress: current_.state(), item: null, preview: null }
+      }
+      const item = (await repos.knowledgeItems.findById(entry.card.itemId)) ?? null
+      const preview = scheduler.preview(entry.card, new Date(), entry.options)
+      return { entry, progress: current_.state(), item, preview }
     },
 
     sessionAnswer: async (input) => {
@@ -324,5 +374,54 @@ export async function createMemoryService(options: MemoryServiceOptions): Promis
     },
 
     forecast: (days) => forecast(days),
+
+    seedReviewDemo: async (count) => {
+      const now = new Date()
+      const itemIds: string[] = []
+      const cardIds: string[] = []
+      for (let i = 0; i < count; i++) {
+        const template = DEMO_TEMPLATES[
+          i % DEMO_TEMPLATES.length
+        ] as (typeof DEMO_TEMPLATES)[number]
+        const item = await repos.knowledgeItems.create({
+          lessonId: null,
+          topicId: null,
+          kind: 'fact',
+          fields: demoFields(i, template),
+          sourceId: null,
+          annotationId: null,
+          locator: null,
+          asOf: null,
+          importance: 'normal',
+          status: 'active',
+          createdBy: 'user',
+          tags: [],
+        })
+        const card: Card = await repos.cards.create({
+          itemId: item.id,
+          template,
+          payload: null,
+          due: new Date(now.getTime() - 60_000),
+          stability: 3,
+          difficulty: 5,
+          scheduledDays: 1,
+          learningSteps: 0,
+          reps: 1,
+          lapses: 0,
+          state: CARD_STATE.Review,
+          lastReview: new Date(now.getTime() - 86_400_000),
+          suspended: false,
+          buriedUntil: null,
+          leech: false,
+          importanceOverride: null,
+          importanceOverrideExpiresAt: null,
+          examId: null,
+        })
+        itemIds.push(item.id)
+        cardIds.push(card.id)
+      }
+      log.info(`[memory] seeded ${count} demo review card(s)`)
+      return { itemIds, cardIds }
+    },
   }
 }

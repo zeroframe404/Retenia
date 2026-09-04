@@ -95,7 +95,15 @@ const overload = {
 
 const plan = {
   entries: [],
-  counts: { exam: 0, due: 1, relearning: 0, new: 0, reinforcement: 0, total: 1 },
+  counts: {
+    exam: 0,
+    due: 1,
+    relearning: 0,
+    new: 0,
+    reinforcement: 0,
+    total: 1,
+    byLevel: { urgent: 0, high: 0, normal: 1, maintenance: 0, paused: 0 },
+  },
   postponements: [{}, {}],
   burials: [{}],
   overload,
@@ -147,6 +155,28 @@ const entry = {
   retrievability: 0.82,
   relativeOverdueness: 1.2,
   examId: null,
+}
+
+const item = { id: card.itemId, fields: { front: 'Capital of France?', back: 'Paris' } }
+
+function previewResult(scheduledDays: number, stability: number, difficulty: number) {
+  return {
+    card: {
+      ...card,
+      due: new Date('2026-09-04T00:00:00.000Z'),
+      scheduledDays,
+      stability,
+      difficulty,
+    },
+    log: {},
+  }
+}
+
+const preview = {
+  1: previewResult(0, 0.3, 6.2),
+  2: previewResult(1, 1.1, 6),
+  3: previewResult(4, 4.2, 5.5),
+  4: previewResult(10, 9.8, 5),
 }
 
 const progress = {
@@ -223,6 +253,7 @@ function makeMemory(): HandlerDeps['memory'] {
   return {
     setItemImportance: vi.fn(async (ids: readonly string[]) => ids.length),
     overrideCardImportance: vi.fn(async (ids: readonly string[]) => ids.length),
+    setCardLeech: vi.fn(async (ids: readonly string[]) => ids.length),
     importanceMix: vi.fn(async () => ({
       entries: [],
       totalItems: 0,
@@ -254,7 +285,7 @@ function makeMemory(): HandlerDeps['memory'] {
       burials: 1,
       postponed: 2,
     })),
-    sessionNext: vi.fn(() => ({ entry, progress })),
+    sessionNext: vi.fn(async () => ({ entry, progress, item, preview })),
     sessionAnswer: vi.fn(async () => ({
       result: { card, logId: LOG_ID, rating: 3 as const, drilled: false, remaining: 0 },
       progress,
@@ -266,6 +297,10 @@ function makeMemory(): HandlerDeps['memory'] {
     })),
     sessionFinish: vi.fn(async () => summary),
     forecast: vi.fn(async () => forecast),
+    seedReviewDemo: vi.fn(async (count: number) => ({
+      itemIds: Array.from({ length: count }, () => item.id),
+      cardIds: Array.from({ length: count }, () => card.id),
+    })),
   } as unknown as HandlerDeps['memory']
 }
 
@@ -352,6 +387,7 @@ function makeDeps(overrides: Partial<HandlerDeps> = {}): HandlerDeps {
     restoreFromBackup: vi.fn(async () => true),
     dbUnavailableReason: 'the database did not open',
     emitSettingsChanged: vi.fn(),
+    reviewDemoEnabled: true,
     ...overrides,
   }
 }
@@ -763,6 +799,7 @@ describe('memory channels', () => {
     const channels = [
       ['items.setImportance', { ids: [ID], level: 'normal' }],
       ['cards.overrideImportance', { ids: [ID], level: null }],
+      ['cards.setLeech', { ids: [ID], leech: true }],
       ['memory.importanceMix', undefined],
       ['memory.simulateReschedule', { limit: 2_000 }],
       ['memory.rescheduleNow', { limit: 2_000, confirm: true }],
@@ -775,6 +812,7 @@ describe('memory channels', () => {
       ['session.skip', undefined],
       ['session.undo', undefined],
       ['session.finish', undefined],
+      ['memory.seedReviewDemo', { count: 1 }],
     ] as const
 
     for (const [channel, input] of channels) {
@@ -798,6 +836,7 @@ describe('session channels', () => {
       new: 0,
       reinforcement: 0,
       total: 1,
+      byLevel: { urgent: 0, high: 0, normal: 1, maintenance: 0, paused: 0 },
     })
     // The proposals cross the bridge as counts; `session.start` decides which cards.
     expect(dto.postponements).toBe(2)
@@ -830,6 +869,71 @@ describe('session channels', () => {
     }
     // The desired retention is lifted out of the resolved options for the interval preview.
     expect(dto).toMatchObject({ desiredRetention: 0.9 })
+  })
+
+  it('sends the item fields and the four-button interval preview alongside the card', async () => {
+    const handlers = createHandlers(makeDeps())
+    const { item: itemDto, preview: previewDto } = await handlers['session.next'](
+      undefined,
+      fakeEvent,
+    )
+
+    expect(itemDto).toEqual({ fields: { front: 'Capital of France?', back: 'Paris' } })
+    expect(previewDto).toEqual([
+      {
+        grade: 1,
+        due: '2026-09-04T00:00:00.000Z',
+        scheduledDays: 0,
+        stability: 0.3,
+        difficulty: 6.2,
+      },
+      {
+        grade: 2,
+        due: '2026-09-04T00:00:00.000Z',
+        scheduledDays: 1,
+        stability: 1.1,
+        difficulty: 6,
+      },
+      {
+        grade: 3,
+        due: '2026-09-04T00:00:00.000Z',
+        scheduledDays: 4,
+        stability: 4.2,
+        difficulty: 5.5,
+      },
+      {
+        grade: 4,
+        due: '2026-09-04T00:00:00.000Z',
+        scheduledDays: 10,
+        stability: 9.8,
+        difficulty: 5,
+      },
+    ])
+  })
+
+  it('marks a card as a leech', async () => {
+    const deps = makeDeps()
+    const handlers = createHandlers(deps)
+
+    expect(await handlers['cards.setLeech']({ ids: [CARD_ID], leech: true }, fakeEvent)).toEqual({
+      updated: 1,
+    })
+    expect(deps.memory?.setCardLeech).toHaveBeenCalledExactlyOnceWith([CARD_ID], true)
+  })
+
+  it('seeds review demo cards only when the demo gate is on', async () => {
+    const enabledDeps = makeDeps({ reviewDemoEnabled: true })
+    const enabled = createHandlers(enabledDeps)
+    expect(await enabled['memory.seedReviewDemo']({ count: 3 }, fakeEvent)).toEqual({
+      itemIds: [item.id, item.id, item.id],
+      cardIds: [card.id, card.id, card.id],
+    })
+
+    const disabled = createHandlers(makeDeps({ reviewDemoEnabled: false }))
+    expect(await disabled['memory.seedReviewDemo']({ count: 3 }, fakeEvent)).toEqual({
+      itemIds: [],
+      cardIds: [],
+    })
   })
 
   it('forwards only the optional answer fields that were given', async () => {

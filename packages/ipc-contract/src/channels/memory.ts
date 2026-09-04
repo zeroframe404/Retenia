@@ -244,4 +244,24 @@ export const memoryChannels = defineContract({
       truncated: z.boolean(),
     }),
   },
+
+  /**
+   * Marks (or clears) the manual leech flag from the review screen's "Mark as leech / lower
+   * importance" menu (§4, §7's per-level leech action). Lowering importance itself is
+   * `cards.overrideImportance` — this channel only ever touches `cards.leech`.
+   */
+  'cards.setLeech': {
+    input: z.object({ ids: idList, leech: z.boolean() }),
+    output: z.object({ updated: z.int().nonnegative() }),
+  },
+
+  /**
+   * Seeds knowledge items and due review cards for manual QA and the Playwright E2E suite.
+   * Same gate as `jobs.enqueueDemo`/`app.devMediaSampleUrl`: refuses outside a dev run or
+   * the e2e suite, so nothing in the shipped product can call it.
+   */
+  'memory.seedReviewDemo': {
+    input: z.object({ count: z.int().min(1).max(200) }),
+    output: z.object({ itemIds: z.array(z.uuid()), cardIds: z.array(z.uuid()) }),
+  },
 })

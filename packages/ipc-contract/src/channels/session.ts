@@ -56,6 +56,8 @@ export const sessionCountsSchema = z.object({
   new: z.int().nonnegative(),
   reinforcement: z.int().nonnegative(),
   total: z.int().nonnegative(),
+  /** `due`, broken down by level — every level present, `paused` always `0`. */
+  byLevel: z.record(importanceLevelSchema, z.int().nonnegative()),
 })
 
 /** What the "today" screen shows: `"today: 35 reviews (~12 min) + 8 new + reinforcement"`
@@ -96,6 +98,9 @@ export const sessionCardSchema = z.object({
   reps: z.int().nonnegative(),
   lapses: z.int().nonnegative(),
   lastReview: z.iso.datetime().nullable(),
+  /** So the "Mark as leech" menu item can read the current flag before toggling it
+   *  (`cards.setLeech`). */
+  leech: z.boolean(),
 })
 
 export const reinforcementNodeSchema = z.object({
@@ -118,6 +123,28 @@ export const sessionEntrySchema = z.discriminatedUnion('kind', [
   }),
   z.object({ kind: z.literal('reinforcement'), node: reinforcementNodeSchema }),
 ])
+
+/** The knowledge item's own content — front/back/cloze text — the way the review screen
+ *  needs it. `fields` is deliberately untyped here (`Flashcard.v1`'s shape lives in
+ *  `docs/spec/04-path-generation.md`, not yet a schema of its own): the renderer reads it
+ *  defensively per `card.template`. */
+export const sessionItemSchema = z.object({
+  fields: z.json(),
+})
+
+/** One of the four buttons' outcome, for the "next interval" preview under it
+ *  (`Scheduler.preview`, §1.3's "the 4 buttons show the next interval"). */
+export const sessionCardPreviewSchema = z.object({
+  grade: gradeSchema,
+  due: z.iso.datetime(),
+  scheduledDays: z.int().nonnegative(),
+  stability: z.number().nonnegative(),
+  difficulty: z.number().min(0).max(10),
+})
+
+/** All four grades, in ascending order (Again…Easy) — one per button. `null` for a
+ *  reinforcement entry, which is not graded. */
+export const sessionPreviewSchema = z.array(sessionCardPreviewSchema).length(4)
 
 export const sessionProgressSchema = z.object({
   sessionId: z.uuid(),
@@ -204,6 +231,12 @@ export const sessionChannels = defineContract({
     output: z.object({
       entry: sessionEntrySchema.nullable(),
       progress: sessionProgressSchema,
+      /** The card entry's knowledge item, so the screen can render it. `null` for a
+       *  reinforcement entry or once the queue is done. */
+      item: sessionItemSchema.nullable(),
+      /** The four buttons' next-interval preview. `null` for a reinforcement entry or
+       *  once the queue is done. */
+      preview: sessionPreviewSchema.nullable(),
     }),
   },
 

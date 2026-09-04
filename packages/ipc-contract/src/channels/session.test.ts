@@ -26,7 +26,15 @@ const overload = {
 }
 
 const plan = {
-  counts: { exam: 0, due: 35, relearning: 2, new: 8, reinforcement: 1, total: 46 },
+  counts: {
+    exam: 0,
+    due: 35,
+    relearning: 2,
+    new: 8,
+    reinforcement: 1,
+    total: 46,
+    byLevel: { urgent: 5, high: 10, normal: 15, maintenance: 5, paused: 0 },
+  },
   overload,
   postponements: 40,
   burials: 1,
@@ -116,6 +124,7 @@ describe('session.next', () => {
     reps: 6,
     lapses: 1,
     lastReview: AT,
+    leech: false,
   }
 
   it('round-trips a card entry and a reinforcement node', () => {
@@ -138,7 +147,36 @@ describe('session.next', () => {
 
   it('allows null for the whole entry once the queue is done', () => {
     const { output } = contract['session.next']
-    expect(output.parse({ entry: null, progress }).entry).toBeNull()
+    const parsed = output.parse({ entry: null, progress, item: null, preview: null })
+    expect(parsed.entry).toBeNull()
+    expect(parsed.item).toBeNull()
+    expect(parsed.preview).toBeNull()
+  })
+
+  it('carries the item fields and the four-button preview alongside a card entry', () => {
+    const { output } = contract['session.next']
+    const item = { fields: { front: 'Capital of France?', back: 'Paris' } }
+    const preview = [
+      { grade: 1 as const, due: AT, scheduledDays: 0, stability: 0.3, difficulty: 6.2 },
+      { grade: 2 as const, due: AT, scheduledDays: 1, stability: 1.1, difficulty: 6 },
+      { grade: 3 as const, due: AT, scheduledDays: 4, stability: 4.2, difficulty: 5.5 },
+      { grade: 4 as const, due: AT, scheduledDays: 10, stability: 9.8, difficulty: 5 },
+    ]
+    const parsed = output.parse({
+      entry: {
+        kind: 'due',
+        card,
+        level: 'normal',
+        retrievability: 0.82,
+        desiredRetention: 0.9,
+        examId: null,
+      },
+      progress,
+      item,
+      preview,
+    })
+    expect(parsed.item).toEqual(item)
+    expect(parsed.preview).toEqual(preview)
   })
 })
 

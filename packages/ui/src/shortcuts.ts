@@ -56,4 +56,12 @@ export const SHORTCUTS: ShortcutDef[] = [
   { id: 'review.grade2', keys: '2', scope: 'review', description: 'shortcuts.grade2' },
   { id: 'review.grade3', keys: '3', scope: 'review', description: 'shortcuts.grade3' },
   { id: 'review.grade4', keys: '4', scope: 'review', description: 'shortcuts.grade4' },
+  { id: 'review.skip', keys: 's', scope: 'review', description: 'shortcuts.skip' },
+  { id: 'review.explain', keys: 'e', scope: 'review', description: 'shortcuts.explain' },
+  {
+    id: 'review.undo',
+    keys: 'ctrl+z',
+    scope: 'review',
+    description: 'shortcuts.undo',
+  },
 ]
