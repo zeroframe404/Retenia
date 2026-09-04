@@ -251,6 +251,57 @@ describe('apply — parity with ts-fsrs', () => {
     expect(noSteps.card.scheduledDays).toBeGreaterThanOrEqual(1)
   })
 
+  it('sends Again on a New card to Learning, not Relearning, and does not count a lapse', () => {
+    // A New card has never been learned, so ts-fsrs's own `newState` never touches
+    // `lapses` — only `reviewState` (a lapsed *Review* card) does. And it schedules off
+    // `learningSteps` (first step `1m`), not `relearningSteps` (`10m`): the two would be
+    // indistinguishable if both were `10m`, which is why `reviewCard`'s lapse test above
+    // uses a different first step than this one.
+    const start = cardFixture({ due: NOW })
+    const result = scheduler.apply(start, NOW, 1, NO_FUZZ)
+    expect(result.card).toMatchObject({
+      state: 1,
+      lapses: 0,
+      reps: 1,
+      // Again re-schedules the *first* learning step rather than advancing past it.
+      learningSteps: 0,
+      scheduledDays: 0,
+    })
+    // First learning step is '1m' (DEFAULT_LEARNING_STEPS), not the '10m' first
+    // relearning step a lapsed Review card is scheduled with.
+    expect(result.card.due.getTime() - NOW.getTime()).toBe(1 * 60_000)
+    expect(result.log.state).toBe(0)
+    expect(result.log.elapsedDays).toBe(0)
+  })
+
+  it('graduates Easy on a Relearning card straight back to Review, skipping further relearning steps', () => {
+    const lapsed = scheduler.apply(reviewCard(), NOW, 1, NO_FUZZ).card
+    expect(lapsed.state).toBe(3)
+    const later = new Date(NOW.getTime() + 10 * 60_000)
+
+    // Several relearning steps configured, none of them a day long: if Easy chained
+    // through them like Again/Hard/Good do, it would stay in Relearning with a
+    // minutes-scale interval. `BasicLearningStepsStrategy` has no entry for Easy, so
+    // `applyLearningSteps` takes its "else" branch — straight to Review — regardless.
+    const manyRelearningSteps = { ...NO_FUZZ, relearningSteps: ['10m', '1d', '2d'] as const }
+    const result = scheduler.apply(lapsed, later, 4, manyRelearningSteps)
+    expect(result.card.state).toBe(2)
+    expect(result.card.learningSteps).toBe(0)
+    expect(result.card.scheduledDays).toBeGreaterThanOrEqual(1)
+    expect(result.card.due.getTime() - later.getTime()).toBe(result.card.scheduledDays * DAY_MS)
+
+    // The interval is the closed form off the post-lapse stability — the same formula
+    // any other graduation into Review uses (I(r,S), §3.2 (b)) — not a relearning step.
+    const reference = fsrs({
+      w: [...DEFAULT_FSRS_W],
+      enable_fuzz: false,
+      relearning_steps: manyRelearningSteps.relearningSteps as never,
+    })
+    const theirs = reference.next(toFsrsCard(lapsed), later, 4 as FsrsGrade)
+    expect(result.card.stability).toBe(theirs.card.stability)
+    expect(result.card.scheduledDays).toBe(theirs.card.scheduled_days)
+  })
+
   it('validates the card and the review time', () => {
     expect(() => scheduler.apply(cardFixture({ state: 5 as never }), NOW, 3, NO_FUZZ)).toThrow(
       /state/,
@@ -297,6 +348,36 @@ describe('day boundaries', () => {
     // Either way the booked interval is measured from the real review instant.
     expect(sameDay.card.due.getTime() - at.getTime()).toBe(sameDay.card.scheduledDays * DAY_MS)
     expect(sameDay.card.lastReview).toEqual(at)
+  })
+
+  it('flips study day at the exact 4 a.m. minute — 03:59 is the day before, 04:01 the day after', () => {
+    // Same card, same `lastReview` (the evening of the 4th); only the review instant
+    // moves by two minutes across the default rollover. `study-day.test.ts` pins this at
+    // the pure `studyDayNumber()` level; this pins it at the level that actually decides
+    // FSRS same-day vs next-day treatment — `FsrsScheduler.apply` / `elapsedDays`.
+    const rollover = createFsrsScheduler()
+    const before = new Date('2026-01-05T03:59:00Z')
+    const after = new Date('2026-01-05T04:01:00Z')
+
+    expect(rollover.elapsedDays(card, before)).toBe(0)
+    expect(rollover.elapsedDays(card, after)).toBe(1)
+
+    const sameDay = rollover.apply(card, before, 3, NO_FUZZ)
+    const nextDay = rollover.apply(card, after, 3, NO_FUZZ)
+    expect(sameDay.log.elapsedDays).toBe(0)
+    expect(nextDay.log.elapsedDays).toBe(1)
+    // Same day → the short-term formula; next day → the recall formula. They differ.
+    expect(sameDay.card.stability).not.toBe(nextDay.card.stability)
+    const reference = fsrs({ w: [...DEFAULT_FSRS_W], enable_fuzz: false })
+    expect(sameDay.card.stability).toBe(
+      reference.next_state({ stability: 12.3, difficulty: 5.2 }, 0, 3).stability,
+    )
+    expect(nextDay.card.stability).toBe(
+      reference.next_state({ stability: 12.3, difficulty: 5.2 }, 1, 3).stability,
+    )
+    // Each is still booked from its own real review instant.
+    expect(sameDay.card.due.getTime() - before.getTime()).toBe(sameDay.card.scheduledDays * DAY_MS)
+    expect(nextDay.card.due.getTime() - after.getTime()).toBe(nextDay.card.scheduledDays * DAY_MS)
   })
 
   it('uses the user’s zone: 3 a.m. in Buenos Aires is 06:00 UTC', () => {
