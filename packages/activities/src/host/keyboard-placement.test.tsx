@@ -127,10 +127,35 @@ describe('keyboard-only placement — cloze word bank', () => {
       .find((button) => button.textContent === 'París') as HTMLElement
     await tabTo(user, (element) => element === token)
     await user.keyboard('{Enter}')
+
+    // Picking up moves focus onto the first zone, so pressing Enter again here would *place* the
+    // word, not un-pick it. Tab back to the token to press its own button a second time.
+    expect(screen.getByTestId('place-g1')).toHaveFocus()
+    await tabTo(user, (element) => element === token)
     await user.keyboard('{Enter}')
+
+    expect(token).toBeInTheDocument()
+    expect(token).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.queryByTestId('place-g1')).not.toBeInTheDocument()
+    // Nothing was placed on the way: this is the toggle, not a round trip through a drop zone.
+    expect(screen.getByTestId('gap-g1')).toHaveTextContent('')
+  })
+
+  it('Escape puts a word back down without leaving the drop zones', async () => {
+    const user = userEvent.setup()
+    renderHost(wordbankCloze())
+    await screen.findByTestId('renderer-cloze')
+
+    const token = screen
+      .getAllByRole('button')
+      .find((button) => button.textContent === 'París') as HTMLElement
+    await tabTo(user, (element) => element === token)
+    await user.keyboard('{Enter}')
+    await user.keyboard('{Escape}')
 
     expect(token).toHaveAttribute('aria-pressed', 'false')
     expect(screen.queryByTestId('place-g1')).not.toBeInTheDocument()
+    expect(screen.getByTestId('gap-g1')).toHaveTextContent('')
   })
 
   it('lets a placed word be taken back out', async () => {

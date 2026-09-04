@@ -92,11 +92,7 @@ export function DragLayer({ onPlace, renderDragged, children }: DragLayerProps) 
   }, [])
 
   const pick = useCallback((itemId: string | null) => {
-    setPickedId((current) => {
-      const next = current === itemId ? null : itemId
-      setTargetZoneId(next === null ? null : (zonesRef.current[0] ?? null))
-      return next
-    })
+    setPickedId((current) => (current === itemId ? null : itemId))
   }, [])
 
   /** Moves focus onto a zone's "place here" button, so its name is announced as it is reached. */
@@ -104,14 +100,29 @@ export function DragLayer({ onPlace, renderDragged, children }: DragLayerProps) 
     rootRef.current?.querySelector<HTMLElement>(`[data-place-zone="${zoneId}"]`)?.focus()
   }, [])
 
-  // Picking something up parks the cursor on the first zone. The button only exists from the render
-  // that follows the pick-up, which is why the focus move is an effect and not part of `pick`.
+  /**
+   * Picking something up parks the cursor on the first zone and moves focus there, so the zone's
+   * name is announced and Enter drops straight away.
+   *
+   * This is an effect rather than part of `pick` for two reasons: the "place here" button only
+   * exists from the render that follows the pick-up, and — the one that bit — a `setState` updater
+   * must be pure. Nesting `setTargetZoneId` inside the `setPickedId` updater made the cursor reset
+   * an ordering-dependent side effect, which is not something to leave in a component whose whole
+   * job is keyboard focus.
+   */
   useEffect(() => {
-    if (pickedId !== null && previouslyPicked.current === null && targetZoneId !== null) {
-      focusZone(targetZoneId)
+    if (pickedId === null) {
+      setTargetZoneId(null)
+      previouslyPicked.current = null
+      return
+    }
+    if (previouslyPicked.current === null) {
+      const first = zonesRef.current[0] ?? null
+      setTargetZoneId(first)
+      if (first !== null) focusZone(first)
     }
     previouslyPicked.current = pickedId
-  }, [focusZone, pickedId, targetZoneId])
+  }, [focusZone, pickedId])
 
   const place = useCallback(
     (zoneId: string) => {
@@ -119,9 +130,9 @@ export function DragLayer({ onPlace, renderDragged, children }: DragLayerProps) 
         if (current !== null) onPlace(current, zoneId)
         return null
       })
-      setTargetZoneId(null)
       // The "place here" button unmounts with the placement, so focus would fall to `<body>`;
-      // parking it on the layer keeps the next Tab where the user left off.
+      // parking it on the layer keeps the next Tab where the user left off. `targetZoneId` is
+      // cleared by the effect above, which owns it.
       rootRef.current?.focus()
     },
     [onPlace],
@@ -140,7 +151,6 @@ export function DragLayer({ onPlace, renderDragged, children }: DragLayerProps) 
     if (pickedId === null) return
     if (event.key === 'Escape') {
       setPickedId(null)
-      setTargetZoneId(null)
       return
     }
     const zones = zonesRef.current
