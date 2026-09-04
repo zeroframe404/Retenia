@@ -26,3 +26,5 @@ minimumReleaseAgeExclude:
   - '@sentry/electron@7.18.0'
   - '@rive-app/canvas@2.41.1'
   - '@rive-app/react-canvas@4.33.1'
+  - konva@10.3.3
+  - react-konva@19.2.6
