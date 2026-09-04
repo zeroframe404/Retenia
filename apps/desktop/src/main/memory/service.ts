@@ -17,6 +17,7 @@ import type {
   RescheduleImpact,
   RescheduleNow,
   RescheduleSelection,
+  RetentionWindow,
   ReviewCard,
   Scheduler,
   SchedulingPolicyInput,
@@ -33,6 +34,10 @@ import type {
   SimulateReschedule,
   StartSession,
   StartSessionResult,
+  StatsOverview,
+  StatsQueries,
+  StatsQueryOptions,
+  TrueRetention,
   UnitOfWork,
   UrgentModeHours,
   UrgentModeResult,
@@ -52,6 +57,7 @@ import {
   createSimulateReschedule,
   createStartSession,
   createStartUrgentMode,
+  createStatsQueries,
   DEFAULT_DAY_START_HOUR,
   DEFAULT_TIME_ZONE,
 } from '@retenia/core'
@@ -129,6 +135,13 @@ export interface MemoryService {
   sessionFinish(): Promise<SessionSummary>
   /** §13: cards and minutes per day, per level, with and without new. */
   forecast(days: number): Promise<Forecast>
+
+  // --- statistics (§13, rows 1–6) ---
+
+  /** Everything the statistics screen's six cards need, in one read. */
+  stats(options?: StatsQueryOptions): Promise<StatsOverview>
+  /** One true-retention window on its own — the card's day/week/month/year switcher. */
+  trueRetention(window: RetentionWindow): Promise<TrueRetention>
   /** Dev/e2e only — see `memory.seedReviewDemo`'s doc in `packages/ipc-contract`. */
   seedReviewDemo(count: number): Promise<{ itemIds: string[]; cardIds: string[] }>
 }
@@ -268,6 +281,25 @@ export async function createMemoryService(options: MemoryServiceOptions): Promis
   })
 
   /**
+   * §13's first six rows.
+   *
+   * The forecast is handed in rather than rebuilt: row 6 *is* sub-phase 4.3's query, and a
+   * second instance would be a second thing to keep in step with this one.
+   *
+   * Rebuilt by `refresh`, like `current`, because row 2 compares true retention against
+   * each level's **desired** retention: tuning a level and then reading a card that still
+   * shows the old target — and its > 5 pp alert — would be worse than showing nothing.
+   */
+  const buildStats = (): StatsQueries =>
+    createStatsQueries({
+      repos: repos.stats,
+      catalog: current.catalog,
+      forecast,
+      dayBoundary,
+    })
+  let stats = buildStats()
+
+  /**
    * The session the renderer is driving.
    *
    * One at a time, and held in main rather than rebuilt per IPC call: the runner owns the
@@ -318,6 +350,7 @@ export async function createMemoryService(options: MemoryServiceOptions): Promis
 
     refresh: async () => {
       current = build(repos, scheduler, ...(await load()), dayBoundary)
+      stats = buildStats()
     },
 
     planSession: (settings = {}) => compose(settings),
@@ -374,6 +407,10 @@ export async function createMemoryService(options: MemoryServiceOptions): Promis
     },
 
     forecast: (days) => forecast(days),
+
+    stats: (options = {}) => stats.overview(options),
+
+    trueRetention: (window) => stats.trueRetention(window),
 
     seedReviewDemo: async (count) => {
       const now = new Date()

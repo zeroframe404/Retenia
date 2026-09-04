@@ -6,6 +6,7 @@ import { memoryChannels } from './channels/memory'
 import { secretsChannels } from './channels/secrets'
 import { sessionChannels } from './channels/session'
 import { settingsChannels } from './channels/settings'
+import { statsChannels } from './channels/stats'
 import { appEvents } from './events/app'
 import { jobsEvents } from './events/jobs'
 import { settingsEvents } from './events/settings'
@@ -67,6 +68,18 @@ export {
   sessionSummarySchema,
   streakStatusSchema,
 } from './channels/session'
+export type { RetentionWindow, StatsOverview, TrueRetention } from './channels/stats'
+export {
+  distributionSchema,
+  levelRetentionSchema,
+  memorizedSchema,
+  RETENTION_WINDOWS,
+  retentionWindowSchema,
+  STATS_MAX_FORECAST_DAYS,
+  STATS_MAX_SERIES_DAYS,
+  statsOverviewSchema,
+  trueRetentionSchema,
+} from './channels/stats'
 export type {
   ChannelDefinition,
   ContractShape,
@@ -95,6 +108,7 @@ export const contract = {
   ...sessionChannels,
   ...backupsChannels,
   ...settingsChannels,
+  ...statsChannels,
 }
 
 /** Every push channel main can send to the renderer (`webContents.send`). */

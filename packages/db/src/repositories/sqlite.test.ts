@@ -185,6 +185,7 @@ describe('append-only review logs at the database level', () => {
       exerciseScore: null,
       device: null,
       attemptId: null,
+      activityType: null,
       algorithmVersion: 'fsrs6',
     })
   }

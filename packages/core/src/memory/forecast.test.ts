@@ -163,6 +163,7 @@ describe('createForecast', () => {
         exerciseScore: null,
         device: null,
         attemptId: null,
+        activityType: null,
         algorithmVersion: 'fsrs6',
       })
     }

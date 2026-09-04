@@ -1,4 +1,5 @@
 import { type Card, REVIEW_CONTEXTS, type ReviewContext, type ReviewLog } from '../entities'
+import type { ActivityStatsRepository } from '../ports/activity-stats-repository'
 import type { EntityPatch } from '../ports/audit'
 import type { CardRepository } from '../ports/card-repository'
 import type { Clock } from '../ports/clock'
@@ -28,6 +29,15 @@ export interface ReviewRepositories {
   cards: Pick<CardRepository, 'findById' | 'update'>
   knowledgeItems: Pick<KnowledgeItemRepository, 'findById'>
   reviewLogs: Pick<ReviewLogRepository, 'append'>
+  /**
+   * Where the rolling per-type median is kept up to date (§10's "personal median").
+   *
+   * Optional, because it is **derived state**: a caller wired without it still schedules
+   * correctly, it just never learns how fast this user is at this type, and `toRating`
+   * then declines to read speed as evidence. Making it required would force every
+   * in-memory double in the codebase to grow a table that changes no scheduling outcome.
+   */
+  activityStats?: Pick<ActivityStatsRepository, 'record'>
 }
 
 export interface ReviewUnitOfWork extends ReviewRepositories {
@@ -54,6 +64,9 @@ interface ReviewCardBase {
   exerciseScore?: number | null
   device?: string | null
   attemptId?: string | null
+  /** The activity type that produced the rating (`mcq_single`, `cloze_typed`, …), or null
+   *  for a button pressed on a plain flashcard. Also the key of the rolling median. */
+  activityType?: string | null
 }
 
 /** A grade, or rating 0 (`Manual`) with the due date the card is postponed to. */
@@ -134,6 +147,7 @@ export function createReviewCard(deps: ReviewCardDeps): ReviewCard {
     const exerciseScore = optionalNumber('exerciseScore', input.exerciseScore, 0, 1)
     const device = optionalString('device', input.device)
     const attemptId = optionalString('attemptId', input.attemptId)
+    const activityType = optionalString('activityType', input.activityType)
     const due = rating === 0 ? assertValidDate('due', input.due) : null
 
     const card = await uow.cards.findById(input.cardId)
@@ -157,7 +171,20 @@ export function createReviewCard(deps: ReviewCardDeps): ReviewCard {
         exerciseScore,
         device,
         attemptId,
+        activityType,
       })
+      // Inside the transaction so the median and the review it was measured from commit or
+      // roll back together. Only a real grade counts: rating `Manual` is a postpone, which
+      // takes no time (`fsrs-rules`), and an unmeasured answer is not evidence of speed.
+      if (
+        repos.activityStats !== undefined &&
+        activityType !== null &&
+        rating !== 0 &&
+        durationMs !== null &&
+        durationMs > 0
+      ) {
+        await repos.activityStats.record(activityType, durationMs)
+      }
       return { saved, log }
     })
 

@@ -63,6 +63,8 @@ describe('contract', () => {
       'session.undo',
       'settings.get',
       'settings.set',
+      'stats.overview',
+      'stats.trueRetention',
     ])
     expect([...eventNames].sort()).toEqual([
       'app.deepLink',

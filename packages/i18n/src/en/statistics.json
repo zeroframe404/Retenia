@@ -1,4 +1,75 @@
 {
   "title": "Statistics",
-  "comingSoon": "The statistics panel lands in a later phase."
+  "comingSoon": "The statistics panel lands in a later phase.",
+  "subtitle": "How your memory is actually doing — the six measurements that say whether the scheduler is working.",
+  "empty": {
+    "title": "Nothing to measure yet",
+    "body": "Review some cards and these six panels fill in. True retention needs reviews on cards you had already learned, so the first useful numbers appear a few days in."
+  },
+  "error": {
+    "title": "Statistics could not be read",
+    "retry": "Try again"
+  },
+  "trueRetention": {
+    "title": "True retention",
+    "help": "How often you recall a card you were due to recall: the first review of the day, on cards in review with an interval of a day or more.",
+    "windows": {
+      "day": "Today",
+      "week": "Week",
+      "month": "Month",
+      "year": "Year"
+    },
+    "young": "Young (< 21 d)",
+    "mature": "Mature (≥ 21 d)",
+    "reviews": "{count, plural, one {# review} other {# reviews}}",
+    "since": "Since {date}",
+    "none": "No reviews in this window yet."
+  },
+  "byLevel": {
+    "title": "Desired vs true retention",
+    "help": "What each importance level asks of the scheduler, against what you actually recall. A gap over 5 points means it is time to re-optimize or move the target.",
+    "level": "Level",
+    "desired": "Target",
+    "actual": "Actual",
+    "gap": "Gap",
+    "reviews": "Reviews",
+    "alert": "{count, plural, one {# level is more than 5 points off target} other {# levels are more than 5 points off target}}.",
+    "none": "Not enough reviews this month to compare."
+  },
+  "meanRetention": {
+    "title": "Mean retention today",
+    "help": "Averaged over every card in review, most of which are not due — this sits well above your target retention, and should.",
+    "cards": "{count, plural, one {# card in review} other {# cards in review}}"
+  },
+  "memorized": {
+    "title": "Memorized knowledge",
+    "help": "The sum of your recall probabilities: roughly how many things you could retrieve right now.",
+    "unit": "{count, plural, one {# item} other {# items}}",
+    "chartCaption": "Memorized knowledge per day",
+    "chartValue": "Items recallable"
+  },
+  "distribution": {
+    "title": "Stability and difficulty",
+    "help": "Stability is the interval at which recall falls to 90 %. The share above a year is the share you would still know a year from now untouched.",
+    "stability": "Stability",
+    "difficulty": "Difficulty",
+    "stabilityCaption": "Cards by stability",
+    "difficultyCaption": "Cards by difficulty",
+    "cards": "Cards",
+    "over21": "{percent} over 21 days",
+    "over365": "{percent} over a year",
+    "meanStability": "Mean stability {days}",
+    "none": "No card has a measured stability yet."
+  },
+  "forecast": {
+    "title": "Forecast",
+    "help": "Reviews already scheduled for the next 30 days. New cards are not counted — the reviews they will generate are the simulator's job.",
+    "chartCaption": "Reviews due per day",
+    "chartValue": "Cards",
+    "backlog": "{count, plural, one {# card overdue} other {# cards overdue}}",
+    "none": "Nothing is scheduled yet."
+  },
+  "units": {
+    "days": "{count, plural, one {# day} other {# days}}"
+  }
 }

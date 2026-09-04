@@ -1,4 +1,6 @@
 import type { Card, ImportanceLevel, KnowledgeItem, ReviewLog, ReviewSession } from '../entities'
+import { type ActivityPace, foldPace } from '../memory/pace'
+import type { ActivityStatsRepository } from '../ports/activity-stats-repository'
 import type { EntityPatch, FindOptions, ListOptions, NewEntity } from '../ports/audit'
 import type { CardRepository, DueFilters, DueProjection } from '../ports/card-repository'
 import type { Clock } from '../ports/clock'
@@ -23,6 +25,7 @@ import type { ReviewSessionRepository } from '../ports/review-session-repository
  * is structurally assignable to all of them anyway.
  */
 export interface StoreRepositories {
+  activityStats: ActivityStatsRepository
   cards: Pick<
     CardRepository,
     | 'findById'
@@ -78,6 +81,7 @@ export function createInMemoryReviewStore(
   let items = new Map<string, KnowledgeItem>()
   let logs = new Map<string, ReviewLog>()
   let sessions = new Map<string, ReviewSession>()
+  let pace = new Map<string, ActivityPace>()
   let sequence = 0
   let appendCalls = 0
   let updateCalls = 0
@@ -259,6 +263,17 @@ export function createInMemoryReviewStore(
       findMany: async (ids, findOptions) =>
         ids.map((id) => live(items.get(id), findOptions)).filter((item) => item !== undefined),
     },
+    activityStats: {
+      find: async (activityType) => pace.get(activityType),
+      list: async () =>
+        [...pace.values()].sort((a, b) => a.activityType.localeCompare(b.activityType)),
+      medianMs: async (activityType) => pace.get(activityType)?.medianMs ?? null,
+      record: async (activityType, durationMs) => {
+        const next = foldPace(pace.get(activityType), activityType, durationMs)
+        pace.set(activityType, next)
+        return next
+      },
+    },
     reviewLogs: {
       append: async (input) => {
         appendCalls += 1
@@ -423,6 +438,7 @@ export function createInMemoryReviewStore(
         items: new Map(items),
         logs: new Map(logs),
         sessions: new Map(sessions),
+        pace: new Map(pace),
       }
       depth = 1
       try {
@@ -432,6 +448,7 @@ export function createInMemoryReviewStore(
         items = snapshot.items
         logs = snapshot.logs
         sessions = snapshot.sessions
+        pace = snapshot.pace
         throw error
       } finally {
         depth = 0

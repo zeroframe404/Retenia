@@ -90,6 +90,8 @@ export type {
   PostponeSelection,
 } from './overload'
 export { postponeDays, selectPostponements } from './overload'
+export type { ActivityPace } from './pace'
+export { foldPace, medianOf, PACE_SAMPLE_SIZE } from './pace'
 export type { FsrsParameters, SchedulerProfileParameters } from './parameters'
 export {
   assertSchedulingOptions,
@@ -105,6 +107,15 @@ export {
   stepUnitToMinutes,
 } from './parameters'
 export { fuzzSeed, hashString, mulberry32 } from './prng'
+export type {
+  GradeMeta,
+  GradeResult,
+  PersonalPace,
+  RatingRule,
+  RatingSignals,
+  ReviewSpec,
+} from './rating'
+export { feedsScheduler, RATING_RULES, RATING_THRESHOLDS, toRating } from './rating'
 export type {
   RescheduleCandidate,
   RescheduleChange,
@@ -122,6 +133,13 @@ export type {
   SimulateRescheduleDeps,
 } from './reschedule'
 export { createRescheduleNow, createSimulateReschedule, projectReschedule } from './reschedule'
+export type {
+  ReviewActivity,
+  ReviewActivityDeps,
+  ReviewActivityInput,
+  ReviewActivityResult,
+} from './review-activity'
+export { createReviewActivity } from './review-activity'
 export type {
   ReviewCard,
   ReviewCardDeps,
