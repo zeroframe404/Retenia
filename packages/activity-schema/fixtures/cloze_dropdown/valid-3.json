@@ -1,0 +1,73 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-000000000021",
+    "schemaVersion": 1,
+    "type": "cloze_dropdown",
+    "family": "cloze",
+    "lang": "es-AR",
+    "prompt": "Completá la tabla de estados de la materia.",
+    "skills": ["fis.estados-materia"],
+    "difficulty": 2,
+    "grading": {
+      "method": "det"
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "partial"
+    },
+    "payload": {
+      "family": "cloze",
+      "mode": "dropdown",
+      "layout": "table",
+      "segments": [
+        {
+          "kind": "text",
+          "text": "Hielo → "
+        },
+        {
+          "kind": "gap",
+          "id": "g1",
+          "answers": ["sólido"],
+          "options": ["sólido", "líquido", "gaseoso"]
+        },
+        {
+          "kind": "text",
+          "text": " | Vapor → "
+        },
+        {
+          "kind": "gap",
+          "id": "g2",
+          "answers": ["gaseoso"],
+          "options": ["sólido", "líquido", "gaseoso"]
+        }
+      ]
+    }
+  },
+  "answers": [
+    {
+      "name": "both",
+      "response": {
+        "gaps": {
+          "g1": "Sólido",
+          "g2": "gaseoso"
+        }
+      },
+      "expect": {
+        "score": 1,
+        "correct": true
+      }
+    },
+    {
+      "name": "one",
+      "response": {
+        "gaps": {
+          "g1": "sólido"
+        }
+      },
+      "expect": {
+        "score": 0.5,
+        "correct": false
+      }
+    }
+  ]
+}

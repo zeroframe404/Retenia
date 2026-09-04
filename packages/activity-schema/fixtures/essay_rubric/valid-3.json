@@ -1,0 +1,103 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-000000000049",
+    "schemaVersion": 1,
+    "type": "essay_rubric",
+    "family": "long_text",
+    "lang": "es-AR",
+    "prompt": "Compará la mitosis y la meiosis.",
+    "skills": ["bio.division-celular"],
+    "difficulty": 2,
+    "grading": {
+      "method": "ai"
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "ai"
+    },
+    "sources": [
+      {
+        "docId": "doc-bio-1",
+        "span": "cap. 4"
+      }
+    ],
+    "payload": {
+      "family": "long_text",
+      "rubric": [
+        {
+          "id": "r1",
+          "criterion": "Tesis clara",
+          "weight": 2,
+          "levels": [
+            {
+              "score": 0,
+              "description": "Sin tesis"
+            },
+            {
+              "score": 0.5,
+              "description": "Tesis implícita"
+            },
+            {
+              "score": 1,
+              "description": "Tesis explícita"
+            }
+          ]
+        },
+        {
+          "id": "r2",
+          "criterion": "Uso de evidencia",
+          "levels": [
+            {
+              "score": 0,
+              "description": "Ninguna"
+            },
+            {
+              "score": 1,
+              "description": "Cita las fuentes"
+            }
+          ]
+        }
+      ],
+      "modelAnswer": "La mitosis produce dos células idénticas; la meiosis, cuatro gametos con la mitad de cromosomas.",
+      "keyPoints": [
+        {
+          "id": "k1",
+          "text": "dos células",
+          "aliases": ["dos celulas identicas"]
+        },
+        {
+          "id": "k2",
+          "text": "cuatro gametos",
+          "aliases": ["gametos"]
+        },
+        {
+          "id": "k3",
+          "text": "mitad de cromosomas",
+          "aliases": ["haploide"]
+        }
+      ]
+    }
+  },
+  "answers": [
+    {
+      "name": "all three",
+      "response": {
+        "text": "La mitosis da dos células iguales; la meiosis da cuatro gametos haploides, con la mitad de cromosomas."
+      },
+      "expect": {
+        "score": 1,
+        "correct": true
+      }
+    },
+    {
+      "name": "one of three",
+      "response": {
+        "text": "Ambas producen gametos."
+      },
+      "expect": {
+        "score": 0.3333333333,
+        "correct": false
+      }
+    }
+  ]
+}

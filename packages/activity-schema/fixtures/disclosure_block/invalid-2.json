@@ -1,0 +1,44 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-000000000069",
+    "schemaVersion": 1,
+    "type": "disclosure_block",
+    "family": "disclosure",
+    "lang": "es-AR",
+    "prompt": "p",
+    "skills": ["s"],
+    "difficulty": 2,
+    "grading": {
+      "method": "none"
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "none"
+    },
+    "payload": {
+      "family": "disclosure",
+      "presentation": "accordion",
+      "items": [
+        {
+          "id": "n1",
+          "title": "Primera ley",
+          "body": "Un cuerpo permanece en reposo o en movimiento rectilíneo uniforme si no actúa una fuerza neta."
+        },
+        {
+          "id": "n2",
+          "title": "Segunda ley",
+          "body": "$F = m \\cdot a$"
+        },
+        {
+          "id": "n3",
+          "title": "Tercera ley",
+          "body": "A toda acción corresponde una reacción igual y opuesta."
+        }
+      ]
+    }
+  },
+  "expect": {
+    "layer": "rules",
+    "codes": ["review-mismatch"]
+  }
+}

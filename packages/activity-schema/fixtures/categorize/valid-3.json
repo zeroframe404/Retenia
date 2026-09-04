@@ -1,0 +1,105 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-00000000005d",
+    "schemaVersion": 1,
+    "type": "categorize",
+    "family": "categorize",
+    "lang": "es-AR",
+    "prompt": "Algunos alimentos entran en más de un grupo.",
+    "skills": ["salud.nutricion.grupos"],
+    "difficulty": 2,
+    "grading": {
+      "method": "det"
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "partial"
+    },
+    "payload": {
+      "family": "categorize",
+      "categories": [
+        {
+          "id": "prot",
+          "label": "Proteínas"
+        },
+        {
+          "id": "carb",
+          "label": "Carbohidratos"
+        },
+        {
+          "id": "gras",
+          "label": "Grasas"
+        }
+      ],
+      "items": [
+        {
+          "id": "f1",
+          "text": "Pollo",
+          "categoryIds": ["prot"]
+        },
+        {
+          "id": "f2",
+          "text": "Arroz",
+          "categoryIds": ["carb"]
+        },
+        {
+          "id": "f3",
+          "text": "Lentejas",
+          "categoryIds": ["prot", "carb"]
+        },
+        {
+          "id": "f4",
+          "text": "Palta",
+          "categoryIds": ["gras"]
+        }
+      ]
+    }
+  },
+  "answers": [
+    {
+      "name": "all",
+      "response": {
+        "placements": {
+          "f1": ["prot"],
+          "f2": ["carb"],
+          "f3": ["prot", "carb"],
+          "f4": ["gras"]
+        }
+      },
+      "expect": {
+        "score": 1,
+        "correct": true
+      }
+    },
+    {
+      "name": "lentils in one group only",
+      "response": {
+        "placements": {
+          "f1": ["prot"],
+          "f2": ["carb"],
+          "f3": ["prot"],
+          "f4": ["gras"]
+        }
+      },
+      "expect": {
+        "score": 0.875,
+        "correct": true
+      }
+    },
+    {
+      "name": "unknown category",
+      "response": {
+        "placements": {
+          "f1": ["prot"],
+          "f2": ["carb"],
+          "f3": ["zzz"],
+          "f4": ["gras"]
+        }
+      },
+      "expect": {
+        "score": 0.75,
+        "correct": false
+      }
+    }
+  ]
+}

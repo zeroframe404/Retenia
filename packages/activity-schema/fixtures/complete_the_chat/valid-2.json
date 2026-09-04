@@ -1,0 +1,75 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-000000000016",
+    "schemaVersion": 1,
+    "type": "complete_the_chat",
+    "family": "choice",
+    "lang": "es-AR",
+    "prompt": "**Cliente:** ¿Tienen mesa para dos?\n**Mozo:** …",
+    "skills": ["es.dialogo.restaurante"],
+    "difficulty": 2,
+    "grading": {
+      "method": "det"
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "binary"
+    },
+    "instructions": "Elegí la respuesta más natural.",
+    "payload": {
+      "family": "choice",
+      "sets": [
+        {
+          "multiple": false,
+          "options": [
+            {
+              "id": "a",
+              "text": "Sí, pasen por acá.",
+              "correct": true
+            },
+            {
+              "id": "b",
+              "text": "Tengo dos hermanos.",
+              "correct": false
+            },
+            {
+              "id": "c",
+              "text": "La cuenta, por favor.",
+              "correct": false
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "answers": [
+    {
+      "name": "natural",
+      "response": {
+        "sets": [
+          {
+            "selected": ["a"]
+          }
+        ]
+      },
+      "expect": {
+        "score": 1,
+        "correct": true
+      }
+    },
+    {
+      "name": "unnatural",
+      "response": {
+        "sets": [
+          {
+            "selected": ["c"]
+          }
+        ]
+      },
+      "expect": {
+        "score": 0,
+        "correct": false
+      }
+    }
+  ]
+}

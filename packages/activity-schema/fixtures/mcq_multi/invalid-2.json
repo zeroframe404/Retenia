@@ -1,0 +1,43 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-00000000000a",
+    "schemaVersion": 1,
+    "type": "mcq_multi",
+    "family": "choice",
+    "lang": "es-AR",
+    "prompt": "p",
+    "skills": ["s"],
+    "difficulty": 2,
+    "grading": {
+      "method": "det"
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "partial"
+    },
+    "payload": {
+      "family": "choice",
+      "sets": [
+        {
+          "multiple": true,
+          "options": [
+            {
+              "id": "a",
+              "text": "A",
+              "correct": false
+            },
+            {
+              "id": "b",
+              "text": "B",
+              "correct": false
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "expect": {
+    "layer": "rules",
+    "codes": ["choice-multi-correct-count"]
+  }
+}

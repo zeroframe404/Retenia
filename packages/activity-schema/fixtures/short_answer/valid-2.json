@@ -1,0 +1,79 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-00000000002a",
+    "schemaVersion": 1,
+    "type": "short_answer",
+    "family": "text_input",
+    "lang": "es-AR",
+    "prompt": "¿Qué país tiene su capital en Washington D. C.?",
+    "skills": ["geo.eeuu.capital"],
+    "difficulty": 2,
+    "grading": {
+      "method": "fuzzy",
+      "fuzzy": {
+        "synonyms": [["Estados Unidos", "EE. UU.", "USA"]]
+      }
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "fuzzy"
+    },
+    "payload": {
+      "family": "text_input",
+      "inputKind": "text",
+      "answers": [
+        {
+          "value": "Estados Unidos"
+        },
+        {
+          "value": "^(the )?united states( of america)?$",
+          "isRegex": true
+        }
+      ]
+    }
+  },
+  "answers": [
+    {
+      "name": "canonical",
+      "response": {
+        "value": "Estados Unidos"
+      },
+      "expect": {
+        "score": 1,
+        "correct": true
+      }
+    },
+    {
+      "name": "synonym",
+      "response": {
+        "value": "USA"
+      },
+      "expect": {
+        "score": 1,
+        "correct": true
+      }
+    },
+    {
+      "name": "regex answer",
+      "response": {
+        "value": "The United States of America"
+      },
+      "expect": {
+        "score": 1,
+        "correct": true
+      }
+    },
+    {
+      "name": "wrong",
+      "response": {
+        "value": "Canadá"
+      },
+      "expect": {
+        "score": {
+          "max": 0.5
+        },
+        "correct": false
+      }
+    }
+  ]
+}

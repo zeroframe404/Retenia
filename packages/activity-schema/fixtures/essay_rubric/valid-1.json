@@ -1,0 +1,95 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-000000000047",
+    "schemaVersion": 1,
+    "type": "essay_rubric",
+    "family": "long_text",
+    "lang": "es-AR",
+    "prompt": "Argumentá a favor o en contra de la energía nuclear en 150 palabras.",
+    "skills": ["ens.argumentacion.nuclear"],
+    "difficulty": 2,
+    "grading": {
+      "method": "ai"
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "ai",
+      "expectedSeconds": 300
+    },
+    "payload": {
+      "family": "long_text",
+      "rubric": [
+        {
+          "id": "r1",
+          "criterion": "Tesis clara",
+          "weight": 2,
+          "levels": [
+            {
+              "score": 0,
+              "description": "Sin tesis"
+            },
+            {
+              "score": 0.5,
+              "description": "Tesis implícita"
+            },
+            {
+              "score": 1,
+              "description": "Tesis explícita"
+            }
+          ]
+        },
+        {
+          "id": "r2",
+          "criterion": "Uso de evidencia",
+          "levels": [
+            {
+              "score": 0,
+              "description": "Ninguna"
+            },
+            {
+              "score": 1,
+              "description": "Cita las fuentes"
+            }
+          ]
+        }
+      ],
+      "modelAnswer": "La energía nuclear ofrece electricidad estable con bajas emisiones, aunque exige gestionar residuos y riesgos.",
+      "minWords": 120,
+      "maxWords": 200,
+      "keyPoints": [
+        {
+          "id": "k1",
+          "text": "emisiones"
+        },
+        {
+          "id": "k2",
+          "text": "residuos"
+        }
+      ]
+    }
+  },
+  "answers": [
+    {
+      "name": "both key points as a pre-score",
+      "response": {
+        "text": "La nuclear reduce emisiones pero genera residuos de larga vida."
+      },
+      "expect": {
+        "score": 1,
+        "correct": true,
+        "engine": "keypoints"
+      }
+    },
+    {
+      "name": "one key point",
+      "response": {
+        "text": "Reduce las emisiones y punto."
+      },
+      "expect": {
+        "score": 0.5,
+        "correct": false,
+        "engine": "keypoints"
+      }
+    }
+  ]
+}

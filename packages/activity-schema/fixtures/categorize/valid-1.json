@@ -1,0 +1,109 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-00000000005b",
+    "schemaVersion": 1,
+    "type": "categorize",
+    "family": "categorize",
+    "lang": "es-AR",
+    "prompt": "Clasificá cada animal en su grupo.",
+    "skills": ["bio.vertebrados"],
+    "difficulty": 2,
+    "grading": {
+      "method": "det"
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "partial",
+      "expectedSeconds": 30
+    },
+    "payload": {
+      "family": "categorize",
+      "categories": [
+        {
+          "id": "mam",
+          "label": "Mamíferos"
+        },
+        {
+          "id": "ave",
+          "label": "Aves"
+        }
+      ],
+      "items": [
+        {
+          "id": "i1",
+          "text": "Perro",
+          "categoryIds": ["mam"]
+        },
+        {
+          "id": "i2",
+          "text": "Gorrión",
+          "categoryIds": ["ave"]
+        },
+        {
+          "id": "i3",
+          "text": "Ballena",
+          "categoryIds": ["mam"]
+        }
+      ]
+    }
+  },
+  "answers": [
+    {
+      "name": "all",
+      "response": {
+        "placements": {
+          "i1": ["mam"],
+          "i2": ["ave"],
+          "i3": ["mam"]
+        }
+      },
+      "expect": {
+        "score": 1,
+        "correct": true
+      }
+    },
+    {
+      "name": "whale as a bird",
+      "response": {
+        "placements": {
+          "i1": ["mam"],
+          "i2": ["ave"],
+          "i3": ["ave"]
+        }
+      },
+      "expect": {
+        "score": 0.6666666667,
+        "correct": false,
+        "perItem": [
+          {
+            "id": "i3",
+            "correct": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "one left unplaced",
+      "response": {
+        "placements": {
+          "i1": ["mam"],
+          "i2": ["ave"]
+        }
+      },
+      "expect": {
+        "score": 0.6666666667,
+        "correct": false
+      }
+    },
+    {
+      "name": "nothing placed",
+      "response": {
+        "placements": {}
+      },
+      "expect": {
+        "score": 0,
+        "correct": false
+      }
+    }
+  ]
+}

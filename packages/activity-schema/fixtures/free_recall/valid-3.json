@@ -1,0 +1,75 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-000000000044",
+    "schemaVersion": 1,
+    "type": "free_recall",
+    "family": "long_text",
+    "lang": "es-AR",
+    "prompt": "Contá qué pasa en el ciclo del agua.",
+    "skills": ["geo.ciclo-agua"],
+    "difficulty": 2,
+    "grading": {
+      "method": "ai"
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "ai"
+    },
+    "sources": [
+      {
+        "docId": "doc-geo-2",
+        "span": {
+          "start": 0,
+          "end": 500
+        }
+      }
+    ],
+    "payload": {
+      "family": "long_text",
+      "keyPoints": [
+        {
+          "id": "k1",
+          "text": "evaporación"
+        },
+        {
+          "id": "k2",
+          "text": "condensación"
+        },
+        {
+          "id": "k3",
+          "text": "precipitación",
+          "aliases": ["lluvia"]
+        },
+        {
+          "id": "k4",
+          "text": "infiltración"
+        }
+      ]
+    }
+  },
+  "answers": [
+    {
+      "name": "three of four with a typo-tolerant match",
+      "response": {
+        "text": "El agua se evapora, luego hay condensacion en nubes y cae como lluvia."
+      },
+      "expect": {
+        "score": {
+          "min": 0.5,
+          "max": 0.75
+        },
+        "correct": false
+      }
+    },
+    {
+      "name": "all four",
+      "response": {
+        "text": "evaporación, condensación, precipitación e infiltración"
+      },
+      "expect": {
+        "score": 1,
+        "correct": true
+      }
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "name": "@retenia/activity-graders",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Pure graders per activity family (DET/FUZ/numeric/ordering/matching) and the text and number utilities behind them. Zero Node, Electron or provider imports.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "lint": "biome check ."
+  },
+  "dependencies": {
+    "@retenia/activity-schema": "workspace:*",
+    "@retenia/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@retenia/config": "workspace:*",
+    "@types/node": "24.13.3",
+    "@vitest/coverage-v8": "4.1.11",
+    "typescript": "7.0.2",
+    "vitest": "4.1.11"
+  }
+}

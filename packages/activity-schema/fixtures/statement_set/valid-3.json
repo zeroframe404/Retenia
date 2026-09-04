@@ -1,0 +1,140 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-000000000012",
+    "schemaVersion": 1,
+    "type": "statement_set",
+    "family": "choice",
+    "lang": "es-AR",
+    "prompt": "Evaluá cada enunciado sobre el ciclo del agua.",
+    "skills": ["geo.ciclo-agua"],
+    "difficulty": 2,
+    "grading": {
+      "method": "det"
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "partial"
+    },
+    "payload": {
+      "family": "choice",
+      "sets": [
+        {
+          "id": "e1",
+          "stem": "La evaporación necesita calor.",
+          "multiple": false,
+          "options": [
+            {
+              "id": "e1v",
+              "text": "Verdadero",
+              "correct": true
+            },
+            {
+              "id": "e1f",
+              "text": "Falso",
+              "correct": false
+            }
+          ]
+        },
+        {
+          "id": "e2",
+          "stem": "La condensación forma nubes.",
+          "multiple": false,
+          "options": [
+            {
+              "id": "e2v",
+              "text": "Verdadero",
+              "correct": true
+            },
+            {
+              "id": "e2f",
+              "text": "Falso",
+              "correct": false
+            }
+          ]
+        },
+        {
+          "id": "e3",
+          "stem": "La precipitación solo es lluvia.",
+          "multiple": false,
+          "options": [
+            {
+              "id": "e3v",
+              "text": "Verdadero",
+              "correct": false
+            },
+            {
+              "id": "e3f",
+              "text": "Falso",
+              "correct": true
+            }
+          ]
+        },
+        {
+          "id": "e4",
+          "stem": "La infiltración recarga acuíferos.",
+          "multiple": false,
+          "options": [
+            {
+              "id": "e4v",
+              "text": "Verdadero",
+              "correct": true
+            },
+            {
+              "id": "e4f",
+              "text": "Falso",
+              "correct": false
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "answers": [
+    {
+      "name": "all four",
+      "response": {
+        "sets": [
+          {
+            "selected": ["e1v"]
+          },
+          {
+            "selected": ["e2v"]
+          },
+          {
+            "selected": ["e3f"]
+          },
+          {
+            "selected": ["e4v"]
+          }
+        ]
+      },
+      "expect": {
+        "score": 1,
+        "correct": true
+      }
+    },
+    {
+      "name": "three of four",
+      "response": {
+        "sets": [
+          {
+            "selected": ["e1v"]
+          },
+          {
+            "selected": ["e2v"]
+          },
+          {
+            "selected": ["e3v"]
+          },
+          {
+            "selected": ["e4v"]
+          }
+        ]
+      },
+      "expect": {
+        "score": 0.75,
+        "correct": false
+      }
+    }
+  ]
+}

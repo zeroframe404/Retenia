@@ -1,0 +1,89 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-000000000020",
+    "schemaVersion": 1,
+    "type": "cloze_dropdown",
+    "family": "cloze",
+    "lang": "es-AR",
+    "prompt": "Completá con la preposición adecuada.",
+    "skills": ["en.preposiciones"],
+    "difficulty": 2,
+    "grading": {
+      "method": "det"
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "partial"
+    },
+    "payload": {
+      "family": "cloze",
+      "mode": "dropdown",
+      "segments": [
+        {
+          "kind": "text",
+          "text": "She arrived "
+        },
+        {
+          "kind": "gap",
+          "id": "g1",
+          "answers": ["at"],
+          "options": ["at", "in", "on"]
+        },
+        {
+          "kind": "text",
+          "text": " the airport "
+        },
+        {
+          "kind": "gap",
+          "id": "g2",
+          "answers": ["on"],
+          "options": ["at", "in", "on"]
+        },
+        {
+          "kind": "text",
+          "text": " Monday "
+        },
+        {
+          "kind": "gap",
+          "id": "g3",
+          "answers": ["in"],
+          "options": ["at", "in", "on"]
+        },
+        {
+          "kind": "text",
+          "text": " the morning."
+        }
+      ]
+    }
+  },
+  "answers": [
+    {
+      "name": "all",
+      "response": {
+        "gaps": {
+          "g1": "at",
+          "g2": "on",
+          "g3": "in"
+        }
+      },
+      "expect": {
+        "score": 1,
+        "correct": true
+      }
+    },
+    {
+      "name": "two of three",
+      "response": {
+        "gaps": {
+          "g1": "at",
+          "g2": "on",
+          "g3": "on"
+        }
+      },
+      "expect": {
+        "score": 0.6666666667,
+        "correct": false
+      }
+    }
+  ]
+}

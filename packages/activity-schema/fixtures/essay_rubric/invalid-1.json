@@ -1,0 +1,39 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-00000000004a",
+    "schemaVersion": 1,
+    "type": "essay_rubric",
+    "family": "long_text",
+    "lang": "es-AR",
+    "prompt": "p",
+    "skills": ["s"],
+    "difficulty": 2,
+    "grading": {
+      "method": "ai"
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "ai"
+    },
+    "payload": {
+      "family": "long_text",
+      "rubric": [
+        {
+          "id": "r1",
+          "criterion": "c",
+          "levels": [
+            {
+              "score": 1,
+              "description": "solo uno"
+            }
+          ]
+        }
+      ],
+      "modelAnswer": "x"
+    }
+  },
+  "expect": {
+    "layer": "schema",
+    "codes": []
+  }
+}

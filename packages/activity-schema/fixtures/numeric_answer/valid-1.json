@@ -1,0 +1,87 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-00000000002e",
+    "schemaVersion": 1,
+    "type": "numeric_answer",
+    "family": "text_input",
+    "lang": "es-AR",
+    "prompt": "¿Cuánto vale π con dos decimales?",
+    "skills": ["mat.pi"],
+    "difficulty": 2,
+    "grading": {
+      "method": "det"
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "objective",
+      "expectedSeconds": 20
+    },
+    "payload": {
+      "family": "text_input",
+      "inputKind": "number",
+      "answers": [
+        {
+          "value": "3.14"
+        }
+      ],
+      "numeric": {
+        "value": 3.14,
+        "tol": {
+          "abs": 0.05
+        }
+      }
+    }
+  },
+  "answers": [
+    {
+      "name": "dot decimal",
+      "response": {
+        "value": "3.14"
+      },
+      "expect": {
+        "score": 1,
+        "correct": true
+      }
+    },
+    {
+      "name": "comma decimal",
+      "response": {
+        "value": "3,14"
+      },
+      "expect": {
+        "score": 1,
+        "correct": true
+      }
+    },
+    {
+      "name": "within tolerance",
+      "response": {
+        "value": "3.1"
+      },
+      "expect": {
+        "score": 1,
+        "correct": true
+      }
+    },
+    {
+      "name": "outside tolerance",
+      "response": {
+        "value": "3"
+      },
+      "expect": {
+        "score": 0,
+        "correct": false
+      }
+    },
+    {
+      "name": "not a number",
+      "response": {
+        "value": "pi"
+      },
+      "expect": {
+        "score": 0,
+        "correct": false
+      }
+    }
+  ]
+}

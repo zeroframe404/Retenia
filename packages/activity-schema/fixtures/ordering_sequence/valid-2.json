@@ -1,0 +1,79 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-000000000052",
+    "schemaVersion": 1,
+    "type": "ordering_sequence",
+    "family": "ordering",
+    "lang": "es-AR",
+    "prompt": "Ordená cronológicamente.",
+    "skills": ["hist.arg.siglo-xix"],
+    "difficulty": 2,
+    "grading": {
+      "method": "det"
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "ordering"
+    },
+    "payload": {
+      "family": "ordering",
+      "items": [
+        {
+          "id": "a",
+          "text": "Revolución de Mayo",
+          "date": "1810"
+        },
+        {
+          "id": "b",
+          "text": "Independencia",
+          "date": "1816"
+        },
+        {
+          "id": "c",
+          "text": "Constitución",
+          "date": "1853"
+        },
+        {
+          "id": "d",
+          "text": "Federalización de Buenos Aires",
+          "date": "1880"
+        }
+      ],
+      "correctOrder": ["a", "b", "c", "d"],
+      "scoring": "kendall",
+      "axis": "timeline"
+    }
+  },
+  "answers": [
+    {
+      "name": "correct",
+      "response": {
+        "order": ["a", "b", "c", "d"]
+      },
+      "expect": {
+        "score": 1,
+        "correct": true
+      }
+    },
+    {
+      "name": "one adjacent swap",
+      "response": {
+        "order": ["a", "c", "b", "d"]
+      },
+      "expect": {
+        "score": 0.8333333333,
+        "correct": true
+      }
+    },
+    {
+      "name": "reversed",
+      "response": {
+        "order": ["d", "c", "b", "a"]
+      },
+      "expect": {
+        "score": 0,
+        "correct": false
+      }
+    }
+  ]
+}

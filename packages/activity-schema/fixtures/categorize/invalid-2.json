@@ -1,0 +1,53 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-00000000005f",
+    "schemaVersion": 1,
+    "type": "categorize",
+    "family": "categorize",
+    "lang": "es-AR",
+    "prompt": "p",
+    "skills": ["s"],
+    "difficulty": 2,
+    "grading": {
+      "method": "det"
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "partial"
+    },
+    "payload": {
+      "family": "categorize",
+      "categories": [
+        {
+          "id": "mam",
+          "label": "Mamíferos"
+        },
+        {
+          "id": "ave",
+          "label": "Aves"
+        }
+      ],
+      "items": [
+        {
+          "id": "i1",
+          "text": "Perro",
+          "categoryIds": ["pez"]
+        },
+        {
+          "id": "i2",
+          "text": "Gorrión",
+          "categoryIds": ["ave"]
+        },
+        {
+          "id": "i3",
+          "text": "Ballena",
+          "categoryIds": ["mam"]
+        }
+      ]
+    }
+  },
+  "expect": {
+    "layer": "rules",
+    "codes": ["category-unknown"]
+  }
+}

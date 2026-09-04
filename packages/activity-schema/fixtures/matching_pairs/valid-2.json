@@ -1,0 +1,115 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-00000000004d",
+    "schemaVersion": 1,
+    "type": "matching_pairs",
+    "family": "pairs",
+    "lang": "es-AR",
+    "prompt": "Uní cada término con su definición.",
+    "skills": ["bio.celula.organulos"],
+    "difficulty": 2,
+    "grading": {
+      "method": "det"
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "matching"
+    },
+    "payload": {
+      "family": "pairs",
+      "presentation": "lines",
+      "pairs": [
+        {
+          "id": "a",
+          "left": "Mitocondria",
+          "right": "Produce ATP"
+        },
+        {
+          "id": "b",
+          "left": "Ribosoma",
+          "right": "Sintetiza proteínas"
+        },
+        {
+          "id": "c",
+          "left": "Núcleo",
+          "right": "Guarda el ADN"
+        }
+      ]
+    }
+  },
+  "answers": [
+    {
+      "name": "all",
+      "response": {
+        "matches": [
+          {
+            "left": "a",
+            "right": "a"
+          },
+          {
+            "left": "b",
+            "right": "b"
+          },
+          {
+            "left": "c",
+            "right": "c"
+          }
+        ]
+      },
+      "expect": {
+        "score": 1,
+        "correct": true
+      }
+    },
+    {
+      "name": "one right",
+      "response": {
+        "matches": [
+          {
+            "left": "a",
+            "right": "a"
+          },
+          {
+            "left": "b",
+            "right": "c"
+          },
+          {
+            "left": "c",
+            "right": "b"
+          }
+        ]
+      },
+      "expect": {
+        "score": 0.3333333333,
+        "correct": false
+      }
+    },
+    {
+      "name": "a left matched twice keeps the first",
+      "response": {
+        "matches": [
+          {
+            "left": "a",
+            "right": "b"
+          },
+          {
+            "left": "a",
+            "right": "a"
+          },
+          {
+            "left": "b",
+            "right": "b"
+          },
+          {
+            "left": "c",
+            "right": "c"
+          }
+        ]
+      },
+      "expect": {
+        "score": 0.6666666667,
+        "correct": false
+      }
+    }
+  ]
+}

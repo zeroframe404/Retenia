@@ -1,0 +1,79 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-000000000057",
+    "schemaVersion": 1,
+    "type": "sentence_builder",
+    "family": "ordering",
+    "lang": "es-AR",
+    "prompt": "Armá la oración: «Nunca he estado en Roma».",
+    "skills": ["en.present-perfect"],
+    "difficulty": 2,
+    "grading": {
+      "method": "det"
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "binary"
+    },
+    "payload": {
+      "family": "ordering",
+      "items": [
+        {
+          "id": "a",
+          "text": "I"
+        },
+        {
+          "id": "b",
+          "text": "have"
+        },
+        {
+          "id": "c",
+          "text": "never"
+        },
+        {
+          "id": "d",
+          "text": "been"
+        },
+        {
+          "id": "e",
+          "text": "to Rome"
+        }
+      ],
+      "correctOrder": ["a", "b", "c", "d", "e"],
+      "alternativeOrders": [["c", "b", "a", "d", "e"]],
+      "scoring": "exact"
+    }
+  },
+  "answers": [
+    {
+      "name": "canonical",
+      "response": {
+        "order": ["a", "b", "c", "d", "e"]
+      },
+      "expect": {
+        "score": 1,
+        "correct": true
+      }
+    },
+    {
+      "name": "alternative (inverted, literary)",
+      "response": {
+        "order": ["c", "b", "a", "d", "e"]
+      },
+      "expect": {
+        "score": 1,
+        "correct": true
+      }
+    },
+    {
+      "name": "missing a word",
+      "response": {
+        "order": ["a", "b", "d", "e"]
+      },
+      "expect": {
+        "score": 0,
+        "correct": false
+      }
+    }
+  ]
+}

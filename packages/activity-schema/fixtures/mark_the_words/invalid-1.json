@@ -1,0 +1,49 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-000000000063",
+    "schemaVersion": 1,
+    "type": "mark_the_words",
+    "family": "text_mark",
+    "lang": "es-AR",
+    "prompt": "p",
+    "skills": ["s"],
+    "difficulty": 2,
+    "grading": {
+      "method": "det"
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "partial"
+    },
+    "payload": {
+      "family": "text_mark",
+      "tokens": [
+        {
+          "id": "t1",
+          "text": "El"
+        },
+        {
+          "id": "t2",
+          "text": "perro"
+        },
+        {
+          "id": "t3",
+          "text": "corre"
+        },
+        {
+          "id": "t4",
+          "text": "y"
+        },
+        {
+          "id": "t5",
+          "text": "ladra"
+        }
+      ],
+      "correctIds": []
+    }
+  },
+  "expect": {
+    "layer": "schema",
+    "codes": []
+  }
+}

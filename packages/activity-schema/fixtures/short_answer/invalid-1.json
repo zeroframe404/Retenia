@@ -1,0 +1,28 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-00000000002c",
+    "schemaVersion": 1,
+    "type": "short_answer",
+    "family": "text_input",
+    "lang": "es-AR",
+    "prompt": "p",
+    "skills": ["s"],
+    "difficulty": 2,
+    "grading": {
+      "method": "fuzzy"
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "fuzzy"
+    },
+    "payload": {
+      "family": "text_input",
+      "inputKind": "text",
+      "answers": []
+    }
+  },
+  "expect": {
+    "layer": "schema",
+    "codes": []
+  }
+}

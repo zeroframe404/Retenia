@@ -59,12 +59,20 @@ export default defineConfig({
         'packages/db/src/test-fixtures.ts',
       ],
       // `packages/core` is pure domain logic and zero-dependency by design (see CLAUDE.md);
-      // it is the one package required to ship with real coverage. Every other package is
-      // still placeholder scaffolding pending its real sub-phase, so coverage there is
-      // informational only — reported, not gated.
+      // it is the one package required to ship with real coverage, and the activity graders
+      // are held to 100 % because `docs/spec/03-activities.md` §10 makes them "pure and
+      // testable with fixtures" — an untested branch there is an untested score. Every other
+      // package is still placeholder scaffolding pending its real sub-phase, so coverage there
+      // is informational only — reported, not gated.
       thresholds: {
         'packages/core/src/**': {
           lines: 80,
+        },
+        'packages/activity-graders/src/**': {
+          lines: 100,
+          functions: 100,
+          branches: 100,
+          statements: 100,
         },
       },
     },

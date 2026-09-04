@@ -1,0 +1,71 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-000000000043",
+    "schemaVersion": 1,
+    "type": "free_recall",
+    "family": "long_text",
+    "lang": "es-AR",
+    "prompt": "Describí las causas de la Revolución Francesa.",
+    "skills": ["hist.rev-francesa.causas"],
+    "difficulty": 2,
+    "grading": {
+      "method": "ai"
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "ai"
+    },
+    "payload": {
+      "family": "long_text",
+      "keyPoints": [
+        {
+          "id": "k1",
+          "text": "crisis económica",
+          "weight": 2
+        },
+        {
+          "id": "k2",
+          "text": "desigualdad social",
+          "aliases": ["estamentos"]
+        },
+        {
+          "id": "k3",
+          "text": "ideas de la Ilustración",
+          "aliases": ["ilustración"]
+        }
+      ]
+    }
+  },
+  "answers": [
+    {
+      "name": "all",
+      "response": {
+        "text": "Hubo una crisis económica profunda, gran desigualdad social entre estamentos y circulaban las ideas de la Ilustración."
+      },
+      "expect": {
+        "score": 1,
+        "correct": true
+      }
+    },
+    {
+      "name": "only the weighted one",
+      "response": {
+        "text": "La crisis económica dejó al Estado en bancarrota."
+      },
+      "expect": {
+        "score": 0.5,
+        "correct": false
+      }
+    },
+    {
+      "name": "two light ones",
+      "response": {
+        "text": "La desigualdad social y la Ilustración."
+      },
+      "expect": {
+        "score": 0.5,
+        "correct": false
+      }
+    }
+  ]
+}

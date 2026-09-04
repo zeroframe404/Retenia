@@ -1,0 +1,98 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-00000000002f",
+    "schemaVersion": 1,
+    "type": "numeric_answer",
+    "family": "text_input",
+    "lang": "es-AR",
+    "prompt": "¿Qué distancia hay entre las dos estaciones? Respondé en kilómetros.",
+    "skills": ["fis.unidades.longitud"],
+    "difficulty": 2,
+    "grading": {
+      "method": "det",
+      "numeric": {
+        "relTol": 0.01,
+        "units": ["kilómetros"]
+      }
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "objective"
+    },
+    "payload": {
+      "family": "text_input",
+      "inputKind": "number",
+      "answers": [
+        {
+          "value": "1.5 km"
+        }
+      ],
+      "numeric": {
+        "value": 1.5,
+        "unit": "km"
+      }
+    }
+  },
+  "answers": [
+    {
+      "name": "in km",
+      "response": {
+        "value": "1,5 km"
+      },
+      "expect": {
+        "score": 1,
+        "correct": true
+      }
+    },
+    {
+      "name": "accepted spelling",
+      "response": {
+        "value": "1,5 kilómetros"
+      },
+      "expect": {
+        "score": 1,
+        "correct": true
+      }
+    },
+    {
+      "name": "converted from m",
+      "response": {
+        "value": "1500 m"
+      },
+      "expect": {
+        "score": 1,
+        "correct": true
+      }
+    },
+    {
+      "name": "no unit means the expected one",
+      "response": {
+        "value": "1.5"
+      },
+      "expect": {
+        "score": 1,
+        "correct": true
+      }
+    },
+    {
+      "name": "incompatible unit",
+      "response": {
+        "value": "1.5 kg"
+      },
+      "expect": {
+        "score": 0,
+        "correct": false
+      }
+    },
+    {
+      "name": "wrong value",
+      "response": {
+        "value": "2 km"
+      },
+      "expect": {
+        "score": 0,
+        "correct": false
+      }
+    }
+  ]
+}

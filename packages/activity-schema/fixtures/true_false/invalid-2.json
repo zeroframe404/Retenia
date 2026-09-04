@@ -1,0 +1,48 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-00000000000f",
+    "schemaVersion": 1,
+    "type": "true_false",
+    "family": "choice",
+    "lang": "es-AR",
+    "prompt": "p",
+    "skills": ["s"],
+    "difficulty": 2,
+    "grading": {
+      "method": "det"
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "binary"
+    },
+    "payload": {
+      "family": "choice",
+      "sets": [
+        {
+          "multiple": false,
+          "options": [
+            {
+              "id": "v",
+              "text": "V",
+              "correct": true
+            },
+            {
+              "id": "f",
+              "text": "F",
+              "correct": false
+            },
+            {
+              "id": "n",
+              "text": "No sé",
+              "correct": false
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "expect": {
+    "layer": "rules",
+    "codes": ["choice-option-count"]
+  }
+}

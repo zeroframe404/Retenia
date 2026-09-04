@@ -1,0 +1,80 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-000000000053",
+    "schemaVersion": 1,
+    "type": "ordering_sequence",
+    "family": "ordering",
+    "lang": "es-AR",
+    "prompt": "Ordená las etapas de la mitosis.",
+    "skills": ["bio.mitosis"],
+    "difficulty": 2,
+    "grading": {
+      "method": "det"
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "ordering"
+    },
+    "payload": {
+      "family": "ordering",
+      "items": [
+        {
+          "id": "p",
+          "text": "Profase"
+        },
+        {
+          "id": "m",
+          "text": "Metafase"
+        },
+        {
+          "id": "a",
+          "text": "Anafase"
+        },
+        {
+          "id": "t",
+          "text": "Telofase"
+        }
+      ],
+      "correctOrder": ["p", "m", "a", "t"],
+      "distractors": [
+        {
+          "id": "x",
+          "text": "Interfase"
+        }
+      ],
+      "scoring": "position"
+    }
+  },
+  "answers": [
+    {
+      "name": "correct",
+      "response": {
+        "order": ["p", "m", "a", "t"]
+      },
+      "expect": {
+        "score": 1,
+        "correct": true
+      }
+    },
+    {
+      "name": "distractor at the front shifts everything",
+      "response": {
+        "order": ["x", "p", "m", "a", "t"]
+      },
+      "expect": {
+        "score": 0,
+        "correct": false
+      }
+    },
+    {
+      "name": "two in place",
+      "response": {
+        "order": ["p", "a", "m", "t"]
+      },
+      "expect": {
+        "score": 0.5,
+        "correct": false
+      }
+    }
+  ]
+}

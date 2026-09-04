@@ -1,0 +1,62 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-000000000013",
+    "schemaVersion": 1,
+    "type": "statement_set",
+    "family": "choice",
+    "lang": "es-AR",
+    "prompt": "p",
+    "skills": ["s"],
+    "difficulty": 2,
+    "grading": {
+      "method": "det"
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "partial"
+    },
+    "payload": {
+      "family": "choice",
+      "sets": [
+        {
+          "id": "s1",
+          "stem": "x",
+          "multiple": false,
+          "options": [
+            {
+              "id": "a",
+              "text": "",
+              "correct": true
+            },
+            {
+              "id": "b",
+              "text": "B",
+              "correct": false
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "stem": "y",
+          "multiple": false,
+          "options": [
+            {
+              "id": "s2v",
+              "text": "Verdadero",
+              "correct": false
+            },
+            {
+              "id": "s2f",
+              "text": "Falso",
+              "correct": true
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "expect": {
+    "layer": "schema",
+    "codes": []
+  }
+}

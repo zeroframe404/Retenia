@@ -1,0 +1,33 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-000000000068",
+    "schemaVersion": 1,
+    "type": "disclosure_block",
+    "family": "disclosure",
+    "lang": "es-AR",
+    "prompt": "p",
+    "skills": [],
+    "difficulty": 2,
+    "grading": {
+      "method": "none"
+    },
+    "review": {
+      "eligible": false,
+      "ratingStrategy": "none"
+    },
+    "payload": {
+      "family": "disclosure",
+      "items": [
+        {
+          "id": "n1",
+          "title": "",
+          "body": "b"
+        }
+      ]
+    }
+  },
+  "expect": {
+    "layer": "schema",
+    "codes": []
+  }
+}

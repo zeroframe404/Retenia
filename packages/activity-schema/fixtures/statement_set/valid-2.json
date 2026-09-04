@@ -1,0 +1,95 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-000000000011",
+    "schemaVersion": 1,
+    "type": "statement_set",
+    "family": "choice",
+    "lang": "es-AR",
+    "prompt": "Verdadero o falso sobre la Revolución de Mayo.",
+    "skills": ["hist.arg.1810"],
+    "difficulty": 2,
+    "grading": {
+      "method": "det",
+      "partialCredit": true
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "partial"
+    },
+    "payload": {
+      "family": "choice",
+      "sets": [
+        {
+          "id": "a",
+          "stem": "Ocurrió en 1810.",
+          "multiple": false,
+          "options": [
+            {
+              "id": "av",
+              "text": "Verdadero",
+              "correct": true
+            },
+            {
+              "id": "af",
+              "text": "Falso",
+              "correct": false
+            }
+          ]
+        },
+        {
+          "id": "b",
+          "stem": "Depuso al virrey Liniers.",
+          "multiple": false,
+          "options": [
+            {
+              "id": "bv",
+              "text": "Verdadero",
+              "correct": false
+            },
+            {
+              "id": "bf",
+              "text": "Falso",
+              "correct": true
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "answers": [
+    {
+      "name": "both",
+      "response": {
+        "sets": [
+          {
+            "selected": ["av"]
+          },
+          {
+            "selected": ["bf"]
+          }
+        ]
+      },
+      "expect": {
+        "score": 1,
+        "correct": true
+      }
+    },
+    {
+      "name": "one wrong",
+      "response": {
+        "sets": [
+          {
+            "selected": ["av"]
+          },
+          {
+            "selected": ["bv"]
+          }
+        ]
+      },
+      "expect": {
+        "score": 0.5,
+        "correct": false
+      }
+    }
+  ]
+}

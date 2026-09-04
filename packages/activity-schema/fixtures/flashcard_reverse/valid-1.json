@@ -1,0 +1,71 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-000000000038",
+    "schemaVersion": 1,
+    "type": "flashcard_reverse",
+    "family": "cards",
+    "lang": "es-AR",
+    "prompt": "París",
+    "skills": ["geo.francia.capital"],
+    "difficulty": 2,
+    "grading": {
+      "method": "self"
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "self"
+    },
+    "payload": {
+      "family": "cards",
+      "cards": [
+        {
+          "id": "c1",
+          "front": "París",
+          "back": "Capital de Francia"
+        }
+      ]
+    }
+  },
+  "answers": [
+    {
+      "name": "again",
+      "response": {
+        "rating": 1
+      },
+      "expect": {
+        "score": 0,
+        "correct": false
+      }
+    },
+    {
+      "name": "hard",
+      "response": {
+        "rating": 2
+      },
+      "expect": {
+        "score": 0.3333333333,
+        "correct": true
+      }
+    },
+    {
+      "name": "good",
+      "response": {
+        "rating": 3
+      },
+      "expect": {
+        "score": 0.6666666667,
+        "correct": true
+      }
+    },
+    {
+      "name": "easy",
+      "response": {
+        "rating": 4
+      },
+      "expect": {
+        "score": 1,
+        "correct": true
+      }
+    }
+  ]
+}
