@@ -80,8 +80,8 @@ const TABLE_GROUPS: readonly { title: string; blurb: string; tables: readonly st
   {
     title: 'Sessions, attempts and review log',
     blurb:
-      'What the user did: lesson sessions, activity attempts and the append-only FSRS review log (`src/schema/sessions.ts`).',
-    tables: ['lesson_sessions', 'attempts', 'review_logs'],
+      'What the user did: lesson sessions, daily review sessions, activity attempts and the append-only FSRS review log (`src/schema/sessions.ts`).',
+    tables: ['lesson_sessions', 'review_sessions', 'attempts', 'review_logs'],
   },
   {
     title: 'Infrastructure',

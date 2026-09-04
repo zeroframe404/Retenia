@@ -131,6 +131,27 @@ export function studyDayNumber(
   return Math.floor(shifted / DAY_MS)
 }
 
+/**
+ * The instant the study day containing `date` began — `dayStartHour` local time, that
+ * morning. The inverse of `studyDayNumber`, and what "everything reviewed today" and the
+ * forecast's day buckets are measured from.
+ *
+ * The zone offset is resolved twice: once at the wall-clock guess and once at the instant
+ * that produced, so a day starting inside a DST transition lands on the real boundary
+ * rather than an hour either side of it.
+ */
+export function studyDayStart(
+  date: Date,
+  dayStartHour: number = DEFAULT_DAY_START_HOUR,
+  timeZone: string = DEFAULT_TIME_ZONE,
+): Date {
+  const boundary = resolveDayBoundary({ dayStartHour, timeZone })
+  const day = studyDayNumber(date, boundary.dayStartHour, boundary.timeZone)
+  const wallClock = day * DAY_MS + boundary.dayStartHour * HOUR_MS
+  const first = wallClock - timeZoneOffsetAtMs(wallClock, boundary.timeZone)
+  return new Date(wallClock - timeZoneOffsetAtMs(first, boundary.timeZone))
+}
+
 /** The study day as ISO `YYYY-MM-DD` — what streaks and the heatmap key on. */
 export function studyDay(
   date: Date,

@@ -1,10 +1,11 @@
-import type { Card, ImportanceLevel, KnowledgeItem, ReviewLog } from '../entities'
+import type { Card, ImportanceLevel, KnowledgeItem, ReviewLog, ReviewSession } from '../entities'
 import type { EntityPatch, FindOptions, ListOptions, NewEntity } from '../ports/audit'
-import type { CardRepository } from '../ports/card-repository'
+import type { CardRepository, DueFilters, DueProjection } from '../ports/card-repository'
 import type { Clock } from '../ports/clock'
 import { EntityNotFoundError, OptimisticConcurrencyError } from '../ports/errors'
 import type { KnowledgeItemRepository } from '../ports/knowledge-item-repository'
 import type { ReviewLogRepository } from '../ports/review-log-repository'
+import type { ReviewSessionRepository } from '../ports/review-session-repository'
 
 /**
  * An in-memory unit of work over the slice of the repositories the memory-system use cases
@@ -29,12 +30,21 @@ export interface StoreRepositories {
     | 'list'
     | 'listByItems'
     | 'findDue'
+    | 'listDueBetween'
     | 'update'
+    | 'buryUntil'
     | 'overrideImportance'
     | 'clearExpiredOverrides'
   >
   knowledgeItems: Pick<KnowledgeItemRepository, 'findById' | 'findMany'>
-  reviewLogs: Pick<ReviewLogRepository, 'append'>
+  reviewLogs: Pick<
+    ReviewLogRepository,
+    'append' | 'findById' | 'listSince' | 'medianDurationMs' | 'softDeleteById'
+  >
+  reviewSessions: Pick<
+    ReviewSessionRepository,
+    'create' | 'update' | 'findById' | 'findActive' | 'abandonStale' | 'listSince'
+  >
 }
 
 export interface InMemoryReviewStore extends StoreRepositories {
@@ -48,6 +58,9 @@ export interface InMemoryReviewStore extends StoreRepositories {
   reviewLogs: StoreRepositories['reviewLogs'] & {
     listByCard(cardId: string): Promise<ReviewLog[]>
     all(): ReviewLog[]
+  }
+  reviewSessions: StoreRepositories['reviewSessions'] & {
+    all(): ReviewSession[]
   }
   transaction<T>(work: (repos: InMemoryReviewStore) => Promise<T> | T): Promise<T>
   /** Every `append` call, including those a rolled-back transaction discarded. */
@@ -64,6 +77,7 @@ export function createInMemoryReviewStore(
   let cards = new Map<string, Card>()
   let items = new Map<string, KnowledgeItem>()
   let logs = new Map<string, ReviewLog>()
+  let sessions = new Map<string, ReviewSession>()
   let sequence = 0
   let appendCalls = 0
   let updateCalls = 0
@@ -94,6 +108,19 @@ export function createInMemoryReviewStore(
       ? row
       : undefined
 
+  /** `card.importanceOverride` while it is still in force, else the item's level — the
+   *  adapter's `effectiveImportanceAt`, in memory. */
+  const effectiveLevel = (
+    card: Card,
+    item: KnowledgeItem | undefined,
+    now: Date,
+  ): ImportanceLevel => {
+    const expires = card.importanceOverrideExpiresAt
+    const live_ = expires === null || expires.getTime() > now.getTime()
+    if (card.importanceOverride !== null && live_) return card.importanceOverride
+    return item?.importance ?? 'normal'
+  }
+
   const liveCards = (): Card[] =>
     [...cards.values()]
       .filter((card) => card.deletedAt === null)
@@ -110,7 +137,69 @@ export function createInMemoryReviewStore(
           liveCards().filter((card) => itemIds.includes(card.itemId)),
           listOptions,
         ),
-      findDue: async (now) => liveCards().filter((card) => card.due.getTime() <= now.getTime()),
+      /**
+       * The real adapter's predicate, in memory: live, unsuspended, burial expired, item
+       * active, `paused` out unless asked for, and filtered on the *effective* importance
+       * (a lapsed override does not count). Ordered by `due` then id, exactly as the
+       * adapter's `cards_due` scan is — the composer does its own level ordering on top.
+       */
+      findDue: async (now, filters: DueFilters = {}) => {
+        const at = now.getTime()
+        const rows = liveCards()
+          .filter((card) => {
+            if (card.suspended) return false
+            if (card.due.getTime() > at) return false
+            if (card.buriedUntil !== null && card.buriedUntil.getTime() > at) return false
+            const item = live(items.get(card.itemId))
+            if (item === undefined || item.status !== 'active') return false
+            const level = effectiveLevel(card, item, now)
+            if (filters.includePaused !== true && level === 'paused') return false
+            if (filters.importance !== undefined && !filters.importance.includes(level))
+              return false
+            if (filters.states !== undefined && !filters.states.includes(card.state)) return false
+            if (filters.examId !== undefined) {
+              if (filters.examId === null ? card.examId !== null : card.examId !== filters.examId) {
+                return false
+              }
+            }
+            return true
+          })
+          .sort((a, b) => a.due.getTime() - b.due.getTime() || a.id.localeCompare(b.id))
+        return filters.limit === undefined ? rows : rows.slice(0, filters.limit)
+      },
+      listDueBetween: async (from, to, listDueOptions = {}) => {
+        const now = clock.now()
+        const rows = liveCards()
+          .filter((card) => {
+            if (card.suspended) return false
+            const due = card.due.getTime()
+            if (due < from.getTime() || due >= to.getTime()) return false
+            const item = live(items.get(card.itemId))
+            if (item === undefined || item.status !== 'active') return false
+            return effectiveLevel(card, item, now) !== 'paused'
+          })
+          .sort((a, b) => a.due.getTime() - b.due.getTime() || a.id.localeCompare(b.id))
+          .map(
+            (card): DueProjection => ({
+              due: card.due,
+              level: effectiveLevel(card, live(items.get(card.itemId)), now),
+              state: card.state,
+            }),
+          )
+        return listDueOptions.limit === undefined ? rows : rows.slice(0, listDueOptions.limit)
+      },
+      buryUntil: async (id, until) => {
+        const card = live(cards.get(id))
+        if (card === undefined) throw new EntityNotFoundError('cards', id)
+        const next: Card = {
+          ...card,
+          buriedUntil: until,
+          updatedAt: clock.now(),
+          version: card.version + 1,
+        }
+        cards.set(id, next)
+        return next
+      },
       overrideImportance: async (
         ids: readonly string[],
         level: ImportanceLevel | null,
@@ -177,6 +266,113 @@ export function createInMemoryReviewStore(
         logs.set(log.id, log)
         return log
       },
+      findById: async (id) => logs.get(id),
+      listSince: async (from, to, listOptions) =>
+        applyList(
+          [...logs.values()]
+            .filter(
+              (log) =>
+                log.deletedAt === null &&
+                log.review.getTime() >= from.getTime() &&
+                (to === undefined || log.review.getTime() < to.getTime()),
+            )
+            .sort((a, b) => a.review.getTime() - b.review.getTime() || a.id.localeCompare(b.id)),
+          listOptions,
+        ),
+      /** The lower of the two middle values, like the adapter's `LIMIT 1 OFFSET n/2`.
+       *  Rating `Manual` and zero durations are excluded there too. */
+      medianDurationMs: async (medianOptions = {}) => {
+        const durations = [...logs.values()]
+          .filter((log) => {
+            if (log.deletedAt !== null) return false
+            if (log.rating === 0) return false
+            if (log.durationMs === null || log.durationMs <= 0) return false
+            if (medianOptions.from !== undefined && log.review < medianOptions.from) return false
+            if (
+              medianOptions.contexts !== undefined &&
+              !medianOptions.contexts.includes(log.context)
+            ) {
+              return false
+            }
+            return true
+          })
+          .map((log) => log.durationMs as number)
+          .sort((a, b) => a - b)
+        if (durations.length === 0) return null
+        return durations[Math.floor((durations.length - 1) / 2)] as number
+      },
+      /** Sets `deletedAt` only — `updatedAt` and `version` stay put, which is the one
+       *  mutation the append-only rule permits. */
+      softDeleteById: async (id, deletedAt) => {
+        const log = logs.get(id)
+        if (log === undefined || log.deletedAt !== null) return false
+        logs.set(id, { ...log, deletedAt })
+        return true
+      },
+    },
+    reviewSessions: {
+      create: async (input) => {
+        const session: ReviewSession = { ...input, id: input.id ?? nextId(), ...audit() }
+        sessions.set(session.id, session)
+        return session
+      },
+      update: async (id, patch: EntityPatch<ReviewSession>) => {
+        const session = live(sessions.get(id))
+        if (session === undefined) throw new EntityNotFoundError('review_sessions', id)
+        if (patch.version !== undefined && patch.version !== session.version) {
+          throw new OptimisticConcurrencyError(
+            'review_sessions',
+            id,
+            patch.version,
+            session.version,
+          )
+        }
+        const { version: _token, ...fields } = patch
+        const next: ReviewSession = {
+          ...session,
+          ...(fields as Partial<ReviewSession>),
+          updatedAt: clock.now(),
+          version: session.version + 1,
+        }
+        sessions.set(id, next)
+        return next
+      },
+      findById: async (id, findOptions) => live(sessions.get(id), findOptions),
+      findActive: async () =>
+        [...sessions.values()]
+          .filter((session) => session.deletedAt === null && session.status === 'in_progress')
+          .sort(
+            (a, b) => b.startedAt.getTime() - a.startedAt.getTime() || b.id.localeCompare(a.id),
+          )[0],
+      abandonStale: async (before) => {
+        let closed = 0
+        for (const session of [...sessions.values()]) {
+          if (session.deletedAt !== null || session.status !== 'in_progress') continue
+          if (session.startedAt.getTime() >= before.getTime()) continue
+          sessions.set(session.id, {
+            ...session,
+            status: 'abandoned',
+            updatedAt: clock.now(),
+            version: session.version + 1,
+          })
+          closed += 1
+        }
+        return closed
+      },
+      listSince: async (from, to, listOptions) =>
+        applyList(
+          [...sessions.values()]
+            .filter(
+              (session) =>
+                session.deletedAt === null &&
+                session.startedAt.getTime() >= from.getTime() &&
+                (to === undefined || session.startedAt.getTime() < to.getTime()),
+            )
+            .sort(
+              (a, b) => b.startedAt.getTime() - a.startedAt.getTime() || b.id.localeCompare(a.id),
+            ),
+          listOptions,
+        ),
     },
   }
 
@@ -207,6 +403,10 @@ export function createInMemoryReviewStore(
           .sort((a, b) => a.review.getTime() - b.review.getTime() || a.id.localeCompare(b.id)),
       all: () => [...logs.values()],
     },
+    reviewSessions: {
+      ...repos.reviewSessions,
+      all: () => [...sessions.values()],
+    },
     get appendCalls() {
       return appendCalls
     },
@@ -218,7 +418,12 @@ export function createInMemoryReviewStore(
       // too). Nested calls join the outer transaction, as the SQLite adapter's savepoints
       // do for the cases this double is used in.
       if (depth > 0) return work(store)
-      const snapshot = { cards: new Map(cards), items: new Map(items), logs: new Map(logs) }
+      const snapshot = {
+        cards: new Map(cards),
+        items: new Map(items),
+        logs: new Map(logs),
+        sessions: new Map(sessions),
+      }
       depth = 1
       try {
         return await work(store)
@@ -226,6 +431,7 @@ export function createInMemoryReviewStore(
         cards = snapshot.cards
         items = snapshot.items
         logs = snapshot.logs
+        sessions = snapshot.sessions
         throw error
       } finally {
         depth = 0

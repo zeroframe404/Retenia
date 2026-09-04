@@ -17,5 +17,5 @@ export type {
   PathVersion,
   Section,
 } from './paths'
-export type { Attempt, LessonSession, ReviewLog } from './sessions'
+export type { Attempt, LessonSession, ReviewLog, ReviewSession } from './sessions'
 export type { AiCall, Job, OutboxEntry, Setting } from './system'

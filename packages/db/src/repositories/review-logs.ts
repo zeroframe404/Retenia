@@ -7,7 +7,20 @@ import type {
   ReviewLog,
   ReviewLogRepository,
 } from '@retenia/core'
-import { and, asc, count, desc, eq, gte, isNull, lt, type SQL } from 'drizzle-orm'
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  gte,
+  inArray,
+  isNotNull,
+  isNull,
+  lt,
+  type SQL,
+  sql,
+} from 'drizzle-orm'
 import { reviewLogs } from '../schema'
 import type { Row } from './base'
 import { auditValues, type RepositoryContext } from './context'
@@ -185,5 +198,69 @@ export function createReviewLogRepository(ctx: RepositoryContext): ReviewLogRepo
 
     softDeleteForCard: async (cardId, deletedAt) =>
       softDeleteReviewLogsOfCard(ctx, cardId, deletedAt.getTime()),
+
+    /**
+     * The median of `duration_ms` over graded reviews (§12's "median seconds per card").
+     *
+     * SQLite has no `median()`, so it is the middle row of an ordered scan — the exact
+     * median, not an average, because review times are long-tailed: one interrupted card
+     * left open for twenty minutes would drag a mean far past anything the user experiences.
+     * With an even count the lower of the two middle rows is taken, which is what the
+     * `LIMIT 1 OFFSET n/2` does and is close enough for a time budget.
+     *
+     * Rating `Manual` is excluded: a postpone takes no time and there are potentially
+     * thousands of them after one overload sweep.
+     */
+    medianDurationMs: async (options = {}) => {
+      const predicates: Array<SQL | undefined> = [
+        isNull(reviewLogs.deletedAt),
+        isNotNull(reviewLogs.durationMs),
+        // Rating 0 is `Manual`; it is never a real answer (`fsrs-rules`).
+        sql`${reviewLogs.rating} > 0`,
+        sql`${reviewLogs.durationMs} > 0`,
+      ]
+      if (options.from !== undefined) {
+        predicates.push(gte(reviewLogs.review, options.from.getTime()))
+      }
+      if (options.contexts !== undefined) {
+        if (options.contexts.length === 0) return null
+        predicates.push(inArray(reviewLogs.context, [...options.contexts]))
+      }
+      const where = and(...predicates)
+
+      const [{ total } = { total: 0 }] = ctx.db
+        .select({ total: count() })
+        .from(reviewLogs)
+        .where(where)
+        .all() as Array<{ total: number }>
+      if (total === 0) return null
+
+      const [row] = ctx.db
+        .select({ durationMs: reviewLogs.durationMs })
+        .from(reviewLogs)
+        .where(where)
+        .orderBy(asc(reviewLogs.durationMs))
+        .limit(1)
+        .offset(Math.floor((total - 1) / 2))
+        .all() as Array<{ durationMs: number | null }>
+      return row?.durationMs ?? null
+    },
+
+    /**
+     * The single-row form of `softDeleteForCard`, and the only thing undo may do to a
+     * review: `deleted_at` is set and `updated_at`/`version` are left alone, which is what
+     * the `review_logs_append_only` CHECK permits. Undoing twice returns `false` rather
+     * than throwing — the second undo has nothing to do, which is not an error.
+     */
+    softDeleteById: async (id, deletedAt) => {
+      const rows = ctx.db
+        .update(reviewLogs)
+        .set({ deletedAt: deletedAt.getTime() })
+        .where(and(eq(reviewLogs.id, id), isNull(reviewLogs.deletedAt)))
+        .returning({ id: reviewLogs.id, version: reviewLogs.version })
+        .all() as Array<{ id: string; version: number }>
+      for (const row of rows) ctx.outbox.append('delete', 'review_logs', row)
+      return rows.length > 0
+    },
   }
 }

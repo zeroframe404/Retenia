@@ -30,6 +30,7 @@ export const SYNCABLE_TABLES: ReadonlySet<string> = new Set([
   'path_versions',
   'paths',
   'review_logs',
+  'review_sessions',
   'scheduler_profiles',
   'sections',
   'settings',

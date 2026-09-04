@@ -38,6 +38,7 @@ const ALL_TABLES = [
   'path_versions',
   'paths',
   'review_logs',
+  'review_sessions',
   'scheduler_profiles',
   'sections',
   'settings',
@@ -484,6 +485,27 @@ describe('v1 schema', () => {
       })
       .run()
 
+    db.insert(schema.reviewSessions)
+      .values({
+        id: ids.next(),
+        status: 'completed',
+        startedAt: now,
+        finishedAt: now + 600_000,
+        durationMs: 600_000,
+        seed: '20734',
+        plan: { entries: [{ kind: 'due', cardId, nodeId: null, level: 'normal', examId: null }] },
+        progress: { cursor: 1, outcomes: [], drill: [], drillStarted: false },
+        reviewed: 4,
+        again: 1,
+        hard: 1,
+        postponed: 2,
+        accuracy: 0.75,
+        xp: 20,
+        summary: { minutes: 10 },
+        ...a,
+      })
+      .run()
+
     const attemptId = ids.next()
     db.insert(schema.attempts)
       .values({
@@ -580,7 +602,7 @@ describe('v1 schema', () => {
       expect(count(table), table).toBeGreaterThanOrEqual(1)
     }
     expect(count('importance_levels')).toBe(5)
-    expect(count('_migrations')).toBe(5)
+    expect(count('_migrations')).toBe(6)
     expect(count('lessons')).toBe(2)
   })
 

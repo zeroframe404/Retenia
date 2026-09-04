@@ -1,12 +1,18 @@
 import { is } from '@electron-toolkit/utils'
 import type {
   BlobStore,
+  Card,
+  Forecast,
   ImportanceLevel,
   JsonValue,
   RescheduleImpact,
   RescheduleSelection,
   SecretName,
   SecretStore,
+  SessionEntry,
+  SessionPlan,
+  SessionRunnerState,
+  SessionSummary,
   SettingsKey,
   SettingsRepository,
   UrgentModeHours,
@@ -78,6 +84,78 @@ function toImpactDto(impact: RescheduleImpact) {
       newDue: change.newDue.toISOString(),
     })),
     computedAt: impact.computedAt.toISOString(),
+  }
+}
+
+function toPlanDto(plan: SessionPlan) {
+  return {
+    counts: plan.counts,
+    overload: { ...plan.overload, byLevel: [...plan.overload.byLevel] },
+    postponements: plan.postponements.length,
+    burials: plan.burials.length,
+    estimatedMinutes: plan.estimatedMinutes,
+    budgetMinutes: plan.budgetMinutes,
+    streakGoalCards: plan.streakGoalCards,
+    medianSecondsPerCard: plan.medianSecondsPerCard,
+    backlogDays: plan.backlogDays,
+    newGated: plan.newGated,
+    finalDrill: plan.finalDrill,
+    order: plan.order,
+    seed: plan.seed,
+    composedAt: plan.composedAt.toISOString(),
+  }
+}
+
+/** The FSRS half of the card only: `payload` is the activity's, and the audit columns are
+ *  no business of the renderer. */
+function toCardDto(card: Card) {
+  return {
+    id: card.id,
+    itemId: card.itemId,
+    template: card.template,
+    payload: card.payload as JsonValue,
+    state: card.state,
+    due: card.due.toISOString(),
+    stability: card.stability,
+    difficulty: card.difficulty,
+    scheduledDays: card.scheduledDays,
+    learningSteps: card.learningSteps,
+    reps: card.reps,
+    lapses: card.lapses,
+    lastReview: card.lastReview === null ? null : card.lastReview.toISOString(),
+  }
+}
+
+function toEntryDto(entry: SessionEntry | null) {
+  if (entry === null) return null
+  if (entry.kind === 'reinforcement') return { kind: entry.kind, node: entry.node }
+  return {
+    kind: entry.kind,
+    card: toCardDto(entry.card),
+    level: entry.level,
+    retrievability: entry.retrievability,
+    desiredRetention: entry.options.desiredRetention,
+    examId: entry.examId,
+  }
+}
+
+function toProgressDto(state: SessionRunnerState) {
+  return { ...state }
+}
+
+function toSummaryDto(summary: SessionSummary) {
+  return {
+    ...summary,
+    overload: { ...summary.overload, byLevel: [...summary.overload.byLevel] },
+    finishedAt: summary.finishedAt.toISOString(),
+  }
+}
+
+function toForecastDto(forecast: Forecast) {
+  return {
+    ...forecast,
+    days: forecast.days.map((day) => ({ ...day, byLevel: { ...day.byLevel } })),
+    generatedAt: forecast.generatedAt.toISOString(),
   }
 }
 
@@ -206,6 +284,71 @@ export function createHandlers({
       if (!memory) unavailable('memory', dbUnavailableReason)
       const { impact, applied } = await memory.rescheduleNow(toSelection(selection))
       return { impact: toImpactDto(impact), applied }
+    },
+
+    'memory.forecast': async ({ days }) => {
+      if (!memory) unavailable('memory', dbUnavailableReason)
+      return toForecastDto(await memory.forecast(days))
+    },
+
+    'session.plan': async (settings) => {
+      if (!memory) unavailable('memory', dbUnavailableReason)
+      return toPlanDto(await memory.planSession(settings))
+    },
+
+    'session.start': async ({ confirm: _confirm, ...settings }) => {
+      if (!memory) unavailable('memory', dbUnavailableReason)
+      const result = await memory.startSession(settings)
+      return {
+        progress: toProgressDto(result.runner.state()),
+        resumed: result.resumed,
+        burials: result.burials,
+        postponed: result.postponed,
+        // A resumed session shows the figures it was started with, not a fresh projection
+        // of a day the user is halfway through.
+        plan: result.plan === null ? null : toPlanDto(result.plan),
+      }
+    },
+
+    'session.next': async () => {
+      if (!memory) unavailable('memory', dbUnavailableReason)
+      const { entry, progress } = memory.sessionNext()
+      return { entry: toEntryDto(entry), progress: toProgressDto(progress) }
+    },
+
+    'session.answer': async ({ rating, exerciseScore, durationMs, attemptId }) => {
+      if (!memory) unavailable('memory', dbUnavailableReason)
+      const { result, progress } = await memory.sessionAnswer({
+        rating,
+        ...(exerciseScore === undefined ? {} : { exerciseScore }),
+        ...(durationMs === undefined ? {} : { durationMs }),
+        ...(attemptId === undefined ? {} : { attemptId }),
+      })
+      return {
+        card: toCardDto(result.card),
+        drilled: result.drilled,
+        progress: toProgressDto(progress),
+      }
+    },
+
+    'session.skip': async () => {
+      if (!memory) unavailable('memory', dbUnavailableReason)
+      return { progress: toProgressDto(await memory.sessionSkip()) }
+    },
+
+    'session.undo': async () => {
+      if (!memory) unavailable('memory', dbUnavailableReason)
+      const { undone, progress } = await memory.sessionUndo()
+      return {
+        undone: undone !== null,
+        cardId: undone?.cardId ?? null,
+        progress: toProgressDto(progress),
+      }
+    },
+
+    'session.finish': async () => {
+      if (!memory) unavailable('memory', dbUnavailableReason)
+      return toSummaryDto(await memory.sessionFinish())
     },
 
     'memory.startUrgentMode': async ({ itemIds, hours }) => {

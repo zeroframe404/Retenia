@@ -4,6 +4,7 @@ import { backupsChannels } from './channels/backups'
 import { jobsChannels } from './channels/jobs'
 import { memoryChannels } from './channels/memory'
 import { secretsChannels } from './channels/secrets'
+import { sessionChannels } from './channels/session'
 import { settingsChannels } from './channels/settings'
 import { appEvents } from './events/app'
 import { jobsEvents } from './events/jobs'
@@ -21,8 +22,16 @@ export type { BackupSummary } from './channels/backups'
 export { backupSummarySchema } from './channels/backups'
 export type { JobStatus, JobSummary } from './channels/jobs'
 export { JOB_STATUSES, jobStatusSchema, jobSummarySchema } from './channels/jobs'
-export type { ImportanceLevel, ImportanceMix, RescheduleImpact } from './channels/memory'
+export type {
+  Forecast,
+  ImportanceLevel,
+  ImportanceMix,
+  RescheduleImpact,
+} from './channels/memory'
 export {
+  FORECAST_MAX_DAYS,
+  forecastDaySchema,
+  forecastSchema,
   IMPORTANCE_LEVELS,
   importanceLevelSchema,
   importanceMixEntrySchema,
@@ -35,6 +44,26 @@ export {
 } from './channels/memory'
 export type { SecretName } from './channels/secrets'
 export { SECRET_NAMES, secretNameSchema } from './channels/secrets'
+export type { SessionPlanDto } from './channels/session'
+export {
+  gradeSchema,
+  overloadSummarySchema,
+  REVIEW_SESSION_STATUSES,
+  reinforcementNodeSchema,
+  reviewSessionStatusSchema,
+  SESSION_ENTRY_KINDS,
+  SESSION_ORDERS,
+  sessionCardSchema,
+  sessionCountsSchema,
+  sessionEntryKindSchema,
+  sessionEntrySchema,
+  sessionOrderSchema,
+  sessionPlanSchema,
+  sessionProgressSchema,
+  sessionSettingsSchema,
+  sessionSummarySchema,
+  streakStatusSchema,
+} from './channels/session'
 export type {
   ChannelDefinition,
   ContractShape,
@@ -60,6 +89,7 @@ export const contract = {
   ...jobsChannels,
   ...memoryChannels,
   ...secretsChannels,
+  ...sessionChannels,
   ...backupsChannels,
   ...settingsChannels,
 }

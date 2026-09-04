@@ -14,7 +14,7 @@ import {
 } from './migrator'
 import { IN_MEMORY, type OpenedDatabase, openDatabase } from './open-database'
 
-/** Every table the two shipped migrations must leave behind (virtual and shadow tables of
+/** Every table the shipped migrations must leave behind (virtual and shadow tables of
  * FTS5/vec0 excluded — see `SHADOW_TABLE` below). */
 const EXPECTED_TABLES = [
   '_migrations',
@@ -42,6 +42,7 @@ const EXPECTED_TABLES = [
   'path_versions',
   'paths',
   'review_logs',
+  'review_sessions',
   'scheduler_profiles',
   'sections',
   'settings',
@@ -85,6 +86,7 @@ describe('loadMigrations()', () => {
       '0002_embeddings_int8',
       '0003_review_logs_algorithm_version',
       '0004_card_importance_override_expiry',
+      '0005_review_sessions',
     ])
     for (const migration of migrations) expect(migration.sql.length).toBeGreaterThan(0)
   })
@@ -124,6 +126,7 @@ describe('migrate()', () => {
       '0002_embeddings_int8',
       '0003_review_logs_algorithm_version',
       '0004_card_importance_override_expiry',
+      '0005_review_sessions',
     ])
     expect(result.alreadyApplied).toEqual([])
     expect(listTables(opened)).toEqual([...EXPECTED_TABLES])
@@ -141,6 +144,7 @@ describe('migrate()', () => {
       '0002_embeddings_int8',
       '0003_review_logs_algorithm_version',
       '0004_card_importance_override_expiry',
+      '0005_review_sessions',
     ])
     expect(listTables(opened)).toEqual([...EXPECTED_TABLES])
     expect(opened.sqlite.prepare('SELECT count(*) AS n FROM importance_levels').get()).toEqual({
@@ -170,7 +174,7 @@ describe('migrate()', () => {
 
   it('accepts the raw handle and the Drizzle instance as targets too', () => {
     opened = openDatabase(IN_MEMORY)
-    expect(migrate(opened.sqlite).applied).toHaveLength(5)
+    expect(migrate(opened.sqlite).applied).toHaveLength(6)
     expect(migrate(opened.db).applied).toHaveLength(0)
   })
 

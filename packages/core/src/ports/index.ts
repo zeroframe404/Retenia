@@ -13,6 +13,7 @@ export type { BlobPutResult, BlobStore } from './blob-store'
 export type {
   CardRepository,
   DueFilters,
+  DueProjection,
   ImportanceCountOptions,
 } from './card-repository'
 export type {
@@ -56,6 +57,7 @@ export type {
 } from './reranker'
 export { passthroughReranker } from './reranker'
 export type { ReviewLogRepository } from './review-log-repository'
+export type { ReviewSessionRepository } from './review-session-repository'
 export type { SecretName, SecretStore } from './secret-store'
 export { SECRET_NAMES } from './secret-store'
 export type { SettingsMap, SettingsRepository } from './settings-repository'

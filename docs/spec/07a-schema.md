@@ -47,6 +47,7 @@ Packaging note (Windows first): the `.node` binaries of both drivers and `sqlite
 | 2 | `0002_embeddings_int8` | `4f58c9fdd7df` | `embeddings_i8` (vec0, `int8[768]`, partition `source_id`): the quantized companion a KNN query scans, rescored against the exact float vectors, plus its maintenance triggers. |
 | 3 | `0003_review_logs_algorithm_version` | `33b321d3f075` | `review_logs.algorithm_version` (`TEXT NOT NULL DEFAULT 'fsrs6'`): which scheduler produced each row, so an FSRS variant or an SM-2 import can be told apart in the optimizer's training set (`02-memory-system.md` §17). |
 | 4 | `0004_card_importance_override_expiry` | `02d281654f5e` | `cards.importance_override_expires_at` (nullable) and its partial index: when a per-card importance override lapses. `NULL` is a permanent override; a timestamp makes it urgent mode, the temporary 48–72 h push to desired retention 0.97 (`02-memory-system.md` §7 rule 5). |
+| 5 | `0005_review_sessions` | `04a28924ae33` |  |
 
 ## Tables
 
@@ -75,6 +76,7 @@ Packaging note (Windows first): the `.node` binaries of both drivers and `sqlite
 | `knowledge_items` | Memory system | 18 | 3 | 5 | 10 |
 | `cards` | Memory system | 24 | 2 | 5 | 14 |
 | `lesson_sessions` | Sessions, attempts and review log | 16 | 1 | 2 | 10 |
+| `review_sessions` | Sessions, attempts and review log | 20 | 0 | 2 | 12 |
 | `attempts` | Sessions, attempts and review log | 23 | 5 | 5 | 14 |
 | `review_logs` | Sessions, attempts and review log | 22 | 2 | 3 | 13 |
 | `jobs` | Infrastructure | 23 | 1 | 4 | 9 |
@@ -895,7 +897,7 @@ Checks:
 
 ## Sessions, attempts and review log
 
-What the user did: lesson sessions, activity attempts and the append-only FSRS review log (`src/schema/sessions.ts`).
+What the user did: lesson sessions, daily review sessions, activity attempts and the append-only FSRS review log (`src/schema/sessions.ts`).
 
 ### `lesson_sessions`
 
@@ -935,6 +937,51 @@ Checks:
 - `lesson_sessions_id_uuidv7`: `length(id) = 36 AND substr(id, 15, 1) = '7'`
 - `lesson_sessions_version_positive`: `version >= 1`
 - `lesson_sessions_updated_after_created`: `updated_at >= created_at`
+
+### `review_sessions`
+
+| Column | Type | Null | Default | Key |
+|---|---|---|---|---|
+| `id` | text | no |  | PK |
+| `status` | text | no | `'in_progress'` |  |
+| `started_at` | integer | no |  |  |
+| `finished_at` | integer | yes |  |  |
+| `duration_ms` | integer | yes |  |  |
+| `seed` | text | no | `''` |  |
+| `plan` | text | no |  |  |
+| `progress` | text | no |  |  |
+| `reviewed` | integer | no | `0` |  |
+| `again` | integer | no | `0` |  |
+| `hard` | integer | no | `0` |  |
+| `postponed` | integer | no | `0` |  |
+| `accuracy` | real | yes |  |  |
+| `xp` | integer | no | `0` |  |
+| `summary` | text | yes |  |  |
+| `created_at` | integer | no |  |  |
+| `updated_at` | integer | no |  |  |
+| `deleted_at` | integer | yes |  |  |
+| `device_id` | text | no |  |  |
+| `version` | integer | no | `1` |  |
+
+Indexes:
+
+- `review_sessions_started` (`started_at`)
+- `review_sessions_active` (`started_at`) WHERE `status = 'in_progress' AND deleted_at IS NULL`
+
+Checks:
+
+- `review_sessions_status`: `status IN ('in_progress', 'completed', 'abandoned')`
+- `review_sessions_accuracy_range`: `accuracy IS NULL OR (accuracy >= 0 AND accuracy <= 1)`
+- `review_sessions_duration_nonnegative`: `duration_ms IS NULL OR duration_ms >= 0`
+- `review_sessions_xp_nonnegative`: `xp >= 0`
+- `review_sessions_counts`: `reviewed >= 0 AND again >= 0 AND hard >= 0 AND postponed >= 0 AND again + hard <= reviewed`
+- `review_sessions_finished_after_started`: `finished_at IS NULL OR finished_at >= started_at`
+- `review_sessions_plan_json`: `json_valid(plan) AND json_type(plan) = 'object'`
+- `review_sessions_progress_json`: `json_valid(progress) AND json_type(progress) = 'object'`
+- `review_sessions_summary_json`: `summary IS NULL OR (json_valid(summary) AND json_type(summary) = 'object')`
+- `review_sessions_id_uuidv7`: `length(id) = 36 AND substr(id, 15, 1) = '7'`
+- `review_sessions_version_positive`: `version >= 1`
+- `review_sessions_updated_after_created`: `updated_at >= created_at`
 
 ### `attempts`
 

@@ -1,0 +1,37 @@
+CREATE TABLE `review_sessions` (
+	`id` text PRIMARY KEY NOT NULL,
+	`status` text DEFAULT 'in_progress' NOT NULL,
+	`started_at` integer NOT NULL,
+	`finished_at` integer,
+	`duration_ms` integer,
+	`seed` text DEFAULT '' NOT NULL,
+	`plan` text NOT NULL,
+	`progress` text NOT NULL,
+	`reviewed` integer DEFAULT 0 NOT NULL,
+	`again` integer DEFAULT 0 NOT NULL,
+	`hard` integer DEFAULT 0 NOT NULL,
+	`postponed` integer DEFAULT 0 NOT NULL,
+	`accuracy` real,
+	`xp` integer DEFAULT 0 NOT NULL,
+	`summary` text,
+	`created_at` integer NOT NULL,
+	`updated_at` integer NOT NULL,
+	`deleted_at` integer,
+	`device_id` text NOT NULL,
+	`version` integer DEFAULT 1 NOT NULL,
+	CONSTRAINT "review_sessions_status" CHECK("review_sessions"."status" IN ('in_progress', 'completed', 'abandoned')),
+	CONSTRAINT "review_sessions_accuracy_range" CHECK("review_sessions"."accuracy" IS NULL OR ("review_sessions"."accuracy" >= 0 AND "review_sessions"."accuracy" <= 1)),
+	CONSTRAINT "review_sessions_duration_nonnegative" CHECK("review_sessions"."duration_ms" IS NULL OR "review_sessions"."duration_ms" >= 0),
+	CONSTRAINT "review_sessions_xp_nonnegative" CHECK("review_sessions"."xp" >= 0),
+	CONSTRAINT "review_sessions_counts" CHECK("review_sessions"."reviewed" >= 0 AND "review_sessions"."again" >= 0 AND "review_sessions"."hard" >= 0 AND "review_sessions"."postponed" >= 0 AND "review_sessions"."again" + "review_sessions"."hard" <= "review_sessions"."reviewed"),
+	CONSTRAINT "review_sessions_finished_after_started" CHECK("review_sessions"."finished_at" IS NULL OR "review_sessions"."finished_at" >= "review_sessions"."started_at"),
+	CONSTRAINT "review_sessions_plan_json" CHECK(json_valid("review_sessions"."plan") AND json_type("review_sessions"."plan") = 'object'),
+	CONSTRAINT "review_sessions_progress_json" CHECK(json_valid("review_sessions"."progress") AND json_type("review_sessions"."progress") = 'object'),
+	CONSTRAINT "review_sessions_summary_json" CHECK("review_sessions"."summary" IS NULL OR (json_valid("review_sessions"."summary") AND json_type("review_sessions"."summary") = 'object')),
+	CONSTRAINT "review_sessions_id_uuidv7" CHECK(length("review_sessions"."id") = 36 AND substr("review_sessions"."id", 15, 1) = '7'),
+	CONSTRAINT "review_sessions_version_positive" CHECK("review_sessions"."version" >= 1),
+	CONSTRAINT "review_sessions_updated_after_created" CHECK("review_sessions"."updated_at" >= "review_sessions"."created_at")
+);
+--> statement-breakpoint
+CREATE INDEX `review_sessions_active` ON `review_sessions` (`started_at`) WHERE "review_sessions"."status" = 'in_progress' AND "review_sessions"."deleted_at" IS NULL;--> statement-breakpoint
+CREATE INDEX `review_sessions_started` ON `review_sessions` (`started_at`);

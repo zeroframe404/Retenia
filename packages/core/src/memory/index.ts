@@ -13,6 +13,14 @@ export {
   examOverrideFor,
   NO_EXAM_OVERRIDES,
 } from './exam-override'
+export type {
+  Forecast,
+  ForecastDay,
+  ForecastDeps,
+  ForecastQuery,
+  ForecastRepositories,
+} from './forecast'
+export { createForecast, FORECAST_MAX_CARDS, FORECAST_MAX_DAYS } from './forecast'
 export type { ForgettingCurveConstants, FuzzWindow, NextStateOptions } from './formulas'
 export {
   assertParameters,
@@ -74,6 +82,14 @@ export type {
 export { createImportanceMix, queuedTotal } from './importance-mix'
 export type { FsrsCardFields, FsrsReviewLogFields } from './mappers'
 export { fromFsrsCard, fromFsrsReviewLog, toFsrsCard, toFsrsReviewLog } from './mappers'
+export type {
+  OverloadInput,
+  OverloadSummary,
+  PostponeCandidate,
+  PostponeProposal,
+  PostponeSelection,
+} from './overload'
+export { postponeDays, selectPostponements } from './overload'
 export type { FsrsParameters, SchedulerProfileParameters } from './parameters'
 export {
   assertSchedulingOptions,
@@ -129,6 +145,85 @@ export {
   isUrgentModeActive,
   resolveImportance,
 } from './scheduling-policy'
+export type {
+  ResolvedSessionSettings,
+  SessionCandidate,
+  SessionCardEntry,
+  SessionCounts,
+  SessionEntry,
+  SessionEntryKind,
+  SessionInput,
+  SessionOrder,
+  SessionPlan,
+  SessionReinforcementEntry,
+  SessionSettings,
+  SiblingBurial,
+} from './session'
+export {
+  composeSession,
+  DEFAULT_NEW_EVERY_N_REVIEWS,
+  DEFAULT_STREAK_GOAL_CARDS,
+  disperseSiblings,
+  FALLBACK_MEDIAN_SECONDS,
+  NEW_EVERY_N_REVIEWS_MAX,
+  NEW_EVERY_N_REVIEWS_MIN,
+  NEW_GATING_BACKLOG_DAYS,
+  relativeOverdueness,
+  resolveSessionSettings,
+} from './session'
+export type {
+  ExamQueueEntry,
+  ExamQueueProvider,
+  ReinforcementNode,
+  ReinforcementProvider,
+  SessionEffort,
+  StreakState,
+  StreakStatus,
+  StreakStatusProvider,
+  XpAwarder,
+} from './session-ports'
+export {
+  NO_EXAM_QUEUE,
+  NO_REINFORCEMENT,
+  NO_STREAK,
+  NO_XP,
+} from './session-ports'
+export type {
+  SessionAnswerInput,
+  SessionAnswerResult,
+  SessionOutcome,
+  SessionPlanSnapshot,
+  SessionPlanSnapshotEntry,
+  SessionProgress,
+  SessionRunner,
+  SessionRunnerDeps,
+  SessionRunnerRepositories,
+  SessionRunnerState,
+  SessionSummary,
+  SessionUndoResult,
+  UndoReview,
+} from './session-runner'
+export { createSessionRunner, EMPTY_PROGRESS, snapshotPlan } from './session-runner'
+export type {
+  ComposeSessionDeps,
+  ComposeSessionQuery,
+  SessionReadRepositories,
+} from './session-service'
+export {
+  createComposeSession,
+  emptyLevelCounts,
+  MAX_SESSION_CANDIDATES,
+  readSessionSettings,
+} from './session-service'
+export type {
+  StartSession,
+  StartSessionDeps,
+  StartSessionInput,
+  StartSessionRepositories,
+  StartSessionResult,
+  StartSessionUnitOfWork,
+} from './session-start'
+export { applyPostponements, createStartSession, createUndoReview } from './session-start'
 export type { RetrievabilityOptions, StrengthBand, StrengthLabel } from './strength'
 export { retrievabilityNow, STRENGTH_BANDS, strengthBand, strengthLabel } from './strength'
 export type { DayBoundary } from './study-day'
@@ -142,6 +237,7 @@ export {
   resolveDayBoundary,
   studyDay,
   studyDayNumber,
+  studyDayStart,
   studyDaysBetween,
   studyWeekday,
   timeZoneOffsetMs,
