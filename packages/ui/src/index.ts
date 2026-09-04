@@ -19,6 +19,13 @@ export {
 } from './components/card'
 export type { CelebrationProps, CelebrationVariant } from './components/celebration'
 export { Celebration } from './components/celebration'
+/**
+ * Charts are **deliberately absent from this barrel**: `SeriesChart` and `HistogramChart`
+ * live at `@retenia/ui/charts` so recharts lands in whatever `lazy()` chunk imports them.
+ * Re-exporting them here would make one careless import pull a slice of d3 into the app's
+ * first paint, for a library only the statistics screen uses. The types are free, though.
+ */
+export type { ChartPoint, HistogramChartProps, SeriesChartProps } from './components/charts'
 export type { CodeBlockProps } from './components/code-block'
 export { CodeBlock } from './components/code-block'
 export type { ConfirmDialogProps } from './components/confirm-dialog'

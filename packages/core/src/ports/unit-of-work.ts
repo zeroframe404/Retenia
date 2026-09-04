@@ -1,3 +1,4 @@
+import type { ActivityStatsRepository } from './activity-stats-repository'
 import type { AiCallRepository } from './ai-call-repository'
 import type { AttemptRepository } from './attempt-repository'
 import type { BlobRepository } from './blob-repository'
@@ -15,10 +16,13 @@ import type { ReviewLogRepository } from './review-log-repository'
 import type { ReviewSessionRepository } from './review-session-repository'
 import type { SettingsRepository } from './settings-repository'
 import type { SourceRepository } from './source-repository'
+import type { StatsRepository } from './stats-repository'
 
 /** Every repository, in one bag. A use case takes this (or the one port it needs) and
  *  never knows which adapter is underneath. */
 export interface Repositories {
+  /** Derived, disposable: the rolling per-type median behind §10's "personal median". */
+  activityStats: ActivityStatsRepository
   aiCalls: AiCallRepository
   attempts: AttemptRepository
   blobs: BlobRepository
@@ -36,6 +40,8 @@ export interface Repositories {
   reviewSessions: ReviewSessionRepository
   settings: SettingsRepository
   sources: SourceRepository
+  /** Read-only projections for the statistics screen (§13). */
+  stats: StatsRepository
 }
 
 export interface TransactionOptions {

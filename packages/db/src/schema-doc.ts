@@ -80,8 +80,8 @@ const TABLE_GROUPS: readonly { title: string; blurb: string; tables: readonly st
   {
     title: 'Sessions, attempts and review log',
     blurb:
-      'What the user did: lesson sessions, daily review sessions, activity attempts and the append-only FSRS review log (`src/schema/sessions.ts`).',
-    tables: ['lesson_sessions', 'review_sessions', 'attempts', 'review_logs'],
+      'What the user did: lesson sessions, daily review sessions, activity attempts, the append-only FSRS review log, and the rolling per-type pace derived from it (`src/schema/sessions.ts`).',
+    tables: ['lesson_sessions', 'review_sessions', 'attempts', 'review_logs', 'activity_stats'],
   },
   {
     title: 'Infrastructure',
@@ -256,6 +256,10 @@ export function renderSchemaDoc(): string {
         "`review_logs.algorithm_version` (`TEXT NOT NULL DEFAULT 'fsrs6'`): which scheduler produced each row, so an FSRS variant or an SM-2 import can be told apart in the optimizer's training set (`02-memory-system.md` §17).",
       '0004_card_importance_override_expiry':
         '`cards.importance_override_expires_at` (nullable) and its partial index: when a per-card importance override lapses. `NULL` is a permanent override; a timestamp makes it urgent mode, the temporary 48–72 h push to desired retention 0.97 (`02-memory-system.md` §7 rule 5).',
+      '0005_review_sessions':
+        '`review_sessions`: the frozen daily queue and how far through it the user got, so a session survives the app being closed (`02-memory-system.md` §12).',
+      '0006_review_activity_type_and_stats':
+        '`review_logs.activity_type` (backfilled `NULL`) and `context = \'diagnostic\'`, so the exercise → rating mapping of `02-memory-system.md` §10 can be measured per type (§17 risk 3) and the prior-knowledge diagnostic can seed memory; plus `activity_stats`, the rolling per-type median that decides what "fast" and "slow" mean for this user. Widening a CHECK rebuilds the table in SQLite, which is what the `__new_review_logs` copy is.',
     }
     for (const [index, migration] of loadMigrations().entries()) {
       line(

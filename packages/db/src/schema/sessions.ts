@@ -11,6 +11,7 @@ import {
   inTextListOrNull,
   type JsonObject,
   type JsonValue,
+  jsonArray,
   jsonColumn,
   jsonObject,
   jsonValid,
@@ -52,8 +53,10 @@ export const CONFIDENCE_LEVELS = ['sure', 'unsure', 'guessed'] as const
 export type ConfidenceLevel = (typeof CONFIDENCE_LEVELS)[number]
 
 /**
- * `review_logs.context` (docs/spec/02-memory-system.md §14): the six the spec lists plus
- * `import` for reviews reconstructed from an Anki `revlog` (docs/spec/07-architecture.md §9).
+ * `review_logs.context` (docs/spec/02-memory-system.md §14): the six the spec lists, plus
+ * `diagnostic` for the prior-knowledge test that seeds the memory of modules you already
+ * know (docs/spec/04-path-generation.md; sub-phase 8.5) and `import` for reviews
+ * reconstructed from an Anki `revlog` (docs/spec/07-architecture.md §9).
  */
 export const REVIEW_CONTEXTS = [
   'daily',
@@ -62,6 +65,7 @@ export const REVIEW_CONTEXTS = [
   'exam_sim',
   'cram',
   'manual_postpone',
+  'diagnostic',
   'import',
 ] as const
 export type ReviewContext = (typeof REVIEW_CONTEXTS)[number]
@@ -269,8 +273,19 @@ export const reviewLogs = sqliteTable(
     /** Free-form label of the reviewing device (hostname/platform) — distinct from the
      * sync `device_id`, which identifies the installation. */
     device: text('device'),
-    /** The activity attempt that produced this review, when there was one. */
+    /** The activity attempt that produced this review, when there was one. A composite
+     * activity writes one row per skill it exercised, all sharing this id. */
     attemptId: text('attempt_id').references(() => attempts.id),
+    /**
+     * The activity type behind the rating (`mcq_single`, `cloze_typed`, …), NULL when the
+     * user pressed a button on a plain flashcard.
+     *
+     * Denormalized out of `attempts.activity_id` on purpose: §17 risk 3 says the Hard/Easy
+     * thresholds "are heuristic: measure true retention per type and adjust", which makes
+     * this a `GROUP BY` key on the history itself — and the history has to outlive the
+     * attempt rows. It is also what `activity_stats` keys its rolling median on.
+     */
+    activityType: text('activity_type'),
     /**
      * Which scheduler produced this row — `fsrs6` today (docs/spec/02-memory-system.md §17:
      * "abstract the scheduler and store `algorithm_version`"). Lets a future FSRS variant
@@ -285,6 +300,8 @@ export const reviewLogs = sqliteTable(
     index('rl_card').on(t.cardId, t.review),
     index('rl_review').on(t.review),
     index('rl_attempt').on(t.attemptId),
+    // "measure true retention per type": the per-type history, in time order.
+    index('rl_activity_type').on(t.activityType, t.review),
     check('review_logs_rating', inIntList(t.rating, RATINGS)),
     check('review_logs_state', inIntList(t.state, CARD_STATES)),
     check('review_logs_context', inTextList(t.context, REVIEW_CONTEXTS)),
@@ -299,5 +316,46 @@ export const reviewLogs = sqliteTable(
     check('review_logs_exercise_score_range', inRange(t.exerciseScore, 0, 1)),
     check('review_logs_append_only', sql`${t.updatedAt} = ${t.createdAt} AND ${t.version} = 1`),
     ...standardChecks('review_logs', t),
+  ],
+)
+
+/**
+ * The materialized per-activity-type pace: what "fast" and "slow" mean *for this user*.
+ *
+ * §10's mapping table is written in terms of the **personal median** ("time < personal
+ * median × 0.6", "time > 2× median"), and §9 repeats it for mock exams. Recomputing that
+ * median from `review_logs` on every answer would put a `SELECT … ORDER BY duration_ms
+ * LIMIT 1 OFFSET n/2` in front of every grade, so it is materialized here instead: one row
+ * per activity type, rewritten as each review lands.
+ *
+ * `sample` is a bounded FIFO of the most recent durations, in milliseconds, that
+ * `median_ms` is the exact median of. A bounded window rather than a streaming estimator
+ * (P²) on purpose: the window is small enough to store outright, so the median is exact
+ * rather than approximated, and — being a *sliding* window — it follows the user as they
+ * get faster at a type instead of averaging their first month in forever.
+ *
+ * Derived state, and disposable: delete every row and the next reviews rebuild it. Nothing
+ * about the scheduler depends on it — an unknown median only means speed stops being
+ * evidence, never that a rating is wrong.
+ */
+export const activityStats = sqliteTable(
+  'activity_stats',
+  {
+    id: idColumn(),
+    /** The activity type id (`mcq_single`, `cloze_typed`, …). One row each. */
+    activityType: text('activity_type').notNull().unique(),
+    /** How many durations have ever been folded in, not the sample's length. */
+    reviews: integer('reviews').notNull().default(0),
+    /** The exact median of `sample`, in milliseconds. NULL while the sample is empty. */
+    medianMs: integer('median_ms'),
+    /** The bounded FIFO the median is computed from: a JSON array of positive integers. */
+    sample: jsonColumn('sample').$type<JsonValue>().notNull(),
+    ...auditColumns(),
+  },
+  (t) => [
+    check('activity_stats_reviews_nonnegative', atLeast(t.reviews, 0)),
+    check('activity_stats_median_positive', atLeast(t.medianMs, 1)),
+    check('activity_stats_sample_json', jsonArray(t.sample)),
+    ...standardChecks('activity_stats', t),
   ],
 )

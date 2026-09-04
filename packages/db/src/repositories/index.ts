@@ -9,6 +9,7 @@ import type {
 import { createUuidV7Generator, systemClock } from '@retenia/core'
 import type { VectorIndex } from '../hybrid-search'
 import type { OpenedDatabase } from '../open-database'
+import { createActivityStatsRepository } from './activity-stats'
 import { createAiCallRepository } from './ai-calls'
 import { createAttemptRepository } from './attempts'
 import { createBlobRepository } from './blobs'
@@ -27,6 +28,7 @@ import { createReviewLogRepository } from './review-logs'
 import { createReviewSessionRepository } from './review-sessions'
 import { createSettingsRepository } from './settings'
 import { createSourceRepository } from './sources'
+import { createStatsRepository } from './stats'
 import { createTransactionRunner, type TransactionState } from './transaction'
 
 export interface RepositoryOptions {
@@ -90,6 +92,7 @@ export function createRepositories(opened: OpenedDatabase, options: RepositoryOp
   }
 
   const repositories: Repositories = {
+    activityStats: createActivityStatsRepository(ctx),
     aiCalls: createAiCallRepository(ctx),
     attempts: createAttemptRepository(ctx),
     blobs: createBlobRepository(ctx),
@@ -107,6 +110,7 @@ export function createRepositories(opened: OpenedDatabase, options: RepositoryOp
     reviewSessions: createReviewSessionRepository(ctx),
     settings: createSettingsRepository(ctx),
     sources: createSourceRepository(ctx),
+    stats: createStatsRepository(ctx),
   }
 
   return {

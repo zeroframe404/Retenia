@@ -1,3 +1,4 @@
+export type { ActivityStatsRepository } from './activity-stats-repository'
 export type { AiCallRepository, CostQuery } from './ai-call-repository'
 export type { AttemptRepository } from './attempt-repository'
 export type {
@@ -63,4 +64,10 @@ export { SECRET_NAMES } from './secret-store'
 export type { SettingsMap, SettingsRepository } from './settings-repository'
 export { SETTINGS, SETTINGS_DEFAULTS, type SettingsKey } from './settings-repository'
 export type { SourceRepository } from './source-repository'
+export type {
+  CardMemoryState,
+  ReviewEvent,
+  StatsReadOptions,
+  StatsRepository,
+} from './stats-repository'
 export type { Repositories, TransactionOptions, UnitOfWork } from './unit-of-work'

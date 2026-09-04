@@ -1,4 +1,75 @@
 {
   "title": "Estadísticas",
-  "comingSoon": "El panel de estadísticas llega en una fase posterior."
+  "comingSoon": "El panel de estadísticas llega en una fase posterior.",
+  "subtitle": "Cómo anda tu memoria de verdad: las seis mediciones que dicen si el programador está funcionando.",
+  "empty": {
+    "title": "Todavía no hay nada que medir",
+    "body": "Repasá algunas tarjetas y estos seis paneles se completan. La retención real necesita repasos de tarjetas que ya habías aprendido, así que los primeros números útiles aparecen a los pocos días."
+  },
+  "error": {
+    "title": "No se pudieron leer las estadísticas",
+    "retry": "Reintentar"
+  },
+  "trueRetention": {
+    "title": "Retención real",
+    "help": "Con qué frecuencia recordás una tarjeta que tocaba recordar: el primer repaso del día, sobre tarjetas en repaso con intervalo de un día o más.",
+    "windows": {
+      "day": "Hoy",
+      "week": "Semana",
+      "month": "Mes",
+      "year": "Año"
+    },
+    "young": "Jóvenes (< 21 d)",
+    "mature": "Maduras (≥ 21 d)",
+    "reviews": "{count, plural, one {# repaso} other {# repasos}}",
+    "since": "Desde el {date}",
+    "none": "Todavía no hay repasos en esta ventana."
+  },
+  "byLevel": {
+    "title": "Retención deseada vs. real",
+    "help": "Lo que cada nivel de importancia le pide al programador, contra lo que realmente recordás. Una diferencia de más de 5 puntos indica que conviene reoptimizar o mover el objetivo.",
+    "level": "Nivel",
+    "desired": "Objetivo",
+    "actual": "Real",
+    "gap": "Diferencia",
+    "reviews": "Repasos",
+    "alert": "{count, plural, one {# nivel está a más de 5 puntos del objetivo} other {# niveles están a más de 5 puntos del objetivo}}.",
+    "none": "No hay repasos suficientes este mes para comparar."
+  },
+  "meanRetention": {
+    "title": "Retención media hoy",
+    "help": "Promediada sobre todas las tarjetas en repaso, la mayoría de las cuales no vencen hoy: por eso queda bastante por encima de tu retención objetivo, y está bien que así sea.",
+    "cards": "{count, plural, one {# tarjeta en repaso} other {# tarjetas en repaso}}"
+  },
+  "memorized": {
+    "title": "Conocimiento memorizado",
+    "help": "La suma de tus probabilidades de recuerdo: aproximadamente cuántas cosas podrías evocar ahora mismo.",
+    "unit": "{count, plural, one {# ítem} other {# ítems}}",
+    "chartCaption": "Conocimiento memorizado por día",
+    "chartValue": "Ítems recordables"
+  },
+  "distribution": {
+    "title": "Estabilidad y dificultad",
+    "help": "La estabilidad es el intervalo en el que el recuerdo cae a 90 %. La proporción por encima de un año es la que seguirías sabiendo dentro de un año sin tocarla.",
+    "stability": "Estabilidad",
+    "difficulty": "Dificultad",
+    "stabilityCaption": "Tarjetas por estabilidad",
+    "difficultyCaption": "Tarjetas por dificultad",
+    "cards": "Tarjetas",
+    "over21": "{percent} por encima de 21 días",
+    "over365": "{percent} por encima de un año",
+    "meanStability": "Estabilidad media {days}",
+    "none": "Ninguna tarjeta tiene todavía una estabilidad medida."
+  },
+  "forecast": {
+    "title": "Pronóstico",
+    "help": "Repasos ya programados para los próximos 30 días. No cuenta las tarjetas nuevas: los repasos que van a generar son tarea del simulador.",
+    "chartCaption": "Repasos por día",
+    "chartValue": "Tarjetas",
+    "backlog": "{count, plural, one {# tarjeta atrasada} other {# tarjetas atrasadas}}",
+    "none": "Todavía no hay nada programado."
+  },
+  "units": {
+    "days": "{count, plural, one {# día} other {# días}}"
+  }
 }

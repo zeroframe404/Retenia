@@ -17,6 +17,8 @@ import type {
   SessionSummary,
   SettingsKey,
   SettingsRepository,
+  StatsOverview,
+  TrueRetention,
   UrgentModeHours,
 } from '@retenia/core'
 import { GRADES, SETTINGS } from '@retenia/core'
@@ -184,6 +186,44 @@ function toForecastDto(forecast: Forecast) {
   }
 }
 
+/**
+ * The bridge has no `Infinity`: the top stability bin is open-ended in core and `null` on
+ * the wire, which is also how the schema declares it.
+ */
+function toBinDto(bin: { label: string; from: number; to: number; count: number; share: number }) {
+  return { ...bin, to: Number.isFinite(bin.to) ? bin.to : null }
+}
+
+function toRetentionDto(retention: TrueRetention) {
+  return {
+    window: retention.window,
+    from: retention.from,
+    young: { ...retention.young },
+    mature: { ...retention.mature },
+    all: { ...retention.all },
+  }
+}
+
+function toStatsDto(stats: StatsOverview) {
+  return {
+    trueRetention: toRetentionDto(stats.trueRetention),
+    byLevel: stats.byLevel.map((entry) => ({ ...entry })),
+    retentionAlert: stats.retentionAlert,
+    memorized: {
+      ...stats.memorized,
+      series: stats.memorized.series.map((day) => ({ ...day })),
+      generatedAt: stats.memorized.generatedAt.toISOString(),
+    },
+    distribution: {
+      ...stats.distribution,
+      stability: stats.distribution.stability.map(toBinDto),
+      difficulty: stats.distribution.difficulty.map(toBinDto),
+    },
+    forecast: stats.forecast === null ? null : toForecastDto(stats.forecast),
+    generatedAt: stats.generatedAt.toISOString(),
+  }
+}
+
 /** The implementation of every channel in the contract. */
 export function createHandlers({
   settings,
@@ -315,6 +355,16 @@ export function createHandlers({
     'memory.forecast': async ({ days }) => {
       if (!memory) unavailable('memory', dbUnavailableReason)
       return toForecastDto(await memory.forecast(days))
+    },
+
+    'stats.overview': async (options) => {
+      if (!memory) unavailable('stats', dbUnavailableReason)
+      return toStatsDto(await memory.stats(options))
+    },
+
+    'stats.trueRetention': async ({ window }) => {
+      if (!memory) unavailable('stats', dbUnavailableReason)
+      return toRetentionDto(await memory.trueRetention(window))
     },
 
     'session.plan': async (settings) => {

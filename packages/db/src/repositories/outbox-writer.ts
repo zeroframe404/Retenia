@@ -13,6 +13,10 @@ import type { AuditValues, OutboxOperation, OutboxWriter, RepositoryContext } fr
 export const SYNCABLE_TABLES: ReadonlySet<string> = new Set([
   'achievements',
   'activities',
+  // Derived from `review_logs`, which do sync — but only from a *bounded window* of them,
+  // which a replay could not reproduce exactly. Cheaper to carry the row than to have a
+  // second device start out with no idea how fast its user is (§10's personal median).
+  'activity_stats',
   'annotations',
   'attempts',
   'blobs',

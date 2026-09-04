@@ -86,11 +86,11 @@ export interface MemoryState {
 /**
  * The FSRS half of a review log — everything the scheduler knows about a review. The use
  * case adds what it knows (`durationMs`, `context`, `exerciseScore`, `device`,
- * `attemptId`) and the repository mints the id and the audit set.
+ * `attemptId`, `activityType`) and the repository mints the id and the audit set.
  */
 export type ReviewLogDraft = Omit<
   NewEntity<ReviewLog>,
-  'id' | 'durationMs' | 'context' | 'exerciseScore' | 'device' | 'attemptId'
+  'id' | 'durationMs' | 'context' | 'exerciseScore' | 'device' | 'attemptId' | 'activityType'
 >
 
 /** One scheduling outcome: the card after the review and the log row describing it. */

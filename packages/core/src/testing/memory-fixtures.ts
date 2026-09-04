@@ -77,6 +77,7 @@ export function reviewLogFixture(overrides: Partial<ReviewLog> = {}): ReviewLog 
     device: null,
     attemptId: null,
     algorithmVersion: 'fsrs6',
+    activityType: null,
     ...audit(),
     ...overrides,
   }

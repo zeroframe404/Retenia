@@ -47,7 +47,8 @@ Packaging note (Windows first): the `.node` binaries of both drivers and `sqlite
 | 2 | `0002_embeddings_int8` | `4f58c9fdd7df` | `embeddings_i8` (vec0, `int8[768]`, partition `source_id`): the quantized companion a KNN query scans, rescored against the exact float vectors, plus its maintenance triggers. |
 | 3 | `0003_review_logs_algorithm_version` | `33b321d3f075` | `review_logs.algorithm_version` (`TEXT NOT NULL DEFAULT 'fsrs6'`): which scheduler produced each row, so an FSRS variant or an SM-2 import can be told apart in the optimizer's training set (`02-memory-system.md` §17). |
 | 4 | `0004_card_importance_override_expiry` | `02d281654f5e` | `cards.importance_override_expires_at` (nullable) and its partial index: when a per-card importance override lapses. `NULL` is a permanent override; a timestamp makes it urgent mode, the temporary 48–72 h push to desired retention 0.97 (`02-memory-system.md` §7 rule 5). |
-| 5 | `0005_review_sessions` | `04a28924ae33` |  |
+| 5 | `0005_review_sessions` | `04a28924ae33` | `review_sessions`: the frozen daily queue and how far through it the user got, so a session survives the app being closed (`02-memory-system.md` §12). |
+| 6 | `0006_review_activity_type_and_stats` | `105d9b6eb30d` | `review_logs.activity_type` (backfilled `NULL`) and `context = 'diagnostic'`, so the exercise → rating mapping of `02-memory-system.md` §10 can be measured per type (§17 risk 3) and the prior-knowledge diagnostic can seed memory; plus `activity_stats`, the rolling per-type median that decides what "fast" and "slow" mean for this user. Widening a CHECK rebuilds the table in SQLite, which is what the `__new_review_logs` copy is. |
 
 ## Tables
 
@@ -78,7 +79,8 @@ Packaging note (Windows first): the `.node` binaries of both drivers and `sqlite
 | `lesson_sessions` | Sessions, attempts and review log | 16 | 1 | 2 | 10 |
 | `review_sessions` | Sessions, attempts and review log | 20 | 0 | 2 | 12 |
 | `attempts` | Sessions, attempts and review log | 23 | 5 | 5 | 14 |
-| `review_logs` | Sessions, attempts and review log | 22 | 2 | 3 | 13 |
+| `review_logs` | Sessions, attempts and review log | 23 | 2 | 4 | 13 |
+| `activity_stats` | Sessions, attempts and review log | 10 | 0 | 1 | 6 |
 | `jobs` | Infrastructure | 23 | 1 | 4 | 9 |
 | `ai_calls` | Infrastructure | 25 | 1 | 4 | 12 |
 | `settings` | Infrastructure | 8 | 0 | 1 | 5 |
@@ -897,7 +899,7 @@ Checks:
 
 ## Sessions, attempts and review log
 
-What the user did: lesson sessions, daily review sessions, activity attempts and the append-only FSRS review log (`src/schema/sessions.ts`).
+What the user did: lesson sessions, daily review sessions, activity attempts, the append-only FSRS review log, and the rolling per-type pace derived from it (`src/schema/sessions.ts`).
 
 ### `lesson_sessions`
 
@@ -1056,15 +1058,17 @@ Checks:
 | `exercise_score` | real | yes |  |  |
 | `device` | text | yes |  |  |
 | `attempt_id` | text | yes |  | → `attempts.id` |
+| `activity_type` | text | yes |  |  |
+| `algorithm_version` | text | no | `'fsrs6'` |  |
 | `created_at` | integer | no |  |  |
 | `updated_at` | integer | no |  |  |
 | `deleted_at` | integer | yes |  |  |
 | `device_id` | text | no |  |  |
 | `version` | integer | no | `1` |  |
-| `algorithm_version` | text | no | `'fsrs6'` |  |
 
 Indexes:
 
+- `rl_activity_type` (`activity_type`, `review`)
 - `rl_attempt` (`attempt_id`)
 - `rl_review` (`review`)
 - `rl_card` (`card_id`, `review`)
@@ -1073,7 +1077,7 @@ Checks:
 
 - `review_logs_rating`: `rating IN (0, 1, 2, 3, 4)`
 - `review_logs_state`: `state IN (0, 1, 2, 3)`
-- `review_logs_context`: `context IN ('daily', 'lesson', 'reinforcement', 'exam_sim', 'cram', 'manual_postpone', 'import')`
+- `review_logs_context`: `context IN ('daily', 'lesson', 'reinforcement', 'exam_sim', 'cram', 'manual_postpone', 'diagnostic', 'import')`
 - `review_logs_stability_nonnegative`: `stability >= 0`
 - `review_logs_difficulty_range`: `difficulty >= 0 AND difficulty <= 10`
 - `review_logs_scheduled_days_nonnegative`: `scheduled_days >= 0`
@@ -1084,6 +1088,34 @@ Checks:
 - `review_logs_id_uuidv7`: `length(id) = 36 AND substr(id, 15, 1) = '7'`
 - `review_logs_version_positive`: `version >= 1`
 - `review_logs_updated_after_created`: `updated_at >= created_at`
+
+### `activity_stats`
+
+| Column | Type | Null | Default | Key |
+|---|---|---|---|---|
+| `id` | text | no |  | PK |
+| `activity_type` | text | no |  |  |
+| `reviews` | integer | no | `0` |  |
+| `median_ms` | integer | yes |  |  |
+| `sample` | text | no |  |  |
+| `created_at` | integer | no |  |  |
+| `updated_at` | integer | no |  |  |
+| `deleted_at` | integer | yes |  |  |
+| `device_id` | text | no |  |  |
+| `version` | integer | no | `1` |  |
+
+Indexes:
+
+- `activity_stats_activity_type_unique` UNIQUE (`activity_type`)
+
+Checks:
+
+- `activity_stats_reviews_nonnegative`: `reviews >= 0`
+- `activity_stats_median_positive`: `median_ms IS NULL OR median_ms >= 1`
+- `activity_stats_sample_json`: `json_valid(sample) AND json_type(sample) = 'array'`
+- `activity_stats_id_uuidv7`: `length(id) = 36 AND substr(id, 15, 1) = '7'`
+- `activity_stats_version_positive`: `version >= 1`
+- `activity_stats_updated_after_created`: `updated_at >= created_at`
 
 ## Infrastructure
 

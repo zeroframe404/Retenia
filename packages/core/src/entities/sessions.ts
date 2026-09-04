@@ -76,6 +76,17 @@ export interface ReviewLog extends Entity {
   exerciseScore: number | null
   device: string | null
   attemptId: string | null
+  /**
+   * The activity type that produced this review (`mcq_single`, `cloze_typed`,
+   * `pronunciation_word`…), or `null` for a rating pressed on a plain flashcard.
+   *
+   * §17 risk 3 is the reason it is a column rather than something to be joined out of
+   * `attempts`: *"The Hard/Easy thresholds of the automatic exercises are heuristic:
+   * measure true retention per type and adjust"* — that measurement is a `GROUP BY` over
+   * this history, and it has to survive the attempt row being pruned. It is also the key
+   * of the rolling per-type median in `activity_stats`.
+   */
+  activityType: string | null
   /** The scheduler that produced the row: `fsrs6` today (`docs/spec/02-memory-system.md`
    *  §17). Lets an FSRS variant or an SM-2 import be told apart in the training set. */
   algorithmVersion: string

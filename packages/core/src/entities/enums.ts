@@ -173,6 +173,9 @@ export const REVIEW_CONTEXTS = [
   'exam_sim',
   'cram',
   'manual_postpone',
+  /** The prior-knowledge diagnostic of `docs/spec/04-path-generation.md` — sub-phase 8.5
+   *  seeds the memory of the modules it proves you already know. */
+  'diagnostic',
   'import',
 ] as const
 export type ReviewContext = (typeof REVIEW_CONTEXTS)[number]

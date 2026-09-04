@@ -55,6 +55,7 @@ function toEntity(row: Row): ReviewLog {
     exerciseScore: toNumberOrNull(row.exerciseScore),
     device: toTextOrNull(row.device),
     attemptId: toTextOrNull(row.attemptId),
+    activityType: toTextOrNull(row.activityType),
     algorithmVersion: toText(row.algorithmVersion),
     createdAt: toDate(row.createdAt),
     updatedAt: toDate(row.updatedAt),
@@ -125,6 +126,7 @@ export function createReviewLogRepository(ctx: RepositoryContext): ReviewLogRepo
           exerciseScore: input.exerciseScore ?? null,
           device: input.device ?? null,
           attemptId: input.attemptId ?? null,
+          activityType: input.activityType ?? null,
           algorithmVersion: input.algorithmVersion,
           ...auditValues(ctx, at),
         })

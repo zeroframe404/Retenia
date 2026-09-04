@@ -129,6 +129,8 @@ export async function applyPostponements(
           context: POSTPONE_CONTEXT,
           exerciseScore: null,
           device: null,
+          // No activity produced this row: it is a scheduler-side move, not an answer.
+          activityType: null,
           attemptId: null,
         }),
       )
