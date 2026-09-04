@@ -12,6 +12,15 @@ allowBuilds:
   # `node-gyp rebuild` keeps installs toolchain-free on Windows and CI.
   better-sqlite3: false
   better-sqlite3-multiple-ciphers: false
+# The FSRS optimizer binding (apps/desktop) ships native N-API prebuilds for every platform
+# we target *and* a wasm32-wasi build exposing the same API. npm refuses the WASI package on
+# a cpu mismatch; only this pulls it, and it is what keeps the optimizer working on a
+# platform with no prebuild.
+supportedArchitectures:
+  cpu:
+    - current
+    - wasm32
+
 minimumReleaseAgeExclude:
   - electron@44.1.1
   - '@sentry/electron@7.18.0'

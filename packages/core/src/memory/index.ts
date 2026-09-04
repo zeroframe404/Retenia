@@ -1,3 +1,6 @@
+// --- sub-phase 4.6: optimizer, simulator, leeches, siblings, load balancer, easy days ---
+export type { EasyDayCalendar, EasyDayInput } from './easy-days'
+export { easyDayLevelAt, resolveEasyDayCalendar } from './easy-days'
 export type { CardReviewedEvent, MemorySnapshot } from './events'
 export { memorySnapshot } from './events'
 export type {
@@ -80,8 +83,58 @@ export type {
   ImportanceMixQuery,
 } from './importance-mix'
 export { createImportanceMix, queuedTotal } from './importance-mix'
+export type { LeechDecision, LeechStage } from './leech'
+export { evaluateLeech, leechWarningThreshold } from './leech'
+export type { DueHistogram, DueHistogramOptions } from './load-balance'
+export {
+  buildDueHistogram,
+  createLoadBalancer,
+  dueAfterDays,
+  LOAD_BALANCE_HORIZON_DAYS,
+} from './load-balance'
 export type { FsrsCardFields, FsrsReviewLogFields } from './mappers'
 export { fromFsrsCard, fromFsrsReviewLog, toFsrsCard, toFsrsReviewLog } from './mappers'
+export type {
+  ApplyOptimization,
+  OptimizationOutcome,
+  Optimizer,
+  OptimizerDeps,
+  OptimizerRepositories,
+  OptimizerStatus,
+  OptimizerStatusQuery,
+  OptimizerTrainingInputSource,
+  PrepareOptimization,
+} from './optimizer'
+export {
+  createApplyOptimization,
+  createOptimizer,
+  createOptimizerStatus,
+  createPrepareOptimization,
+  OPTIMIZER_HISTORY_EPOCH,
+  OPTIMIZER_MAX_REVIEWS,
+} from './optimizer'
+export type { OptimizerCsvRow } from './optimizer-csv'
+export {
+  formatOptimizerCsv,
+  OPTIMIZER_CSV_HEADER,
+  parseOptimizerCsv,
+  toOptimizerCsv,
+  toOptimizerCsvRows,
+} from './optimizer-csv'
+export type {
+  HealthCheck,
+  HealthCheckReason,
+  OptimizerOffer,
+  OptimizerOfferReason,
+} from './optimizer-policy'
+export {
+  healthCheck,
+  nextOptimizationThreshold,
+  OPTIMIZER_CADENCE_BASE,
+  OPTIMIZER_MAX_AGE_MS,
+  OPTIMIZER_MIN_REVIEWS,
+  optimizationOffer,
+} from './optimizer-policy'
 export type {
   OverloadInput,
   OverloadSummary,
@@ -242,6 +295,29 @@ export type {
   StartSessionUnitOfWork,
 } from './session-start'
 export { applyPostponements, createStartSession, createUndoReview } from './session-start'
+export type { SiblingDispersal } from './siblings'
+export {
+  disperseSiblingDueDates,
+  MAX_SIBLING_SPREAD_DAYS,
+  siblingBurialUntil,
+} from './siblings'
+export type {
+  FirstRatingProbabilities,
+  ReviewRatingProbabilities,
+  SimulationResult,
+  SimulatorConfig,
+  WorkloadSummary,
+} from './simulator'
+export {
+  DEFAULT_SIMULATOR_CONFIG,
+  RATING_PROBABILITY_MIN_SAMPLE,
+  ratingProbabilitiesFrom,
+  relativeWorkload,
+  SIMULATOR_MAX_DECK_SIZE,
+  SIMULATOR_MAX_SPAN_DAYS,
+  simulate,
+  workloadSummary,
+} from './simulator'
 export type { RetrievabilityOptions, StrengthBand, StrengthLabel } from './strength'
 export { retrievabilityNow, STRENGTH_BANDS, strengthBand, strengthLabel } from './strength'
 export type { DayBoundary } from './study-day'
@@ -258,9 +334,11 @@ export {
   studyDayStart,
   studyDaysBetween,
   studyWeekday,
+  timeZoneOffsetAtMs,
   timeZoneOffsetMs,
 } from './study-day'
 export type {
+  EasyDates,
   EasyDayLevel,
   EasyDays,
   Grade,
@@ -274,10 +352,11 @@ export type {
   SchedulingPreview,
   SchedulingResult,
   StepUnit,
+  StudyDateKey,
   TimeUnit,
   Weekday,
 } from './types'
-export { CARD_STATE, GRADES, RATING, SCHEDULER_ALGORITHM_VERSION } from './types'
+export { CARD_STATE, EASY_DAY_LEVELS, GRADES, RATING, SCHEDULER_ALGORITHM_VERSION } from './types'
 export type {
   EndUrgentMode,
   ExpireUrgentMode,

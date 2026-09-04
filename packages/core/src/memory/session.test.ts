@@ -17,6 +17,7 @@ import {
   type SessionSettings,
 } from './session'
 import type { ExamQueueEntry } from './session-ports'
+import { siblingBurialUntil } from './siblings'
 import { DAY_MS } from './study-day'
 import { CARD_STATE } from './types'
 
@@ -203,7 +204,7 @@ describe('§4 — siblings', () => {
     expect(disperseSiblings(entries).map((entry) => entry.card.id)).toEqual(['a', 'c', 'b', 'd'])
   })
 
-  it('buries a sibling to tomorrow when the item was already reviewed today', () => {
+  it('buries a sibling to the next study day when the item was already reviewed today', () => {
     const item = nextId('7777')
     const reviewed = candidate({ itemId: item })
     const sibling = candidate({ itemId: item })
@@ -220,9 +221,21 @@ describe('§4 — siblings', () => {
 
     // The card that was reviewed keeps its place (it is due again on its own steps); its
     // sibling is held back rather than giving the answer away.
+    //
+    // Until the *start of the next study day*, not `now + 24 h`: reviewing at 23:00 with a
+    // flat day's offset would hide the sibling until 23:00 tomorrow, which is past
+    // tomorrow's session, and the card would silently skip a day.
     expect(result.burials).toEqual([
-      { cardId: sibling.card.id, itemId: item, until: new Date(NOW.getTime() + DAY_MS) },
+      {
+        cardId: sibling.card.id,
+        itemId: item,
+        until: siblingBurialUntil(NOW, { dayStartHour: 0 }),
+      },
     ])
+    // The harness runs with a midnight rollover, so 'the next study day' is midnight; with
+    // the product default of 4 a.m. the same review would bury until 04:00.
+    expect(siblingBurialUntil(NOW, { dayStartHour: 0 })).toEqual(new Date('2026-06-02T00:00:00Z'))
+    expect(siblingBurialUntil(NOW)).toEqual(new Date('2026-06-02T04:00:00Z'))
     expect(cardEntries(result).map((e) => e.card.id)).not.toContain(sibling.card.id)
     expect(cardEntries(result).map((e) => e.card.id)).toContain(unrelated.card.id)
   })

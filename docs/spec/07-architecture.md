@@ -395,8 +395,15 @@ lessons as SCORM/xAPI is left for later.
 
 1. **Name and brand:** Retenia is a working name; verify WHOIS and search INPI before
    registering the domain and designing the logo.
-2. **FSRS optimizer:** `@open-spaced-repetition/binding` (napi, verify the win32-x64 prebuild)
-   vs `fsrs-browser` (WASM, no native binaries).
+2. ~~**FSRS optimizer:** `@open-spaced-repetition/binding` (napi, verify the win32-x64 prebuild)
+   vs `fsrs-browser` (WASM, no native binaries).~~ **Taken in sub-phase 4.6:**
+   `@open-spaced-repetition/binding`. The win32-x64 prebuild exists and is shipped as an
+   `optionalDependencies` entry, so no build toolchain and no `@electron/rebuild` (it is
+   N-API). `fsrs-browser` is not needed as the fallback: the same package publishes
+   `@open-spaced-repetition/binding-wasm32-wasi` behind the *same* API, pulled in by
+   `supportedArchitectures.cpu: ['current', 'wasm32']` in `pnpm-workspace.yaml`, so a
+   platform with no prebuild degrades to WASM without a second adapter. Measured on a
+   5,000-review fixture: ~500 ms to train, log loss 0.378 → 0.356.
 3. **Video player:** media-chrome (safe) vs Vidstack 1.x (better React API, uncertain
    activity): decide in sub-phase 6.4 after reviewing commits.
 4. **Local Whisper:** sherpa-onnx (one addon for STT + VAD + TTS) vs a bundled whisper-cli (no

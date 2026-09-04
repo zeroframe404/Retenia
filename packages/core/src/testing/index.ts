@@ -16,6 +16,7 @@ export {
   outboxContract,
   reviewLogsContract,
   runRepositoryContracts,
+  schedulerProfilesContract,
   settingsContract,
   unitOfWorkContract,
 } from './contracts/index'
@@ -43,3 +44,10 @@ export {
   knowledgeItemFixture,
   reviewLogFixture,
 } from './memory-fixtures'
+export type { OptimizerFixture, OptimizerFixtureOptions } from './optimizer-fixture'
+export {
+  FIXTURE_GROUND_TRUTH_W,
+  FIXTURE_PERTURBATION,
+  FIXTURE_SEED,
+  generateOptimizerFixture,
+} from './optimizer-fixture'

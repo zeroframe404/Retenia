@@ -1,38 +1,25 @@
 import { createHash } from 'node:crypto'
 import { createReadStream } from 'node:fs'
-import { realpath, stat } from 'node:fs/promises'
-import path, { resolve } from 'node:path'
+import { stat } from 'node:fs/promises'
 import { type JobContext, type JobDefinition, registerJob } from '@retenia/core'
+import { canonicalize, confinePath, isInsideRoot, JobCancelledError, whenAborted } from './confine'
+import { createFsrsOptimizeJob } from './fsrs-optimize'
+
+// Re-exported from their own module: they are shared with `fsrsOptimize` and are the one
+// copy of the path-confinement check.
+export { canonicalize, confinePath, isInsideRoot, JobCancelledError, whenAborted }
 
 /**
- * The two demo jobs the queue ships with.
+ * Every job kind this build can run.
  *
- * They exist to exercise the queue end to end — progress, cancellation, retries, the
- * `utilityProcess` round trip — before any real producer exists. `sleep` is the test vehicle;
- * `hashFile` is the one that does actual work and streams a real file.
+ * `sleep` and `hashFile` are the demo pair the queue shipped with, exercising it end to
+ * end — progress, cancellation, retries, the `utilityProcess` round trip. `fsrsOptimize`
+ * (sub-phase 4.6) is the first real one: it trains the FSRS parameters on the user's own
+ * review history.
  *
  * No Electron imports: main pulls this in for the registry's metadata (so it can reject an
  * unknown kind at enqueue time) and the worker pulls it in to actually run.
  */
-
-/** Thrown when a job notices its own cancellation. The runner tells it apart from a fault. */
-export class JobCancelledError extends Error {
-  constructor() {
-    super('The job was cancelled')
-    this.name = 'JobCancelledError'
-  }
-}
-
-/** Rejects as soon as the signal aborts, so a job can race it against its own work. */
-function whenAborted(ctx: JobContext): Promise<never> {
-  return new Promise((_resolve, reject) => {
-    if (ctx.signal.aborted) {
-      reject(new JobCancelledError())
-      return
-    }
-    ctx.signal.addEventListener('abort', () => reject(new JobCancelledError()))
-  })
-}
 
 export interface SleepInput {
   ms: number
@@ -74,44 +61,6 @@ export interface HashFileInput {
 }
 
 /**
- * Put a root in the same form `realpath` gives the candidate.
- *
- * A directory that does not exist yet — the blob store before anything has been ingested —
- * cannot be resolved, so it falls back to `resolve`. That is the safe direction: nothing can
- * be *inside* a directory that does not exist, so the comparison simply fails to match.
- */
-async function canonicalize(root: string): Promise<string> {
-  try {
-    return await realpath(resolve(root))
-  } catch {
-    return resolve(root)
-  }
-}
-
-/**
- * Whether `candidate` is `root` or sits underneath it.
- *
- * Uses `relative` rather than comparing strings with `startsWith`, because a prefix test is
- * wrong on Windows in two ways that a Linux run never shows: paths differ in case while the
- * filesystem does not, and `os.tmpdir()` hands back 8.3 short names (`RUNNER~1`) that
- * `realpath` expands. `path.win32.relative` handles both — it compares case-insensitively and
- * works in path segments, so it also cannot be fooled by a sibling directory whose name
- * merely starts with the root's (`…\blobs-evil` vs `…\blobs`).
- *
- * The `path` module is a parameter so the win32 behaviour is testable from any platform.
- */
-export function isInsideRoot(
-  pathModule: Pick<typeof path, 'relative' | 'isAbsolute'>,
-  root: string,
-  candidate: string,
-): boolean {
-  const difference = pathModule.relative(root, candidate)
-  // '' is the root itself; '..' anywhere at the front means the candidate escaped it, and an
-  // absolute result means the two are not even on the same drive.
-  return difference === '' || (!difference.startsWith('..') && !pathModule.isAbsolute(difference))
-}
-
-/**
  * sha256 of a file, streamed.
  *
  * Streamed rather than read whole: a source in this app can be a 2 GB video, and the point of
@@ -130,18 +79,6 @@ export function isInsideRoot(
 export function createHashFileJob(
   roots: readonly string[],
 ): JobDefinition<HashFileInput, { sha256: string; bytes: number }> {
-  /** The real path of `candidate`, or a throw if it is not inside one of `roots`. */
-  const confine = async (candidate: string): Promise<string> => {
-    const real = await realpath(resolve(candidate))
-    const resolvedRoots = await Promise.all(roots.map(canonicalize))
-    const inside = resolvedRoots.some((root) => isInsideRoot(path, root, real))
-    if (!inside) {
-      // Deliberately does not echo the path: this message reaches the renderer.
-      throw new Error('hashFile refused a path outside the directories it may read')
-    }
-    return real
-  }
-
   return {
     type: 'hashFile',
     parseInput: (payload) => {
@@ -151,7 +88,7 @@ export function createHashFileJob(
       }
       return { path }
     },
-    run: async (input, ctx) => hashFile(await confine(input.path), ctx),
+    run: async (input, ctx) => hashFile(await confinePath(roots, input.path, 'hashFile'), ctx),
   }
 }
 
@@ -186,5 +123,9 @@ async function hashFile(path: string, ctx: JobContext): Promise<{ sha256: string
  * worker bundle and has to stay free of Electron.
  */
 export function createJobDefinitions(readableRoots: readonly string[]) {
-  return [registerJob(sleepJob), registerJob(createHashFileJob(readableRoots))]
+  return [
+    registerJob(sleepJob),
+    registerJob(createHashFileJob(readableRoots)),
+    registerJob(createFsrsOptimizeJob(readableRoots)),
+  ]
 }

@@ -1,4 +1,5 @@
-import type { Card, ReviewLog } from '../entities'
+import type { Card, ImportanceLevel, ReviewLog } from '../entities'
+import type { LeechDecision } from './leech'
 import type { SchedulingOptions } from './types'
 
 /** The scheduling fields of a card as they were before a review. */
@@ -44,4 +45,21 @@ export function memorySnapshot(card: Card): MemorySnapshot {
     lapses: card.lapses,
     lastReview: card.lastReview === null ? null : new Date(card.lastReview.getTime()),
   }
+}
+
+/**
+ * Published after a review pushed a card to or past its level's leech threshold (§4).
+ *
+ * Separate from `card.reviewed` rather than a flag on it because it is a different kind of
+ * fact with different listeners: the review screen interrupts the queue, the AI layer
+ * offers a rewrite (7.x), statistics counts leeches. Both events are published for the same
+ * review, in that order, and both only after the transaction commits.
+ */
+export interface CardLeechEvent {
+  readonly type: 'card.leech'
+  /** The card after the review, with `leech` (and possibly `suspended`) already set. */
+  readonly card: Card
+  readonly decision: LeechDecision
+  /** The level whose threshold and action applied. */
+  readonly level: ImportanceLevel
 }

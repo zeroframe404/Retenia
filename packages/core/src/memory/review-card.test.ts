@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { Card, KnowledgeItem } from '../entities'
+import type { Card, ImportanceLevel, KnowledgeItem } from '../entities'
 import { createDomainEventBus } from '../events'
 import type { DomainEvent } from '../ports/domain-events'
 import { EntityNotFoundError, OptimisticConcurrencyError } from '../ports/errors'
@@ -10,9 +10,14 @@ import {
 } from '../testing/in-memory-review-store'
 import { cardFixture, knowledgeItemFixture } from '../testing/memory-fixtures'
 import { createFsrsScheduler } from './fsrs-scheduler'
+import { DEFAULT_IMPORTANCE_CATALOG } from './importance'
 import { DEFAULT_SCHEDULING_OPTIONS } from './parameters'
 import { createReviewCard, type ReviewCardDeps } from './review-card'
-import { createDefaultSchedulingPolicy, type SchedulingPolicy } from './scheduling-policy'
+import {
+  createDefaultSchedulingPolicy,
+  type ImportanceResolution,
+  type SchedulingPolicy,
+} from './scheduling-policy'
 import { DAY_MS } from './study-day'
 
 const START = Date.UTC(2026, 5, 1, 12)
@@ -280,5 +285,125 @@ describe('reviewCard', () => {
     const result = await createReviewCard(withoutClock)({ cardId: card.id, rating: 3 })
     expect(result.log.review.getTime()).toBeGreaterThanOrEqual(before)
     expect(result.log.review.getTime()).toBeLessThanOrEqual(Date.now())
+  })
+})
+
+/**
+ * §4's leech handling, reached through the review that causes it.
+ *
+ * The decision itself is `leech.ts`'s and is exhaustively tested there; what matters here
+ * is the wiring: that it runs only when the caller supplies a resolution, that the tag and
+ * the suspension ride the *same* card write as the FSRS fields, and that the event follows
+ * `card.reviewed`.
+ */
+describe('§4 — leeches', () => {
+  const resolverFor = (level: ImportanceLevel) => {
+    const settings = DEFAULT_IMPORTANCE_CATALOG.get(level)
+    return (): ImportanceResolution => ({
+      level,
+      source: 'item',
+      settings,
+      options: DEFAULT_SCHEDULING_OPTIONS,
+      queued: true,
+      finalDrill: false,
+      exam: null,
+      urgentModeExpiresAt: null,
+    })
+  }
+
+  it('does not evaluate leeches when the caller supplies no resolution', async () => {
+    const { store, reviewCard, published } = harness()
+    // Well past the default threshold of 8, so only the missing resolver can explain a
+    // verdict of `null`.
+    const card = await seed(store, { lapses: 20, state: 2, stability: 5, difficulty: 7 })
+
+    const result = await reviewCard({ cardId: card.id, rating: 1 })
+    expect(result.leech).toBeNull()
+    expect(published.map((event) => event.type)).toEqual(['card.reviewed'])
+  })
+
+  it('tags a normal card at the threshold and publishes card.leech after card.reviewed', async () => {
+    const { store, reviewCard, published } = harness({ resolve: resolverFor('normal') })
+    // Seven lapses, and this Again is the eighth.
+    const card = await seed(store, { lapses: 7, state: 2, stability: 5, difficulty: 7 })
+
+    const result = await reviewCard({ cardId: card.id, rating: 1 })
+
+    expect(result.leech).toMatchObject({
+      stage: 'leech',
+      action: 'edit',
+      tag: true,
+      offerEdit: true,
+    })
+    expect(result.card.leech).toBe(true)
+    // `edit` puts the card in front of the user; it never suspends on its own.
+    expect(result.card.suspended).toBe(false)
+    expect(published.map((event) => event.type)).toEqual(['card.reviewed', 'card.leech'])
+  })
+
+  it('suspends a maintenance card at the threshold, in the same write as the FSRS fields', async () => {
+    const { store, reviewCard } = harness({ resolve: resolverFor('maintenance') })
+    const card = await seed(store, { lapses: 7, state: 2, stability: 5, difficulty: 7 })
+    const updatesBefore = store.updateCalls
+
+    const result = await reviewCard({ cardId: card.id, rating: 1 })
+
+    expect(result.card.leech).toBe(true)
+    expect(result.card.suspended).toBe(true)
+    // One card write, not three: a second `update` inside the transaction would bump
+    // `version` again and invalidate the optimistic-concurrency token the first one checked.
+    expect(store.updateCalls - updatesBefore).toBe(1)
+    expect(result.card.version).toBe(card.version + 1)
+  })
+
+  it('never suspends an urgent card, however often it lapses', async () => {
+    const { store, reviewCard } = harness({ resolve: resolverFor('urgent') })
+    const card = await seed(store, { lapses: 30, state: 2, stability: 5, difficulty: 7 })
+
+    const result = await reviewCard({ cardId: card.id, rating: 1 })
+
+    expect(result.leech).toMatchObject({ stage: 'leech', action: 'warn', suspend: false })
+    expect(result.card.suspended).toBe(false)
+  })
+
+  it('warns at half the threshold without tagging or publishing a state change', async () => {
+    const { store, reviewCard, published } = harness({ resolve: resolverFor('normal') })
+    // Three lapses, and this Again is the fourth — half of eight.
+    const card = await seed(store, { lapses: 3, state: 2, stability: 5, difficulty: 7 })
+
+    const result = await reviewCard({ cardId: card.id, rating: 1 })
+
+    expect(result.leech).toMatchObject({ stage: 'warning', tag: false, suspend: false })
+    expect(result.card.leech).toBe(false)
+    // A warning is still worth announcing — the queue interrupts on it — but it changes
+    // nothing about the card.
+    expect(published.map((event) => event.type)).toEqual(['card.reviewed', 'card.leech'])
+  })
+
+  it('publishes nothing extra for a card well below the warning threshold', async () => {
+    const { store, reviewCard, published } = harness({ resolve: resolverFor('normal') })
+    const card = await seed(store, { lapses: 0, state: 2, stability: 5, difficulty: 7 })
+
+    const result = await reviewCard({ cardId: card.id, rating: 3 })
+
+    expect(result.leech).toMatchObject({ stage: 'none' })
+    expect(published.map((event) => event.type)).toEqual(['card.reviewed'])
+  })
+
+  /** Rating 0 is a postpone, and `Scheduler.postpone` leaves `lapses` alone — so a
+   *  postpone can never be what makes a card a leech. */
+  it('a postpone does not advance a card toward leech status', async () => {
+    const { store, reviewCard, clock } = harness({ resolve: resolverFor('normal') })
+    const card = await seed(store, { lapses: 7, state: 2, stability: 5, difficulty: 7 })
+
+    const result = await reviewCard({
+      cardId: card.id,
+      rating: 0,
+      due: new Date(clock.now().getTime() + DAY_MS),
+    })
+
+    expect(result.card.lapses).toBe(7)
+    expect(result.leech).toMatchObject({ stage: 'warning', tag: false })
+    expect(result.card.leech).toBe(false)
   })
 })

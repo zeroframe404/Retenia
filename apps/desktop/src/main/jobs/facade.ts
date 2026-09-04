@@ -10,6 +10,9 @@ import { toJobSummary } from './to-summary'
  */
 export interface JobsFacade {
   list(input: { statuses?: JobStatus[]; limit?: number }): Promise<JobSummary[]>
+  /** One job by id — what a channel that queued its own job returns, and what the
+   *  optimizer's result dialog polls. `null` when the id is unknown. */
+  find(id: string): Promise<JobSummary | null>
   cancel(id: string): Promise<JobSummary>
   retry(id: string): Promise<JobSummary>
   enqueueDemo(
@@ -58,6 +61,11 @@ export function createJobsFacade({ scheduler, runner, demoEnabled }: JobsFacadeD
         )
         .slice(0, limit)
         .map(toJobSummary)
+    },
+
+    find: async (id) => {
+      const job = await scheduler.find(id)
+      return job === undefined ? null : toJobSummary(job)
     },
 
     cancel: async (id) => toJobSummary(await runner.cancel(id)),

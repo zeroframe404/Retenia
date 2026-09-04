@@ -17,5 +17,60 @@
     "lineHeight": "Line height",
     "dyslexiaFont": "Dyslexia-friendly font (Atkinson Hyperlegible)",
     "reset": "Reset"
+  },
+  "scheduler": {
+    "label": "Scheduler",
+    "cost": "≈ {reviews} reviews/day · {minutes} min/day · {ratio}× the reviews of 90%",
+    "levels": {
+      "urgent": "Urgent / exam",
+      "high": "High",
+      "normal": "Normal",
+      "maintenance": "Maintenance",
+      "paused": "Paused"
+    },
+    "retention": {
+      "label": "Target retention per importance level"
+    },
+    "model": {
+      "label": "Memory model",
+      "never": "Never optimised — trained on the published defaults. {reviews} reviews available.",
+      "trained": "Optimised {date} on {reviews} reviews · log loss {logLoss} · RMSE {rmse}",
+      "dueForOptimization": "Ready to optimise",
+      "optimizeNow": "Optimise now",
+      "reviewResult": "Review the result"
+    },
+    "result": {
+      "applied": "Applied: the new parameters predict better",
+      "rejected": "Not applied: the new parameters do not predict better",
+      "numbers": "Log loss {beforeLogLoss} → {afterLogLoss} · RMSE {beforeRmse} → {afterRmse}",
+      "noReschedule": "No card moved. The new parameters apply from each card’s next review."
+    },
+    "steps": {
+      "label": "Learning steps",
+      "value": "Learning {learning} · relearning {relearning}"
+    },
+    "fuzz": {
+      "label": "Spread intervals (fuzz)"
+    },
+    "loadBalance": {
+      "label": "Balance the daily load",
+      "help": "Within the same interval, book the day that already has the fewest cards due."
+    },
+    "easyDays": {
+      "label": "Easy days",
+      "help": "Days to schedule less on. Reviews move by a day or two at most, never further.",
+      "normal": "Normal",
+      "reduced": "Reduced",
+      "minimum": "Minimum"
+    },
+    "weekdays": {
+      "0": "Sun",
+      "1": "Mon",
+      "2": "Tue",
+      "3": "Wed",
+      "4": "Thu",
+      "5": "Fri",
+      "6": "Sat"
+    }
   }
 }

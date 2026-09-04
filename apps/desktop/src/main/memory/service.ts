@@ -4,22 +4,28 @@ import type {
   DayBoundary,
   DomainEvent,
   DomainEventPublisher,
+  DueHistogram,
   ExamOverrideSource,
   Forecast,
   ForecastQuery,
   ImportanceCatalog,
   ImportanceLevel,
+  ImportanceLevelPatch,
   ImportanceMix,
   ImportanceMixQuery,
   ImportanceResolution,
   JsonObject,
   KnowledgeItem,
+  OptimizationOutcome,
+  OptimizerStatus,
   RescheduleImpact,
   RescheduleNow,
   RescheduleSelection,
   RetentionWindow,
   ReviewCard,
   Scheduler,
+  SchedulerProfile,
+  SchedulingOptions,
   SchedulingPolicyInput,
   SchedulingPreview,
   SessionAnswerInput,
@@ -43,6 +49,7 @@ import type {
   UrgentModeResult,
 } from '@retenia/core'
 import {
+  buildDueHistogram,
   CARD_STATE,
   createComposeSession,
   createExamOverrides,
@@ -52,6 +59,7 @@ import {
   createImportanceCatalog,
   createImportanceMix,
   createImportanceResolver,
+  createLoadBalancer,
   createRescheduleNow,
   createReviewCard,
   createSimulateReschedule,
@@ -60,8 +68,15 @@ import {
   createStatsQueries,
   DEFAULT_DAY_START_HOUR,
   DEFAULT_TIME_ZONE,
+  disperseSiblingDueDates,
+  GLOBAL_SCHEDULER_SCOPE,
+  LOAD_BALANCE_HORIZON_DAYS,
+  parametersFromProfile,
+  schedulerConfigFromProfile,
+  schedulingOptionsFromParameters,
 } from '@retenia/core'
 import { log } from '../logging/log'
+import { createOptimizerService } from './optimizer-service'
 
 /** The four v1 flashcard templates the review screen renders (`docs/spec/04-path-generation.md`
  *  `Flashcard.v1`). Cycled by `seedReviewDemo` so a seeded session exercises every renderer. */
@@ -144,7 +159,28 @@ export interface MemoryService {
   trueRetention(window: RetentionWindow): Promise<TrueRetention>
   /** Dev/e2e only — see `memory.seedReviewDemo`'s doc in `packages/ipc-contract`. */
   seedReviewDemo(count: number): Promise<{ itemIds: string[]; cardIds: string[] }>
+
+  // --- the scheduler profile and its optimizer (§6, §16) ---
+
+  /** The parameters in force, their quality, and whether it is time to retrain. */
+  optimizerStatus(): Promise<OptimizerStatus>
+  /** Stage the history and queue a training run. */
+  startOptimization(): Promise<{ jobId: string; nReviews: number }>
+  /** Keep what a finished run produced, if the health check accepts it. */
+  applyOptimization(jobId: string): Promise<OptimizationOutcome>
+  /** The steps, fuzz and interval cap the profile carries. */
+  updateProfile(patch: SchedulerProfilePatch): Promise<SchedulerProfile>
+  /** Tune one importance level (§7): retention, cap, leech threshold and action. */
+  setLevel(level: ImportanceLevel, patch: ImportanceLevelPatch): Promise<boolean>
+  /** Sub-phase 4.6's "disperse siblings" (§4): spread one item's cards onto different days. */
+  disperseSiblings(itemId: string): Promise<number>
 }
+
+/** The `scheduler_profiles` columns the settings screen may write. `w` is not among them:
+ *  the optimizer owns the parameters, and hand-editing 21 numbers is not a feature. */
+export type SchedulerProfilePatch = Partial<
+  Pick<SchedulerProfile, 'learningSteps' | 'relearningSteps' | 'enableFuzz' | 'maximumInterval'>
+>
 
 export interface MemoryServiceOptions {
   repos: UnitOfWork
@@ -158,6 +194,26 @@ export interface MemoryServiceOptions {
    * one. Injectable so a test can assert the event without a window.
    */
   events?: DomainEventPublisher
+}
+
+/**
+ * How far ahead the load balancer tracks contention, and how many due rows it will read.
+ *
+ * A year, because `maximum_interval` can be 36,500 days and a fuzz window landing past a
+ * year has nothing meaningful to be balanced against; the row cap is the same order as the
+ * forecast's, so a large collection cannot turn opening a session into an unbounded read.
+ */
+const HISTOGRAM_HORIZON_DAYS = LOAD_BALANCE_HORIZON_DAYS
+const HISTOGRAM_MAX_ROWS = 50_000
+
+async function loadHistogram(repos: UnitOfWork, boundary: DayBoundary): Promise<DueHistogram> {
+  const now = new Date()
+  const due = await repos.cards.listDueBetween(
+    now,
+    new Date(now.getTime() + HISTOGRAM_HORIZON_DAYS * 86_400_000),
+    { limit: HISTOGRAM_MAX_ROWS },
+  )
+  return buildDueHistogram(due, { now, boundary, horizonDays: HISTOGRAM_HORIZON_DAYS })
 }
 
 /** No session has been started, or the last one was finished. */
@@ -175,8 +231,13 @@ function build(
   catalog: ImportanceCatalog,
   exams: ExamOverrideSource,
   dayBoundary: DayBoundary,
+  base: SchedulingOptions,
 ) {
-  const resolve = createImportanceResolver({ catalog, exams, dayBoundary })
+  // `base` is the only way the stored profile's steps and fuzz, the load balancer and the
+  // easy-day calendar reach a scheduling decision: `createImportanceResolver` spreads it
+  // into every `SchedulingOptions` it memoizes, and importance then overrides only the
+  // retention and the interval cap (§7).
+  const resolve = createImportanceResolver({ catalog, exams, dayBoundary, base })
   return {
     catalog,
     resolve,
@@ -195,17 +256,74 @@ function build(
 export async function createMemoryService(options: MemoryServiceOptions): Promise<MemoryService> {
   const { repos } = options
   const dayStartHour = options.dayStartHour ?? DEFAULT_DAY_START_HOUR
-  const scheduler =
-    options.scheduler ??
-    createFsrsScheduler({
-      dayStartHour,
-      ...(options.timeZone === undefined ? {} : { timeZone: options.timeZone }),
-    })
 
   const dayBoundary: DayBoundary = {
     dayStartHour,
     timeZone: options.timeZone ?? DEFAULT_TIME_ZONE,
   }
+
+  /**
+   * The stored FSRS parameters (§6, §14).
+   *
+   * Read here rather than defaulted, because this is what makes an accepted optimization
+   * mean anything: `scheduler_profiles.w` is the model every interval is computed from, and
+   * a service built on `DEFAULT_FSRS_W` would quietly ignore every training run the user
+   * ever paid for.
+   */
+  let profile = await repos.schedulerProfiles.ensure(GLOBAL_SCHEDULER_SCOPE)
+
+  /**
+   * The live scheduler, behind a stable facade.
+   *
+   * An accepted optimization changes `w`, and `FsrsScheduler` memoizes `fsrs()` instances
+   * per options — so the instance has to be replaced wholesale, not mutated. Every consumer
+   * (the review use case, the session composer, the reschedule preview) holds this facade
+   * instead, so `refresh` can swap what is underneath without rebuilding any of them.
+   */
+  let activeScheduler: Scheduler =
+    options.scheduler ??
+    createFsrsScheduler(schedulerConfigFromProfile(profile, { timeZone: dayBoundary.timeZone }))
+  const scheduler: Scheduler = {
+    get id() {
+      return activeScheduler.id
+    },
+    preview: (card, now, opts) => activeScheduler.preview(card, now, opts),
+    apply: (card, now, grade, opts) => activeScheduler.apply(card, now, grade, opts),
+    retrievability: (card, at) => activeScheduler.retrievability(card, at),
+    intervalFor: (retention, state) => activeScheduler.intervalFor(retention, state),
+    reschedule: (card, history, opts) => activeScheduler.reschedule(card, history, opts),
+    rollback: (card, log) => activeScheduler.rollback(card, log),
+    forget: (card, now, resetCounts) => activeScheduler.forget(card, now, resetCounts),
+    postpone: (card, now, due) => activeScheduler.postpone(card, now, due),
+  }
+
+  /**
+   * The due-date histogram the load balancer reads (§3.2 (i), §15).
+   *
+   * One read, not one per call: `pickDay` asks the balancer once per grade for every card
+   * previewed, and a query per call would turn opening a session into thousands of round
+   * trips. Rebuilt on `refresh`, and kept current in between by the `card.reviewed`
+   * subscriber below.
+   */
+  let histogram = await loadHistogram(repos, dayBoundary)
+
+  /** The profile's steps and fuzz, plus the balancer and the easy-day calendar. */
+  const loadBase = async (): Promise<SchedulingOptions> => {
+    const [loadBalance, easyDays, easyDates] = await Promise.all([
+      repos.settings.get('review.loadBalance'),
+      repos.settings.get('review.easyDays'),
+      repos.settings.get('review.easyDates'),
+    ])
+    const now = new Date()
+    return schedulingOptionsFromParameters(parametersFromProfile(profile), {
+      ...(loadBalance
+        ? { loadBalance: createLoadBalancer(histogram, { now, boundary: dayBoundary }) }
+        : {}),
+      easyDays,
+      easyDates,
+    })
+  }
+  let base = await loadBase()
 
   /**
    * The catalog and the exam set, read together.
@@ -227,14 +345,39 @@ export async function createMemoryService(options: MemoryServiceOptions): Promis
   // Rebuilt wholesale on `refresh` rather than mutated: the policy memoizes its
   // `SchedulingOptions` per resolution, and a stale memo would outlive the rows it came
   // from.
-  let current = build(repos, scheduler, ...(await load()), dayBoundary)
+  let current = build(repos, scheduler, ...(await load()), dayBoundary, base)
+
+  const optimizer = createOptimizerService({ repos, timeZone: dayBoundary.timeZone })
 
   const startUrgentMode = createStartUrgentMode({ uow: repos })
   const expireUrgentMode = createExpireUrgentMode({ uow: repos })
 
-  const events: DomainEventPublisher = options.events ?? {
+  const configured: DomainEventPublisher = options.events ?? {
     publish: (event: DomainEvent) => {
-      log.debug(`[memory] ${event.type} ${event.card.id} rating=${event.log.rating}`)
+      log.debug(
+        event.type === 'card.reviewed'
+          ? `[memory] ${event.type} ${event.card.id} rating=${event.log.rating}`
+          : `[memory] ${event.type} ${event.card.id} ${event.decision.stage} lapses=${event.decision.lapses}`,
+      )
+    },
+  }
+
+  /**
+   * The one place that knows a review really happened, so the one place that may count it.
+   *
+   * `createLoadBalancer` is deliberately pure: `preview` asks it for all four grades of
+   * every card shown, and a balancer that booked the day it returned would record three
+   * reviews that never happen for each one that does. Booking here instead is also what
+   * makes consecutive reviews in one session spread out rather than all piling onto the
+   * same trough day.
+   */
+  const events: DomainEventPublisher = {
+    publish: (event: DomainEvent) => {
+      if (event.type === 'card.reviewed') {
+        histogram.unnote(event.previous.due)
+        histogram.note(event.card.due)
+      }
+      configured.publish(event)
     },
   }
 
@@ -250,6 +393,10 @@ export async function createMemoryService(options: MemoryServiceOptions): Promis
     uow: repos,
     scheduler,
     policy: { optionsFor: (input) => current.resolve(input).options },
+    // The full resolution, not just its options: §4's leech thresholds and actions are
+    // columns of the same importance level, and passing it also collapses what used to be
+    // two resolves per review into one.
+    resolve: (input) => current.resolve(input),
     events,
   })
 
@@ -313,7 +460,8 @@ export async function createMemoryService(options: MemoryServiceOptions): Promis
     return runner
   }
 
-  return {
+  // Named, so `applyOptimization` can call `refresh` on itself after an accepted model.
+  const service: MemoryService = {
     setItemImportance: (ids, level) => repos.knowledgeItems.setImportanceMany(ids, level),
 
     overrideCardImportance: (ids, level, expiresAt) =>
@@ -348,8 +496,66 @@ export async function createMemoryService(options: MemoryServiceOptions): Promis
 
     resolve: (input) => current.resolve(input),
 
+    optimizerStatus: () => optimizer.status(),
+
+    startOptimization: () => optimizer.start(),
+
+    /**
+     * Apply a finished run, then rebuild everything derived from the profile.
+     *
+     * The refresh is the point: `w` is what every interval is computed from, and
+     * `FsrsScheduler` memoizes its `fsrs()` instances, so a service left holding the old
+     * one would keep scheduling on the model the user just replaced.
+     */
+    applyOptimization: async (jobId) => {
+      const outcome = await optimizer.apply(jobId)
+      if (outcome.applied) await service.refresh()
+      return outcome
+    },
+
+    updateProfile: async (patch) => {
+      const current = await repos.schedulerProfiles.ensure(GLOBAL_SCHEDULER_SCOPE)
+      const saved = await repos.schedulerProfiles.update(current.id, patch)
+      await service.refresh()
+      return saved
+    },
+
+    setLevel: async (level, patch) => {
+      await repos.importanceLevels.updateByName(level, patch)
+      // The catalog and its memoized `SchedulingOptions` are rebuilt wholesale: a level's
+      // retention is baked into every options object the resolver cached.
+      await service.refresh()
+      return true
+    },
+
+    /**
+     * §4: spread one item's cards onto different days.
+     *
+     * Applied through `Scheduler.postpone`, which moves `due` without touching S or D and
+     * writes a rating 0 log — so a dispersal never reaches the optimizer as an answer.
+     */
+    disperseSiblings: async (itemId) => {
+      const cards = await repos.cards.findByItem(itemId)
+      const now = new Date()
+      const moves = disperseSiblingDueDates({ cards, now, boundary: dayBoundary })
+      for (const move of moves) {
+        await reviewCard({ cardId: move.cardId, rating: 0, due: move.to, now })
+      }
+      return moves.length
+    },
+
     refresh: async () => {
-      current = build(repos, scheduler, ...(await load()), dayBoundary)
+      // The profile first: an accepted optimization changed `w`, and both the scheduler
+      // instance and the base options are derived from it.
+      profile = await repos.schedulerProfiles.ensure(GLOBAL_SCHEDULER_SCOPE)
+      if (options.scheduler === undefined) {
+        activeScheduler = createFsrsScheduler(
+          schedulerConfigFromProfile(profile, { timeZone: dayBoundary.timeZone }),
+        )
+      }
+      histogram = await loadHistogram(repos, dayBoundary)
+      base = await loadBase()
+      current = build(repos, scheduler, ...(await load()), dayBoundary, base)
       stats = buildStats()
     },
 
@@ -461,4 +667,5 @@ export async function createMemoryService(options: MemoryServiceOptions): Promis
       return { itemIds, cardIds }
     },
   }
+  return service
 }

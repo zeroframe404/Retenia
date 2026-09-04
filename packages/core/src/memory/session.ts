@@ -8,6 +8,7 @@ import type { OverloadSummary, PostponeCandidate, PostponeProposal } from './ove
 import { selectPostponements } from './overload'
 import type { ImportanceResolution } from './scheduling-policy'
 import type { ExamQueueEntry, ReinforcementNode } from './session-ports'
+import { siblingBurialUntil } from './siblings'
 import { DAY_MS, type DayBoundary, resolveDayBoundary, studyDayNumber } from './study-day'
 import { CARD_STATE, type Scheduler, type SchedulingOptions } from './types'
 
@@ -481,7 +482,7 @@ export function composeSession(input: SessionInput): SessionPlan {
       burials.push({
         cardId: card.id,
         itemId: card.itemId,
-        until: new Date(now.getTime() + DAY_MS),
+        until: siblingBurialUntil(now, boundary),
       })
       continue
     }

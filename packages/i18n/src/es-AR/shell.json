@@ -30,7 +30,8 @@
     "queued": "En cola",
     "kind": {
       "sleep": "Trabajo de prueba",
-      "hashFile": "Calculando el hash de un archivo"
+      "hashFile": "Calculando el hash de un archivo",
+      "fsrsOptimize": "Optimizando el modelo de memoria"
     }
   },
   "commandPalette": {

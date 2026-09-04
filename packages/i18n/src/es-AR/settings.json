@@ -17,5 +17,60 @@
     "lineHeight": "Interlineado",
     "dyslexiaFont": "Fuente para dislexia (Atkinson Hyperlegible)",
     "reset": "Restablecer"
+  },
+  "scheduler": {
+    "label": "Programador",
+    "cost": "≈ {reviews} repasos/día · {minutes} min/día · {ratio}× los repasos del 90%",
+    "levels": {
+      "urgent": "Urgente / examen",
+      "high": "Alta",
+      "normal": "Normal",
+      "maintenance": "Mantenimiento",
+      "paused": "Pausado"
+    },
+    "retention": {
+      "label": "Retención objetivo por nivel de importancia"
+    },
+    "model": {
+      "label": "Modelo de memoria",
+      "never": "Sin optimizar todavía: usa los parámetros por defecto. Hay {reviews} repasos disponibles.",
+      "trained": "Optimizado el {date} con {reviews} repasos · log loss {logLoss} · RMSE {rmse}",
+      "dueForOptimization": "Conviene optimizar",
+      "optimizeNow": "Optimizar ahora",
+      "reviewResult": "Ver el resultado"
+    },
+    "result": {
+      "applied": "Aplicado: los parámetros nuevos predicen mejor",
+      "rejected": "No aplicado: los parámetros nuevos no predicen mejor",
+      "numbers": "Log loss {beforeLogLoss} → {afterLogLoss} · RMSE {beforeRmse} → {afterRmse}",
+      "noReschedule": "No se movió ninguna tarjeta. Los parámetros nuevos rigen desde el próximo repaso de cada una."
+    },
+    "steps": {
+      "label": "Pasos de aprendizaje",
+      "value": "Aprendizaje {learning} · reaprendizaje {relearning}"
+    },
+    "fuzz": {
+      "label": "Dispersar los intervalos (fuzz)"
+    },
+    "loadBalance": {
+      "label": "Equilibrar la carga diaria",
+      "help": "Dentro del mismo intervalo, elegir el día que ya tiene menos tarjetas pendientes."
+    },
+    "easyDays": {
+      "label": "Días livianos",
+      "help": "Días para programar menos. Los repasos se corren uno o dos días, nunca más.",
+      "normal": "Normal",
+      "reduced": "Reducido",
+      "minimum": "Mínimo"
+    },
+    "weekdays": {
+      "0": "Dom",
+      "1": "Lun",
+      "2": "Mar",
+      "3": "Mié",
+      "4": "Jue",
+      "5": "Vie",
+      "6": "Sáb"
+    }
   }
 }

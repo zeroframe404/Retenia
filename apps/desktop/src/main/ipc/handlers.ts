@@ -6,8 +6,10 @@ import type {
   ImportanceLevel,
   JsonValue,
   KnowledgeItem,
+  OptimizerStatus,
   RescheduleImpact,
   RescheduleSelection,
+  SchedulerProfile,
   SchedulingPreview,
   SecretName,
   SecretStore,
@@ -168,6 +170,34 @@ function toPreviewDto(preview: SchedulingPreview | null) {
       difficulty: card.difficulty,
     }
   })
+}
+
+/** `scheduler_profiles` on the wire: dates as ISO strings, like every other channel. */
+function toSchedulerProfileDto(profile: SchedulerProfile) {
+  return {
+    scope: profile.scope,
+    algorithm: profile.algorithm,
+    w: profile.w,
+    decay: profile.decay,
+    learningSteps: profile.learningSteps,
+    relearningSteps: profile.relearningSteps,
+    enableFuzz: profile.enableFuzz,
+    enableShortTerm: profile.enableShortTerm,
+    maximumInterval: profile.maximumInterval,
+    dayStartHour: profile.dayStartHour,
+    trainedAt: profile.trainedAt === null ? null : profile.trainedAt.toISOString(),
+    nReviews: profile.nReviews,
+    logLoss: profile.logLoss,
+    rmse: profile.rmse,
+  }
+}
+
+function toOptimizerStatusDto(status: OptimizerStatus) {
+  return {
+    profile: toSchedulerProfileDto(status.profile),
+    nReviews: status.nReviews,
+    offer: status.offer,
+  }
 }
 
 function toSummaryDto(summary: SessionSummary) {
@@ -355,6 +385,48 @@ export function createHandlers({
     'memory.forecast': async ({ days }) => {
       if (!memory) unavailable('memory', dbUnavailableReason)
       return toForecastDto(await memory.forecast(days))
+    },
+
+    // --- the scheduler profile and its optimizer (§6, §16) ---
+
+    'scheduler.status': async () => {
+      if (!memory) unavailable('scheduler', dbUnavailableReason)
+      return toOptimizerStatusDto(await memory.optimizerStatus())
+    },
+
+    'scheduler.optimize': async () => {
+      if (!memory) unavailable('scheduler', dbUnavailableReason)
+      const { jobId, nReviews } = await memory.startOptimization()
+      const job = await jobs.find(jobId)
+      if (job === null) throw new Error('The optimization job disappeared after it was queued')
+      return { job, nReviews }
+    },
+
+    'scheduler.applyOptimization': async ({ jobId, confirm: _confirm }) => {
+      if (!memory) unavailable('scheduler', dbUnavailableReason)
+      const outcome = await memory.applyOptimization(jobId)
+      return {
+        applied: outcome.applied,
+        reason: outcome.check.reason,
+        before: outcome.before,
+        after: outcome.after,
+        profile: toSchedulerProfileDto(outcome.profile),
+      }
+    },
+
+    'scheduler.updateProfile': async (patch) => {
+      if (!memory) unavailable('scheduler', dbUnavailableReason)
+      return toSchedulerProfileDto(await memory.updateProfile(patch))
+    },
+
+    'scheduler.setLevel': async ({ level, ...patch }) => {
+      if (!memory) unavailable('scheduler', dbUnavailableReason)
+      return { updated: await memory.setLevel(level, patch) }
+    },
+
+    'cards.disperseSiblings': async ({ itemId, confirm: _confirm }) => {
+      if (!memory) unavailable('memory', dbUnavailableReason)
+      return { moved: await memory.disperseSiblings(itemId) }
     },
 
     'stats.overview': async (options) => {

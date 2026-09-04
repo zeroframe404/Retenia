@@ -1,4 +1,5 @@
 import type { JsonValue } from '../entities'
+import type { EasyDates, EasyDayLevel, EasyDays } from '../memory/types'
 
 /**
  * Application settings: a key/value store with a typed key registry.
@@ -37,6 +38,18 @@ export interface SettingsMap {
   /** Two-button review screen (Forgot/Remembered, mapped to Again/Good) instead of the four
    *  FSRS grades (`docs/spec/02-memory-system.md` §6 "Mochi (2 buttons)"). */
   'review.simpleGrading': boolean
+  /**
+   * §4/§15: within the fuzz window, book the day with the fewest cards already due.
+   *
+   * Anki 24.11's load balancer. Off means the plain seeded fuzz draw, which is what every
+   * review before this setting existed used.
+   */
+  'review.loadBalance': boolean
+  /** §4 "Easy days": per weekday, how much the scheduler may book. A day with no entry is
+   *  `normal`. */
+  'review.easyDays': EasyDays
+  /** §4's "and specific dates": `YYYY-MM-DD` → level, beating that date's weekday. */
+  'review.easyDates': EasyDates
   'ai.budget.monthlyUsd': number
   'ai.providers.allowlist': string[]
   /** Whether repository mutations enqueue `outbox` rows. Off in v1 — there is nothing to
@@ -102,6 +115,57 @@ function stringArray(defaultValue: string[]): SettingSpec<string[]> {
   }
 }
 
+const EASY_DAY_LEVEL_VALUES: readonly EasyDayLevel[] = ['normal', 'reduced', 'minimum']
+
+function isEasyDayLevel(value: unknown): value is EasyDayLevel {
+  return typeof value === 'string' && EASY_DAY_LEVEL_VALUES.includes(value as EasyDayLevel)
+}
+
+/**
+ * Parse a `key → EasyDayLevel` map, keeping only the entries `isKey` accepts.
+ *
+ * Unreadable entries are dropped rather than rejecting the whole map: a single stray key —
+ * a weekday 7 written by a bug, a date in a newer format — should cost the user that one
+ * entry, not their entire easy-day configuration.
+ */
+function parseEasyDayMap(
+  raw: JsonValue,
+  isKey: (key: string) => boolean,
+): Record<string, EasyDayLevel> | undefined {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return undefined
+  const kept: Record<string, EasyDayLevel> = {}
+  for (const [key, value] of Object.entries(raw)) {
+    if (isKey(key) && isEasyDayLevel(value)) kept[key] = value
+  }
+  return kept
+}
+
+/** `0`–`6`, the JavaScript weekday numbers, as JSON hands object keys back: strings. */
+function isWeekdayKey(key: string): boolean {
+  return /^[0-6]$/.test(key)
+}
+
+/** `YYYY-MM-DD`, and a real calendar date: `2026-02-30` is a typo, not a holiday. */
+function isStudyDateKey(key: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) return false
+  const at = Date.parse(`${key}T00:00:00Z`)
+  return Number.isFinite(at) && new Date(at).toISOString().slice(0, 10) === key
+}
+
+const easyDaysSetting: SettingSpec<EasyDays> = {
+  defaultValue: Object.freeze({}),
+  // The weekday keys are numbers in `EasyDays` and strings in JSON; the cast is that gap,
+  // and `isWeekdayKey` is what makes it sound.
+  decode: (raw) => parseEasyDayMap(raw, isWeekdayKey) as EasyDays | undefined,
+  encode: (value) => ({ ...value }),
+}
+
+const easyDatesSetting: SettingSpec<EasyDates> = {
+  defaultValue: Object.freeze({}),
+  decode: (raw) => parseEasyDayMap(raw, isStudyDateKey),
+  encode: (value) => ({ ...value }),
+}
+
 /**
  * The registry. Being a *total* mapped type over `SettingsMap`, adding a key to the
  * interface without adding its spec here is a compile error.
@@ -121,6 +185,9 @@ export const SETTINGS: { readonly [K in SettingsKey]: SettingSpec<SettingsMap[K]
   'review.finalDrill': booleanSetting(false),
   'review.dayStartHour': numberIn(0, 23, 4),
   'review.simpleGrading': booleanSetting(false),
+  'review.loadBalance': booleanSetting(true),
+  'review.easyDays': easyDaysSetting,
+  'review.easyDates': easyDatesSetting,
   'ai.budget.monthlyUsd': numberIn(0, 100000, 30),
   'ai.providers.allowlist': stringArray([]),
   'sync.outboxEnabled': booleanSetting(false),

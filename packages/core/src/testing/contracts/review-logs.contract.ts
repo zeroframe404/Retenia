@@ -58,6 +58,39 @@ export function reviewLogsContract(harness: RepositoryContractHarness): void {
       expect(await ctx.repos.reviewLogs.countByCard(card.id)).toBe(3)
     })
 
+    /**
+     * §16's optimizer cadence counts reviews, and it must count the same rows the training
+     * set holds — otherwise the 2ⁿ threshold advances on postpones the model never sees.
+     */
+    it('counts reviews, with the window and the manual exclusion the optimizer uses', async () => {
+      const card = await ctx.seed.card()
+      const now = ctx.clock.now().getTime()
+      await ctx.seed.reviewLog({ cardId: card.id, rating: 3, review: new Date(now - 3000) })
+      await ctx.seed.reviewLog({ cardId: card.id, rating: 1, review: new Date(now - 2000) })
+      // A postpone: rating 0 is not an answer (`fsrs-rules`).
+      await ctx.seed.reviewLog({ cardId: card.id, rating: 0, review: new Date(now - 1000) })
+
+      expect(await ctx.repos.reviewLogs.count()).toBe(3)
+      expect(await ctx.repos.reviewLogs.count({ excludeManual: true })).toBe(2)
+      expect(await ctx.repos.reviewLogs.count({ from: new Date(now - 2500) })).toBe(2)
+      expect(await ctx.repos.reviewLogs.count({ to: new Date(now - 2500) })).toBe(1)
+      expect(
+        await ctx.repos.reviewLogs.count({
+          from: new Date(now - 2500),
+          to: new Date(now - 1500),
+          excludeManual: true,
+        }),
+      ).toBe(1)
+    })
+
+    it('leaves soft-deleted rows out of the count', async () => {
+      const card = await ctx.seed.card()
+      const log = await ctx.seed.reviewLog({ cardId: card.id, rating: 3 })
+      expect(await ctx.repos.reviewLogs.count()).toBe(1)
+      await ctx.repos.reviewLogs.softDeleteById(log.id, ctx.clock.now())
+      expect(await ctx.repos.reviewLogs.count()).toBe(0)
+    })
+
     it('finds the most recent review of a card', async () => {
       const card = await ctx.seed.card()
       const now = ctx.clock.now().getTime()

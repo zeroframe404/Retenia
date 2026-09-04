@@ -30,7 +30,8 @@
     "queued": "Queued",
     "kind": {
       "sleep": "Test job",
-      "hashFile": "Hashing a file"
+      "hashFile": "Hashing a file",
+      "fsrsOptimize": "Optimising the memory model"
     }
   },
   "commandPalette": {

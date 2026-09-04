@@ -9,6 +9,7 @@ import { jobsContract } from './jobs.contract'
 import { outboxContract } from './outbox.contract'
 import { reviewLogsContract } from './review-logs.contract'
 import { reviewSessionsContract } from './review-sessions.contract'
+import { schedulerProfilesContract } from './scheduler-profiles.contract'
 import { settingsContract } from './settings.contract'
 import { unitOfWorkContract } from './unit-of-work.contract'
 
@@ -30,6 +31,7 @@ export function runRepositoryContracts(harness: RepositoryContractHarness): void
     importanceLevelsContract(harness)
     reviewLogsContract(harness)
     reviewSessionsContract(harness)
+    schedulerProfilesContract(harness)
     chunksContract(harness)
     settingsContract(harness)
     jobsContract(harness)
@@ -46,5 +48,6 @@ export { jobsContract } from './jobs.contract'
 export { outboxContract } from './outbox.contract'
 export { reviewLogsContract } from './review-logs.contract'
 export { reviewSessionsContract } from './review-sessions.contract'
+export { schedulerProfilesContract } from './scheduler-profiles.contract'
 export { settingsContract } from './settings.contract'
 export { unitOfWorkContract } from './unit-of-work.contract'

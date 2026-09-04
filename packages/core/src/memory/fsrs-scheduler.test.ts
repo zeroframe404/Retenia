@@ -507,6 +507,79 @@ describe('load balancing and easy days (§15)', () => {
     })
     expect(seen.map((date) => (date.getTime() - NOW.getTime()) / DAY_MS)).toEqual([7, 8, 9])
   })
+
+  /**
+   * §4's "and specific dates".
+   *
+   * `NOW` is Monday 1 June 2026, so the window [6, 10] is Sunday the 7th through Thursday
+   * the 11th, and the default 4 a.m. boundary puts a noon review squarely inside its own
+   * day.
+   */
+  it('honours specific dates, which beat the weekday they fall on', () => {
+    const off = (day: number) => `2026-06-0${day}`
+
+    // Every day of the window except Wednesday the 10th is out.
+    const onlyWednesday = scheduler.apply(newCard, NOW, 4, {
+      ...NO_FUZZ,
+      easyDates: {
+        [off(7)]: 'minimum',
+        [off(8)]: 'minimum',
+        [off(9)]: 'minimum',
+        '2026-06-11': 'minimum',
+      },
+    })
+    expect(onlyWednesday.card.scheduledDays).toBe(9)
+
+    // A date beats its weekday. Every weekday in the window is 'minimum' except Monday,
+    // which is 'reduced' — so on weekdays alone the 8th (Monday) wins…
+    const weekdaysOnly = scheduler.apply(newCard, NOW, 4, {
+      ...NO_FUZZ,
+      easyDays: { 0: 'minimum', 1: 'reduced', 2: 'minimum', 3: 'minimum', 4: 'minimum' },
+    })
+    expect(weekdaysOnly.card.scheduledDays).toBe(7)
+
+    // …and marking Wednesday the 10th 'normal' by date overrides its 'minimum' weekday and
+    // takes the booking, because a normal day beats a reduced one.
+    const dateWins = scheduler.apply(newCard, NOW, 4, {
+      ...NO_FUZZ,
+      easyDays: { 0: 'minimum', 1: 'reduced', 2: 'minimum', 3: 'minimum', 4: 'minimum' },
+      easyDates: { '2026-06-10': 'normal' },
+    })
+    expect(dateWins.card.scheduledDays).toBe(9)
+  })
+
+  /**
+   * The guard this pins is easy to get wrong: both `finalize` and `pickDay` used to test
+   * `easyDays` alone, so an options object carrying only `easyDates` — "I am away on the
+   * 9th", no weekday preferences at all — skipped the window pass entirely and the date was
+   * silently ignored.
+   */
+  it('applies a dates-only configuration, with no weekday map at all', () => {
+    const plain = scheduler.apply(newCard, NOW, 4, NO_FUZZ)
+    expect(plain.card.scheduledDays).toBe(8)
+
+    const datesOnly = scheduler.apply(newCard, NOW, 4, {
+      ...NO_FUZZ,
+      easyDates: { '2026-06-09': 'minimum' },
+    })
+    expect(datesOnly.card.scheduledDays).not.toBe(8)
+    // Fuzz off: the nearest allowed day to 8, and the earlier one wins the tie.
+    expect(datesOnly.card.scheduledDays).toBe(7)
+  })
+
+  it('gives up gracefully when every day of the window is an excluded date', () => {
+    const allOut = scheduler.apply(newCard, NOW, 4, {
+      ...NO_FUZZ,
+      easyDates: {
+        '2026-06-07': 'minimum',
+        '2026-06-08': 'minimum',
+        '2026-06-09': 'minimum',
+        '2026-06-10': 'minimum',
+        '2026-06-11': 'minimum',
+      },
+    })
+    expect(allOut.card.scheduledDays).toBe(8)
+  })
 })
 
 describe('retrievability and intervalFor', () => {
