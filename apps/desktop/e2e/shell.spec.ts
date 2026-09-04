@@ -1,4 +1,4 @@
-import { expect, gotoReady, SECTIONS, screenshot, test } from './fixtures'
+import { callApiWith, expect, gotoReady, SECTIONS, screenshot, test } from './fixtures'
 
 test.describe('shell navigation', () => {
   for (const id of SECTIONS) {
@@ -86,16 +86,20 @@ test('the review screen stays mounted (via Activity) when navigating away and ba
   window,
 }) => {
   await gotoReady(window)
+  await callApiWith(window, ({ api, arg }) => api.memory.seedReviewDemo(arg), { count: 3 })
+
   await window.getByTestId('sidebar-item-review').click()
   await expect(window.getByTestId('screen-review')).toBeVisible()
+  await expect(window.getByTestId('card-reveal')).toBeVisible()
 
-  await window.getByTestId('review-increment').click()
-  await expect(window.getByTestId('review-counter')).toContainText('1')
+  // Reveal the current card — local UI state a fresh mount would lose.
+  await window.keyboard.press('Enter')
+  await expect(window.getByTestId('card-back')).toBeVisible()
 
   await window.getByTestId('sidebar-item-home').click()
   await expect(window.getByTestId('screen-home')).toBeVisible()
 
   await window.getByTestId('sidebar-item-review').click()
-  // A fresh mount would have reset the counter back to 0.
-  await expect(window.getByTestId('review-counter')).toContainText('1')
+  // A fresh mount would have reset `revealed` back to false and shown the front only.
+  await expect(window.getByTestId('card-back')).toBeVisible()
 })

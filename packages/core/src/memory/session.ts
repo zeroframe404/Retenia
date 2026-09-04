@@ -165,6 +165,9 @@ export interface SessionCounts {
   new: number
   reinforcement: number
   total: number
+  /** `due`, broken down by level — the Today card's "35 urgentes, 12 altas…" (§12
+   *  Presentation). Every catalog level is present, `paused` always `0` (it never queues). */
+  byLevel: Readonly<Record<ImportanceLevel, number>>
 }
 
 export interface SessionPlan {
@@ -539,6 +542,10 @@ export function composeSession(input: SessionInput): SessionPlan {
   const reinforcement = input.reinforcement ?? null
   if (reinforcement !== null) entries.push({ kind: 'reinforcement', node: reinforcement })
 
+  const byLevel = {} as Record<ImportanceLevel, number>
+  for (const level of catalog.ordered()) byLevel[level.level] = 0
+  for (const entry of keptDue) byLevel[entry.level] = (byLevel[entry.level] ?? 0) + 1
+
   const counts: SessionCounts = {
     exam: keptExam.length,
     due: keptDue.length,
@@ -546,6 +553,7 @@ export function composeSession(input: SessionInput): SessionPlan {
     new: newEntries.length,
     reinforcement: reinforcement === null ? 0 : 1,
     total: entries.length,
+    byLevel: Object.freeze(byLevel),
   }
   const cardCount = counts.exam + counts.due + counts.relearning + counts.new
 

@@ -1,7 +1,3 @@
 {
-  "title": "Hoy",
-  "dueSummary": "{count, plural, one {# tarjeta pendiente} other {# tarjetas pendientes}}",
-  "nothingDue": "No hay nada pendiente por ahora.",
-  "startReview": "Empezar a repasar",
-  "comingSoon": "Tu racha, el mapa de calor, los caminos activos y los insights llegan en una fase posterior."
+  "title": "Hoy"
 }

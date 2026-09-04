@@ -59,7 +59,10 @@
     "grade1": "Calificar: de nuevo",
     "grade2": "Calificar: difícil",
     "grade3": "Calificar: bien",
-    "grade4": "Calificar: fácil"
+    "grade4": "Calificar: fácil",
+    "skip": "Saltar",
+    "explain": "Explicame",
+    "undo": "Deshacer"
   },
   "notFound": {
     "title": "No encontramos esta página",

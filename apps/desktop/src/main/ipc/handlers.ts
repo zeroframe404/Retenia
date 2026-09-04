@@ -5,8 +5,10 @@ import type {
   Forecast,
   ImportanceLevel,
   JsonValue,
+  KnowledgeItem,
   RescheduleImpact,
   RescheduleSelection,
+  SchedulingPreview,
   SecretName,
   SecretStore,
   SessionEntry,
@@ -17,7 +19,7 @@ import type {
   SettingsRepository,
   UrgentModeHours,
 } from '@retenia/core'
-import { SETTINGS } from '@retenia/core'
+import { GRADES, SETTINGS } from '@retenia/core'
 import type { Contract } from '@retenia/ipc-contract'
 import { app, BrowserWindow, dialog, nativeTheme } from 'electron'
 import type { BackupService } from '../backups/service'
@@ -58,6 +60,9 @@ export interface HandlerDeps {
   dbUnavailableReason: string
   /** Broadcasts `settings.changed`; what makes `useSetting` a "subscription" in practice. */
   emitSettingsChanged: (key: string, value: JsonValue) => void
+  /** Same gate as `jobs.enqueueDemo`/`app.devMediaSampleUrl`: whether `memory.seedReviewDemo`
+   *  will seed anything. False in a packaged build. */
+  reviewDemoEnabled: boolean
 }
 
 /** The bridge speaks ISO strings; the use cases speak `Date`. */
@@ -123,6 +128,7 @@ function toCardDto(card: Card) {
     reps: card.reps,
     lapses: card.lapses,
     lastReview: card.lastReview === null ? null : card.lastReview.toISOString(),
+    leech: card.leech,
   }
 }
 
@@ -141,6 +147,25 @@ function toEntryDto(entry: SessionEntry | null) {
 
 function toProgressDto(state: SessionRunnerState) {
   return { ...state }
+}
+
+function toItemDto(item: KnowledgeItem | null) {
+  if (item === null) return null
+  return { fields: item.fields as JsonValue }
+}
+
+function toPreviewDto(preview: SchedulingPreview | null) {
+  if (preview === null) return null
+  return GRADES.map((grade) => {
+    const { card } = preview[grade]
+    return {
+      grade,
+      due: card.due.toISOString(),
+      scheduledDays: card.scheduledDays,
+      stability: card.stability,
+      difficulty: card.difficulty,
+    }
+  })
 }
 
 function toSummaryDto(summary: SessionSummary) {
@@ -174,6 +199,7 @@ export function createHandlers({
   restoreFromBackup,
   dbUnavailableReason,
   emitSettingsChanged,
+  reviewDemoEnabled,
 }: HandlerDeps): Handlers<Contract> {
   return {
     'app.getVersion': () => ({
@@ -312,8 +338,13 @@ export function createHandlers({
 
     'session.next': async () => {
       if (!memory) unavailable('memory', dbUnavailableReason)
-      const { entry, progress } = memory.sessionNext()
-      return { entry: toEntryDto(entry), progress: toProgressDto(progress) }
+      const { entry, progress, item, preview } = await memory.sessionNext()
+      return {
+        entry: toEntryDto(entry),
+        progress: toProgressDto(progress),
+        item: toItemDto(item),
+        preview: toPreviewDto(preview),
+      }
     },
 
     'session.answer': async ({ rating, exerciseScore, durationMs, attemptId }) => {
@@ -355,6 +386,17 @@ export function createHandlers({
       if (!memory) unavailable('memory', dbUnavailableReason)
       const result = await memory.startUrgentMode(itemIds, hours as UrgentModeHours | undefined)
       return { ...result, expiresAt: result.expiresAt.toISOString() }
+    },
+
+    'cards.setLeech': async ({ ids, leech }) => {
+      if (!memory) unavailable('memory', dbUnavailableReason)
+      return { updated: await memory.setCardLeech(ids, leech) }
+    },
+
+    'memory.seedReviewDemo': async ({ count }) => {
+      if (!memory) unavailable('memory', dbUnavailableReason)
+      if (!reviewDemoEnabled) return { itemIds: [], cardIds: [] }
+      return memory.seedReviewDemo(count)
     },
 
     'secrets.set': async ({ name, value }) => {

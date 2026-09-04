@@ -272,6 +272,8 @@ if (gotLock) {
       restoreFromBackup: restoreFromBackupAndRelaunch,
       dbUnavailableReason,
       emitSettingsChanged: (key, value) => broadcast('settings.changed', { key, value }),
+      // Same gate as `jobs.enqueueDemo`: nothing in the shipped product seeds review data.
+      reviewDemoEnabled: is.dev || process.env.RETENIA_E2E === '1',
       reportRendererError: (error) => {
         log.error('[renderer]', error.name, error.message, error.stack)
         // Re-checked per call rather than captured once at startup: `Sentry.init` only

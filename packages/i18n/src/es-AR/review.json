@@ -1,12 +1,91 @@
 {
   "title": "Repasar",
-  "comingSoon": "La sesión de repaso llega en una fase posterior.",
-  "activityDemo": {
-    "heading": "Esta pantalla se mantiene montada al navegar",
-    "counterLabel": "Contador de la sesión",
-    "increment": "Sumar",
-    "lastShortcut": "Último atajo: {key}",
-    "lastShortcutNone": "Todavía ninguno"
+  "today": {
+    "heading": "Hoy",
+    "dueByLevel": {
+      "urgent": "{count} urgentes",
+      "high": "{count} de importancia alta",
+      "normal": "{count} normales",
+      "maintenance": "{count} de mantenimiento"
+    },
+    "new": "{count, plural, one {# nueva} other {# nuevas}}",
+    "reinforcement": "Refuerzo del camino disponible",
+    "nothingDue": "No hay nada pendiente por ahora.",
+    "primaryAction": "Repasar ({count, plural, one {# repaso} other {# repasos}}, ~{minutes} min)",
+    "urgentModeAction": "Modo urgente",
+    "exam": {
+      "readinessPlaceholder": "La preparación para exámenes llega en una fase posterior."
+    },
+    "streak": {
+      "label": "{count, plural, one {# día} other {# días}} de racha"
+    }
+  },
+  "screen": {
+    "reveal": "Mostrar la respuesta",
+    "revealHint": "Espacio o Enter para mostrar la respuesta",
+    "typeAnswerPlaceholder": "Escribí la respuesta…",
+    "check": "Comprobar",
+    "correct": "¡Correcto!",
+    "incorrect": "Incorrecto",
+    "correctAnswer": "Respuesta correcta: {answer}",
+    "front": "Frente",
+    "back": "Dorso",
+    "grades": {
+      "1": "De nuevo",
+      "2": "Difícil",
+      "3": "Bien",
+      "4": "Fácil"
+    },
+    "simpleGrades": {
+      "again": "Lo olvidé",
+      "good": "Me acordé"
+    },
+    "nextIntervalDays": "{days, plural, =0 {hoy} one {en # día} other {en # días}}",
+    "skip": "Saltar",
+    "explain": "Explicame",
+    "explainComingSoon": "El tutor con citas llega en una fase posterior (9.4).",
+    "edit": "Editar",
+    "editComingSoon": "El editor de tarjetas llega en una fase posterior.",
+    "undo": "Deshacer",
+    "undoneToast": "Deshecho",
+    "menu": {
+      "trigger": "Más opciones",
+      "markLeech": "Marcar como leech",
+      "unmarkLeech": "Quitar la marca de leech",
+      "lowerImportance": "Bajar importancia a Mantenimiento"
+    },
+    "progress": "{remaining} restantes",
+    "elapsed": "{minutes}:{seconds}",
+    "clozeHint": "Pista: {hint}",
+    "empty": "No hay ninguna sesión de repaso activa.",
+    "startReview": "Empezar a repasar",
+    "why": {
+      "due": "Vence hoy · S {stability} d",
+      "new": "Tarjeta nueva",
+      "relearning": "En reaprendizaje",
+      "exam": "Priorizada por un examen",
+      "reinforcement": "Nodo de refuerzo del camino"
+    }
+  },
+  "summary": {
+    "title": "Sesión terminada",
+    "reviewed": "{count, plural, one {# tarjeta repasada} other {# tarjetas repasadas}}",
+    "reviewedLabel": "Repasadas",
+    "accuracy": "{percent} % de aciertos",
+    "accuracyLabel": "Aciertos",
+    "noAnswers": "No calificaste ninguna tarjeta",
+    "time": "{minutes} min",
+    "timeLabel": "Tiempo",
+    "xpPlaceholder": "Próximamente",
+    "xpLabel": "XP",
+    "postponed": "Pospuse {count, plural, one {# tarjeta de mantenimiento} other {# tarjetas de mantenimiento}} por hoy",
+    "doneForToday": "¡Listo por hoy!",
+    "streakKept": "Mantuviste tu racha",
+    "backHome": "Volver a Hoy",
+    "reviewMore": "Seguir repasando"
+  },
+  "settings": {
+    "simpleGrading": "Modo simple (2 botones)"
   },
   "importance": {
     "levels": {

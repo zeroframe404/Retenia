@@ -1,7 +1,3 @@
 {
-  "title": "Today",
-  "dueSummary": "{count, plural, one {# card due} other {# cards due}}",
-  "nothingDue": "Nothing due right now.",
-  "startReview": "Start review",
-  "comingSoon": "Your streak, heatmap, active paths and insights land in a later phase."
+  "title": "Today"
 }

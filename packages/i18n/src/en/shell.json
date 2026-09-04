@@ -59,7 +59,10 @@
     "grade1": "Grade: again",
     "grade2": "Grade: hard",
     "grade3": "Grade: good",
-    "grade4": "Grade: easy"
+    "grade4": "Grade: easy",
+    "skip": "Skip",
+    "explain": "Explain",
+    "undo": "Undo"
   },
   "notFound": {
     "title": "We couldn't find that page",

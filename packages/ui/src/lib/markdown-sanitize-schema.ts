@@ -54,4 +54,12 @@ export const markdownSanitizeSchema: Schema = {
     g: ['transform'],
     text: ['x', 'y', 'fontFamily', 'fontSize'],
   },
+  protocols: {
+    ...defaultSchema.protocols,
+    // `defaultSchema` only allows http/https image sources; source-library media (PDF
+    // page images, keyframes, occlusion crops…) is served over the app's own `media://`
+    // protocol (docs/spec/07-architecture.md §3), so an `![...](media://…)` image in a
+    // flashcard or lesson body would otherwise be silently stripped.
+    src: [...(defaultSchema.protocols?.src ?? []), 'media'],
+  },
 }

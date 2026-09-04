@@ -1,12 +1,91 @@
 {
   "title": "Review",
-  "comingSoon": "The review session lands in a later phase.",
-  "activityDemo": {
-    "heading": "This screen stays mounted while you navigate away",
-    "counterLabel": "Session counter",
-    "increment": "Increment",
-    "lastShortcut": "Last shortcut: {key}",
-    "lastShortcutNone": "None yet"
+  "today": {
+    "heading": "Today",
+    "dueByLevel": {
+      "urgent": "{count} urgent",
+      "high": "{count} high importance",
+      "normal": "{count} normal",
+      "maintenance": "{count} maintenance"
+    },
+    "new": "{count, plural, one {# new} other {# new}}",
+    "reinforcement": "Path reinforcement available",
+    "nothingDue": "Nothing due right now.",
+    "primaryAction": "Review ({count, plural, one {# review} other {# reviews}}, ~{minutes} min)",
+    "urgentModeAction": "Urgent mode",
+    "exam": {
+      "readinessPlaceholder": "Exam readiness lands in a later phase."
+    },
+    "streak": {
+      "label": "{count, plural, one {# day} other {# days}} streak"
+    }
+  },
+  "screen": {
+    "reveal": "Reveal the answer",
+    "revealHint": "Space or Enter reveals the answer",
+    "typeAnswerPlaceholder": "Type the answer…",
+    "check": "Check",
+    "correct": "Correct!",
+    "incorrect": "Incorrect",
+    "correctAnswer": "Correct answer: {answer}",
+    "front": "Front",
+    "back": "Back",
+    "grades": {
+      "1": "Again",
+      "2": "Hard",
+      "3": "Good",
+      "4": "Easy"
+    },
+    "simpleGrades": {
+      "again": "Forgot",
+      "good": "Remembered"
+    },
+    "nextIntervalDays": "{days, plural, =0 {today} one {in # day} other {in # days}}",
+    "skip": "Skip",
+    "explain": "Explain",
+    "explainComingSoon": "The cited AI tutor lands in a later phase (9.4).",
+    "edit": "Edit",
+    "editComingSoon": "The card editor lands in a later phase.",
+    "undo": "Undo",
+    "undoneToast": "Undone",
+    "menu": {
+      "trigger": "More options",
+      "markLeech": "Mark as leech",
+      "unmarkLeech": "Clear the leech mark",
+      "lowerImportance": "Lower importance to Maintenance"
+    },
+    "progress": "{remaining} left",
+    "elapsed": "{minutes}:{seconds}",
+    "clozeHint": "Hint: {hint}",
+    "empty": "No review session is running.",
+    "startReview": "Start review",
+    "why": {
+      "due": "Due today · S {stability}d",
+      "new": "New card",
+      "relearning": "Relearning",
+      "exam": "Prioritized by an exam",
+      "reinforcement": "Path reinforcement node"
+    }
+  },
+  "summary": {
+    "title": "Session done",
+    "reviewed": "{count, plural, one {# card reviewed} other {# cards reviewed}}",
+    "reviewedLabel": "Reviewed",
+    "accuracy": "{percent}% correct",
+    "accuracyLabel": "Accuracy",
+    "noAnswers": "You didn't grade any cards",
+    "time": "{minutes} min",
+    "timeLabel": "Time",
+    "xpPlaceholder": "Coming soon",
+    "xpLabel": "XP",
+    "postponed": "Postponed {count, plural, one {# maintenance card} other {# maintenance cards}} for today",
+    "doneForToday": "Done for today!",
+    "streakKept": "You kept your streak",
+    "backHome": "Back to Today",
+    "reviewMore": "Keep reviewing"
+  },
+  "settings": {
+    "simpleGrading": "Simple mode (2 buttons)"
   },
   "importance": {
     "levels": {
