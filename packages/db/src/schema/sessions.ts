@@ -30,6 +30,10 @@ import { aiCalls } from './system'
 export const LESSON_SESSION_STATUSES = ['in_progress', 'completed', 'abandoned'] as const
 export type LessonSessionStatus = (typeof LESSON_SESSION_STATUSES)[number]
 
+/** A daily review session's lifecycle (docs/spec/02-memory-system.md §12). */
+export const REVIEW_SESSION_STATUSES = ['in_progress', 'completed', 'abandoned'] as const
+export type ReviewSessionStatus = (typeof REVIEW_SESSION_STATUSES)[number]
+
 /** Where an attempt happened — decides XP, whether it feeds the scheduler and with which
  * `review_logs.context`. */
 export const ATTEMPT_CONTEXTS = [
@@ -61,6 +65,65 @@ export const REVIEW_CONTEXTS = [
   'import',
 ] as const
 export type ReviewContext = (typeof REVIEW_CONTEXTS)[number]
+
+/**
+ * One run through the daily queue (docs/spec/02-memory-system.md §12).
+ *
+ * `plan` holds the *order* the composer froze — card ids, not cards — and `progress` holds
+ * how far through it the user got, so closing the app mid-session loses nothing. It is a
+ * record of a session, never a second source of truth for the scheduler: every answer is
+ * still one `review_logs` row and one `cards` update, so dropping this table would cost the
+ * ability to resume and nothing else.
+ */
+export const reviewSessions = sqliteTable(
+  'review_sessions',
+  {
+    id: idColumn(),
+    status: text('status', { enum: REVIEW_SESSION_STATUSES }).notNull().default('in_progress'),
+    startedAt: timestampColumn('started_at').notNull(),
+    finishedAt: timestampColumn('finished_at'),
+    durationMs: integer('duration_ms'),
+    /** What the plan was composed with, so a resumed session is provably the same plan. */
+    seed: text('seed').notNull().default(''),
+    /** The frozen `SessionPlanSnapshot`: the queue order, not the cards themselves. */
+    plan: jsonColumn('plan').$type<JsonObject>().notNull(),
+    /** Cursor, per-entry outcomes and the pending final drill. */
+    progress: jsonColumn('progress').$type<JsonObject>().notNull(),
+    reviewed: integer('reviewed').notNull().default(0),
+    again: integer('again').notNull().default(0),
+    hard: integer('hard').notNull().default(0),
+    /** How many cards overload protection moved when the session started (§7 rule 3). */
+    postponed: integer('postponed').notNull().default(0),
+    /** Correct / graded, in `[0, 1]`; NULL until something has been answered. */
+    accuracy: real('accuracy'),
+    xp: integer('xp').notNull().default(0),
+    summary: jsonColumn('summary').$type<JsonObject>(),
+    ...auditColumns(),
+  },
+  (t) => [
+    // Partial: `findActive` is the only hot read and it only ever wants the open one.
+    index('review_sessions_active')
+      .on(t.startedAt)
+      .where(sql`${t.status} = 'in_progress' AND ${t.deletedAt} IS NULL`),
+    index('review_sessions_started').on(t.startedAt),
+    check('review_sessions_status', inTextList(t.status, REVIEW_SESSION_STATUSES)),
+    check('review_sessions_accuracy_range', inRange(t.accuracy, 0, 1)),
+    check('review_sessions_duration_nonnegative', atLeast(t.durationMs, 0)),
+    check('review_sessions_xp_nonnegative', atLeast(t.xp, 0)),
+    check(
+      'review_sessions_counts',
+      sql`${t.reviewed} >= 0 AND ${t.again} >= 0 AND ${t.hard} >= 0 AND ${t.postponed} >= 0 AND ${t.again} + ${t.hard} <= ${t.reviewed}`,
+    ),
+    check(
+      'review_sessions_finished_after_started',
+      sql`${t.finishedAt} IS NULL OR ${t.finishedAt} >= ${t.startedAt}`,
+    ),
+    check('review_sessions_plan_json', jsonObject(t.plan)),
+    check('review_sessions_progress_json', jsonObject(t.progress)),
+    check('review_sessions_summary_json', jsonObject(t.summary)),
+    ...standardChecks('review_sessions', t),
+  ],
+)
 
 /** One run through a lesson's practice block: XP, accuracy, and what entered memory. */
 export const lessonSessions = sqliteTable(

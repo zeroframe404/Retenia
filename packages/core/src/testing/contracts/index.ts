@@ -8,6 +8,7 @@ import { importanceLevelsContract } from './importance-levels.contract'
 import { jobsContract } from './jobs.contract'
 import { outboxContract } from './outbox.contract'
 import { reviewLogsContract } from './review-logs.contract'
+import { reviewSessionsContract } from './review-sessions.contract'
 import { settingsContract } from './settings.contract'
 import { unitOfWorkContract } from './unit-of-work.contract'
 
@@ -28,6 +29,7 @@ export function runRepositoryContracts(harness: RepositoryContractHarness): void
     cardsContract(harness)
     importanceLevelsContract(harness)
     reviewLogsContract(harness)
+    reviewSessionsContract(harness)
     chunksContract(harness)
     settingsContract(harness)
     jobsContract(harness)
@@ -43,5 +45,6 @@ export { importanceLevelsContract } from './importance-levels.contract'
 export { jobsContract } from './jobs.contract'
 export { outboxContract } from './outbox.contract'
 export { reviewLogsContract } from './review-logs.contract'
+export { reviewSessionsContract } from './review-sessions.contract'
 export { settingsContract } from './settings.contract'
 export { unitOfWorkContract } from './unit-of-work.contract'

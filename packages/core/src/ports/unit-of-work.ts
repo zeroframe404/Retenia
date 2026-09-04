@@ -12,6 +12,7 @@ import type { KnowledgeItemRepository } from './knowledge-item-repository'
 import type { OutboxRepository } from './outbox-repository'
 import type { PathRepository } from './path-repository'
 import type { ReviewLogRepository } from './review-log-repository'
+import type { ReviewSessionRepository } from './review-session-repository'
 import type { SettingsRepository } from './settings-repository'
 import type { SourceRepository } from './source-repository'
 
@@ -32,6 +33,7 @@ export interface Repositories {
   outbox: OutboxRepository
   paths: PathRepository
   reviewLogs: ReviewLogRepository
+  reviewSessions: ReviewSessionRepository
   settings: SettingsRepository
   sources: SourceRepository
 }

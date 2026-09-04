@@ -28,13 +28,33 @@ export interface ImportanceCountOptions {
  * overload protection and the final drill are the daily session composer's job
  * (sub-phase 4.3, `docs/spec/02-memory-system.md` §9).
  */
+/**
+ * The three columns the forecast needs, and nothing else (§13's "Forecast" row).
+ *
+ * A projection rather than whole cards on purpose: a 90-day forecast touches most of the
+ * collection, and reading every payload and FSRS column to count rows would make the cheapest
+ * screen in the app the most expensive.
+ */
+export interface DueProjection {
+  due: Date
+  /** The card's *effective* importance, override and expiry applied. */
+  level: ImportanceLevel
+  state: CardState
+}
+
 export interface CardRepository extends CrudRepository<Card> {
   /**
    * Live, unsuspended cards whose `due` has passed and whose burial has expired, ordered by
-   * importance rank, then `due` ascending, then id (deterministic, so tests and the session
-   * composer see a stable sequence).
+   * `due` ascending, then id (deterministic, so tests and the session composer see a stable
+   * sequence). Ordering by importance is the composer's job, not a column the index can
+   * serve — see the adapter.
    */
   findDue(now: Date, filters?: DueFilters): Promise<Card[]>
+  /**
+   * Live, unsuspended cards due in `[from, to)`, oldest first — what the forecast buckets by
+   * day. `paused` is excluded like everywhere else; `limit` bounds the read.
+   */
+  listDueBetween(from: Date, to: Date, options?: { limit?: number }): Promise<DueProjection[]>
   findByItem(itemId: string, options?: ListOptions): Promise<Card[]>
   /** Every live card of every one of these items — what urgent mode and a bulk importance
    *  change operate on. */

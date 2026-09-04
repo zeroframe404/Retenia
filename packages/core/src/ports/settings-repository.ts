@@ -19,6 +19,19 @@ export interface SettingsMap {
   'ui.soberMode': boolean
   'review.dailyNewLimit': number
   'review.dailyReviewLimit': number
+  /** How many minutes a day the user wants to spend reviewing — the budget overload
+   *  protection measures the queue against (`docs/spec/02-memory-system.md` §12). */
+  'review.budgetMinutes': number
+  /** The "bad day" floor: the smallest number of cards that still keeps the streak (§12). */
+  'review.streakGoalCards': number
+  /** §12 step 4: one new card every N reviews. The spec's range is 3–5. */
+  'review.newEveryNReviews': number
+  /** §12 step 2: relative overdueness, or ascending retrievability (Anki 24.11's
+   *  "better when there is a backlog"). */
+  'review.queueOrder': 'relative_overdueness' | 'retrievability'
+  /** §12 step 6: everything graded Again/Hard today comes back at the end. Urgent mode
+   *  turns it on regardless. */
+  'review.finalDrill': boolean
   /** The hour a "day" rolls over, so a 1 a.m. session counts as the previous day. */
   'review.dayStartHour': number
   'ai.budget.monthlyUsd': number
@@ -98,6 +111,11 @@ export const SETTINGS: { readonly [K in SettingsKey]: SettingSpec<SettingsMap[K]
   'ui.soberMode': booleanSetting(false),
   'review.dailyNewLimit': numberIn(0, 9999, 15),
   'review.dailyReviewLimit': numberIn(0, 99999, 200),
+  'review.budgetMinutes': numberIn(1, 1440, 20),
+  'review.streakGoalCards': numberIn(1, 9999, 10),
+  'review.newEveryNReviews': numberIn(3, 5, 4),
+  'review.queueOrder': oneOf(['relative_overdueness', 'retrievability'], 'relative_overdueness'),
+  'review.finalDrill': booleanSetting(false),
   'review.dayStartHour': numberIn(0, 23, 4),
   'ai.budget.monthlyUsd': numberIn(0, 100000, 30),
   'ai.providers.allowlist': stringArray([]),

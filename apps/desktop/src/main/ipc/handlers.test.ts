@@ -1,4 +1,5 @@
 import { SETTINGS_DEFAULTS } from '@retenia/core'
+import { contract } from '@retenia/ipc-contract'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { HandlerDeps } from './handlers'
 
@@ -76,6 +77,133 @@ function makeSettingsRepo(): HandlerDeps['settingsRepo'] {
 }
 
 /** Every method a spy, so a test can assert what the handler forwarded. */
+const SESSION_ID = '019213cd-0000-7000-8000-0000000000ff'
+const LOG_ID = '019213cd-0000-7000-8000-0000000000ee'
+const CARD_ID = '019213cd-0000-7000-8000-0000000000cc'
+
+const overload = {
+  plannedCards: 3,
+  keptCards: 1,
+  postponedCards: 2,
+  completedShare: 1 / 3,
+  byLevel: [{ level: 'maintenance' as const, count: 2 }],
+  budgetMinutes: 20,
+  estimatedMinutes: 0.13,
+  overloaded: true,
+  stillOverBudget: false,
+}
+
+const plan = {
+  entries: [],
+  counts: { exam: 0, due: 1, relearning: 0, new: 0, reinforcement: 0, total: 1 },
+  postponements: [{}, {}],
+  burials: [{}],
+  overload,
+  estimatedMinutes: 0.13,
+  budgetMinutes: 20,
+  streakGoalCards: 10,
+  medianSecondsPerCard: 8,
+  backlogDays: 0.1,
+  newGated: false,
+  finalDrill: false,
+  order: 'relative_overdueness' as const,
+  seed: '20605',
+  composedAt: new Date('2026-09-02T00:00:00.000Z'),
+}
+
+const card = {
+  id: CARD_ID,
+  itemId: '019213cd-0000-7000-8000-0000000000aa',
+  template: 'basic',
+  payload: null,
+  state: 2 as const,
+  due: new Date('2026-09-03T00:00:00.000Z'),
+  stability: 12.3,
+  difficulty: 5.2,
+  scheduledDays: 10,
+  learningSteps: 0,
+  reps: 6,
+  lapses: 1,
+  lastReview: new Date('2026-09-01T00:00:00.000Z'),
+  // Audit columns the DTO must drop.
+  createdAt: new Date('2026-09-01T00:00:00.000Z'),
+  updatedAt: new Date('2026-09-01T00:00:00.000Z'),
+  deletedAt: null,
+  deviceId: 'test-device',
+  version: 3,
+  suspended: false,
+  buriedUntil: null,
+  leech: false,
+  importanceOverride: null,
+  importanceOverrideExpiresAt: null,
+  examId: null,
+}
+
+const entry = {
+  kind: 'due' as const,
+  card,
+  level: 'normal' as const,
+  options: { desiredRetention: 0.9 },
+  retrievability: 0.82,
+  relativeOverdueness: 1.2,
+  examId: null,
+}
+
+const progress = {
+  sessionId: SESSION_ID,
+  cursor: 1,
+  total: 3,
+  remaining: 2,
+  reviewed: 1,
+  again: 0,
+  hard: 0,
+  skipped: 0,
+  drillPending: 0,
+  drillStarted: false,
+  finished: false,
+}
+
+const summary = {
+  sessionId: SESSION_ID,
+  reviewed: 3,
+  again: 1,
+  hard: 0,
+  skipped: 0,
+  accuracy: 2 / 3,
+  minutes: 1.5,
+  xp: 0,
+  postponed: 2,
+  streak: {
+    state: 'unknown' as const,
+    current: 0,
+    goalCards: 10,
+    reviewedToday: 3,
+    goalMet: false,
+  },
+  overload,
+  finishedAt: new Date('2026-09-02T00:10:00.000Z'),
+}
+
+const forecast = {
+  days: [
+    {
+      day: '2026-09-02',
+      offset: 0,
+      byLevel: { urgent: 0, high: 0, normal: 2, maintenance: 0, paused: 0 },
+      cards: 2,
+      minutes: 0.27,
+      newCards: 5,
+      cardsWithNew: 7,
+      minutesWithNew: 0.93,
+    },
+  ],
+  medianSecondsPerCard: 8,
+  backlog: 1,
+  newPool: 20,
+  dailyNewLimit: 15,
+  generatedAt: new Date('2026-09-02T00:00:00.000Z'),
+}
+
 function makeMemory(): HandlerDeps['memory'] {
   const impact = {
     affected: 0,
@@ -115,6 +243,29 @@ function makeMemory(): HandlerDeps['memory'] {
     expireUrgentMode: vi.fn(async () => 0),
     resolve: vi.fn(),
     refresh: vi.fn(async () => {}),
+
+    planSession: vi.fn(async () => plan),
+    startSession: vi.fn(async () => ({
+      runner: { state: () => progress },
+      session: { id: SESSION_ID },
+      plan,
+      entries: [],
+      resumed: false,
+      burials: 1,
+      postponed: 2,
+    })),
+    sessionNext: vi.fn(() => ({ entry, progress })),
+    sessionAnswer: vi.fn(async () => ({
+      result: { card, logId: LOG_ID, rating: 3 as const, drilled: false, remaining: 0 },
+      progress,
+    })),
+    sessionSkip: vi.fn(async () => progress),
+    sessionUndo: vi.fn(async () => ({
+      undone: { card, logId: LOG_ID, cardId: card.id },
+      progress,
+    })),
+    sessionFinish: vi.fn(async () => summary),
+    forecast: vi.fn(async () => forecast),
   } as unknown as HandlerDeps['memory']
 }
 
@@ -616,6 +767,14 @@ describe('memory channels', () => {
       ['memory.simulateReschedule', { limit: 2_000 }],
       ['memory.rescheduleNow', { limit: 2_000, confirm: true }],
       ['memory.startUrgentMode', { itemIds: [ID] }],
+      ['memory.forecast', { days: 30 }],
+      ['session.plan', {}],
+      ['session.start', { confirm: true }],
+      ['session.next', undefined],
+      ['session.answer', { rating: 3 }],
+      ['session.skip', undefined],
+      ['session.undo', undefined],
+      ['session.finish', undefined],
     ] as const
 
     for (const [channel, input] of channels) {
@@ -624,5 +783,119 @@ describe('memory channels', () => {
         (handlers[channel] as any)(input, fakeEvent),
       ).rejects.toThrow('memory is unavailable')
     }
+  })
+})
+
+describe('session channels', () => {
+  it('summarises the plan: counts, not the 2,000 cards behind them', async () => {
+    const handlers = createHandlers(makeDeps())
+    const dto = await handlers['session.plan']({}, fakeEvent)
+
+    expect(dto.counts).toEqual({
+      exam: 0,
+      due: 1,
+      relearning: 0,
+      new: 0,
+      reinforcement: 0,
+      total: 1,
+    })
+    // The proposals cross the bridge as counts; `session.start` decides which cards.
+    expect(dto.postponements).toBe(2)
+    expect(dto.burials).toBe(1)
+    expect(dto.composedAt).toBe('2026-09-02T00:00:00.000Z')
+    expect(dto).not.toHaveProperty('entries')
+  })
+
+  it('drops the confirmation flag before handing the settings to the use case', async () => {
+    const deps = makeDeps()
+    const handlers = createHandlers(deps)
+
+    const started = await handlers['session.start']({ confirm: true, budgetMinutes: 15 }, fakeEvent)
+    expect(deps.memory?.startSession).toHaveBeenCalledExactlyOnceWith({ budgetMinutes: 15 })
+    expect(started).toMatchObject({ resumed: false, burials: 1, postponed: 2 })
+    expect(started.plan?.seed).toBe('20605')
+  })
+
+  it('sends the FSRS half of the card and nothing else', async () => {
+    const handlers = createHandlers(makeDeps())
+    const { entry: dto } = await handlers['session.next'](undefined, fakeEvent)
+
+    expect(dto).toMatchObject({ kind: 'due', level: 'normal', retrievability: 0.82 })
+    const sent = (dto as { card: Record<string, unknown> }).card
+    expect(sent.due).toBe('2026-09-03T00:00:00.000Z')
+    expect(sent.lastReview).toBe('2026-09-01T00:00:00.000Z')
+    // Audit columns and the internal flags stay in main.
+    for (const column of ['createdAt', 'updatedAt', 'deviceId', 'version', 'buriedUntil']) {
+      expect(sent).not.toHaveProperty(column)
+    }
+    // The desired retention is lifted out of the resolved options for the interval preview.
+    expect(dto).toMatchObject({ desiredRetention: 0.9 })
+  })
+
+  it('forwards only the optional answer fields that were given', async () => {
+    const deps = makeDeps()
+    const handlers = createHandlers(deps)
+
+    await handlers['session.answer']({ rating: 3 }, fakeEvent)
+    expect(deps.memory?.sessionAnswer).toHaveBeenCalledExactlyOnceWith({ rating: 3 })
+
+    await handlers['session.answer']({ rating: 1, exerciseScore: 0.4, durationMs: 900 }, fakeEvent)
+    expect(deps.memory?.sessionAnswer).toHaveBeenLastCalledWith({
+      rating: 1,
+      exerciseScore: 0.4,
+      durationMs: 900,
+    })
+  })
+
+  it('reports undo as a boolean plus the card that came back', async () => {
+    const handlers = createHandlers(makeDeps())
+    expect(await handlers['session.undo'](undefined, fakeEvent)).toMatchObject({
+      undone: true,
+      cardId: CARD_ID,
+    })
+  })
+
+  /**
+   * `registerHandlers` validates every response against the contract before it leaves main,
+   * so a DTO that drifted from its schema would fail at runtime rather than at compile time
+   * — these handlers return plain objects, and TypeScript cannot see the zod shape. This is
+   * the assertion that catches it.
+   */
+  it('returns what the contract declares, for every session channel', async () => {
+    const handlers = createHandlers(makeDeps())
+    const calls = [
+      ['session.plan', {}],
+      ['session.start', { confirm: true }],
+      ['session.next', undefined],
+      ['session.answer', { rating: 3 }],
+      ['session.skip', undefined],
+      ['session.undo', undefined],
+      ['session.finish', undefined],
+      ['memory.forecast', { days: 30 }],
+    ] as const
+
+    for (const [channel, input] of calls) {
+      // biome-ignore lint/suspicious/noExplicitAny: one loop over heterogeneous channels.
+      const output = await (handlers[channel] as any)(input, fakeEvent)
+      expect(() => contract[channel].output.parse(output), channel).not.toThrow()
+    }
+  })
+
+  it('sends every Date in the summary and the forecast as an ISO string', async () => {
+    const handlers = createHandlers(makeDeps())
+
+    const summaryDto = await handlers['session.finish'](undefined, fakeEvent)
+    expect(summaryDto.finishedAt).toBe('2026-09-02T00:10:00.000Z')
+    expect(summaryDto.accuracy).toBeCloseTo(2 / 3, 10)
+
+    const forecastDto = await handlers['memory.forecast']({ days: 30 }, fakeEvent)
+    expect(forecastDto.generatedAt).toBe('2026-09-02T00:00:00.000Z')
+    expect(forecastDto.days[0]?.byLevel).toEqual({
+      urgent: 0,
+      high: 0,
+      normal: 2,
+      maintenance: 0,
+      paused: 0,
+    })
   })
 })

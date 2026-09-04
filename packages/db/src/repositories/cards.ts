@@ -3,13 +3,14 @@ import type {
   CardRepository,
   CardState,
   DueFilters,
+  DueProjection,
   ImportanceCountOptions,
   ImportanceLevel,
   NewEntity,
   SaveEntity,
 } from '@retenia/core'
 import { IMPORTANCE_LEVELS } from '@retenia/core'
-import { and, asc, count, eq, inArray, isNull, lte, ne, type SQL, sql } from 'drizzle-orm'
+import { and, asc, count, eq, gte, inArray, isNull, lt, lte, ne, type SQL, sql } from 'drizzle-orm'
 import { cards, knowledgeItems } from '../schema'
 import { type BaseRepository, createBaseRepository, type Row, type TableCodec } from './base'
 import type { RepositoryContext } from './context'
@@ -263,6 +264,43 @@ export function createCardRepository(ctx: RepositoryContext): CardRepository {
     findDue: async (now, filters = {}) => {
       const rows = buildFindDueQuery(ctx, now, filters).all() as Array<{ card: Row }>
       return rows.map((row) => codec.toEntity(row.card))
+    },
+
+    /**
+     * Three columns, not whole cards: a 90-day forecast touches most of the collection, and
+     * decoding every payload and FSRS column just to count rows would make the cheapest
+     * screen the most expensive. Burial is *not* filtered — a buried card is still work the
+     * forecast should show on the day it comes back.
+     */
+    listDueBetween: async (from, to, options = {}) => {
+      const at = ctx.clock.now().getTime()
+      const importance = effectiveImportanceAt(at)
+      const query = ctx.db
+        .select({ due: cards.due, level: importance, state: cards.state })
+        .from(cards)
+        .innerJoin(knowledgeItems, eq(cards.itemId, knowledgeItems.id))
+        .where(
+          and(
+            liveUnsuspended,
+            gte(cards.due, fromDate(from)),
+            lt(cards.due, fromDate(to)),
+            isNull(knowledgeItems.deletedAt),
+            eq(knowledgeItems.status, 'active'),
+            ne(importance, 'paused'),
+          ),
+        )
+        .orderBy(asc(cards.due), asc(cards.id))
+        .$dynamic()
+      const rows = (
+        options.limit === undefined ? query : query.limit(options.limit)
+      ).all() as Array<{ due: unknown; level: unknown; state: unknown }>
+      return rows.map(
+        (row): DueProjection => ({
+          due: toDate(row.due),
+          level: toText(row.level) as ImportanceLevel,
+          state: toNumber(row.state) as CardState,
+        }),
+      )
     },
 
     countByImportance: async (options = {}) => {

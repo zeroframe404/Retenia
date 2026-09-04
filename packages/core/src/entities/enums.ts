@@ -148,6 +148,11 @@ export type CreatedBy = (typeof CREATED_BY)[number]
 export const LESSON_SESSION_STATUSES = ['in_progress', 'completed', 'abandoned'] as const
 export type LessonSessionStatus = (typeof LESSON_SESSION_STATUSES)[number]
 
+/** A daily review session's lifecycle. The same three words as a lesson session, because a
+ *  session is a session: it is open, it was finished, or it was walked away from. */
+export const REVIEW_SESSION_STATUSES = ['in_progress', 'completed', 'abandoned'] as const
+export type ReviewSessionStatus = (typeof REVIEW_SESSION_STATUSES)[number]
+
 export const ATTEMPT_CONTEXTS = [
   'lesson',
   'review',

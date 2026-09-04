@@ -6,10 +6,11 @@ import type {
   LessonSessionStatus,
   Rating,
   ReviewContext,
+  ReviewSessionStatus,
 } from './enums'
 
-/** What the user actually did: lesson sessions, activity attempts, and the append-only
- *  FSRS review log. */
+/** What the user actually did: lesson sessions, daily review sessions, activity attempts,
+ *  and the append-only FSRS review log. */
 
 export interface LessonSession extends Entity {
   lessonId: string
@@ -78,4 +79,39 @@ export interface ReviewLog extends Entity {
   /** The scheduler that produced the row: `fsrs6` today (`docs/spec/02-memory-system.md`
    *  §17). Lets an FSRS variant or an SM-2 import be told apart in the training set. */
   algorithmVersion: string
+}
+
+/**
+ * One run through the daily queue (`docs/spec/02-memory-system.md` §12).
+ *
+ * The row exists so a session survives the app being closed: `plan` is the frozen queue the
+ * composer produced and `progress` is how far through it the user got, so `session.start`
+ * resumes an `in_progress` row instead of recomposing — recomposing would silently reorder
+ * the queue under someone who is halfway through it.
+ *
+ * It is a *record of a session*, not a second source of truth for the scheduler: every
+ * answer is still one `review_logs` row and one `cards` update. Delete this table and the
+ * memory state is unharmed; only the ability to resume is lost.
+ */
+export interface ReviewSession extends Entity {
+  status: ReviewSessionStatus
+  startedAt: Date
+  finishedAt: Date | null
+  durationMs: number | null
+  /** The seed the plan was composed with, so the same day replays identically. */
+  seed: string
+  /** The frozen `SessionPlan`. */
+  plan: JsonObject
+  /** The cursor and the per-entry outcomes — what `undo` and resume read. */
+  progress: JsonObject
+  reviewed: number
+  /** How many answers were graded `Again` — the final drill's input. */
+  again: number
+  hard: number
+  /** How many cards overload protection postponed when the session started. */
+  postponed: number
+  /** Correct over graded, in `[0, 1]`; `null` until something has been answered. */
+  accuracy: number | null
+  xp: number
+  summary: JsonObject | null
 }

@@ -1,6 +1,11 @@
 import type {
+  ComposeSessionQuery,
   DayBoundary,
+  DomainEvent,
+  DomainEventPublisher,
   ExamOverrideSource,
+  Forecast,
+  ForecastQuery,
   ImportanceCatalog,
   ImportanceLevel,
   ImportanceMix,
@@ -9,22 +14,38 @@ import type {
   RescheduleImpact,
   RescheduleNow,
   RescheduleSelection,
+  ReviewCard,
   Scheduler,
   SchedulingPolicyInput,
+  SessionAnswerInput,
+  SessionAnswerResult,
+  SessionEntry,
+  SessionPlan,
+  SessionRunner,
+  SessionRunnerState,
+  SessionSettings,
+  SessionSummary,
+  SessionUndoResult,
   SimulateReschedule,
+  StartSession,
+  StartSessionResult,
   UnitOfWork,
   UrgentModeHours,
   UrgentModeResult,
 } from '@retenia/core'
 import {
+  createComposeSession,
   createExamOverrides,
   createExpireUrgentMode,
+  createForecast,
   createFsrsScheduler,
   createImportanceCatalog,
   createImportanceMix,
   createImportanceResolver,
   createRescheduleNow,
+  createReviewCard,
   createSimulateReschedule,
+  createStartSession,
   createStartUrgentMode,
   DEFAULT_DAY_START_HOUR,
   DEFAULT_TIME_ZONE,
@@ -59,6 +80,22 @@ export interface MemoryService {
   resolve(input: SchedulingPolicyInput): ImportanceResolution
   /** Re-read `importance_levels` after the user tunes a level. */
   refresh(): Promise<void>
+
+  // --- the daily session (§12) ---
+
+  /** Compose today without touching anything — the "today" screen. */
+  planSession(settings?: SessionSettings): Promise<SessionPlan>
+  /** Start, or resume a session left open earlier today. Applies burials and postpones. */
+  startSession(settings?: SessionSettings): Promise<StartSessionResult>
+  sessionNext(): { entry: SessionEntry | null; progress: SessionRunnerState }
+  sessionAnswer(
+    input: SessionAnswerInput,
+  ): Promise<{ result: SessionAnswerResult; progress: SessionRunnerState }>
+  sessionSkip(): Promise<SessionRunnerState>
+  sessionUndo(): Promise<{ undone: SessionUndoResult | null; progress: SessionRunnerState }>
+  sessionFinish(): Promise<SessionSummary>
+  /** §13: cards and minutes per day, per level, with and without new. */
+  forecast(days: number): Promise<Forecast>
 }
 
 export interface MemoryServiceOptions {
@@ -67,6 +104,20 @@ export interface MemoryServiceOptions {
   timeZone?: string
   dayStartHour?: number
   scheduler?: Scheduler
+  /**
+   * Where `card.reviewed` goes. The default logs at debug level and nothing more: there is
+   * no subscriber yet, and sub-phase 13.1 (XP, streaks) is the first thing that will want
+   * one. Injectable so a test can assert the event without a window.
+   */
+  events?: DomainEventPublisher
+}
+
+/** No session has been started, or the last one was finished. */
+export class NoActiveSessionError extends Error {
+  override readonly name = 'NoActiveSessionError'
+  constructor() {
+    super('No review session is running: call session.start first')
+  }
 }
 
 /** The pieces that have to be rebuilt when the level rows or the exam set change. */
@@ -133,6 +184,68 @@ export async function createMemoryService(options: MemoryServiceOptions): Promis
   const startUrgentMode = createStartUrgentMode({ uow: repos })
   const expireUrgentMode = createExpireUrgentMode({ uow: repos })
 
+  const events: DomainEventPublisher = options.events ?? {
+    publish: (event: DomainEvent) => {
+      log.debug(`[memory] ${event.type} ${event.card.id} rating=${event.log.rating}`)
+    },
+  }
+
+  /**
+   * The daily session (§12).
+   *
+   * The policy is `current.resolve`, not a second `createImportanceSchedulingPolicy`: the
+   * resolver already carries the live catalog *and* the exam overrides, and building a
+   * parallel one would let a review be scheduled from a catalog the queue was not composed
+   * with. `refresh` swaps `current`, and both read it through the same closure.
+   */
+  const reviewCard: ReviewCard = createReviewCard({
+    uow: repos,
+    scheduler,
+    policy: { optionsFor: (input) => current.resolve(input).options },
+    events,
+  })
+
+  const compose: ComposeSessionQuery = createComposeSession({
+    repos,
+    scheduler,
+    resolve: (input) => current.resolve(input),
+    catalog: current.catalog,
+    // Urgent mode's own doc: sweep the lapsed overrides before composing, or a window that
+    // closed overnight still orders the queue.
+    expireUrgentMode: async (at) => expireUrgentMode(at),
+    dayBoundary,
+  })
+
+  const startSession: StartSession = createStartSession({
+    uow: repos,
+    compose,
+    reviewCard,
+    scheduler,
+    resolve: (input) => current.resolve(input),
+    catalog: current.catalog,
+    dayBoundary,
+  })
+
+  const forecast: ForecastQuery = createForecast({
+    repos,
+    catalog: current.catalog,
+    dayBoundary,
+  })
+
+  /**
+   * The session the renderer is driving.
+   *
+   * One at a time, and held in main rather than rebuilt per IPC call: the runner owns the
+   * per-card timer and the final-drill queue, and re-reading the row on every `next()` would
+   * lose both. It survives a renderer reload because it lives here; it does not survive the
+   * process, which is what `review_sessions` is for.
+   */
+  let runner: SessionRunner | null = null
+  const active = (): SessionRunner => {
+    if (runner === null) throw new NoActiveSessionError()
+    return runner
+  }
+
   return {
     setItemImportance: (ids, level) => repos.knowledgeItems.setImportanceMany(ids, level),
 
@@ -162,5 +275,54 @@ export async function createMemoryService(options: MemoryServiceOptions): Promis
     refresh: async () => {
       current = build(repos, scheduler, ...(await load()), dayBoundary)
     },
+
+    planSession: (settings = {}) => compose(settings),
+
+    startSession: async (settings = {}) => {
+      const result = await startSession({ settings, confirm: true })
+      runner = result.runner
+      log.info(
+        result.resumed
+          ? `[memory] resumed session ${result.session.id} at ${result.runner.state().cursor}`
+          : `[memory] started session ${result.session.id}: ${result.entries.length} entries, ` +
+              `${result.postponed} postponed, ${result.burials} buried`,
+      )
+      return result
+    },
+
+    sessionNext: () => {
+      const current_ = active()
+      return { entry: current_.next(), progress: current_.state() }
+    },
+
+    sessionAnswer: async (input) => {
+      const current_ = active()
+      const result = await current_.answer(input)
+      return { result, progress: current_.state() }
+    },
+
+    sessionSkip: async () => {
+      const current_ = active()
+      await current_.skip()
+      return current_.state()
+    },
+
+    sessionUndo: async () => {
+      const current_ = active()
+      const undone = await current_.undo()
+      return { undone, progress: current_.state() }
+    },
+
+    sessionFinish: async () => {
+      const summary = await active().finish()
+      runner = null
+      log.info(
+        `[memory] finished session ${summary.sessionId}: ${summary.reviewed} reviewed, ` +
+          `${summary.minutes.toFixed(1)} min`,
+      )
+      return summary
+    },
+
+    forecast: (days) => forecast(days),
   }
 }

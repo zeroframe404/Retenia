@@ -24,6 +24,7 @@ import { createOutboxRepository } from './outbox'
 import { createOutboxWriter, disabledOutboxWriter } from './outbox-writer'
 import { createPathRepository } from './paths'
 import { createReviewLogRepository } from './review-logs'
+import { createReviewSessionRepository } from './review-sessions'
 import { createSettingsRepository } from './settings'
 import { createSourceRepository } from './sources'
 import { createTransactionRunner, type TransactionState } from './transaction'
@@ -103,6 +104,7 @@ export function createRepositories(opened: OpenedDatabase, options: RepositoryOp
     outbox: createOutboxRepository(ctx),
     paths: createPathRepository(ctx),
     reviewLogs: createReviewLogRepository(ctx),
+    reviewSessions: createReviewSessionRepository(ctx),
     settings: createSettingsRepository(ctx),
     sources: createSourceRepository(ctx),
   }

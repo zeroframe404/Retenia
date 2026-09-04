@@ -122,6 +122,40 @@ export const rescheduleSelectionSchema = z.object({
   limit: z.int().min(1).max(RESCHEDULE_LIMIT_MAX).default(RESCHEDULE_LIMIT_DEFAULT),
 })
 
+/**
+ * §13's "Forecast" row: *"Cards and minutes per day at 30/90 days, per level, with and
+ * without new."*
+ *
+ * Not §6's workload simulation, which projects a year under a given desired retention and
+ * needs `fsrs-rs`. This one counts what is already scheduled, so the `withNew` figures add
+ * the introductions the quota allows but not the reviews those will later generate.
+ */
+export const forecastDaySchema = z.object({
+  day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  /** Days from today; `0` is today. */
+  offset: z.int().nonnegative(),
+  byLevel: z.record(importanceLevelSchema, z.int().nonnegative()),
+  cards: z.int().nonnegative(),
+  minutes: z.number().nonnegative(),
+  newCards: z.int().nonnegative(),
+  cardsWithNew: z.int().nonnegative(),
+  minutesWithNew: z.number().nonnegative(),
+})
+
+export const forecastSchema = z.object({
+  days: z.array(forecastDaySchema),
+  medianSecondsPerCard: z.number().positive(),
+  /** Cards already overdue, counted into day 0 so today matches what the session offers. */
+  backlog: z.int().nonnegative(),
+  newPool: z.int().nonnegative(),
+  dailyNewLimit: z.int().nonnegative(),
+  generatedAt: z.iso.datetime(),
+})
+export type Forecast = z.infer<typeof forecastSchema>
+
+/** A quarter is the longest window §13 asks for; the cap keeps one call bounded. */
+export const FORECAST_MAX_DAYS = 365
+
 export const memoryChannels = defineContract({
   /**
    * Set the importance of many items at once. Moves no due date: the new desired retention
@@ -191,6 +225,12 @@ export const memoryChannels = defineContract({
       impact: rescheduleImpactSchema,
       applied: z.int().nonnegative(),
     }),
+  },
+
+  /** §13: cards and minutes per day, per level, with and without new. Read-only. */
+  'memory.forecast': {
+    input: z.object({ days: z.int().min(1).max(FORECAST_MAX_DAYS) }),
+    output: forecastSchema,
   },
 
   /** §7 rule 5: desired retention 0.97, same-day steps and the final drill, for 48 or 72 h. */
