@@ -13,6 +13,11 @@
   </head>
   <body>
     <div id="root"></div>
+    <!--
+      Loaded before main.tsx and kept separate on purpose: it has to run before any zod schema
+      is constructed, which is earlier than any import inside main.tsx can be. See the module.
+    -->
+    <script type="module" src="/src/zod-runtime.ts"></script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
