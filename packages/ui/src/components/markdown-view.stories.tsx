@@ -54,3 +54,19 @@ export const FullDemo: Story = {
 export const InlineCodeAndMath: Story = {
   args: { children: 'Call `nextInterval()` — it returns $S \\cdot \\ln(R) / \\ln(0.9)$.' },
 }
+
+/**
+ * `inline`: the same Markdown rendered as phrasing content, for a slot that cannot hold a block.
+ * The activities' token bank puts this inside a `<button>`, where a `<p>` would be invalid HTML —
+ * and where showing the source instead was the alternative it replaced.
+ */
+export const Inline: Story = {
+  args: { inline: true, children: '**She** drinks $H_2O$' },
+  decorators: [
+    (Story) => (
+      <button type="button" className="border-border rounded-md border px-3 py-1.5 text-sm">
+        <Story />
+      </button>
+    ),
+  ],
+}

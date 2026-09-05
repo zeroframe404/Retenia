@@ -71,7 +71,13 @@ export const ISSUE_CODES = [
 ] as const
 export type IssueCode = (typeof ISSUE_CODES)[number]
 
-/** One finding of the rules layer (`docs/spec/03-activities.md` §11, layer 2). */
+/**
+ * One finding of the rules layer (`docs/spec/03-activities.md` §11, layer 2). Layer 3's own code
+ * arrives with layer 3, in sub-phase 8.4 — see the note in `./index`.
+ *
+ * Severity is the verdict, not the layer: a `warning` is §11's `needsReview` — the item is
+ * servable and a human decides — while an `error` means it may not be served at all.
+ */
 export interface Issue {
   code: IssueCode
   path: IssuePath

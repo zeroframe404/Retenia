@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { richTextSchema, shortIdSchema } from '../common'
+import { COLLECTION_MAX, LABEL_MAX, richTextSchema, shortIdSchema } from '../common'
 
 /** `disclosure` (§7): theory blocks — accordion, tabs, process, timeline, flip, stack. Not graded. */
 
@@ -15,13 +15,13 @@ export type DisclosurePresentation = (typeof DISCLOSURE_PRESENTATIONS)[number]
 
 export const disclosureItemSchema = z.object({
   id: shortIdSchema,
-  title: z.string().min(1),
+  title: z.string().min(1).max(LABEL_MAX),
   body: richTextSchema,
 })
 
 export const disclosurePayloadSchema = z.object({
   family: z.literal('disclosure'),
   presentation: z.enum(DISCLOSURE_PRESENTATIONS).optional(),
-  items: z.array(disclosureItemSchema).min(1),
+  items: z.array(disclosureItemSchema).min(1).max(COLLECTION_MAX),
 })
 export type DisclosurePayload = z.infer<typeof disclosurePayloadSchema>

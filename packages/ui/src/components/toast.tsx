@@ -1,5 +1,14 @@
+/// <reference path="../css.d.ts" />
 import type { ComponentProps } from 'react'
 import { Toaster as SonnerToaster, toast } from 'sonner'
+// Sonner ships its stylesheet twice: as this file, and as a `<style>` element it injects into
+// `document.head` at import time. The injected one is an inline style element, which the
+// renderer's `style-src 'self'` blocks (`apps/desktop/src/main/security/csp.ts`) — so in the
+// packaged app every toast rendered unstyled while every test stayed green. Importing the file
+// puts the same CSS through the bundler into the app's own stylesheet, where the policy allows
+// it. The injection still happens and is still blocked; it is now redundant rather than load
+// bearing.
+import 'sonner/dist/styles.css'
 import { useThemeStore } from '../theme/theme-store'
 
 export { toast }

@@ -20,3 +20,16 @@ export const Display: Story = {
 export const InvalidSyntax: Story = {
   args: { math: '\\frac{1' },
 }
+
+/** LaTeX can come from AI-generated content, so `KATEX_OPTIONS` keeps `trust: false`: the
+ * commands that would let an expression author HTML render as inert error text instead of
+ * a link or an attribute. */
+export const UntrustedCommands: Story = {
+  args: { math: '\\href{javascript:alert(1)}{x}\\quad\\htmlData{a=b}{y}' },
+}
+
+/** `maxSize` caps every user-specified length at 25em; KaTeX's own default is `Infinity`,
+ * which would lay this out as a 100000em box. */
+export const BoundedSize: Story = {
+  args: { math: '\\rule{100000em}{100000em}', displayMode: true },
+}

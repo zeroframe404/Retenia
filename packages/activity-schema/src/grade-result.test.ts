@@ -1,7 +1,16 @@
 import type { GradeResult as CoreGradeResult } from '@retenia/core'
 import { describe, expect, expectTypeOf, it } from 'vitest'
 import type { z } from 'zod'
-import { type GradeResult, gradeResultSchema, toReviewSpec } from './grade-result'
+import { PLAIN_TEXT_MAX } from './common'
+import {
+  CRITERIA_MAX,
+  FEEDBACK_MAX,
+  GRADE_LINE_MAX,
+  type GradeResult,
+  gradeResultSchema,
+  PER_ITEM_MAX,
+  toReviewSpec,
+} from './grade-result'
 
 /** `GradeResult` of `docs/spec/03-activities.md` §7 on top of core's minimal one. */
 describe('gradeResultSchema', () => {
@@ -43,6 +52,45 @@ describe('gradeResultSchema', () => {
     expect(
       gradeResultSchema.safeParse({ ...full, meta: { ...full.meta, timeMs: -1 } }).success,
     ).toBe(false)
+  })
+
+  it('bounds every string a model writes, so a poisoned grade cannot stall the feedback panel', () => {
+    const ok = (patch: Partial<GradeResult>) =>
+      gradeResultSchema.safeParse({ ...full, ...patch }).success
+    expect(ok({ feedback: 'f'.repeat(FEEDBACK_MAX) })).toBe(true)
+    expect(ok({ feedback: 'f'.repeat(FEEDBACK_MAX + 1) })).toBe(false)
+    expect(
+      ok({ perItem: [{ id: 'a', correct: false, got: 'g'.repeat(PLAIN_TEXT_MAX + 1) }] }),
+    ).toBe(false)
+    expect(
+      ok({ perItem: Array.from({ length: PER_ITEM_MAX + 1 }, () => ({ id: 'a', correct: true })) }),
+    ).toBe(false)
+  })
+
+  it('bounds the AI rubric breakdown that rides on `meta.ai`', () => {
+    const ai = (patch: Record<string, unknown>) =>
+      gradeResultSchema.safeParse({
+        ...full,
+        meta: { ...full.meta, ai: { perCriterion: [], evidence: [], ...patch } },
+      }).success
+    expect(ai({})).toBe(true)
+    expect(
+      ai({
+        perCriterion: [
+          {
+            id: 'c1',
+            criterion: 'Claridad',
+            score: 1,
+            weight: 1,
+            comment: 'c'.repeat(GRADE_LINE_MAX + 1),
+          },
+        ],
+      }),
+    ).toBe(false)
+    expect(ai({ evidence: [{ quote: 'q'.repeat(PLAIN_TEXT_MAX + 1) }] })).toBe(false)
+    expect(ai({ evidence: Array.from({ length: CRITERIA_MAX + 1 }, () => ({ quote: 'q' })) })).toBe(
+      false,
+    )
   })
 
   it('is assignable to core’s GradeResult, so toRating takes it as-is', () => {

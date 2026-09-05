@@ -1,6 +1,6 @@
 /// <reference path="../css.d.ts" />
 import 'katex/dist/katex.min.css'
-import ReactMarkdown, { type Components } from 'react-markdown'
+import ReactMarkdown, { type Components, defaultUrlTransform } from 'react-markdown'
 import rehypeKatex from 'rehype-katex'
 import rehypeSanitize from 'rehype-sanitize'
 import remarkGfm from 'remark-gfm'
@@ -8,6 +8,7 @@ import remarkMath from 'remark-math'
 import { cn } from '../lib/cn'
 import { markdownSanitizeSchema } from '../lib/markdown-sanitize-schema'
 import { CodeBlock } from './code-block'
+import { KATEX_OPTIONS } from './katex-inline'
 import { MermaidView } from './mermaid-view'
 
 export interface MarkdownViewProps {
@@ -15,11 +16,37 @@ export interface MarkdownViewProps {
    * `$inline$`/`$$block$$` LaTeX math and fenced code — including ```mermaid diagrams,
    * which render via `MermaidView` instead of as highlighted code. */
   children: string
+  /**
+   * Render into a `<span>` with paragraphs unwrapped, for a caller whose slot only accepts
+   * phrasing content — a token inside a `<button>`, a table cell, a label.
+   *
+   * It is a rendering mode, not a parsing mode: the same Markdown, the same plugins and the same
+   * sanitizer run either way, so `**bold**` and `$x^2$` come out formatted instead of as source.
+   * A block construct in an inline slot (a fenced block, a list) still renders as the block it
+   * is; short labels do not carry those, and silently dropping them would be worse than the
+   * markup being unusual.
+   */
+  inline?: boolean
   className?: string
 }
 
 function languageFromClassName(className: string | undefined): string | undefined {
   return /language-(\S+)/.exec(className ?? '')?.[1]
+}
+
+/**
+ * `react-markdown`'s own URL allowlist — `http`, `https`, `mailto`, `tel` and relative
+ * URLs — widened by the app's `media://` scheme, which is how source-library media is
+ * served (docs/spec/07-architecture.md §3).
+ *
+ * Without this, `defaultUrlTransform` blanks every `media://` URL before
+ * `markdownSanitizeSchema` sees it, so the schema's `media` allowance on `src` is
+ * unreachable and a `![...](media://...)` image in a lesson body silently renders empty.
+ * Every other scheme still goes through the default and is blanked there, then checked
+ * again by the sanitizer: two independent allowlists, both fail-closed.
+ */
+function urlTransform(url: string): string {
+  return url.startsWith('media://') ? url : defaultUrlTransform(url)
 }
 
 const components: Components = {
@@ -56,13 +83,42 @@ const components: Components = {
   },
 }
 
+/** `components`, minus the one wrapper that is not phrasing content. `<p>` inside a `<button>`
+ *  or a `<span>` is invalid HTML, and it is the element every paragraph of prose produces. */
+const inlineComponents: Components = {
+  ...components,
+  p({ children }) {
+    return <>{children}</>
+  },
+}
+
 /** Renders trusted-shape-but-untrusted-content Markdown — lesson theory, AI tutor
  * answers, source excerpts — with GFM tables/task-lists/strikethrough, LaTeX math
  * (KaTeX), syntax-highlighted code (Shiki, via `CodeBlock`) and Mermaid diagrams (via the
  * sandboxed `MermaidView`). Raw HTML in the source is never rendered as markup (no
  * `rehype-raw`); anything `rehype-katex` itself produces is sanitized against a schema
- * that only widens `defaultSchema` enough for KaTeX's own output. */
-export function MarkdownView({ children, className }: MarkdownViewProps) {
+ * that only widens `defaultSchema` enough for KaTeX's own output, and KaTeX itself runs
+ * with `KATEX_OPTIONS` — untrusted LaTeX cannot author HTML or ask for an unbounded
+ * layout. */
+export function MarkdownView({ children, inline = false, className }: MarkdownViewProps) {
+  const markdown = (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm, remarkMath]}
+      rehypePlugins={[
+        [rehypeKatex, KATEX_OPTIONS],
+        [rehypeSanitize, markdownSanitizeSchema],
+      ]}
+      components={inline ? inlineComponents : components}
+      urlTransform={urlTransform}
+    >
+      {children}
+    </ReactMarkdown>
+  )
+
+  if (inline) {
+    return <span className={cn('text-text', className)}>{markdown}</span>
+  }
+
   return (
     <div
       className={cn(
@@ -81,13 +137,7 @@ export function MarkdownView({ children, className }: MarkdownViewProps) {
         className,
       )}
     >
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkMath]}
-        rehypePlugins={[rehypeKatex, [rehypeSanitize, markdownSanitizeSchema]]}
-        components={components}
-      >
-        {children}
-      </ReactMarkdown>
+      {markdown}
     </div>
   )
 }
