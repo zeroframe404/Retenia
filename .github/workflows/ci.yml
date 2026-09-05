@@ -149,6 +149,7 @@ jobs:
       # failure isolated to this one step instead of silently swallowing the whole test run.
       - name: Verify Electron binary is installed
         shell: bash
+        working-directory: apps/desktop
         run: node -e "console.log(require('electron'))"
 
       - name: Run Playwright E2E (builds first)
