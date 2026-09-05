@@ -66,12 +66,26 @@ export interface ActivityCapabilities {
 
 export type ActivityGrader = (activity: Activity, response: unknown, meta: GradeMeta) => GradeResult
 
+/** Layer 2 of `docs/spec/03-activities.md` §11: the per-type rules, pure and synchronous. */
+export type ActivityValidator = (activity: Activity) => Issue[]
+
 export interface ActivityTypeEntry {
   type: ActivityType
   family: ActivityFamily
   Renderer: ActivityRendererComponent
   grader: ActivityGrader
-  validate: (activity: Activity) => Issue[]
+  /**
+   * §11's layer 2: the per-type rules, pure, offline and deterministic.
+   *
+   * Layer 3 — a model solving the item blind — has **no field here on purpose**. A per-type critic
+   * needs a dispatcher that reads it, and the check itself lives in `@retenia/activity-schema`
+   * (`checkActivity`), which this package depends on rather than the reverse — so nothing that
+   * runs the check could resolve a registry row. A `critic?` field would have been read by
+   * nothing at all. Sub-phase 8.4 adds the dispatcher and the field together, when it also
+   * decides what a critic may see: §11 says *"without seeing the key"*, which no shape here
+   * expresses yet.
+   */
+  validate: ActivityValidator
   generator: ActivityGenerationSpec
   review: ActivityReviewSpec
   capabilities: ActivityCapabilities
@@ -149,7 +163,8 @@ export interface ActivityTypeDefinition {
   /** Overrides the family renderer — an escape hatch for a type that needs its own screen. */
   Renderer?: ActivityRendererComponent
   grader?: ActivityGrader
-  validate?: (activity: Activity) => Issue[]
+  /** Overrides the shared rules of layer 2; defaults to `validateActivity`. */
+  validate?: ActivityValidator
 }
 
 const DEFAULT_CAPABILITIES: ActivityCapabilities = Object.freeze({
