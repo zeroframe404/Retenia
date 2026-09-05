@@ -5,13 +5,14 @@ import type { HandlerDeps } from './handlers'
 
 const app = { getVersion: () => '0.1.0' }
 const showSaveDialog = vi.fn()
+const showOpenDialog = vi.fn()
 const fromWebContents = vi.fn()
 const nativeTheme = { themeSource: 'system' }
 
 vi.mock('electron', () => ({
   app,
   BrowserWindow: { fromWebContents },
-  dialog: { showSaveDialog },
+  dialog: { showSaveDialog, showOpenDialog },
   nativeTheme,
 }))
 
@@ -357,6 +358,16 @@ function makeDeps(overrides: Partial<HandlerDeps> = {}): HandlerDeps {
       retry: vi.fn(async (id: string) => ({ ...jobSummary, id, status: 'queued' as const })),
       enqueueDemo: vi.fn(async () => ({ job: jobSummary, subject: '/resources/dev/sample.ogg' })),
     },
+    library: {
+      addFromFile: vi.fn(),
+      addFromText: vi.fn(),
+      retry: vi.fn(),
+      list: vi.fn(async () => []),
+      get: vi.fn(async () => undefined),
+      getDoc: vi.fn(async () => undefined),
+      remove: vi.fn(),
+      onJobSettled: vi.fn(),
+    },
     blobStore: {
       put: vi.fn(),
       has: vi.fn(),
@@ -400,6 +411,7 @@ const fakeEvent = { sender: {} } as Parameters<
 beforeEach(() => {
   devMode = false
   showSaveDialog.mockReset()
+  showOpenDialog.mockReset()
   fromWebContents.mockReset()
   ensureDevMediaSample.mockClear()
   collectSystemInfo.mockClear()
@@ -589,6 +601,142 @@ describe('jobs channels', () => {
 
     expect(result.job).toMatchObject({ kind: 'hashFile' })
     expect(deps.jobs.enqueueDemo).toHaveBeenCalledExactlyOnceWith({ kind: 'sleep', ms: 100 })
+  })
+})
+
+const source = {
+  id: '019213cd-0000-7000-8000-000000000002',
+  kind: 'markdown' as const,
+  title: 'Cells.md',
+  originUri: null,
+  blobSha256: 'a'.repeat(64),
+  status: 'ready' as const,
+  language: 'en',
+  meta: {
+    sourceDocBlobSha256: 'b'.repeat(64),
+    blockCount: 3,
+    assetCount: 0,
+    needsOcr: false,
+    ocrPages: [],
+    warnings: [],
+  },
+  error: null,
+  ingestedAt: new Date('2026-09-02T00:01:00.000Z'),
+  createdAt: new Date('2026-09-02T00:00:00.000Z'),
+  updatedAt: new Date('2026-09-02T00:01:00.000Z'),
+  deletedAt: null,
+  deviceId: 'device-1',
+  version: 1,
+}
+
+describe('library channels', () => {
+  it('lists sources, mapped to the wire summary shape', async () => {
+    const deps = makeDeps()
+    deps.library.list = vi.fn(async () => [source])
+    const handlers = createHandlers(deps)
+
+    const result = await handlers['library.listSources']({}, fakeEvent)
+
+    expect(result).toEqual({
+      sources: [
+        {
+          id: source.id,
+          kind: 'markdown',
+          title: 'Cells.md',
+          status: 'ready',
+          language: 'en',
+          error: null,
+          meta: source.meta,
+          createdAt: source.createdAt.toISOString(),
+          ingestedAt: source.ingestedAt.toISOString(),
+        },
+      ],
+    })
+  })
+
+  it('returns null for a source that does not exist', async () => {
+    const deps = makeDeps()
+    const handlers = createHandlers(deps)
+
+    expect(await handlers['library.getSource']({ id: source.id }, fakeEvent)).toEqual({
+      source: null,
+    })
+  })
+
+  it('reads back the parsed document by id', async () => {
+    const deps = makeDeps()
+    const doc = {
+      id: 'doc-1',
+      kind: 'markdown',
+      title: 'Cells',
+      language: 'en',
+      sections: [],
+      blocks: [],
+      assets: [],
+      meta: { warnings: [] },
+    }
+    deps.library.getDoc = vi.fn(async () => doc as never)
+    const handlers = createHandlers(deps)
+
+    expect(await handlers['library.getSourceDoc']({ id: source.id }, fakeEvent)).toEqual({ doc })
+    expect(deps.library.getDoc).toHaveBeenCalledExactlyOnceWith(source.id)
+  })
+
+  it('adds pasted text as a new source', async () => {
+    const deps = makeDeps()
+    deps.library.addFromText = vi.fn(async () => source)
+    const handlers = createHandlers(deps)
+
+    const result = await handlers['library.addSourceFromText'](
+      { text: 'Cells are alive.', title: 'Cells.md' },
+      fakeEvent,
+    )
+
+    expect(result.id).toBe(source.id)
+    expect(deps.library.addFromText).toHaveBeenCalledExactlyOnceWith('Cells are alive.', 'Cells.md')
+  })
+
+  it('imports every path from a drop, dropping only the ones that fail', async () => {
+    const deps = makeDeps()
+    deps.library.addFromFile = vi.fn(async (path: string) => {
+      if (path === '/bad.exe') throw new Error('not a supported file type')
+      return { ...source, id: path }
+    })
+    const handlers = createHandlers(deps)
+
+    const result = await handlers['library.addSourceFromPaths'](
+      { paths: ['/a.pdf', '/bad.exe', '/b.pdf'] },
+      fakeEvent,
+    )
+
+    expect(result.sources.map((s) => s.id)).toEqual(['/a.pdf', '/b.pdf'])
+  })
+
+  it('opens a native dialog and imports every file chosen, resolving nothing on cancel', async () => {
+    const deps = makeDeps()
+    deps.library.addFromFile = vi.fn(async (path: string) => ({ ...source, id: path }))
+    const handlers = createHandlers(deps)
+
+    showOpenDialog.mockResolvedValueOnce({ canceled: true, filePaths: [] })
+    expect(await handlers['library.addSourceFromDialog'](undefined, fakeEvent)).toEqual({
+      sources: [],
+    })
+
+    showOpenDialog.mockResolvedValueOnce({ canceled: false, filePaths: ['/book.pdf'] })
+    const result = await handlers['library.addSourceFromDialog'](undefined, fakeEvent)
+    expect(result.sources.map((s) => s.id)).toEqual(['/book.pdf'])
+  })
+
+  it('retries and deletes by id', async () => {
+    const deps = makeDeps()
+    deps.library.retry = vi.fn(async () => source)
+    const handlers = createHandlers(deps)
+
+    expect((await handlers['library.retrySource']({ id: source.id }, fakeEvent)).id).toBe(source.id)
+    expect(deps.library.retry).toHaveBeenCalledExactlyOnceWith(source.id)
+
+    await handlers['library.deleteSource']({ id: source.id }, fakeEvent)
+    expect(deps.library.remove).toHaveBeenCalledExactlyOnceWith(source.id)
   })
 })
 

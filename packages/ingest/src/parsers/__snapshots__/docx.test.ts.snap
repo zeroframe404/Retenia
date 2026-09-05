@@ -1,0 +1,58 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`parseDocx > extracts a table alongside its surrounding paragraphs 1`] = `
+{
+  "assets": [],
+  "blocks": [
+    {
+      "hash": "80792346ca2d714dfa9a7dd73eb4a9f32fe90909f81b5e9a61db9d4a8f38505d",
+      "id": "id-0",
+      "locator": {
+        "anchor": "0",
+      },
+      "text": "Above",
+      "type": "paragraph",
+    },
+    {
+      "hash": "c6c3b7e0747b2a251605989704e30fe639f4131e6c54d81089187c5818ff34c0",
+      "html": "<table><tr><td><p>Top left</p></td><td><p>Top right</p></td></tr><tr><td><p>Bottom left</p></td><td><p>Bottom right</p></td></tr></table>",
+      "id": "id-2",
+      "locator": {
+        "anchor": "1",
+      },
+      "text": "Top left | Top right
+Bottom left | Bottom right",
+      "type": "table",
+    },
+    {
+      "hash": "a53dffffb7e57bb64f611193d7c85cebb9ecbe586c183214fa2344301e878865",
+      "id": "id-3",
+      "locator": {
+        "anchor": "2",
+      },
+      "text": "Below",
+      "type": "paragraph",
+    },
+  ],
+  "id": "id-4",
+  "kind": "docx",
+  "language": "en",
+  "meta": {
+    "warnings": [],
+  },
+  "sections": [
+    {
+      "blocks": [
+        "id-0",
+        "id-2",
+        "id-3",
+      ],
+      "children": [],
+      "id": "id-1",
+      "level": 0,
+      "title": "tables.docx",
+    },
+  ],
+  "title": "tables.docx",
+}
+`;

@@ -1,0 +1,112 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`parsePptx > produces one section per slide, in presentation order, with page locators 1`] = `
+{
+  "assets": [
+    {
+      "blobSha256": "497790947d4666760ce38f3c00e852c71fdb66cae849bae8e9ede352719e1581",
+      "id": "asset-0",
+      "kind": "image",
+      "locator": {
+        "anchor": "1/image/0",
+        "page": 2,
+      },
+      "mime": "image/png",
+    },
+  ],
+  "blocks": [
+    {
+      "hash": "6e363d600ba1ad16886044e75879240994394239a41eacbd29c538d7a6f55fbb",
+      "id": "id-0",
+      "locator": {
+        "anchor": "0/title",
+        "page": 1,
+      },
+      "text": "Cell Biology",
+      "type": "heading",
+    },
+    {
+      "hash": "f958ec0c9525e323e42a7692a8a63e81beb0f58fd5ae3c00ec66ecbc35e9504e",
+      "id": "id-1",
+      "locator": {
+        "anchor": "0/body/0",
+        "page": 1,
+      },
+      "text": "Cells are the basic building blocks of life.",
+      "type": "paragraph",
+    },
+    {
+      "hash": "8e4c6b336d7a26aa04907946ea17d2e7c4ff7c8a3b8ee9eb875f0baddae7971a",
+      "id": "id-2",
+      "locator": {
+        "anchor": "0/body/1",
+        "page": 1,
+      },
+      "text": "Mitochondria produce energy.",
+      "type": "paragraph",
+    },
+    {
+      "hash": "1646034331788a684f19b6f9b589727e90839690ad8b5b90deb76be8432a0887",
+      "id": "id-3",
+      "locator": {
+        "anchor": "0/notes",
+        "page": 1,
+      },
+      "text": "Remember to mention the cell membrane analogy.",
+      "type": "caption",
+    },
+    {
+      "hash": "2831192c95cbf41e9cb796fed076d0a7759d126ee1c816c63feefae912826b7f",
+      "id": "id-5",
+      "locator": {
+        "anchor": "1/title",
+        "page": 2,
+      },
+      "text": "Diagrams",
+      "type": "heading",
+    },
+    {
+      "hash": "e91e0275d95493ec539560c6580173190e360e31de973478fd5cca16eeed705c",
+      "id": "id-6",
+      "locator": {
+        "anchor": "1/image/0",
+        "page": 2,
+      },
+      "text": "",
+      "type": "figure",
+    },
+  ],
+  "id": "id-8",
+  "kind": "pptx",
+  "language": "en",
+  "meta": {
+    "pageCount": 2,
+    "warnings": [],
+  },
+  "sections": [
+    {
+      "blocks": [
+        "id-0",
+        "id-1",
+        "id-2",
+        "id-3",
+      ],
+      "children": [],
+      "id": "id-4",
+      "level": 1,
+      "title": "Cell Biology",
+    },
+    {
+      "blocks": [
+        "id-5",
+        "id-6",
+      ],
+      "children": [],
+      "id": "id-7",
+      "level": 1,
+      "title": "Diagrams",
+    },
+  ],
+  "title": "Cell Biology",
+}
+`;

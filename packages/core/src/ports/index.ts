@@ -72,6 +72,7 @@ export type {
 export type { ItemBankRepository } from './item-bank-repository'
 export type { EnqueueOptions, JobRepository } from './job-repository'
 export type { KnowledgeItemRepository } from './knowledge-item-repository'
+export type { OcrOptions, OcrProvider, OcrResult } from './ocr-provider'
 export type {
   OptimizerEvaluation,
   OptimizerStage,

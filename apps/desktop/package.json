@@ -30,6 +30,7 @@
     "@retenia/core": "workspace:*",
     "@retenia/db": "workspace:*",
     "@retenia/i18n": "workspace:*",
+    "@retenia/ingest": "workspace:*",
     "@retenia/ipc-contract": "workspace:*",
     "@retenia/ui": "workspace:*",
     "@sentry/electron": "7.18.0",

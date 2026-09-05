@@ -19,17 +19,21 @@ import type {
   SessionSummary,
   SettingsKey,
   SettingsRepository,
+  Source,
   StatsOverview,
   TrueRetention,
   UrgentModeHours,
 } from '@retenia/core'
 import { GRADES, SETTINGS } from '@retenia/core'
-import type { Contract } from '@retenia/ipc-contract'
+import type { Contract, SourceSummary } from '@retenia/ipc-contract'
 import { app, BrowserWindow, dialog, nativeTheme } from 'electron'
 import type { BackupService } from '../backups/service'
 import { ensureDevMediaSample } from '../dev/media-sample'
 import { collectSystemInfo, exportDiagnostics } from '../diagnostics/export'
 import type { JobsFacade } from '../jobs/facade'
+import { IMPORTABLE_EXTENSIONS } from '../library/detect-kind'
+import type { LibraryService } from '../library/service'
+import { log } from '../logging/log'
 import type { ServedActivity } from '../memory/activity-service'
 import type { MemoryService } from '../memory/service'
 import { getDevMediaSamplePath, getLogsDir } from '../paths'
@@ -49,6 +53,7 @@ export interface HandlerDeps {
   settings: SettingsStore
   updater: Updater
   jobs: JobsFacade
+  library: LibraryService
   blobStore: BlobStore
   /** Forwarded to the main-process Sentry client, once telemetry is on. */
   reportRendererError: (error: { name: string; message: string; stack?: string }) => void
@@ -256,11 +261,45 @@ function toStatsDto(stats: StatsOverview) {
   }
 }
 
+/** Imports each path independently: one unreadable or unsupported file must not sink the
+ *  rest of a multi-select drop. Failures are logged, not surfaced per-file — the source
+ *  list simply shows what actually got added. */
+async function addFiles(
+  library: LibraryService,
+  paths: readonly string[],
+): Promise<SourceSummary[]> {
+  const results = await Promise.allSettled(paths.map((path) => library.addFromFile(path)))
+  const sources: SourceSummary[] = []
+  for (const [index, result] of results.entries()) {
+    if (result.status === 'fulfilled') {
+      sources.push(toSourceSummary(result.value))
+    } else {
+      log.error(`[library] could not import "${paths[index]}":`, result.reason)
+    }
+  }
+  return sources
+}
+
+function toSourceSummary(source: Source): SourceSummary {
+  return {
+    id: source.id,
+    kind: source.kind,
+    title: source.title,
+    status: source.status,
+    language: source.language,
+    error: source.error,
+    meta: source.meta as SourceSummary['meta'],
+    createdAt: source.createdAt.toISOString(),
+    ingestedAt: source.ingestedAt?.toISOString() ?? null,
+  }
+}
+
 /** The implementation of every channel in the contract. */
 export function createHandlers({
   settings,
   updater,
   jobs,
+  library,
   blobStore,
   reportRendererError,
   secrets,
@@ -349,6 +388,46 @@ export function createHandlers({
     'jobs.retry': ({ id }) => jobs.retry(id),
 
     'jobs.enqueueDemo': (input) => jobs.enqueueDemo(input),
+
+    // --- library: import, watch, read back a parse (sub-phase 6.1) ---
+
+    'library.listSources': async (input) => ({
+      sources: (await library.list(input)).map(toSourceSummary),
+    }),
+
+    'library.getSource': async ({ id }) => {
+      const source = await library.get(id)
+      return { source: source === undefined ? null : toSourceSummary(source) }
+    },
+
+    'library.getSourceDoc': async ({ id }) => ({ doc: (await library.getDoc(id)) ?? null }),
+
+    'library.addSourceFromDialog': async (_input, event) => {
+      const window = BrowserWindow.fromWebContents(event.sender)
+      const dialogOptions: Electron.OpenDialogOptions = {
+        title: 'Add to Library',
+        properties: ['openFile', 'multiSelections'],
+        filters: [{ name: 'Supported files', extensions: IMPORTABLE_EXTENSIONS }],
+      }
+      const { canceled, filePaths } = window
+        ? await dialog.showOpenDialog(window, dialogOptions)
+        : await dialog.showOpenDialog(dialogOptions)
+      if (canceled) return { sources: [] }
+      return { sources: await addFiles(library, filePaths) }
+    },
+
+    'library.addSourceFromPaths': async ({ paths }) => ({
+      sources: await addFiles(library, paths),
+    }),
+
+    'library.addSourceFromText': async ({ text, title }) =>
+      toSourceSummary(await library.addFromText(text, title)),
+
+    'library.retrySource': async ({ id }) => toSourceSummary(await library.retry(id)),
+
+    'library.deleteSource': async ({ id }) => {
+      await library.remove(id)
+    },
 
     // --- memory: importance, urgent mode, reschedule (docs/spec/02-memory-system.md §7) ---
 

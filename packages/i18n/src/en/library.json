@@ -1,5 +1,41 @@
 {
   "title": "Library",
-  "comingSoon": "The source library lands in a later phase.",
-  "searchPlaceholder": "Search the library…"
+  "searchPlaceholder": "Search the library…",
+  "addFile": "Add file",
+  "pasteText": "Paste text",
+  "dropLabel": "Drop files here, or click to browse",
+  "dropHint": "PDF, DOCX, EPUB, PPTX, Markdown, TXT, or an image",
+  "pasteDialogTitle": "Paste text",
+  "pasteTitleLabel": "Title",
+  "pasteTitlePlaceholder": "e.g. Lecture notes",
+  "pasteTextLabel": "Text",
+  "pasteTextPlaceholder": "Paste or type the text to import…",
+  "pasteSubmit": "Add",
+  "pasteCancel": "Cancel",
+  "empty": {
+    "title": "Your library is empty",
+    "description": "Add a PDF, DOCX, EPUB, PPTX, Markdown or image file, or paste some text, to get started."
+  },
+  "status": {
+    "pending": "Pending",
+    "processing": "Processing",
+    "ready": "Ready",
+    "failed": "Failed"
+  },
+  "retry": "Retry",
+  "delete": "Delete",
+  "summary": "{blocks, plural, one {# block} other {# blocks}} · {assets, plural, one {# asset} other {# assets}}",
+  "needsOcr": "Some pages may need OCR",
+  "detail": {
+    "backToList": "Back to library",
+    "sections": "Sections",
+    "noSections": "No sections yet",
+    "blocks": "Preview",
+    "notParsedYet": "This source has not finished parsing yet.",
+    "warnings": "Warnings"
+  },
+  "deleteConfirmTitle": "Delete this source?",
+  "deleteConfirmDescription": "This removes it from your library. This cannot be undone.",
+  "deleteConfirmAction": "Delete",
+  "deleteConfirmCancel": "Cancel"
 }

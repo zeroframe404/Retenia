@@ -2,6 +2,7 @@ import type { ContractApi } from './api-types'
 import { appChannels } from './channels/app'
 import { backupsChannels } from './channels/backups'
 import { jobsChannels } from './channels/jobs'
+import { libraryChannels } from './channels/library'
 import { memoryChannels } from './channels/memory'
 import { schedulerChannels } from './channels/scheduler'
 import { secretsChannels } from './channels/secrets'
@@ -24,6 +25,22 @@ export type { BackupSummary } from './channels/backups'
 export { backupSummarySchema } from './channels/backups'
 export type { JobStatus, JobSummary } from './channels/jobs'
 export { JOB_STATUSES, jobStatusSchema, jobSummarySchema } from './channels/jobs'
+export type {
+  SectionDto,
+  SourceDocDto,
+  SourceKind,
+  SourceStatus,
+  SourceSummary,
+} from './channels/library'
+export {
+  SOURCE_KINDS,
+  SOURCE_STATUSES,
+  sourceDocSchema,
+  sourceKindSchema,
+  sourceMetaSchema,
+  sourceStatusSchema,
+  sourceSummarySchema,
+} from './channels/library'
 export type {
   Forecast,
   ImportanceLevel,
@@ -115,6 +132,7 @@ export { jobProgressSchema } from './events/jobs'
 export const contract = {
   ...appChannels,
   ...jobsChannels,
+  ...libraryChannels,
   ...memoryChannels,
   ...schedulerChannels,
   ...secretsChannels,

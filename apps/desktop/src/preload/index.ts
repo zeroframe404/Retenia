@@ -1,5 +1,5 @@
 import type { ChannelName, EventName, IpcResult } from '@retenia/ipc-contract'
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import { buildApi } from './build-api'
 
 if (!process.contextIsolated) {
@@ -25,3 +25,11 @@ const api = buildApi({
 
 // Only the generated API is exposed — never `ipcRenderer`, and no `window.electron`.
 contextBridge.exposeInMainWorld('api', api)
+
+// The one deliberate exception: `webUtils.getPathForFile` grants no new capability (the
+// renderer already holds the `File` from a real OS drop) and is not a request/response
+// channel `defineContract` could express, so it gets its own global instead of stretching
+// the generated one (`apps/desktop/src/preload/index.d.ts`).
+contextBridge.exposeInMainWorld('retenia', {
+  getPathForFile: (file: File) => webUtils.getPathForFile(file),
+})
