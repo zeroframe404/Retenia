@@ -84,6 +84,9 @@ export function explainAnswerPort(explain: ExplainAnswer): ExplainAnswerPort {
         ...(activity.instructions === undefined ? {} : { instructions: activity.instructions }),
       },
       answer: answerTextOf(activity, response),
+      // §12's guard travels with the request: what the grader refused to look at, the explainer
+      // must refuse to look at too.
+      ...(result?.meta.ai?.injectionSuspected === true ? { injectionSuspected: true } : {}),
       gradeResult:
         result === null
           ? null

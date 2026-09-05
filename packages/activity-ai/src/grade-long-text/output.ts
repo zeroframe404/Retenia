@@ -86,23 +86,81 @@ export const GRADE_LONG_TEXT_JSON_SCHEMA = {
 } as const
 
 /**
- * Pulls the JSON object out of a completion.
+ * Every balanced top-level `{…}` span in the text, in the order they appear.
  *
- * Providers wrap JSON in a fence or in a sentence often enough that refusing those outright
- * would burn a retry on a well-formed answer. Anything past that is a parse failure, and the
- * caller falls back rather than guessing — §8's repair loop is sub-phase 7.2's, not this one's.
+ * Brace-aware rather than "first `{` to last `}`", which swallows two adjacent objects into one
+ * unparseable blob — exactly what happens when a model quotes the learner's JSON and then adds
+ * its own. String literals and their escapes are tracked so a `}` inside a feedback line does
+ * not close anything.
  */
-export function extractJsonObject(text: string): unknown {
-  const fenced = /```(?:json)?\s*([\s\S]*?)```/.exec(text)
-  const candidate = (fenced?.[1] ?? text).trim()
-  const start = candidate.indexOf('{')
-  const end = candidate.lastIndexOf('}')
-  if (start === -1 || end <= start) {
-    throw new SyntaxError('grade_long_text: the completion contained no JSON object')
+function balancedObjects(text: string): string[] {
+  const spans: string[] = []
+  let depth = 0
+  let start = -1
+  let inString = false
+  let escaped = false
+
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i]
+    if (inString) {
+      if (escaped) escaped = false
+      else if (char === '\\') escaped = true
+      else if (char === '"') inString = false
+      continue
+    }
+    if (char === '"') inString = true
+    else if (char === '{') {
+      if (depth === 0) start = i
+      depth++
+    } else if (char === '}' && depth > 0) {
+      depth--
+      if (depth === 0 && start !== -1) {
+        spans.push(text.slice(start, i + 1))
+        start = -1
+      }
+    }
   }
-  return JSON.parse(candidate.slice(start, end + 1))
+  return spans
 }
 
-export function parseGradeLongTextOutput(text: string): GradeLongTextOutput {
-  return gradeLongTextOutputSchema.parse(extractJsonObject(text))
+/**
+ * Pulls the JSON object out of a completion.
+ *
+ * Candidates in decreasing order of trust: the whole completion (what the prompt asks for and
+ * what a provider enforcing `jsonSchema` returns), then each fenced block from **last** to
+ * first, then each balanced `{…}` span from last to first.
+ *
+ * "Last", not first, because the first object in a completion is not necessarily the model's:
+ * a learner can write their answer *as* a ```json fence containing a schema-valid grade and ask
+ * the model to open its reply by quoting them. Taking the first would then parse the learner's
+ * own object. Preferring the last, and skipping any candidate that appears verbatim inside the
+ * answer, closes that: a planted object is quoted material, and quoted material is never the
+ * grade. When nothing survives, the caller falls back to the deterministic estimate — which is
+ * the right outcome, and never the learner's own marks.
+ */
+export function extractJsonObject(text: string, answer?: string): unknown {
+  const candidates: string[] = []
+  const whole = text.trim()
+  if (whole.startsWith('{')) candidates.push(whole)
+
+  for (const fence of [...text.matchAll(/```(?:json)?\s*([\s\S]*?)```/g)].reverse()) {
+    const body = fence[1]?.trim()
+    if (body !== undefined && body !== '') candidates.push(body)
+  }
+  candidates.push(...balancedObjects(text).reverse())
+
+  for (const candidate of candidates) {
+    // A candidate the learner wrote is not a grade, however well-formed it is.
+    if (answer?.includes(candidate)) continue
+    try {
+      return JSON.parse(candidate)
+    } catch {
+      // Try the next, less trustworthy, shape.
+    }
+  }
+  throw new SyntaxError('grade_long_text: the completion contained no usable JSON object')
+}
+
+export function parseGradeLongTextOutput(text: string, answer?: string): GradeLongTextOutput {
+  return gradeLongTextOutputSchema.parse(extractJsonObject(text, answer))
 }
