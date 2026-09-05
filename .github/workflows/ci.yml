@@ -172,8 +172,36 @@ jobs:
       # here (no remote cache is configured), so that write is pure, uncompensated cost — and a
       # very plausible second contributor (besides Defender scanning, see above) to the same
       # stall this job kept hitting right after the build task finished.
+      # Both the Defender exclusion and --no-cache (above) were confirmed applied on the last
+      # run, yet the exact same ~49-minute silent gap recurred in the exact same place — right
+      # after the build task's log group closes, before the next turbo task starts. That rules
+      # out both as the actual cause. Rather than guess a third blind fix (each guess costs a
+      # full ~50-minute CI cycle), run the real command in the foreground as always — its exit
+      # code is what the step reports — but also run a lightweight background monitor that
+      # snapshots the top CPU-consuming processes every 60s. If the stall happens again, this
+      # snapshot log says definitively what the machine is actually doing during it (Defender's
+      # scanner, a stuck signtool/electron-builder child process, or something else) instead of
+      # leaving the gap a black box.
       - name: Run Playwright E2E (builds first)
-        run: pnpm e2e -- --no-cache
+        shell: pwsh
+        run: |
+          $monitor = Start-Job -ScriptBlock {
+            while ($true) {
+              Start-Sleep -Seconds 60
+              "=== $(Get-Date -Format o) ==="
+              Get-Process | Sort-Object CPU -Descending | Select-Object -First 15 Id,ProcessName,CPU,WorkingSet64 | Format-Table -AutoSize | Out-String
+            }
+          }
+          try {
+            pnpm e2e -- --no-cache
+            $code = $LASTEXITCODE
+          } finally {
+            Stop-Job $monitor | Out-Null
+            Write-Host "----- process monitor snapshots -----"
+            Receive-Job $monitor | Write-Host
+            Remove-Job $monitor -Force
+          }
+          exit $code
 
       - name: Upload Playwright report and traces
         if: failure()
