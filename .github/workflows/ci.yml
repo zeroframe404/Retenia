@@ -105,6 +105,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Every PR run of this job (before this fix) showed the exact same ~47-50 minute silent
+      # stall between the build task's log group closing and the next turbo task starting —
+      # right where turbo/electron-builder write and read back thousands of small files (the
+      # unpacked Electron/Chromium runtime, node_modules, the NSIS installer). Windows Defender's
+      # real-time protection scans each file synchronously on access, which is a well-documented
+      # cause of exactly this kind of 10-50x slowdown for operations over many small files on
+      # windows-latest runners. Excluding the workspace before any of that happens is the
+      # standard fix; it costs nothing if Defender wasn't actually the bottleneck.
+      - name: Exclude the workspace from Windows Defender scanning
+        shell: pwsh
+        continue-on-error: true
+        run: Add-MpPreference -ExclusionPath "${{ github.workspace }}"
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -152,8 +165,15 @@ jobs:
         working-directory: apps/desktop
         run: node -e "console.log(require('electron'))"
 
+      # `--no-cache` skips turbo writing its local cache artifacts for `build`/`e2e`'s outputs
+      # (`dist/**`, `out/**`, `playwright-report/**`, `test-results/**`) — for `apps/desktop`
+      # that's an unpacked Electron/Chromium runtime plus the NSIS installer, many thousands of
+      # small files. A CI runner is destroyed after the job and nothing else reads `.turbo/cache`
+      # here (no remote cache is configured), so that write is pure, uncompensated cost — and a
+      # very plausible second contributor (besides Defender scanning, see above) to the same
+      # stall this job kept hitting right after the build task finished.
       - name: Run Playwright E2E (builds first)
-        run: pnpm e2e
+        run: pnpm e2e -- --no-cache
 
       - name: Upload Playwright report and traces
         if: failure()
