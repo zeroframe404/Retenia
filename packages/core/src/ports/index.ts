@@ -22,6 +22,7 @@ export {
   countWords,
   INJECTION_PATTERNS,
   looksLikeInjection,
+  normalizeForInjectionScan,
   weightedCriterionScore,
 } from './ai-grader'
 export type { AttemptRepository } from './attempt-repository'

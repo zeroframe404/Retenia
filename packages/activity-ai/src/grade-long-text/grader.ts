@@ -120,21 +120,38 @@ function verifyEvidence(answer: string, output: GradeLongTextOutput): AnswerEvid
     }))
 }
 
-/** The headline score: the weighted rubric mean, or — with no rubric — key-point coverage,
- *  falling back to what the model reported when there is neither. */
+/**
+ * The headline score, computed **here** and never taken from the completion: the weighted rubric
+ * mean, or — with no rubric — key-point coverage.
+ *
+ * When the activity has neither, there is nothing local to measure the answer against, and the
+ * only number on offer is one the model chose while reading the learner's text. §7 rule 7 of
+ * `docs/spec/01-decisions.md` is "the AI proposes, the code validates"; a score with no local
+ * corroboration has not been validated by anything, so it is reported as `groundless` and the
+ * grade comes back `uncertain` rather than pretending to a precision it does not have.
+ *
+ * Per-type validation makes this unreachable for the two MVP types — `free_recall` requires key
+ * points and `essay_rubric` requires a rubric — so it is the fallback for a malformed activity,
+ * not a normal path.
+ */
 function headlineScore(
   input: AiGradeInput,
   perCriterion: readonly CriterionScore[],
-  output: GradeLongTextOutput,
-): number {
-  if (perCriterion.length > 0) return weightedCriterionScore(perCriterion)
+): { score: number; groundless: boolean } {
+  if (perCriterion.length > 0) {
+    return { score: weightedCriterionScore(perCriterion), groundless: false }
+  }
   const coverage = keyPointCoverage(input.answer, input.keyPoints)
-  return coverage.total > 0 ? coverage.score : clamp01(output.score)
+  return coverage.total > 0
+    ? { score: coverage.score, groundless: false }
+    : { score: 0, groundless: true }
 }
 
 interface Run {
   perCriterion: CriterionScore[]
   score: number
+  /** Nothing local corroborated the score — see `headlineScore`. */
+  groundless: boolean
   evidence: AnswerEvidence[]
   output: GradeLongTextOutput
   model: string
@@ -155,11 +172,13 @@ export function createAiLongTextGrader(options: AiLongTextGraderOptions): AiGrad
         : { maxOutputTokens: options.maxOutputTokens }),
       ...(seen.signal === undefined ? {} : { signal: seen.signal }),
     })
-    const output = parseGradeLongTextOutput(completion.text)
+    const output = parseGradeLongTextOutput(completion.text, seen.answer)
     const perCriterion = reconcile(seen, output)
+    const { score, groundless } = headlineScore(seen, perCriterion)
     return {
       perCriterion,
-      score: headlineScore(seen, perCriterion, output),
+      score,
+      groundless,
       evidence: verifyEvidence(seen.answer, output),
       output,
       model: completion.model,
@@ -186,7 +205,8 @@ export function createAiLongTextGrader(options: AiLongTextGraderOptions): AiGrad
       const uncertain =
         first.output.uncertain ||
         (second?.output.uncertain ?? false) ||
-        gap > DISAGREEMENT_UNCERTAIN
+        gap > DISAGREEMENT_UNCERTAIN ||
+        first.groundless
 
       // The permuted run reports its criteria in the permuted order, so the two are merged **by
       // id**, never by position — pairing them by index would average c1 against c2, which is

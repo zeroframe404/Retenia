@@ -11,6 +11,17 @@ import {
   workloadSummary,
 } from './simulator'
 
+/**
+ * The multi-year simulations below are pure arithmetic over thousands of cards, and a handful of
+ * them run for several seconds. Vitest's 5 s default is comfortable when this file runs on its
+ * own and is not when `pnpm test` runs sixteen packages at once on a two-core CI box — the two
+ * heaviest cases then time out, which reads as a scheduler regression and is nothing of the kind.
+ *
+ * Only the clock is relaxed. Every assertion is unchanged, and the tests that are quick keep the
+ * default so a real slowdown elsewhere in the file still shows up as one.
+ */
+const SLOW_SIMULATION_MS = 30_000
+
 describe('§6 — simulate', () => {
   it('is deterministic: the same seed yields a deeply equal result', () => {
     const a = simulate(DEFAULT_FSRS_W, 0.9, {}, 42)
@@ -34,41 +45,53 @@ describe('§6 — simulate', () => {
     expect(result.introducedCntPerDay).toHaveLength(30)
   })
 
-  it('rises reviews/day with desired retention, in roughly the documented shape', () => {
-    // §7's simulator, measured on `DEFAULT_SIMULATOR_CONFIG` at deckSize 2000: pinned
-    // approximately (≈31/54/91 reviews a day), not exactly, so an unrelated formula fix
-    // does not make this test brittle.
-    const config = { deckSize: 2000, learnSpan: 365 }
-    const at080 = workloadSummary(simulate(DEFAULT_FSRS_W, 0.8, config)).reviewsPerDay
-    const at090 = workloadSummary(simulate(DEFAULT_FSRS_W, 0.9, config)).reviewsPerDay
-    const at095 = workloadSummary(simulate(DEFAULT_FSRS_W, 0.95, config)).reviewsPerDay
-    expect(at080).toBeGreaterThan(15)
-    expect(at080).toBeLessThan(50)
-    expect(at090).toBeGreaterThan(at080)
-    expect(at090).toBeGreaterThan(35)
-    expect(at090).toBeLessThan(75)
-    expect(at095).toBeGreaterThan(at090)
-    expect(at095).toBeGreaterThan(70)
-    expect(at095).toBeLessThan(120)
-  })
+  it(
+    'rises reviews/day with desired retention, in roughly the documented shape',
+    () => {
+      // §7's simulator, measured on `DEFAULT_SIMULATOR_CONFIG` at deckSize 2000: pinned
+      // approximately (≈31/54/91 reviews a day), not exactly, so an unrelated formula fix
+      // does not make this test brittle.
+      const config = { deckSize: 2000, learnSpan: 365 }
+      const at080 = workloadSummary(simulate(DEFAULT_FSRS_W, 0.8, config)).reviewsPerDay
+      const at090 = workloadSummary(simulate(DEFAULT_FSRS_W, 0.9, config)).reviewsPerDay
+      const at095 = workloadSummary(simulate(DEFAULT_FSRS_W, 0.95, config)).reviewsPerDay
+      expect(at080).toBeGreaterThan(15)
+      expect(at080).toBeLessThan(50)
+      expect(at090).toBeGreaterThan(at080)
+      expect(at090).toBeGreaterThan(35)
+      expect(at090).toBeLessThan(75)
+      expect(at095).toBeGreaterThan(at090)
+      expect(at095).toBeGreaterThan(70)
+      expect(at095).toBeLessThan(120)
+    },
+    SLOW_SIMULATION_MS,
+  )
 
-  it('achieves roughly the retention it targets', () => {
-    for (const dr of [0.8, 0.9, 0.95]) {
-      const summary = workloadSummary(simulate(DEFAULT_FSRS_W, dr, { deckSize: 2000 }))
-      expect(Math.abs(summary.trueRetention - dr)).toBeLessThan(0.02)
-    }
-  })
+  it(
+    'achieves roughly the retention it targets',
+    () => {
+      for (const dr of [0.8, 0.9, 0.95]) {
+        const summary = workloadSummary(simulate(DEFAULT_FSRS_W, dr, { deckSize: 2000 }))
+        expect(Math.abs(summary.trueRetention - dr)).toBeLessThan(0.02)
+      }
+    },
+    SLOW_SIMULATION_MS,
+  )
 
-  it('never exceeds maxCostPerday nor reviewLimit', () => {
-    const result = simulate(DEFAULT_FSRS_W, 0.9, {
-      deckSize: 5000,
-      learnSpan: 200,
-      maxCostPerday: 300,
-      reviewLimit: 20,
-    })
-    for (const cost of result.costPerDay) expect(cost).toBeLessThanOrEqual(300)
-    for (const reviews of result.reviewCntPerDay) expect(reviews).toBeLessThanOrEqual(20)
-  })
+  it(
+    'never exceeds maxCostPerday nor reviewLimit',
+    () => {
+      const result = simulate(DEFAULT_FSRS_W, 0.9, {
+        deckSize: 5000,
+        learnSpan: 200,
+        maxCostPerday: 300,
+        reviewLimit: 20,
+      })
+      for (const cost of result.costPerDay) expect(cost).toBeLessThanOrEqual(300)
+      for (const reviews of result.reviewCntPerDay) expect(reviews).toBeLessThanOrEqual(20)
+    },
+    SLOW_SIMULATION_MS,
+  )
 
   it('newCardsIgnoreReviewLimit changes how many cards get introduced when reviewLimit is small', () => {
     const shared = { deckSize: 5000, learnSpan: 60, reviewLimit: 1, learnLimit: 10 }
@@ -154,11 +177,15 @@ describe('§13 — workloadSummary', () => {
 })
 
 describe('§7 — relativeWorkload', () => {
-  it('is > 1 going up in retention and < 1 going down', () => {
-    const config = { deckSize: 2000, learnSpan: 365 }
-    expect(relativeWorkload(0.9, 0.95, DEFAULT_FSRS_W, config)).toBeGreaterThan(1)
-    expect(relativeWorkload(0.9, 0.8, DEFAULT_FSRS_W, config)).toBeLessThan(1)
-  })
+  it(
+    'is > 1 going up in retention and < 1 going down',
+    () => {
+      const config = { deckSize: 2000, learnSpan: 365 }
+      expect(relativeWorkload(0.9, 0.95, DEFAULT_FSRS_W, config)).toBeGreaterThan(1)
+      expect(relativeWorkload(0.9, 0.8, DEFAULT_FSRS_W, config)).toBeLessThan(1)
+    },
+    SLOW_SIMULATION_MS,
+  )
 
   it('returns 1 when both baseline and target schedule no reviews', () => {
     const config = { learnLimit: 0, deckSize: 0 }
