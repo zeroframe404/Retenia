@@ -140,6 +140,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # `electron`'s own postinstall only unpacks its binary lazily the first time something
+      # `require()`s it. Left unforced, that first `require` happens inside Playwright's own
+      # `_electron.launch()` — a *synchronous* download (`spawnSync`) that blocks the whole test
+      # process's event loop, so every queued test's timer only fires once it finally returns,
+      # reporting a burst of identical "Test timeout ... setting up electronApp" failures instead
+      # of one clear, fast error. Forcing it here, right after install, keeps a genuine download
+      # failure isolated to this one step instead of silently swallowing the whole test run.
+      - name: Verify Electron binary is installed
+        shell: bash
+        run: node -e "console.log(require('electron'))"
+
       - name: Run Playwright E2E (builds first)
         run: pnpm e2e
 
