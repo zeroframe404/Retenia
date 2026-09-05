@@ -248,7 +248,13 @@ export const KeyboardOnlyDragAndDrop: Story = {
 
 /** `dialog_cards` (§4 row 3): the same M-self grader, a two-button "I knew it / no" variant. */
 export const DialogCardsSelfRating: Story = {
-  args: { activity: { ...sampleCards(), type: 'dialog_cards' } },
+  args: {
+    activity: {
+      ...sampleCards(),
+      type: 'dialog_cards',
+      payload: { ...sampleCards().payload, presentation: 'dialog' },
+    },
+  },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await userEvent.click(await canvas.findByTestId('reveal-button'))

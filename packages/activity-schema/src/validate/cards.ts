@@ -1,11 +1,19 @@
 import type { Activity } from '../envelope'
+import type { CardPresentation } from '../families/cards'
 import { normalizeText } from '../normalize'
+import type { ActivityType } from '../registry'
 import { leakIssues, normalizedIncludes } from './common'
 import { type Issue, type IssuePath, issue } from './types'
 
+const PRESENTATIONS: Readonly<Partial<Record<ActivityType, CardPresentation>>> = {
+  flashcard_basic: 'grade',
+  flashcard_reverse: 'grade',
+  dialog_cards: 'dialog',
+}
+
 export function validateCards(activity: Activity<'cards'>): Issue[] {
   const issues: Issue[] = []
-  const { cards } = activity.payload
+  const { cards, presentation } = activity.payload
 
   if (
     (activity.type === 'flashcard_basic' || activity.type === 'flashcard_reverse') &&
@@ -16,6 +24,16 @@ export function validateCards(activity: Activity<'cards'>): Issue[] {
         'card-count',
         ['payload', 'cards'],
         `"${activity.type}" is one card, got ${cards.length}`,
+      ),
+    )
+  }
+  const expected = PRESENTATIONS[activity.type]
+  if (expected !== undefined && presentation !== expected) {
+    issues.push(
+      issue(
+        'card-presentation-mismatch',
+        ['payload', 'presentation'],
+        `"${activity.type}" is presented as ${expected}`,
       ),
     )
   }

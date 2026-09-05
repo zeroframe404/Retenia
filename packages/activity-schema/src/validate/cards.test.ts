@@ -1,12 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import type { Activity } from '../envelope'
-import type { Card } from '../families/cards'
+import type { Card, CardPresentation } from '../families/cards'
 import { sampleCards } from '../testing/samples'
 import { validateCards } from './cards'
 
-const withCards = (cards: Card[], rest: Partial<Activity<'cards'>> = {}): Activity<'cards'> => {
+const withCards = (
+  cards: Card[],
+  rest: Partial<Activity<'cards'>> = {},
+  presentation: CardPresentation = 'grade',
+): Activity<'cards'> => {
   const base = sampleCards()
-  return { ...base, ...rest, payload: { family: 'cards', cards } }
+  return { ...base, ...rest, payload: { family: 'cards', presentation, cards } }
 }
 const codes = (activity: Activity<'cards'>) => validateCards(activity).map((issue) => issue.code)
 
@@ -21,7 +25,18 @@ describe('validateCards()', () => {
       { id: 'c2', front: 'a2', back: 'b2' },
     ]
     expect(codes(withCards(two))).toEqual(['card-count'])
-    expect(codes(withCards(two, { type: 'dialog_cards', prompt: 'Vocabulario' }))).toEqual([])
+    expect(
+      codes(withCards(two, { type: 'dialog_cards', prompt: 'Vocabulario' }, 'dialog')),
+    ).toEqual([])
+  })
+
+  it('card-presentation-mismatch: flashcards grade, dialog_cards asks yes/no', () => {
+    const one = [{ id: 'c1', front: 'a', back: 'b' }]
+    expect(codes(withCards(one, {}, 'dialog'))).toEqual(['card-presentation-mismatch'])
+    expect(codes(withCards(one, { type: 'dialog_cards' }, 'grade'))).toEqual([
+      'card-presentation-mismatch',
+    ])
+    expect(codes(withCards(one, { type: 'dialog_cards' }, 'dialog'))).toEqual([])
   })
 
   it('card-sides-equal is an error; the back on the front is a warning', () => {

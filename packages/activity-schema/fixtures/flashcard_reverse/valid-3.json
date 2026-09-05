@@ -18,6 +18,7 @@
     "tags": ["historia"],
     "payload": {
       "family": "cards",
+      "presentation": "grade",
       "cards": [
         {
           "id": "c1",

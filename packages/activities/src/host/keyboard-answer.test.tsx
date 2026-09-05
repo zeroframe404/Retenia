@@ -88,7 +88,12 @@ describe('keyboard-only answering — cards', () => {
   it('reaches the dialog_cards two-button variant the same way', async () => {
     const user = userEvent.setup()
     const onComplete = vi.fn<(completion: ActivityCompletion) => void>()
-    renderHost({ ...sampleCards(), type: 'dialog_cards' }, onComplete)
+    const dialogCards: Activity = {
+      ...sampleCards(),
+      type: 'dialog_cards',
+      payload: { ...sampleCards().payload, presentation: 'dialog' },
+    }
+    renderHost(dialogCards, onComplete)
     await screen.findByTestId('renderer-cards')
 
     await tabTo(user, byTestId('reveal-button'))

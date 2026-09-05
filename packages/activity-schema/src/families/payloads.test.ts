@@ -285,12 +285,20 @@ describe('text_mark payload', () => {
 describe('cards payload', () => {
   it('needs at least one card with both sides', () => {
     expect(
-      ok('cards', { family: 'cards', cards: [{ id: 'c1', front: 'a', back: 'b', media: ['m1'] }] }),
+      ok('cards', {
+        family: 'cards',
+        presentation: 'grade',
+        cards: [{ id: 'c1', front: 'a', back: 'b', media: ['m1'] }],
+      }),
     ).toBe(true)
-    expect(ok('cards', { family: 'cards', cards: [] })).toBe(false)
-    expect(ok('cards', { family: 'cards', cards: [{ id: 'c1', front: 'a', back: '' }] })).toBe(
-      false,
-    )
+    expect(ok('cards', { family: 'cards', presentation: 'grade', cards: [] })).toBe(false)
+    expect(
+      ok('cards', {
+        family: 'cards',
+        presentation: 'grade',
+        cards: [{ id: 'c1', front: 'a', back: '' }],
+      }),
+    ).toBe(false)
   })
 })
 

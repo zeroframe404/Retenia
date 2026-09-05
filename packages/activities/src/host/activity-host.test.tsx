@@ -518,7 +518,8 @@ describe('<ActivityHost/> — the other MVP families', () => {
 
 describe('<ActivityHost/> — dialog_cards, the two-button self rating', () => {
   function dialogCards(): Activity {
-    return { ...sampleCards(), type: 'dialog_cards' }
+    const base = sampleCards()
+    return { ...base, type: 'dialog_cards', payload: { ...base.payload, presentation: 'dialog' } }
   }
 
   it('offers "I knew it" / "No" instead of the four-grade fieldset', async () => {

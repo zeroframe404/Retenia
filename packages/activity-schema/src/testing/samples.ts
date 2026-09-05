@@ -200,7 +200,11 @@ export function sampleCards(): Activity<'cards'> {
     }),
     family: 'cards',
     type: 'flashcard_basic',
-    payload: { family: 'cards', cards: [{ id: 'c1', front: 'Capital de Francia', back: 'París' }] },
+    payload: {
+      family: 'cards',
+      presentation: 'grade',
+      cards: [{ id: 'c1', front: 'Capital de Francia', back: 'París' }],
+    },
   }
 }
 

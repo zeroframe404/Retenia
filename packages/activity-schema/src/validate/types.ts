@@ -66,6 +66,7 @@ export const ISSUE_CODES = [
   // cards
   'card-count',
   'card-sides-equal',
+  'card-presentation-mismatch',
   // image_target (placeholder, checked defensively)
   'shape-unknown',
 ] as const

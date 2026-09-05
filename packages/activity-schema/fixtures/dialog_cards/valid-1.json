@@ -17,6 +17,7 @@
     },
     "payload": {
       "family": "cards",
+      "presentation": "dialog",
       "cards": [
         {
           "id": "c1",

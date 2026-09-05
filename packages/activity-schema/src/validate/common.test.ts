@@ -75,6 +75,7 @@ describe('mediaIssues()', () => {
       media: [{ id: 'm1', kind: 'image', src: 'x' }],
       payload: {
         family: 'cards',
+        presentation: 'grade',
         cards: [{ id: 'c1', front: 'a', back: 'b', media: ['m1', 'm2'] }],
       },
     }

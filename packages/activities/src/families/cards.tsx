@@ -12,18 +12,17 @@ import { useFamilyActivity } from '../host/activity-context'
  * `response.rating`, and the family grader hands that straight back as the rating. The card must
  * therefore be flipped before the buttons appear, or the self-assessment would be about nothing.
  *
- * `dialog_cards` (§4 row 3, "I knew it / no") is the same M-self grader with a two-button variant
- * of the same UI rather than a renderer of its own — exactly the `payload.mode`-style extension
- * point the registry doc calls for. "I knew it" reports `Good` (a clean recall) and "No" reports
- * `Again`; the four-way "Hard vs. Easy" distinction has no honest answer on a front the learner
- * never had to produce, only recognize.
+ * `dialog_cards` (§4 row 3, "I knew it / no") is the same M-self grader with a two-button
+ * `payload.presentation` variant of the same UI rather than a renderer of its own. "I knew it"
+ * reports `Good` (a clean recall) and "No" reports `Again`; the four-way "Hard vs. Easy"
+ * distinction has no honest answer on a front the learner never had to produce, only recognize.
  */
 export function Renderer() {
   const { activity, submit, locked, labels } = useFamilyActivity('cards')
   const [revealed, setRevealed] = useState(false)
   const card = activity.payload.cards[0]
   if (!card) return null
-  const isDialog = activity.type === 'dialog_cards'
+  const isDialog = activity.payload.presentation === 'dialog'
 
   function grade(rating: Grade) {
     // M-self: the button press *is* the answer, so it is handed to the grader in the same call
