@@ -9,6 +9,7 @@ export default defineActivityType({
       focus: 'The learner highlights the words in a passage that match the instruction.',
       rules: [
         'Tokenize the passage as the learner sees it: punctuation stays attached to its word.',
+        'Spanish contractions ("del", "al") are single tokens — never split them into "de"/"el" or "a"/"el".',
         'Between 10 % and 40 % of the tokens are correct — never almost all of them.',
       ],
     }),
