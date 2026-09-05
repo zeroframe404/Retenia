@@ -165,6 +165,27 @@ describe('the rubric breakdown', () => {
     expect(within(breakdown).queryByText('weight 1')).not.toBeInTheDocument()
   })
 
+  it('shows a repeated quote once', async () => {
+    const user = userEvent.setup()
+    renderHost({
+      activity: sampleEssayRubric(),
+      grade: gradePortFor(async () =>
+        aiResult({
+          evidence: [
+            { quote: 'Los repasos distribuidos', criterionId: 'c1' },
+            { quote: 'Los repasos distribuidos', criterionId: 'c1' },
+            { quote: 'Los repasos distribuidos', criterionId: 'c2' },
+          ],
+        }),
+      ),
+    })
+    await answerAndCheck(user, FULL_ANSWER)
+
+    // The same sentence cited twice for the same criterion is one piece of evidence; cited for
+    // a different criterion it is a different claim, and stays.
+    expect(within(screen.getByTestId('answer-evidence')).getAllByRole('listitem')).toHaveLength(2)
+  })
+
   it('warns when the answer was marked on the rubric alone', async () => {
     const user = userEvent.setup()
     renderHost({

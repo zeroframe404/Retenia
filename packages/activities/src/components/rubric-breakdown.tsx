@@ -27,7 +27,15 @@ export interface RubricBreakdownProps {
 
 export function RubricBreakdown({ detail }: RubricBreakdownProps) {
   const { labels } = useActivity()
-  const { perCriterion, evidence } = detail
+  const { perCriterion } = detail
+  // De-duplicated by criterion and quote: a grader that cited the same sentence twice for the
+  // same criterion has said one thing, and showing it twice would only look like two. It also
+  // makes the pair a stable React key, which an index would not be.
+  const evidence = [
+    ...new Map(
+      detail.evidence.map((entry) => [`${entry.criterionId ?? ''}:${entry.quote}`, entry]),
+    ).values(),
+  ]
   if (perCriterion.length === 0 && evidence.length === 0) return null
 
   return (
@@ -77,11 +85,9 @@ export function RubricBreakdown({ detail }: RubricBreakdownProps) {
             {labels.evidenceHeading}
           </h3>
           <ul className="mt-1 flex flex-col gap-1">
-            {evidence.map((entry, index) => (
+            {evidence.map((entry) => (
               <li
-                // Indexed on purpose: two criteria can honestly be backed by the same sentence,
-                // so the quote is not a key. The list is static once the grade exists.
-                key={`${index}:${entry.criterionId ?? ''}:${entry.quote}`}
+                key={`${entry.criterionId ?? ''}:${entry.quote}`}
                 className="border-border text-muted border-l-2 pl-2 text-sm italic"
               >
                 {entry.quote}
