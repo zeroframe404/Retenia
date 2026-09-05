@@ -69,7 +69,12 @@ export interface ReviewActivityInput {
   device?: string | null
   /**
    * Overrides the rating `toRating` derived — the M-self case, where the user pressed the
-   * button, and M-ai's "the rubric returns a rating and the user can correct it".
+   * button, M-ai's "the rubric returns a rating and the user can correct it", and the
+   * learner's self-rating after an `uncertain` grade.
+   *
+   * The *reason* for a correction travels on the grade itself
+   * (`result.meta.ratingOverride`), where it is persisted with the attempt; this field is
+   * only the number the scheduler is to act on.
    *
    * Still passes through §9's exam clamp: "do not use Easy in an exam" is a property of the
    * exam, not of how the rating was arrived at. Nothing else about it is second-guessed — a
@@ -89,9 +94,12 @@ export interface ReviewActivityResult {
    * Why no review was written, when `rating` is `null`:
    * - `not-eligible` — a lesson-only type or M-none: §10's games "do not feed the scheduler".
    * - `awaiting-user` — M-self: the rating is the user's to press, so call again with it.
+   * - `uncertain` — the AI grader declined to commit (`docs/spec/04-path-generation.md`
+   *   §12: it "affects neither Elo nor FSRS"). Like `awaiting-user`, it is resolved by
+   *   calling again with the rating the learner picked.
    * - `no-skills` — the activity named no cards to schedule.
    */
-  skipped: 'not-eligible' | 'awaiting-user' | 'no-skills' | null
+  skipped: 'not-eligible' | 'awaiting-user' | 'uncertain' | 'no-skills' | null
 }
 
 export type ReviewActivity = (input: ReviewActivityInput) => Promise<ReviewActivityResult>
@@ -138,8 +146,12 @@ export function createReviewActivity(deps: ReviewActivityDeps): ReviewActivity {
         ? toRating(input.result, review, personal, input.signals ?? {})
         : clampForContext(input.rating, review, input.result, personal)
     if (rating === null) {
-      // The only rule that survives `feedsScheduler` without producing a rating is M-self.
-      return { rating: null, attemptId: null, reviews: NOTHING, skipped: 'awaiting-user' }
+      // Two things survive `feedsScheduler` without producing a rating: M-self, where the
+      // button is the user's to press, and an `uncertain` AI grade, where the rubric
+      // declined to commit. Both wait for the same input; only the reason differs, and the
+      // UI says something different for each.
+      const skipped = input.result.meta.uncertain === true ? 'uncertain' : 'awaiting-user'
+      return { rating: null, attemptId: null, reviews: NOTHING, skipped }
     }
 
     const attemptId = input.attemptId ?? null

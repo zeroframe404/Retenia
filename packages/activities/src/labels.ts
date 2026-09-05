@@ -32,6 +32,35 @@ export interface ActivityLabels {
   partiallyCorrect: string
   modelAnswer: string
   feedbackHeading: string
+  /** The `long_text` rubric breakdown (§10's AI row). */
+  rubricHeading: string
+  /** `{weight}`: a criterion's relative weight, shown only when it is not 1. */
+  criterionWeight: string
+  /** Quotes taken from the learner's own answer (§12: "evidence cited from the answer"). */
+  evidenceHeading: string
+  keyPointsHeading: string
+  keyPointCovered: string
+  keyPointMissed: string
+  /** Markdown is allowed in a long answer; said once, under the box. */
+  markdownAllowed: string
+  /** `{words}`, and `{min}` / `{max}` when the activity sets a range. */
+  wordsLabel: string
+  wordsRangeLabel: string
+  /** The rating chip: what the answer will be scheduled as. */
+  scheduledAs: string
+  changeRating: string
+  overrideReasonLabel: string
+  overrideSave: string
+  overrideCancel: string
+  /** `{from}`: the rating the grader had proposed. */
+  ratingOverridden: string
+  /** §12's `uncertain`: the grade feeds nothing, and the learner rates it themselves. */
+  uncertainHeading: string
+  uncertainNotice: string
+  /** `engine: 'fake'` — a score that cost nothing must not look like one that did. */
+  estimatedGrade: string
+  /** §12's injection guard fired. */
+  injectionNotice: string
   /** `{score}` as a percentage. */
   scoreLabel: string
   elapsed: string
@@ -85,6 +114,28 @@ export const DEFAULT_ACTIVITY_LABELS: ActivityLabels = Object.freeze({
   partiallyCorrect: 'Partly correct',
   modelAnswer: 'Model answer',
   feedbackHeading: 'Feedback',
+  rubricHeading: 'Rubric',
+  criterionWeight: 'weight {weight}',
+  evidenceHeading: 'From your answer',
+  keyPointsHeading: 'Expected points',
+  keyPointCovered: 'covered',
+  keyPointMissed: 'not covered',
+  markdownAllowed: 'Markdown is allowed.',
+  wordsLabel: '{words} words',
+  wordsRangeLabel: '{words} words ({min}–{max})',
+  scheduledAs: 'Scheduled as',
+  changeRating: 'Change',
+  overrideReasonLabel: 'Why are you changing it? (optional)',
+  overrideSave: 'Save',
+  overrideCancel: 'Cancel',
+  ratingOverridden: 'You changed this from “{from}”.',
+  uncertainHeading: 'The grader was not sure',
+  uncertainNotice:
+    'This answer was not scheduled. Tell us how well you knew it and we will use that instead.',
+  estimatedGrade:
+    'Estimated — no AI grader was available, so this score is a guess from the key points.',
+  injectionNotice:
+    'Your answer contained instructions addressed to the grader, so it was marked on the rubric alone.',
   scoreLabel: '{score}%',
   elapsed: 'Time',
   attemptsLabel: 'Attempt {attempt}',

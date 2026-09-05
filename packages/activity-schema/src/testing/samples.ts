@@ -99,6 +99,57 @@ export function sampleLongText(): Activity<'long_text'> {
   }
 }
 
+/**
+ * An `essay_rubric` (§4 row 55): the AI row of §10 in full — an anchored rubric, a model
+ * answer (which §10 requires be shown whatever the score) and key points for the
+ * deterministic pre-grade.
+ */
+export function sampleEssayRubric(): Activity<'long_text'> {
+  return {
+    ...envelope({
+      prompt: 'Explicá por qué la práctica espaciada supera al estudio masivo.',
+      instructions: 'Entre 40 y 120 palabras. Podés usar Markdown.',
+      grading: { method: 'ai' },
+      review: { eligible: true, ratingStrategy: 'ai', expectedSeconds: 300 },
+      skills: ['practica-espaciada'],
+    }),
+    family: 'long_text',
+    type: 'essay_rubric',
+    payload: {
+      family: 'long_text',
+      minWords: 40,
+      maxWords: 120,
+      modelAnswer:
+        'La práctica espaciada distribuye los repasos en el tiempo, lo que obliga a recuperar ' +
+        'la información cuando ya empezó a olvidarse y refuerza la huella de memoria.',
+      keyPoints: [
+        { id: 'k1', text: 'repasos distribuidos', weight: 2, aliases: ['espaciar los repasos'] },
+        { id: 'k2', text: 'recuperación activa', aliases: ['recordar sin mirar'] },
+      ],
+      rubric: [
+        {
+          id: 'c1',
+          criterion: 'Explica el mecanismo del espaciado',
+          weight: 2,
+          levels: [
+            { score: 0, description: 'No lo menciona.' },
+            { score: 0.5, description: 'Lo nombra sin explicarlo.' },
+            { score: 1, description: 'Explica por qué el intervalo ayuda.' },
+          ],
+        },
+        {
+          id: 'c2',
+          criterion: 'Contrasta con el estudio masivo',
+          levels: [
+            { score: 0, description: 'No lo contrasta.' },
+            { score: 1, description: 'Contrasta con evidencia o ejemplo.' },
+          ],
+        },
+      ],
+    },
+  }
+}
+
 export function samplePairs(): Activity<'pairs'> {
   return {
     ...envelope({

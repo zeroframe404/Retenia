@@ -26,6 +26,7 @@ Retenia is a local-first desktop learning & memory app (Electron + React + TypeS
 - `packages/activity-schema` — zod envelope + payload families, the 98-type registry, per-type rules, JSON Schema export, fixtures
 - `packages/activity-graders` — pure graders per family (text, numeric, ordering metrics); returns `GradeResult` for core's `toRating`
 - `packages/activities` — activity renderers (React host + Storybook); wires schema and graders
+- `packages/activity-ai` — AI graders for activities: the versioned P10 rubric prompt, its structured output, the injection guard and the offline fallback
 - `packages/editor` — note/content editor
 - `packages/readers` — document/media readers (PDF, EPUB, …)
 - `packages/ai` — AI provider adapters, behind ports (AI SDK 7)

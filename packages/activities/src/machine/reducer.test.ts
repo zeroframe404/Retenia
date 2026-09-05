@@ -2,6 +2,7 @@ import type { GradeResult } from '@retenia/activity-schema'
 import { describe, expect, it } from 'vitest'
 import {
   canHint,
+  canOverrideRating,
   canRetry,
   canSubmit,
   createActivityReducer,
@@ -50,6 +51,7 @@ const EVERY_ACTION: readonly ActivityAction[] = [
   { type: 'DISMISS_HINT' },
   { type: 'SUBMIT' },
   { type: 'GRADE_FAILED', message: 'boom' },
+  { type: 'OVERRIDE_RATING', rating: 4, at: '2026-06-01T12:00:00.000Z' },
   { type: 'RETRY' },
   { type: 'COMPLETE' },
   { type: 'SKIP' },
@@ -215,6 +217,75 @@ describe('activity state machine', () => {
         status: 'completed',
         outcome: 'graded',
       })
+    })
+
+    describe('OVERRIDE_RATING', () => {
+      const override: ActivityAction = {
+        type: 'OVERRIDE_RATING',
+        rating: 4,
+        reason: 'Lo sabía.',
+        at: '2026-06-01T12:00:00.000Z',
+      }
+
+      it('replaces the rating and records what changed, on the grade itself', () => {
+        const state = run([...PATHS.feedback, override])
+        expect(canOverrideRating(state)).toBe(true)
+        expect(state.status).toBe('feedback')
+        expect(state.result?.rating).toBe(4)
+        expect(state.result?.meta.ratingOverride).toEqual({
+          from: 3,
+          to: 4,
+          reason: 'Lo sabía.',
+          at: '2026-06-01T12:00:00.000Z',
+        })
+        // Nothing the grader measured is rewritten: only the rating is the learner's to set.
+        expect(state.result?.score).toBe(0)
+        expect(state.result?.correct).toBe(false)
+        expect(state.result?.feedback).toBe('ok')
+      })
+
+      it('records a correction with no reason, and a second one from the first', () => {
+        const once = run([...PATHS.feedback, { type: 'OVERRIDE_RATING', rating: 2, at: 'now' }])
+        expect(once.result?.meta.ratingOverride).toEqual({ from: 3, to: 2, at: 'now' })
+
+        const twice = run([
+          ...PATHS.feedback,
+          { type: 'OVERRIDE_RATING', rating: 2, at: 'now' },
+          { type: 'OVERRIDE_RATING', rating: 1, at: 'later' },
+        ])
+        expect(twice.result?.meta.ratingOverride).toEqual({ from: 2, to: 1, at: 'later' })
+      })
+
+      it('starts from null when the grader declined to rate', () => {
+        const uncertain = grade({
+          rating: null,
+          meta: { timeMs: 1000, attempts: 1, hintsUsed: 0, uncertain: true },
+        })
+        const state = run([
+          ...PATHS.checking,
+          { type: 'GRADED', result: uncertain },
+          { type: 'OVERRIDE_RATING', rating: 3, at: 'now' },
+        ])
+        expect(state.result?.rating).toBe(3)
+        expect(state.result?.meta.ratingOverride).toEqual({ from: null, to: 3, at: 'now' })
+        // `uncertain` stays on the record: the rating is the learner's, not the rubric's.
+        expect(state.result?.meta.uncertain).toBe(true)
+      })
+
+      it('is refused once the run is over — the session already took the result', () => {
+        const done = run([...PATHS.feedback, { type: 'COMPLETE' }])
+        expect(canOverrideRating(done)).toBe(false)
+        // The same object back, not a copy: a stray action never re-renders the tree.
+        expect(createActivityReducer(CONFIG)(done, override)).toBe(done)
+      })
+
+      it.each(['idle', 'presenting', 'answering', 'hinting', 'checking'] as const)(
+        'is a no-op in %s, where there is no grade to correct',
+        (status) => {
+          expect(canOverrideRating(run(PATHS[status]))).toBe(false)
+          expect(run([...PATHS[status], override]).result).toBeNull()
+        },
+      )
     })
   })
 

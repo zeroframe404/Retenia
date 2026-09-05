@@ -1,0 +1,31 @@
+{
+  "name": "@retenia/activity-ai",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "AI graders for the activity engine: the versioned P10 rubric prompt, its structured output, the injection guard and the offline fallback. Pure outside ./prompts.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./prompts": "./src/prompt-files.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "lint": "biome check ."
+  },
+  "dependencies": {
+    "@retenia/activity-graders": "workspace:*",
+    "@retenia/activity-schema": "workspace:*",
+    "@retenia/ai": "workspace:*",
+    "@retenia/core": "workspace:*",
+    "zod": "4.5.4"
+  },
+  "devDependencies": {
+    "@retenia/config": "workspace:*",
+    "@types/node": "24.13.3",
+    "@vitest/coverage-v8": "4.1.11",
+    "typescript": "7.0.2",
+    "vitest": "4.1.11"
+  }
+}

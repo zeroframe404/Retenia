@@ -31,8 +31,11 @@ export type { ImageStageProps, ImageStageShape } from './components/image-stage'
 export { ImageStage } from './components/image-stage'
 export type { MathFieldProps } from './components/math-field'
 export { MathField } from './components/math-field'
+export { RatingChip } from './components/rating-chip'
 export type { RichTextProps } from './components/rich-text'
 export { RichText, splitMediaTokens } from './components/rich-text'
+export type { RubricBreakdownProps } from './components/rubric-breakdown'
+export { RubricBreakdown } from './components/rubric-breakdown'
 export type { BankToken, TokenBankProps } from './components/token-bank'
 export { TokenBank } from './components/token-bank'
 export type {
@@ -64,7 +67,9 @@ export type {
   SpeakPort,
 } from './host/ports'
 export {
+  answerTextOf,
   ExplainAnswerUnavailableError,
+  explainAnswerPort,
   noopSpeak,
   staticExplainAnswer,
 } from './host/ports'
@@ -72,8 +77,10 @@ export { createRng, hashSeed, listSeed, shuffleWithRng, shuffleWithSeed } from '
 export type { ActivityCompletion, UseActivityMachineOptions } from './host/use-activity-machine'
 export {
   applyHintPenalty,
+  createAiGradePort,
   DEFAULT_MAX_ATTEMPTS,
   defaultGrade,
+  isAiGraded,
   TIMER_INTERVAL_MS,
   useActivityMachine,
 } from './host/use-activity-machine'
@@ -81,6 +88,7 @@ export type { ActivityLabels } from './labels'
 export { DEFAULT_ACTIVITY_LABELS, formatLabel, resolveLabels } from './labels'
 export {
   canHint,
+  canOverrideRating,
   canRetry,
   canSubmit,
   createActivityReducer,

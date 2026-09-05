@@ -164,11 +164,18 @@ export type {
   GradeMeta,
   GradeResult,
   PersonalPace,
+  RatingOverride,
   RatingRule,
   RatingSignals,
   ReviewSpec,
 } from './rating'
-export { feedsScheduler, RATING_RULES, RATING_THRESHOLDS, toRating } from './rating'
+export {
+  clampForContext,
+  feedsScheduler,
+  RATING_RULES,
+  RATING_THRESHOLDS,
+  toRating,
+} from './rating'
 export type {
   RescheduleCandidate,
   RescheduleChange,

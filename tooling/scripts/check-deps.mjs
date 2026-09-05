@@ -6,8 +6,9 @@
  * `ui`/`activities`/`editor`/`readers` import `core` and `ui`; `apps/desktop` imports
  * everything. `ipc-contract`, `i18n` and `config` are leaves: no internal deps.
  * The activity engine (docs/spec/03-activities.md §8): `activity-schema` imports `core`,
- * `activity-graders` imports `core` and `activity-schema`, and `activities` (the React host)
- * may import both on top of `core` and `ui`.
+ * `activity-graders` imports `core` and `activity-schema`, `activity-ai` adds `ai` on top of
+ * those two, and `activities` (the React host) may import the schema and the graders on top of
+ * `core` and `ui` — but never `activity-ai`, which is main-process/provider territory.
  *
  * Usage: node check-deps.mjs
  */
@@ -30,6 +31,7 @@ const ALLOWED = {
   activities: ['core', 'ui', 'activity-schema', 'activity-graders'],
   'activity-schema': ['core'],
   'activity-graders': ['core', 'activity-schema'],
+  'activity-ai': ['core', 'activity-schema', 'activity-graders', 'ai'],
   editor: ['core', 'ui'],
   readers: ['core', 'ui'],
   'ipc-contract': [],

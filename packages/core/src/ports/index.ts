@@ -1,5 +1,29 @@
 export type { ActivityStatsRepository } from './activity-stats-repository'
 export type { AiCallRepository, CostQuery } from './ai-call-repository'
+export type {
+  AbortSignalLike,
+  AiGradeEngine,
+  AiGradeInput,
+  AiGradeResult,
+  AiGrader,
+  AnswerEvidence,
+  CriterionScore,
+  ExplainAnswer,
+  ExplainAnswerRequest,
+  GradedActivityRef,
+  GradingKeyPoint,
+  GradingRubricCriterion,
+  GradingRubricLevel,
+  GradingSource,
+  RichText,
+} from './ai-grader'
+export {
+  AI_GRADE_ENGINES,
+  countWords,
+  INJECTION_PATTERNS,
+  looksLikeInjection,
+  weightedCriterionScore,
+} from './ai-grader'
 export type { AttemptRepository } from './attempt-repository'
 export type {
   CrudRepository,

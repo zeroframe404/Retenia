@@ -1,4 +1,5 @@
 import type { GradeResult } from '@retenia/activity-schema'
+import type { Grade } from '@retenia/core'
 
 /**
  * The `<ActivityHost/>` state machine of `docs/spec/03-activities.md` §9:
@@ -75,6 +76,13 @@ export type ActivityAction =
   /** The only edge into `feedback`, and it carries the grade. */
   | { type: 'GRADED'; result: GradeResult }
   | { type: 'GRADE_FAILED'; message: string }
+  /**
+   * The learner corrected the rating the grader proposed — §3's M-ai ("the rubric returns a
+   * rating and the user can correct it") and the self-rating an `uncertain` grade asks for.
+   * It rewrites the result in place, so the completion the session receives carries the
+   * rating that will actually be scheduled and the reason it changed.
+   */
+  | { type: 'OVERRIDE_RATING'; rating: Grade; reason?: string; at: string }
   | { type: 'RETRY' }
   | { type: 'COMPLETE' }
   | { type: 'SKIP' }

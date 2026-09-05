@@ -311,6 +311,121 @@ describe('reviewActivity', () => {
     expect(first.rating).toBe(4)
   })
 
+  /**
+   * §12 of `docs/spec/04-path-generation.md`: an `uncertain` grade *"affects neither Elo nor
+   * FSRS"*, and §3's M-ai row makes the learner's correction the authority. Together they are
+   * the whole `essay_rubric` loop — the rubric proposes, and the person decides.
+   */
+  describe('an AI-graded answer', () => {
+    it('writes nothing at all while the grader is uncertain', async () => {
+      const { store, reviewActivity } = harness()
+      const [card] = await seedCards(store, 1)
+      const before = card as Card
+
+      const result = await reviewActivity({
+        activityType: 'essay_rubric',
+        skills: [before.id],
+        result: {
+          score: 0.9,
+          correct: true,
+          meta: { timeMs: 90_000, attempts: 1, hintsUsed: 0, uncertain: true },
+        },
+        review: spec({ rule: 'ai' }),
+      })
+
+      expect(result).toMatchObject({ rating: null, skipped: 'uncertain', reviews: [] })
+      expect(store.reviewLogs.all()).toHaveLength(0)
+      expect(await store.cards.findById(before.id)).toEqual(before)
+    })
+
+    it('tells an uncertain grade apart from an M-self one still waiting for a button', async () => {
+      const { store, reviewActivity } = harness()
+      const [card] = await seedCards(store, 1)
+      const waiting = await reviewActivity({
+        activityType: 'flashcard_basic',
+        skills: [(card as Card).id],
+        result: grade(1, true),
+        review: spec({ rule: 'self' }),
+      })
+      expect(waiting.skipped).toBe('awaiting-user')
+    })
+
+    it('schedules the answer once the learner overrides the rating, and logs what they chose', async () => {
+      const { store, reviewActivity } = harness()
+      const [card] = await seedCards(store, 1)
+      const before = card as Card
+
+      // The rubric declined; the learner pressed Good, and said why. The reason travels on the
+      // grade — where the attempt row keeps it — and the number is what the scheduler acts on.
+      const result = await reviewActivity({
+        activityType: 'essay_rubric',
+        skills: [before.id],
+        result: {
+          score: 0.9,
+          correct: true,
+          meta: {
+            timeMs: 90_000,
+            attempts: 1,
+            hintsUsed: 0,
+            uncertain: true,
+            ratingOverride: {
+              from: null,
+              to: 3,
+              reason: 'La consigna pedía otra cosa.',
+              at: '2026-06-01T12:01:00.000Z',
+            },
+          },
+        },
+        review: spec({ rule: 'ai' }),
+        rating: 3,
+        attemptId: ATTEMPT_ID,
+      })
+
+      expect(result).toMatchObject({ rating: 3, skipped: null })
+      const [log] = store.reviewLogs.all()
+      expect(log).toMatchObject({
+        rating: 3,
+        cardId: before.id,
+        activityType: 'essay_rubric',
+        exerciseScore: 0.9,
+        attemptId: ATTEMPT_ID,
+        durationMs: 90_000,
+      })
+
+      // And the card really moved: a review was applied, not just recorded.
+      const after = await store.cards.findById(before.id)
+      expect(after?.reps).toBe(before.reps + 1)
+      expect(after?.due.getTime()).toBeGreaterThan(before.due.getTime())
+      expect(after?.lastReview).not.toBeNull()
+    })
+
+    it('honours an override of a rating the rubric did produce', async () => {
+      const { store, reviewActivity } = harness()
+      const [card] = await seedCards(store, 1)
+
+      // The rubric said Easy; the learner knows they guessed and presses Hard.
+      const result = await reviewActivity({
+        activityType: 'essay_rubric',
+        skills: [(card as Card).id],
+        result: {
+          score: 0.97,
+          correct: true,
+          meta: {
+            timeMs: 90_000,
+            attempts: 1,
+            hintsUsed: 0,
+            ratingOverride: { from: 4, to: 2, at: '2026-06-01T12:01:00.000Z' },
+          },
+        },
+        review: spec({ rule: 'ai' }),
+        rating: 2,
+      })
+
+      expect(result.rating).toBe(2)
+      expect(store.reviewLogs.all()[0]?.rating).toBe(2)
+    })
+  })
+
   it('rejects an activity with no type — the median and the history are keyed on it', async () => {
     const { reviewActivity } = harness()
     await expect(

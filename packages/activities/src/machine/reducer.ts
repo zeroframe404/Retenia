@@ -1,3 +1,4 @@
+import type { GradeResult } from '@retenia/activity-schema'
 import {
   type ActivityAction,
   type ActivityMachineConfig,
@@ -45,6 +46,16 @@ export function canHint(state: ActivityMachineState, config: ActivityMachineConf
     return false
   }
   return state.hintsUsed < config.hintCount
+}
+
+/**
+ * Whether the rating on screen may still be corrected (§3's M-ai).
+ *
+ * Only while the feedback is up: once `COMPLETE` has fired, the session has taken the result
+ * and written the review, and a change here would edit a number nobody is reading any more.
+ */
+export function canOverrideRating(state: ActivityMachineState): boolean {
+  return state.status === 'feedback'
 }
 
 /** Whether the answer can be handed to the grader from here. */
@@ -135,6 +146,27 @@ export function createActivityReducer(config: ActivityMachineConfig) {
 
       case 'feedback':
         switch (action.type) {
+          case 'OVERRIDE_RATING': {
+            // The correction is recorded *on the grade*: `meta.ratingOverride` says what the
+            // grader proposed and what the learner chose, so the attempt row keeps both and
+            // §17 risk 3's re-tuning has something to read. `from` is the rating as it stands
+            // now, which after a second correction is the learner's own previous choice — the
+            // honest answer to "what did you change".
+            const result: GradeResult = {
+              ...state.result,
+              rating: action.rating,
+              meta: {
+                ...state.result.meta,
+                ratingOverride: {
+                  from: state.result.rating,
+                  to: action.rating,
+                  ...(action.reason === undefined ? {} : { reason: action.reason }),
+                  at: action.at,
+                },
+              },
+            }
+            return { ...state, result }
+          }
           case 'RETRY':
             return canRetry(state, config)
               ? { ...state, status: 'answering', result: null, error: null }
