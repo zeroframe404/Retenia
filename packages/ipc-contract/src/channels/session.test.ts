@@ -135,6 +135,7 @@ describe('session.next', () => {
       retrievability: 0.82,
       desiredRetention: 0.9,
       examId: null,
+      activity: null,
     }
     expect(sessionEntrySchema.parse(entry)).toEqual(entry)
 
@@ -170,6 +171,7 @@ describe('session.next', () => {
         retrievability: 0.82,
         desiredRetention: 0.9,
         examId: null,
+        activity: null,
       },
       progress,
       item,
@@ -259,5 +261,93 @@ describe('memory.forecast', () => {
     expect(() =>
       forecastSchema.parse({ ...forecast, days: [{ ...forecast.days[0], day: 'x' }] }),
     ).toThrow()
+  })
+})
+
+describe('session.next activity', () => {
+  const card = {
+    id: ID,
+    itemId: '019213cd-0000-7000-8000-000000000002',
+    template: 'basic',
+    payload: null,
+    state: 2 as const,
+    due: AT,
+    stability: 12.3,
+    difficulty: 5.2,
+    scheduledDays: 10,
+    learningSteps: 0,
+    reps: 6,
+    lapses: 1,
+    lastReview: AT,
+    leech: false,
+  }
+
+  const entry = {
+    kind: 'due' as const,
+    card,
+    level: 'normal' as const,
+    retrievability: 0.82,
+    desiredRetention: 0.9,
+    examId: null,
+  }
+
+  it('round-trips the chosen exercise', () => {
+    const withActivity = {
+      ...entry,
+      activity: {
+        attemptId: '0192f000-0000-7000-8000-000000000004',
+        activityId: '0192f000-0000-7000-8000-000000000005',
+        type: 'short_answer',
+        // The envelope crosses as opaque JSON: re-declaring 22 payload families here would
+        // be a second source of truth for the shape `activity-schema` already owns.
+        activity: { id: 'x', type: 'short_answer', family: 'text_input' },
+        mode: 'review' as const,
+        hintsAllowed: true,
+        deferFeedback: false,
+        seed: 'session-seed',
+      },
+    }
+    expect(sessionEntrySchema.parse(withActivity)).toEqual(withActivity)
+  })
+
+  it('requires the field even when there is no exercise', () => {
+    // Nullable, not optional: a handler that forgot to run the generator would otherwise
+    // silently serve flashcards forever.
+    expect(() => sessionEntrySchema.parse(entry)).toThrow()
+    // `toMatchObject` rather than a property access: the parsed value is the whole
+    // discriminated union, and the reinforcement arm has no `activity`.
+    expect(sessionEntrySchema.parse({ ...entry, activity: null })).toMatchObject({
+      activity: null,
+    })
+  })
+
+  it('rejects a mode outside the three the host understands', () => {
+    expect(() =>
+      sessionEntrySchema.parse({
+        ...entry,
+        activity: {
+          attemptId: '0192f000-0000-7000-8000-000000000004',
+          activityId: '0192f000-0000-7000-8000-000000000005',
+          type: 'short_answer',
+          activity: {},
+          mode: 'legendary',
+          hintsAllowed: false,
+          deferFeedback: false,
+          seed: 's',
+        },
+      }),
+    ).toThrow()
+  })
+
+  it('accepts the activity id on an answer', () => {
+    const { input } = contract['session.answer']
+    const parsed = input.parse({
+      rating: 3,
+      exerciseScore: 0.9,
+      durationMs: 4200,
+      attemptId: '0192f000-0000-7000-8000-000000000004',
+      activityId: '0192f000-0000-7000-8000-000000000005',
+    })
+    expect(parsed.activityId).toBe('0192f000-0000-7000-8000-000000000005')
   })
 })

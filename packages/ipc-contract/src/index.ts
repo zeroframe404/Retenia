@@ -65,6 +65,7 @@ export {
   reviewSessionStatusSchema,
   SESSION_ENTRY_KINDS,
   SESSION_ORDERS,
+  sessionActivitySchema,
   sessionCardPreviewSchema,
   sessionCardSchema,
   sessionCountsSchema,

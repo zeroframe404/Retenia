@@ -1,5 +1,5 @@
 import type { Attempt, AttemptRepository, LessonSession, NewEntity, Rating } from '@retenia/core'
-import { and, asc, eq, gte, lt } from 'drizzle-orm'
+import { and, asc, eq, gte, inArray, isNotNull, isNull, lt, max } from 'drizzle-orm'
 import { attempts, lessonSessions } from '../schema'
 import { createBaseRepository, type Row, type TableCodec } from './base'
 import type { RepositoryContext } from './context'
@@ -28,7 +28,9 @@ const attemptCodec: TableCodec<
     id: toText(row.id),
     activityId: toText(row.activityId),
     context: row.context as Attempt['context'],
+    mode: row.mode as Attempt['mode'],
     lessonSessionId: toTextOrNull(row.lessonSessionId),
+    reviewSessionId: toTextOrNull(row.reviewSessionId),
     examAttemptId: toTextOrNull(row.examAttemptId),
     cardId: toTextOrNull(row.cardId),
     startedAt: toDate(row.startedAt),
@@ -53,7 +55,9 @@ const attemptCodec: TableCodec<
     defined({
       activityId: input.activityId,
       context: input.context,
+      mode: input.mode,
       lessonSessionId: input.lessonSessionId ?? null,
+      reviewSessionId: input.reviewSessionId ?? null,
       examAttemptId: input.examAttemptId ?? null,
       cardId: input.cardId ?? null,
       startedAt: input.startedAt.getTime(),
@@ -76,7 +80,9 @@ const attemptCodec: TableCodec<
     defined({
       activityId: patch.activityId,
       context: patch.context,
+      mode: patch.mode,
       lessonSessionId: patch.lessonSessionId,
+      reviewSessionId: patch.reviewSessionId,
       examAttemptId: patch.examAttemptId,
       cardId: patch.cardId,
       startedAt: patch.startedAt === undefined ? undefined : patch.startedAt.getTime(),
@@ -178,6 +184,39 @@ export function createAttemptRepository(ctx: RepositoryContext): AttemptReposito
       base.findWhere(eq(attempts.examAttemptId, examAttemptId), { ...options, orderBy: byStart }),
     listByActivity: (activityId, options) =>
       base.findWhere(eq(attempts.activityId, activityId), { ...options, orderBy: byStart }),
+    listByReviewSession: (reviewSessionId, options) =>
+      base.findWhere(eq(attempts.reviewSessionId, reviewSessionId), {
+        ...options,
+        orderBy: byStart,
+      }),
+
+    lastServedAt: async (activityIds) => {
+      const found = new Map<string, Date>()
+      if (activityIds.length === 0) return found
+      const rows = await ctx.db
+        .select({
+          activityId: attempts.activityId,
+          lastServedAt: max(attempts.startedAt),
+        })
+        .from(attempts)
+        .where(
+          and(
+            inArray(attempts.activityId, [...activityIds]),
+            isNull(attempts.deletedAt),
+            // Finished attempts only. The attempt row is opened when an activity is *shown*,
+            // so counting open ones would let a skipped card — or a session the user walked
+            // away from — suppress that activity for a week without the learner ever having
+            // answered it. "Last served" is about what they actually did.
+            isNotNull(attempts.finishedAt),
+          ),
+        )
+        .groupBy(attempts.activityId)
+      for (const row of rows) {
+        if (row.lastServedAt === null) continue
+        found.set(row.activityId, new Date(Number(row.lastServedAt)))
+      }
+      return found
+    },
     listSince: (from, to, options) =>
       base.findWhere(
         and(

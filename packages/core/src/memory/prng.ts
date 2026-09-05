@@ -41,3 +41,35 @@ export function mulberry32(seed: number): () => number {
 export function fuzzSeed(cardId: string, reps: number): number {
   return hashString(`${cardId}:${reps}`)
 }
+
+/**
+ * Fisher-Yates over a copy, drawing from `rng`.
+ *
+ * `packages/activities/src/host/shuffle.ts` has the same function for shuffling an
+ * activity's options on screen, and this is deliberately not shared: `core` may import no
+ * internal package (`tooling/scripts/check-deps.mjs`), and the two generators are seeded
+ * differently on purpose — the host's seed is per *list within one activity*, this one's is
+ * per *session*. Keeping them apart means changing how options are shuffled on screen can
+ * never silently reorder a review queue.
+ */
+export function shuffleWithRng<T>(items: readonly T[], rng: () => number): T[] {
+  const copy = [...items]
+  for (let index = copy.length - 1; index > 0; index--) {
+    const swap = Math.floor(rng() * (index + 1))
+    const held = copy[index] as T
+    copy[index] = copy[swap] as T
+    copy[swap] = held
+  }
+  return copy
+}
+
+/**
+ * Pick one of `items` deterministically from `seed`, or `undefined` when there is nothing
+ * to pick. The tie-break of the session generator: given the same seed and the same
+ * candidates, the same activity is chosen on every device and in every test run.
+ */
+export function pickWithSeed<T>(items: readonly T[], seed: string): T | undefined {
+  if (items.length === 0) return undefined
+  const index = hashString(seed) % items.length
+  return items[index]
+}

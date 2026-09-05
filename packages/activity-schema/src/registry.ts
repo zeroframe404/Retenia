@@ -1,4 +1,9 @@
-import { ACTIVITY_FAMILIES, type ActivityFamily, type RatingRule } from '@retenia/core'
+import {
+  ACTIVITY_FAMILIES,
+  type ActivityFamily,
+  type ProgressionStage,
+  type RatingRule,
+} from '@retenia/core'
 import type { GradingMethod } from './grading'
 
 /**
@@ -311,4 +316,143 @@ export function allowedEligibility(type: ActivityType): readonly boolean[] {
 
 export function allowedGradingMethods(type: ActivityType): readonly GradingMethod[] {
   return [ACTIVITY_TYPES[type].grader, ...(GRADING_ALTERNATES[type] ?? [])]
+}
+
+/**
+ * §5's progression stage for every one of the 98 types: how much help the type gives the
+ * learner, which is what the session generator reads to decide what a due skill is asked.
+ *
+ * It lives here rather than in `packages/activities`' registry because it is a property of
+ * the **type**, like its family and its rating rule — and because the main process needs it
+ * to serve a review, while `packages/activities` is a React package main must not import.
+ * `defineActivityType` fills a registry entry from this map, exactly as it already fills the
+ * rating strategy from the table above.
+ *
+ * The four rungs, as §5 states them:
+ *
+ * - `recognition` — the screen supplies the options and the learner picks (`mcq_single`,
+ *   `true_false`, `cloze_dropdown`).
+ * - `assisted` — the parts are supplied and the learner assembles them (`cloze_wordbank`,
+ *   `sentence_builder`, `matching_pairs`).
+ * - `production` — nothing is supplied (`cloze_typed`, `short_answer`, `free_recall`), which
+ *   is also where the self-rated flashcards sit: recalling a card's back is free recall.
+ * - `theory` — not a rung at all, but the marker for lesson-only content. It is exactly the
+ *   nine rows of §4 whose review column is `N`, and no ladder ever reaches it.
+ */
+export const PROGRESSION_BY_TYPE: Readonly<Record<ActivityType, ProgressionStage>> = Object.freeze({
+  // theory
+  image_hotspots_explore: 'theory',
+  image_juxtaposition: 'theory',
+  notes_reflection: 'theory',
+  typing_drill: 'theory',
+  word_search: 'theory',
+  memory_game: 'theory',
+  virtual_tour_360: 'theory',
+  disclosure_block: 'theory',
+  likert_poll: 'theory',
+  // recognition
+  dialog_cards: 'recognition',
+  mcq_single: 'recognition',
+  mcq_multi: 'recognition',
+  true_false: 'recognition',
+  statement_set: 'recognition',
+  single_choice_set: 'recognition',
+  cloze_dropdown: 'recognition',
+  image_choice: 'recognition',
+  summary_builder: 'recognition',
+  mark_the_words: 'recognition',
+  odd_one_out: 'recognition',
+  confidence_mcq: 'recognition',
+  matching_dropdown: 'recognition',
+  number_line_place: 'recognition',
+  estimate_slider: 'recognition',
+  hotspot_click: 'recognition',
+  hotspot_multi: 'recognition',
+  drop_pin: 'recognition',
+  geo_map_click: 'recognition',
+  reading_passage_qs: 'recognition',
+  complete_the_chat: 'recognition',
+  word_in_context: 'recognition',
+  main_idea_title: 'recognition',
+  listen_select: 'recognition',
+  listen_comprehension_qs: 'recognition',
+  minimal_pairs: 'recognition',
+  compare_fast: 'recognition',
+  arcade_select: 'recognition',
+  gameshow_ladder: 'recognition',
+  branching_scenario: 'recognition',
+  media_checkpoints: 'recognition',
+  board_puzzle: 'recognition',
+  // assisted
+  image_occlusion: 'assisted',
+  cloze_wordbank: 'assisted',
+  matching_pairs: 'assisted',
+  tap_pairs_timed: 'assisted',
+  ordering_sequence: 'assisted',
+  timeline_build: 'assisted',
+  categorize: 'assisted',
+  sentence_builder: 'assisted',
+  anagram: 'assisted',
+  table_completion: 'assisted',
+  label_image: 'assisted',
+  drag_drop_zones: 'assisted',
+  image_sequencing: 'assisted',
+  image_pairing: 'assisted',
+  c_test: 'assisted',
+  structure_strip: 'assisted',
+  worked_example_steps: 'assisted',
+  listen_reconstruct: 'assisted',
+  matrix_input: 'assisted',
+  interactive_graph: 'assisted',
+  plotter: 'assisted',
+  secret_equation: 'assisted',
+  manipulative: 'assisted',
+  parsons_problem: 'assisted',
+  code_fill_blanks: 'assisted',
+  crossword: 'assisted',
+  software_simulation: 'assisted',
+  play_notes_rhythm: 'assisted',
+  // production
+  flashcard_basic: 'production',
+  flashcard_reverse: 'production',
+  cloze_typed: 'production',
+  short_answer: 'production',
+  numeric_answer: 'production',
+  list_recall: 'production',
+  free_recall: 'production',
+  self_check_statement: 'production',
+  spell_the_word: 'production',
+  dictation: 'production',
+  speak_repeat: 'production',
+  pronunciation_word: 'production',
+  character_tracing: 'production',
+  freehand_drawing: 'production',
+  essay_rubric: 'production',
+  listening_cloze: 'production',
+  speak_free_prompt: 'production',
+  roleplay_chat: 'production',
+  shadowing_intonation: 'production',
+  expression_input: 'production',
+  calculated_variant: 'production',
+  arithmetic_sprint: 'production',
+  code_tests: 'production',
+  fix_the_bug: 'production',
+  predict_output: 'production',
+  sql_query: 'production',
+  regex_task: 'production',
+  terminal_task: 'production',
+  hangman: 'production',
+})
+
+/** §5's *"available modality (microphone? image?)"*, as a property of the type. */
+export function capabilitiesOf(type: ActivityType): {
+  needsMic: boolean
+  needsSandbox: boolean
+} {
+  const family = familyOf(type)
+  return { needsMic: family === 'speech', needsSandbox: family === 'code' }
+}
+
+export function progressionOf(type: ActivityType): ProgressionStage {
+  return PROGRESSION_BY_TYPE[type]
 }

@@ -1,4 +1,4 @@
-import type { Contract, InferOutput } from '@retenia/ipc-contract'
+import type { Contract, InferInput, InferOutput } from '@retenia/ipc-contract'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useIpcMutation } from '../../ipc/hooks'
 
@@ -19,12 +19,26 @@ export type ReviewGrade = 1 | 2 | 3 | 4
 
 type NextResult = InferOutput<Contract, 'session.next'>
 export type ReviewEntryDto = NonNullable<NextResult['entry']>
+/** The exercise the generator chose for the current entry, when it chose one. */
+export type ReviewActivityDto = Extract<ReviewEntryDto, { activity: unknown }>['activity']
 export type ReviewItemDto = NextResult['item']
 export type ReviewPreviewDto = NextResult['preview']
 export type ReviewProgressDto = NextResult['progress']
 export type ReviewSummaryDto = InferOutput<Contract, 'session.finish'>
 
 export type ReviewPhase = 'idle' | 'starting' | 'active' | 'finished' | 'error'
+
+type AnswerInput = InferInput<Contract, 'session.answer'>
+
+export interface ActivityAnswer {
+  rating: ReviewGrade
+  exerciseScore?: number | null
+  durationMs?: number | null
+  attemptId?: string | null
+  activityId?: string | null
+  /** What to record on the `attempts` row: the raw answer and §13's recalibration signals. */
+  attempt?: AnswerInput['attempt']
+}
 
 export interface ReviewSessionState {
   phase: ReviewPhase
@@ -43,6 +57,15 @@ export interface ReviewSessionState {
 export interface UseReviewSessionResult extends ReviewSessionState {
   start: () => Promise<void>
   answer: (grade: ReviewGrade) => Promise<void>
+  /**
+   * Answer with a graded exercise rather than a pressed button.
+   *
+   * Everything but the rating is evidence the button path simply does not have: the grader's
+   * continuous score, the host's own measured duration, and the `attempts` row main minted
+   * when it served the activity. §10 stores all three, and §17 risk 3 ("measure true
+   * retention per type and adjust") is the reason they cannot be dropped on the floor here.
+   */
+  answerActivity: (input: ActivityAnswer) => Promise<void>
   skip: () => Promise<void>
   undo: () => Promise<void>
   /** Starts a brand new session after `'finished'` — "Seguir repasando" on the summary. */
@@ -143,6 +166,22 @@ export function useReviewSession(): UseReviewSessionResult {
     [answerMutation, advance],
   )
 
+  const answerActivity = useCallback(
+    async (input: ActivityAnswer) => {
+      setState((current) => ({ ...current, busy: true }))
+      await answerMutation.mutateAsync({
+        rating: input.rating,
+        ...(input.exerciseScore === undefined ? {} : { exerciseScore: input.exerciseScore }),
+        ...(input.durationMs === undefined ? {} : { durationMs: input.durationMs }),
+        ...(input.attemptId === undefined ? {} : { attemptId: input.attemptId }),
+        ...(input.activityId === undefined ? {} : { activityId: input.activityId }),
+        ...(input.attempt === undefined ? {} : { attempt: input.attempt }),
+      })
+      await advance()
+    },
+    [answerMutation, advance],
+  )
+
   const skip = useCallback(async () => {
     setState((current) => ({ ...current, busy: true }))
     await skipMutation.mutateAsync(undefined)
@@ -168,5 +207,5 @@ export function useReviewSession(): UseReviewSessionResult {
     if (state.phase === 'idle') void start()
   }, [state.phase, start])
 
-  return { ...state, start, answer, skip, undo, reviewMore }
+  return { ...state, start, answer, answerActivity, skip, undo, reviewMore }
 }

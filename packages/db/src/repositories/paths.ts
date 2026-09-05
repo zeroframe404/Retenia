@@ -11,7 +11,7 @@ import type {
   Section,
 } from '@retenia/core'
 import { EntityNotFoundError } from '@retenia/core'
-import { and, asc, eq, inArray, isNull, max } from 'drizzle-orm'
+import { and, asc, eq, inArray, isNull, max, sql } from 'drizzle-orm'
 import { activities, lessons, modules, paths, pathVersions, sections } from '../schema'
 import { createBaseRepository, type Row, type TableCodec } from './base'
 import type { RepositoryContext } from './context'
@@ -560,6 +560,24 @@ export function createPathRepository(ctx: RepositoryContext): PathRepository {
         ...options,
         orderBy: [asc(activities.ordinal), asc(activities.id)],
       }),
+    listActivitiesByConcepts: (conceptIds, options) => {
+      if (conceptIds.length === 0) return Promise.resolve([])
+      // `concept_ids` is a JSON array in one column, so membership is an EXISTS over
+      // `json_each` rather than an `IN`. The correlated subquery is what lets one activity
+      // match on any of its concepts without the row being returned once per match.
+      const placeholders = sql.join(
+        conceptIds.map((id) => sql`${id}`),
+        sql`, `,
+      )
+      const matchesConcept = sql`exists (
+        select 1 from json_each(${activities.conceptIds})
+        where json_each.value in (${placeholders})
+      )`
+      return activityRepo.findWhere(and(matchesConcept, eq(activities.status, 'ready')), {
+        ...options,
+        orderBy: [asc(activities.id)],
+      })
+    },
     createActivity: activityRepo.create,
     createActivities: activityRepo.createMany,
     updateActivity: activityRepo.update,

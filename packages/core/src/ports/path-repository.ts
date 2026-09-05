@@ -75,6 +75,20 @@ export interface PathRepository extends CrudRepository<LearningPath> {
   findActivity(id: string): Promise<Activity | undefined>
   findActivities(ids: readonly string[]): Promise<Activity[]>
   listActivities(lessonId: string, options?: ListOptions): Promise<Activity[]>
+  /**
+   * Every ready activity that exercises any of `conceptIds` — the skill → activity join the
+   * session generator needs (`docs/spec/03-activities.md` §5: *"the scheduler schedules
+   * skills; the generator chooses at run time which type to render"*).
+   *
+   * A card reaches its concepts through `knowledge_items.topic_id`, and an activity declares
+   * them in `activities.concept_ids`, so this is a containment query over a JSON array.
+   * Only `ready` activities are returned: a `pending_media` one would render an empty slot
+   * mid-review (§11: *"`pending-media` does not enter a session"*).
+   */
+  listActivitiesByConcepts(
+    conceptIds: readonly string[],
+    options?: ListOptions,
+  ): Promise<Activity[]>
   createActivity(input: NewEntity<Activity>): Promise<Activity>
   createActivities(inputs: readonly NewEntity<Activity>[]): Promise<Activity[]>
   updateActivity(id: string, patch: EntityPatch<Activity>): Promise<Activity>

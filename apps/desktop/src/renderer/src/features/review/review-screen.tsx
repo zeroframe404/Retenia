@@ -17,6 +17,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useHotkeys, useHotkeysContext } from 'react-hotkeys-hook'
 import { useT } from '../../i18n/use-t'
 import { useSetting } from '../../ipc/use-setting'
+import { ActivityRunner } from './activity-runner'
 import { CardActionsMenu } from './components/card-actions-menu'
 import { CardView } from './components/card-view'
 import { GradeButtons } from './components/grade-buttons'
@@ -67,6 +68,8 @@ export function ReviewScreen() {
   const { enableScope, disableScope } = useHotkeysContext()
   const simpleGrading = useSetting<boolean>('review.simpleGrading')
   const [revealed, setRevealed] = useState(false)
+  /** An exercise finished without a rating of its own; the buttons take over for this card. */
+  const [awaitingRating, setAwaitingRating] = useState(false)
   const [editorOpen, setEditorOpen] = useState(false)
   const elapsedMs = useElapsedMs(session.phase === 'active')
 
@@ -79,7 +82,10 @@ export function ReviewScreen() {
   // actually changed" apart from "the screen became visible again".
   const previousKey = useRef<string | null>(null)
   useEffect(() => {
-    if (previousKey.current !== key) setRevealed(false)
+    if (previousKey.current !== key) {
+      setRevealed(false)
+      setAwaitingRating(false)
+    }
     previousKey.current = key
   }, [key])
 
@@ -242,14 +248,42 @@ export function ReviewScreen() {
             </div>
           </div>
 
-          <Card className="p-6" data-testid="card-body">
-            <CardView
-              template={entry.card.template}
-              fields={session.item?.fields}
-              revealed={revealed}
-              onReveal={reveal}
+          {entry.activity !== null && !awaitingRating ? (
+            <ActivityRunner
+              served={entry.activity}
+              disabled={session.busy}
+              onAnswer={(input) => {
+                void session.answerActivity(input)
+              }}
+              // The exercise graded itself but not onto the 1–4 scale (an M-self type, or an
+              // AI rubric that declined): fall through to the buttons for this card only.
+              onAwaitingRating={() => {
+                setAwaitingRating(true)
+                // The exercise has already shown the answer, so there is nothing left to
+                // reveal — going back behind the flip would hide what was just read.
+                setRevealed(true)
+              }}
+              fallback={
+                <Card className="p-6" data-testid="card-body">
+                  <CardView
+                    template={entry.card.template}
+                    fields={session.item?.fields}
+                    revealed={revealed}
+                    onReveal={reveal}
+                  />
+                </Card>
+              }
             />
-          </Card>
+          ) : (
+            <Card className="p-6" data-testid="card-body">
+              <CardView
+                template={entry.card.template}
+                fields={session.item?.fields}
+                revealed={revealed}
+                onReveal={reveal}
+              />
+            </Card>
+          )}
 
           <div className="flex items-center justify-between gap-3">
             <Button
@@ -270,7 +304,7 @@ export function ReviewScreen() {
             </Button>
           </div>
 
-          {revealed && (
+          {(entry.activity === null || awaitingRating) && revealed && (
             <GradeButtons
               preview={session.preview}
               simple={simpleGrading.value ?? false}

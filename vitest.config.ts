@@ -74,6 +74,18 @@ export default defineConfig({
           branches: 100,
           statements: 100,
         },
+        // The session generator decides what the learner is asked for every due skill
+        // (`docs/spec/03-activities.md` §5) and is the first consumer of `SessionPlan.seed`,
+        // so an untested branch there is a session that silently replays differently.
+        // Gated here rather than only in `packages/core/vitest.config.ts` because this is
+        // the config CI's `pnpm test:coverage` actually runs — the per-package thresholds
+        // are never executed, since each package's own `test` script is a plain `vitest run`.
+        'packages/core/src/sessions/**': {
+          lines: 100,
+          functions: 100,
+          branches: 100,
+          statements: 100,
+        },
       },
     },
   },

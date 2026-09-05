@@ -26,6 +26,12 @@ importers:
       '@electron-toolkit/utils':
         specifier: 4.0.0
         version: 4.0.0(electron@44.1.1(supports-color@7.2.0))
+      '@retenia/activities':
+        specifier: workspace:*
+        version: link:../../packages/activities
+      '@retenia/activity-schema':
+        specifier: workspace:*
+        version: link:../../packages/activity-schema
       '@retenia/core':
         specifier: workspace:*
         version: link:../../packages/core

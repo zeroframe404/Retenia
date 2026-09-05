@@ -1,3 +1,5 @@
+export type { ActivityOptionContext } from './activity-option'
+export { toActivityOption } from './activity-option'
 export * from './common'
 export * from './envelope'
 export * from './families'

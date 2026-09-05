@@ -15,6 +15,7 @@ import type {
   ImportanceMixQuery,
   ImportanceResolution,
   JsonObject,
+  JsonValue,
   KnowledgeItem,
   OptimizationOutcome,
   OptimizerStatus,
@@ -76,6 +77,8 @@ import {
   schedulingOptionsFromParameters,
 } from '@retenia/core'
 import { log } from '../logging/log'
+import type { ActivityService, ServedActivity } from './activity-service'
+import { createActivityService } from './activity-service'
 import { createOptimizerService } from './optimizer-service'
 
 /** The four v1 flashcard templates the review screen renders (`docs/spec/04-path-generation.md`
@@ -141,9 +144,13 @@ export interface MemoryService {
     progress: SessionRunnerState
     item: KnowledgeItem | null
     preview: SchedulingPreview | null
+    /** The exercise chosen for this entry, or `null` to render the flashcard. */
+    activity: ServedActivity | null
   }>
   sessionAnswer(
     input: SessionAnswerInput,
+    /** What the activity host measured, when an exercise produced the rating. */
+    attempt?: AttemptOutcomeInput,
   ): Promise<{ result: SessionAnswerResult; progress: SessionRunnerState }>
   sessionSkip(): Promise<SessionRunnerState>
   sessionUndo(): Promise<{ undone: SessionUndoResult | null; progress: SessionRunnerState }>
@@ -214,6 +221,15 @@ async function loadHistogram(repos: UnitOfWork, boundary: DayBoundary): Promise<
     { limit: HISTOGRAM_MAX_ROWS },
   )
   return buildDueHistogram(due, { now, boundary, horizonDays: HISTOGRAM_HORIZON_DAYS })
+}
+
+/** The part of an answer that only the activity host can know. */
+export interface AttemptOutcomeInput {
+  answer: JsonValue | null
+  feedback: JsonValue | null
+  correct: boolean | null
+  tries: number
+  hintsUsed: number
 }
 
 /** No session has been started, or the last one was finished. */
@@ -455,6 +471,15 @@ export async function createMemoryService(options: MemoryServiceOptions): Promis
    * process, which is what `review_sessions` is for.
    */
   let runner: SessionRunner | null = null
+  /**
+   * The activity selector for the running session.
+   *
+   * Held beside `runner` and for the same reason: it owns session-scoped state — the last
+   * type served, the media budget, what has already been shown — that rebuilding it per IPC
+   * call would silently reset, turning "never the same type twice in a row" into a rule that
+   * never fires.
+   */
+  let activities: ActivityService | null = null
   const active = (): SessionRunner => {
     if (runner === null) throw new NoActiveSessionError()
     return runner
@@ -564,6 +589,13 @@ export async function createMemoryService(options: MemoryServiceOptions): Promis
     startSession: async (settings = {}) => {
       const result = await startSession({ settings, confirm: true })
       runner = result.runner
+      activities = createActivityService({
+        repos,
+        // The plan's seed when it was just composed; the persisted one when resuming, so a
+        // session that survived a restart serves the same activities it did before.
+        seed: result.plan?.seed ?? String(result.session.seed),
+        reviewSessionId: result.session.id,
+      })
       log.info(
         result.resumed
           ? `[memory] resumed session ${result.session.id} at ${result.runner.state().cursor}`
@@ -577,16 +609,35 @@ export async function createMemoryService(options: MemoryServiceOptions): Promis
       const current_ = active()
       const entry = current_.next()
       if (entry === null || entry.kind === 'reinforcement') {
-        return { entry, progress: current_.state(), item: null, preview: null }
+        return { entry, progress: current_.state(), item: null, preview: null, activity: null }
       }
       const item = (await repos.knowledgeItems.findById(entry.card.itemId)) ?? null
       const preview = scheduler.preview(entry.card, new Date(), entry.options)
-      return { entry, progress: current_.state(), item, preview }
+      // `next()` is pure and the screen re-calls it on every render, so `serve` only *picks*:
+      // the session's budgets are spent in `sessionAnswer`, once an answer actually exists.
+      const activity = (await activities?.serve(entry, item)) ?? null
+      return { entry, progress: current_.state(), item, preview, activity }
     },
 
-    sessionAnswer: async (input) => {
+    sessionAnswer: async (input, attempt) => {
       const current_ = active()
       const result = await current_.answer(input)
+      // After the review is written: the `attempts` row is a record of what the learner did,
+      // and the scheduler's state is what must not be lost if closing it fails.
+      if (typeof input === 'object' && input.activityId != null && input.attemptId != null) {
+        await activities?.complete({
+          attemptId: input.attemptId,
+          activityId: input.activityId,
+          rating: result.rating,
+          score: input.exerciseScore ?? null,
+          correct: attempt?.correct ?? null,
+          answer: attempt?.answer ?? null,
+          feedback: attempt?.feedback ?? null,
+          timeMs: input.durationMs ?? null,
+          tries: attempt?.tries ?? 1,
+          hintsUsed: attempt?.hintsUsed ?? 0,
+        })
+      }
       return { result, progress: current_.state() }
     },
 

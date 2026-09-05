@@ -110,6 +110,30 @@ export const reinforcementNodeSchema = z.object({
   estimatedMinutes: z.number().nonnegative(),
 })
 
+/**
+ * The activity the generator chose for a due entry (`docs/spec/03-activities.md` §5).
+ *
+ * `activity` is the envelope the renderer mounts, carried as opaque JSON: its shape is the
+ * discriminated union of `@retenia/activity-schema`, which this package cannot import — it
+ * is a leaf with no internal dependencies (`tooling/scripts/check-deps.mjs`) — and
+ * re-declaring 22 payload families here to re-validate what main already parsed would be a
+ * second source of truth for the exact thing that must not have two.
+ *
+ * `attemptId` is minted by main when it serves the entry, so the answer that comes back can
+ * be tied to the `attempts` row and, through it, to the `review_logs` rows it produced.
+ */
+export const sessionActivitySchema = z.object({
+  attemptId: z.uuid(),
+  activityId: z.uuid(),
+  type: z.string().min(1),
+  activity: z.json(),
+  mode: z.enum(['study', 'test', 'review']),
+  hintsAllowed: z.boolean(),
+  deferFeedback: z.boolean(),
+  /** The seed the host derives its per-list shuffles from, so a re-render is stable. */
+  seed: z.string(),
+})
+
 export const sessionEntrySchema = z.discriminatedUnion('kind', [
   z.object({
     kind: z.enum(['exam', 'due', 'relearning', 'new']),
@@ -120,6 +144,14 @@ export const sessionEntrySchema = z.discriminatedUnion('kind', [
     /** The desired retention the policy resolved, so the screen can explain the interval. */
     desiredRetention: z.number().min(0).max(1),
     examId: z.uuid().nullable(),
+    /**
+     * The exercise to render instead of the flashcard, or `null` to render the flashcard.
+     *
+     * `null` is not a failure: §5 schedules skills, and a skill with no activity authored
+     * for it — or none the progression ladder will accept — is still reviewed, as the card
+     * it has always been. That is what makes a session *mix* cards and exercises.
+     */
+    activity: sessionActivitySchema.nullable(),
   }),
   z.object({ kind: z.literal('reinforcement'), node: reinforcementNodeSchema }),
 ])
@@ -248,6 +280,24 @@ export const sessionChannels = defineContract({
       /** Overrides the runner's own timer for a host that measured it more precisely. */
       durationMs: z.int().min(0).max(86_400_000).nullable().optional(),
       attemptId: z.uuid().nullable().optional(),
+      /** The activity that produced the rating, so the session's variety budget is spent. */
+      activityId: z.uuid().nullable().optional(),
+      /**
+       * What to record on the `attempts` row main opened when it served the activity.
+       *
+       * §13 rule 2: *"record `timeMs / attempts / hintsUsed` on every attempt in order to
+       * recalibrate"*, and §17 risk 3 is the recalibration it is for. The raw answer is
+       * stored beside them because a rating alone cannot say *what* the learner got wrong.
+       */
+      attempt: z
+        .object({
+          answer: z.json().nullable(),
+          feedback: z.json().nullable(),
+          correct: z.boolean().nullable(),
+          tries: z.int().min(1),
+          hintsUsed: z.int().min(0),
+        })
+        .optional(),
     }),
     output: z.object({
       card: sessionCardSchema,

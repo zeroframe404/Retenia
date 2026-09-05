@@ -942,14 +942,50 @@ describe('session channels', () => {
     const handlers = createHandlers(deps)
 
     await handlers['session.answer']({ rating: 3 }, fakeEvent)
-    expect(deps.memory?.sessionAnswer).toHaveBeenCalledExactlyOnceWith({ rating: 3 })
+    // The second argument is the activity host's own measurements; a pressed grade button
+    // has none, so it stays `undefined` rather than becoming an empty attempt.
+    expect(deps.memory?.sessionAnswer).toHaveBeenCalledExactlyOnceWith({ rating: 3 }, undefined)
 
     await handlers['session.answer']({ rating: 1, exerciseScore: 0.4, durationMs: 900 }, fakeEvent)
-    expect(deps.memory?.sessionAnswer).toHaveBeenLastCalledWith({
-      rating: 1,
-      exerciseScore: 0.4,
-      durationMs: 900,
-    })
+    expect(deps.memory?.sessionAnswer).toHaveBeenLastCalledWith(
+      { rating: 1, exerciseScore: 0.4, durationMs: 900 },
+      undefined,
+    )
+  })
+
+  it('forwards the activity attempt so it can be closed', async () => {
+    const deps = makeDeps()
+    const handlers = createHandlers(deps)
+
+    await handlers['session.answer'](
+      {
+        rating: 3,
+        attemptId: '0192f000-0000-7000-8000-000000000004',
+        activityId: '0192f000-0000-7000-8000-000000000005',
+        attempt: {
+          answer: { selected: ['a'] },
+          feedback: 'Correcto',
+          correct: true,
+          tries: 1,
+          hintsUsed: 0,
+        },
+      },
+      fakeEvent,
+    )
+    expect(deps.memory?.sessionAnswer).toHaveBeenLastCalledWith(
+      {
+        rating: 3,
+        attemptId: '0192f000-0000-7000-8000-000000000004',
+        activityId: '0192f000-0000-7000-8000-000000000005',
+      },
+      {
+        answer: { selected: ['a'] },
+        feedback: 'Correcto',
+        correct: true,
+        tries: 1,
+        hintsUsed: 0,
+      },
+    )
   })
 
   it('reports undo as a boolean plus the card that came back', async () => {
