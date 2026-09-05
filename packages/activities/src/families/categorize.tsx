@@ -19,10 +19,10 @@ export function Renderer() {
   const answer: Response<'categorize'> = response ?? { placements: {} }
 
   const tokens = useMemo(() => items.map((item) => ({ id: item.id, text: item.text })), [items])
-  const unplaced = shuffled(
-    tokens.filter((token) => (answer.placements[token.id] ?? []).length === 0),
-    'items',
-  )
+  const shuffledTokens = shuffled(tokens, 'items')
+  const placedIds = items
+    .filter((item) => (answer.placements[item.id] ?? []).length > 0)
+    .map((item) => item.id)
 
   function place(itemId: string, categoryId: string) {
     const current = answer.placements[itemId] ?? []
@@ -40,7 +40,9 @@ export function Renderer() {
   return (
     <DragLayer onPlace={place}>
       <div className="flex flex-col gap-4" data-testid="renderer-categorize">
-        <TokenBank tokens={unplaced} />
+        {/* Not `singleUse`: a placed item stays in the bank, greyed out, so an item that honestly
+            belongs in two categories can be picked back up and placed in the other one too. */}
+        <TokenBank tokens={shuffledTokens} usedIds={placedIds} />
         <div className="grid gap-3 sm:grid-cols-2">
           {categories.map((category) => {
             const placed = items.filter((item) =>
