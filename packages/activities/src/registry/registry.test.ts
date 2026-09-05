@@ -1,6 +1,7 @@
 import { ACTIVITY_TYPES, familyOf, MVP_TYPES } from '@retenia/activity-schema'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, expectTypeOf, it } from 'vitest'
 import '../index'
+import type { ActivityTypeDefinition, ActivityTypeEntry } from './registry'
 import {
   ActivityTypeError,
   defineActivityType,
@@ -123,5 +124,22 @@ describe('registerActivityType', () => {
         review: { expectedSeconds: 10, progression: 'recognition' },
       }),
     ).toThrow(/has no renderer yet/)
+  })
+})
+
+/**
+ * Layer 3 of `docs/spec/03-activities.md` §11 — the blind solve — has no per-type field, and that
+ * is the assertion: a `critic` on a registry row would be read by nothing. The check itself lives
+ * in `@retenia/activity-schema` (`checkActivity`), which this package depends on rather than the
+ * reverse, so nothing that runs it can resolve a registry entry. Sub-phase 8.4 adds the field and
+ * the dispatcher that reads it in the same change.
+ */
+describe('the blind-solve seam', () => {
+  it('hangs nothing off a type until there is a caller for it', () => {
+    for (const entry of registeredActivityTypes()) {
+      expect(entry, entry.type).not.toHaveProperty('critic')
+    }
+    expectTypeOf<ActivityTypeEntry>().not.toHaveProperty('critic')
+    expectTypeOf<ActivityTypeDefinition>().not.toHaveProperty('critic')
   })
 })

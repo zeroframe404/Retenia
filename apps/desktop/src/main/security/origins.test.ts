@@ -27,6 +27,10 @@ describe('isAllowedSenderUrl', () => {
 
   it.each([
     ['a different host on the same scheme', 'app://evil/index.html'],
+    // `packages/ui`'s markdown sanitizer keeps a protocol-relative href by design — it has no
+    // scheme to check — so `[x](//attacker.example)` in a lesson resolves against `app://` and
+    // arrives here. This is the layer that refuses it.
+    ['a protocol-relative link resolved against the app origin', 'app://attacker.example/'],
     ['a host that merely starts the same', 'app://retenia.evil.test/index.html'],
     ['a remote page', 'https://evil.test/'],
     ['the file scheme', 'file:///home/user/index.html'],

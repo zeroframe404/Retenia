@@ -2,6 +2,8 @@ import { ACTIVITY_FAMILIES, type ActivityFamily } from '@retenia/core'
 import { z } from 'zod'
 import {
   activityIdSchema,
+  COLLECTION_MAX,
+  LABEL_MAX,
   langSchema,
   mediaRefSchema,
   richTextSchema,
@@ -32,14 +34,26 @@ export const envelopeShape = {
   prompt: richTextSchema.describe(
     'The question or instruction, in Markdown. Must not contain the answer.',
   ),
-  instructions: z.string().min(1).optional().describe('How to interact, when not obvious.'),
-  media: z.array(mediaRefSchema).optional(),
-  hints: z.array(richTextSchema).optional().describe('Progressive hints, weakest first.'),
+  instructions: z
+    .string()
+    .min(1)
+    .max(LABEL_MAX)
+    .optional()
+    .describe('How to interact, when not obvious.'),
+  media: z.array(mediaRefSchema).max(COLLECTION_MAX).optional(),
+  hints: z
+    .array(richTextSchema)
+    .max(COLLECTION_MAX)
+    .optional()
+    .describe('Progressive hints, weakest first.'),
   explanation: richTextSchema.optional().describe('Static "Explain my answer".'),
-  sources: z.array(sourceRefSchema).optional(),
-  skills: z.array(z.string().min(1)).describe('Concept ids the scheduler schedules.'),
+  sources: z.array(sourceRefSchema).max(COLLECTION_MAX).optional(),
+  skills: z
+    .array(z.string().min(1).max(LABEL_MAX))
+    .max(COLLECTION_MAX)
+    .describe('Concept ids the scheduler schedules.'),
   difficulty: z.literal(DIFFICULTY_LEVELS),
-  tags: z.array(z.string().min(1)).optional(),
+  tags: z.array(z.string().min(1).max(LABEL_MAX)).max(COLLECTION_MAX).optional(),
   grading: gradingSchema,
   review: reviewSchema,
 }

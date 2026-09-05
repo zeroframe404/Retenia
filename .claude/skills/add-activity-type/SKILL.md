@@ -34,6 +34,13 @@ the order is the one that keeps the repo green between steps.
    `validate/types.ts`), following §11: unique ids, every gap answerable, orders are
    permutations, the answer is not in the stem.
 
+   These are §11's layers 1 and 2, and they are all a new type needs. Layer 3 — the blind-solve
+   critic, which answers the item *without the key* and marks a disagreement `needs_review` — has
+   no API yet on purpose: it needs a provider, a per-type dispatcher and a key-stripped view of an
+   activity, and sub-phase 8.4 introduces all three together. See the note above `checkActivity`
+   in `validate/index.ts`. A `warning` finding is the `needs_review` verdict, an `error` makes the
+   item unservable.
+
 4. **Fixtures** — add `packages/activity-schema/fixtures/<id>/valid-1..3.json` and
    `invalid-1..2.json`. A valid fixture is `{ activity, answers: [{ name, response, meta?,
    expect: { score, correct, perItem?, signals?, engine? } }] }` with hand-computed scores;

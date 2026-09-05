@@ -1,13 +1,15 @@
+import type { Root } from 'hast'
 import { CheckIcon, CopyIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { cn } from '../lib/cn'
-import { highlightToHtml } from '../lib/shiki'
+import { renderSanitizedHast } from '../lib/markdown-sanitize-schema'
+import { highlightToHast } from '../lib/shiki'
 import { IconButton } from './button'
 
 export interface CodeBlockProps {
   code: string
-  /** A Shiki `BundledLanguage` id, e.g. `"typescript"`, `"python"`, `"sql"`. Defaults to
-   * plain, unhighlighted text. */
+  /** A Shiki `BundledLanguage` id, e.g. `"typescript"`, `"python"`, `"sql"`. An id Shiki
+   * does not bundle falls back to plain, unhighlighted text. */
   language?: string
   /** Shown in a thin header above the code, e.g. a filename. */
   filename?: string
@@ -18,7 +20,11 @@ export interface CodeBlockProps {
 
 /** A syntax-highlighted code block (Shiki, dual light/dark theme, lazily loaded — see
  * `lib/shiki.ts`) with a copy-to-clipboard button. Used by `MarkdownView` for fenced code
- * and directly by code activities (docs/spec/03-activities.md). */
+ * and directly by code activities (docs/spec/03-activities.md).
+ *
+ * Shiki's tree is sanitized and rendered as React elements (`renderSanitizedHast`) rather
+ * than injected as raw HTML: the code body is untrusted, and React-applied token colors
+ * are also the only ones that survive the packaged app's `style-src`. */
 export function CodeBlock({
   code,
   language = 'plaintext',
@@ -27,14 +33,14 @@ export function CodeBlock({
   copiedLabel = 'Copied',
   className,
 }: CodeBlockProps) {
-  const [html, setHtml] = useState<string | null>(null)
+  const [highlighted, setHighlighted] = useState<Root | null>(null)
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     let cancelled = false
-    setHtml(null)
-    highlightToHtml(code, language).then((result) => {
-      if (!cancelled) setHtml(result)
+    setHighlighted(null)
+    highlightToHast(code, language).then((result) => {
+      if (!cancelled) setHighlighted(result)
     })
     return () => {
       cancelled = true
@@ -73,12 +79,10 @@ export function CodeBlock({
       >
         {copied ? <CheckIcon /> : <CopyIcon />}
       </IconButton>
-      {html ? (
-        <div
-          className="[&_.shiki]:overflow-x-auto [&_.shiki]:p-4 [&_.shiki]:text-sm [&_pre]:m-0"
-          // biome-ignore lint/security/noDangerouslySetInnerHtml: Shiki's own renderer output for this exact source string, not arbitrary HTML
-          dangerouslySetInnerHTML={{ __html: html }}
-        />
+      {highlighted ? (
+        <div className="[&_.shiki]:overflow-x-auto [&_.shiki]:p-4 [&_.shiki]:text-sm [&_pre]:m-0">
+          {renderSanitizedHast(highlighted)}
+        </div>
       ) : (
         <pre className="overflow-x-auto p-4 text-sm">
           <code>{code}</code>

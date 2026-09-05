@@ -1,4 +1,8 @@
 import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
+import { COLLECTION_MAX } from '../common'
+import { familyBranch } from '../envelope'
+import { MVP_FAMILIES } from '../registry'
 import { PAYLOAD_SCHEMAS } from './index'
 
 /** The key payload fields of the 22 families table (`docs/spec/03-activities.md` §7). */
@@ -312,5 +316,56 @@ describe('placeholder payloads', () => {
     expect(ok('speech', { family: 'dialogue' })).toBe(false)
     expect(ok('speech', 'nope')).toBe(false)
     expect(ok('simulation', { family: 'simulation' })).toBe(true)
+  })
+})
+
+describe('collection bounds', () => {
+  /**
+   * Bounding every element leaves the count open, and an activity is rendered element by element:
+   * 100 000 individually-legal hints, or one `text_mark` token per word of a book, is a study
+   * screen that never paints. Walking the generated JSON Schema — rather than listing the fields —
+   * is what makes this hold for a family added later, too.
+   *
+   * `strictOverride` moves `maxItems` into the description for the LLM-facing schema
+   * (`../json-schema`), so the bound is read here from the plain zod conversion, which is the
+   * form zod actually enforces at parse time.
+   */
+  const arrayBoundsOf = (schema: unknown, path: string, found: [string, unknown][]): void => {
+    if (typeof schema !== 'object' || schema === null) return
+    const node = schema as Record<string, unknown>
+    if (node.type === 'array') found.push([path, node.maxItems])
+    for (const [key, value] of Object.entries(node)) {
+      if (Array.isArray(value)) {
+        value.forEach((entry, index) => {
+          arrayBoundsOf(entry, `${path}.${key}[${index}]`, found)
+        })
+      } else if (typeof value === 'object' && value !== null) {
+        arrayBoundsOf(value, `${path}.${key}`, found)
+      }
+    }
+  }
+
+  it.each(MVP_FAMILIES)('leaves no unbounded array in the %s branch', (family) => {
+    const schema = JSON.parse(
+      JSON.stringify(z.toJSONSchema(familyBranch(family), { io: 'input', reused: 'inline' })),
+    )
+    const found: [string, unknown][] = []
+    arrayBoundsOf(schema, family, found)
+
+    expect(found.length).toBeGreaterThan(0)
+    expect(found.filter(([, maxItems]) => maxItems === undefined)).toEqual([])
+    expect(found.every(([, maxItems]) => (maxItems as number) <= COLLECTION_MAX)).toBe(true)
+  })
+
+  it('rejects a text_mark passage longer than COLLECTION_MAX tokens', () => {
+    const tokens = (count: number) =>
+      Array.from({ length: count }, (_, index) => ({ id: `t${index}`, text: 'w' }))
+    const payload = (count: number) => ({
+      family: 'text_mark' as const,
+      tokens: tokens(count),
+      correctIds: ['t0'],
+    })
+    expect(ok('text_mark', payload(COLLECTION_MAX))).toBe(true)
+    expect(ok('text_mark', payload(COLLECTION_MAX + 1))).toBe(false)
   })
 })

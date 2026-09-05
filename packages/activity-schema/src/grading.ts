@@ -1,5 +1,6 @@
 import { RATING_RULES } from '@retenia/core'
 import { z } from 'zod'
+import { COLLECTION_MAX, LABEL_MAX } from './common'
 
 /**
  * The `grading` and `review` blocks of the envelope (`docs/spec/03-activities.md` §7).
@@ -33,7 +34,8 @@ export const fuzzyOptionsSchema = z.object({
     .optional()
     .describe('Damerau-Levenshtein distance over the longer length; the FUZ default is 0.2.'),
   synonyms: z
-    .array(z.array(z.string().min(1)).min(2))
+    .array(z.array(z.string().min(1).max(LABEL_MAX)).min(2).max(COLLECTION_MAX))
+    .max(COLLECTION_MAX)
     .optional()
     .describe('Groups of interchangeable answers.'),
 })
@@ -42,7 +44,11 @@ export type FuzzyOptions = z.infer<typeof fuzzyOptionsSchema>
 export const numericOptionsSchema = z.object({
   absTol: z.number().min(0).optional(),
   relTol: z.number().min(0).optional().describe('Relative to the expected value, 0.05 = 5 %.'),
-  units: z.array(z.string().min(1)).optional().describe('Accepted unit spellings.'),
+  units: z
+    .array(z.string().min(1).max(LABEL_MAX))
+    .max(COLLECTION_MAX)
+    .optional()
+    .describe('Accepted unit spellings.'),
 })
 export type NumericOptions = z.infer<typeof numericOptionsSchema>
 

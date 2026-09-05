@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { shortIdSchema } from '../common'
+import { COLLECTION_MAX, LABEL_MAX, PLAIN_TEXT_MAX, shortIdSchema } from '../common'
 
 /** `cloze` (§7): text segments interleaved with gaps, typed, chosen from a dropdown or dragged from a bank. */
 
@@ -11,18 +11,27 @@ export type ClozeLayout = (typeof CLOZE_LAYOUTS)[number]
 
 export const clozeTextSegmentSchema = z.object({
   kind: z.literal('text'),
-  text: z.string().min(1),
+  text: z.string().min(1).max(PLAIN_TEXT_MAX),
 })
 
 export const clozeGapSegmentSchema = z.object({
   kind: z.literal('gap'),
   id: shortIdSchema,
-  answers: z.array(z.string().min(1)).min(1).describe('Accepted fillings; the first is canonical.'),
+  answers: z
+    .array(z.string().min(1).max(LABEL_MAX))
+    .min(1)
+    .max(COLLECTION_MAX)
+    .describe('Accepted fillings; the first is canonical.'),
   options: z
-    .array(z.string().min(1))
+    .array(z.string().min(1).max(LABEL_MAX))
+    .max(COLLECTION_MAX)
     .optional()
     .describe('Dropdown choices for this gap (must include an answer).'),
-  visiblePrefix: z.string().optional().describe('Letters shown at the start of the gap (c-test).'),
+  visiblePrefix: z
+    .string()
+    .max(LABEL_MAX)
+    .optional()
+    .describe('Letters shown at the start of the gap (c-test).'),
 })
 export type ClozeGap = z.infer<typeof clozeGapSegmentSchema>
 
@@ -36,9 +45,10 @@ export const clozePayloadSchema = z.object({
   family: z.literal('cloze'),
   mode: z.enum(CLOZE_MODES),
   layout: z.enum(CLOZE_LAYOUTS).optional(),
-  segments: z.array(clozeSegmentSchema).min(1),
+  segments: z.array(clozeSegmentSchema).min(1).max(COLLECTION_MAX),
   bankDistractors: z
-    .array(z.string().min(1))
+    .array(z.string().min(1).max(LABEL_MAX))
+    .max(COLLECTION_MAX)
     .optional()
     .describe('Extra words in the word bank that fill no gap.'),
   singleUseDraggables: z.boolean().optional(),

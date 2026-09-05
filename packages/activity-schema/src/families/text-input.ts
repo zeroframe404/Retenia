@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { richTextSchema } from '../common'
+import { COLLECTION_MAX, LABEL_MAX, PLAIN_TEXT_MAX, richTextSchema } from '../common'
 
 /** `text_input` (§7): one typed value, graded as text (FUZ), number, letters, regex or math. */
 
@@ -7,7 +7,7 @@ export const INPUT_KINDS = ['text', 'number', 'math', 'letters', 'regex'] as con
 export type InputKind = (typeof INPUT_KINDS)[number]
 
 export const textAnswerSchema = z.object({
-  value: z.string().min(1),
+  value: z.string().min(1).max(PLAIN_TEXT_MAX),
   isRegex: z.boolean().optional().describe('value is an anchored regular expression.'),
   feedback: richTextSchema.optional(),
 })
@@ -22,12 +22,17 @@ export const numericExpectationSchema = z.object({
     })
     .optional()
     .describe('Overrides grading.numeric for this activity.'),
-  unit: z.string().min(1).optional().describe('Expected unit, e.g. km; converted when known.'),
+  unit: z
+    .string()
+    .min(1)
+    .max(LABEL_MAX)
+    .optional()
+    .describe('Expected unit, e.g. km; converted when known.'),
 })
 export type NumericExpectation = z.infer<typeof numericExpectationSchema>
 
 export const regexCaseSchema = z.object({
-  input: z.string(),
+  input: z.string().max(LABEL_MAX),
   shouldMatch: z.boolean(),
 })
 
@@ -37,10 +42,12 @@ export const textInputPayloadSchema = z.object({
   answers: z
     .array(textAnswerSchema)
     .min(1)
+    .max(COLLECTION_MAX)
     .describe('Accepted answers; the first is shown as the model answer.'),
   numeric: numericExpectationSchema.optional(),
   regexCases: z
     .array(regexCaseSchema)
+    .max(COLLECTION_MAX)
     .optional()
     .describe("For inputKind regex: strings the user's pattern must and must not match."),
 })

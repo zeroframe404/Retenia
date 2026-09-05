@@ -38,8 +38,53 @@ export const MEDIA_SCHEME_PRIVILEGES: CustomScheme = {
 
 /** A sha256 hex digest, lowercase or uppercase — nothing else matches this. */
 const SHA256_HEX = /^[0-9a-f]{64}$/i
-/** A conservative allowlist for the optional extension: no dots, slashes or spaces. */
-const EXT_PATTERN = /^[a-zA-Z0-9]{1,16}$/
+
+/**
+ * The extensions `media://` serves, and the `Content-Type` each one is answered with.
+ *
+ * This table is the allowlist as well as the lookup: a request whose extension is not a key is
+ * refused outright (`resolveMediaBlobPath`), so the scheme only ever answers with a type it
+ * declares. A blob whose mime has no extension in `../blobs/mime.ts` is written extensionless and
+ * stays reachable at its bare hash, answered `application/octet-stream`.
+ *
+ * **Every extension `../blobs/mime.ts` can write has to be a key here**, or the store writes files
+ * this scheme then refuses: the blob is on disk as `<sha256>.<ext>`, so the bare-hash form resolves
+ * to a path that does not exist and 404s, and there is no other way to ask for it. That is why the
+ * document extensions are listed even though nothing serves them yet — `epub` is the sub-phase 6.6
+ * reader's, and `docx`/`pptx`/`txt`/`md` are what ingestion stores. `media-protocol.test.ts` pins
+ * the two tables against each other so a new row in one fails CI without the other.
+ *
+ * Widening the table is not the same as widening the renderer's reach. Every response carries
+ * `nosniff`, so a declared type is the type the browser uses; `will-navigate` refuses `media://`
+ * outright (`../security/apply.ts`); and the renderer's policy has `object-src 'none'` with
+ * `media:` allowed only under `img-src`/`media-src`/`connect-src`
+ * (`../security/csp.ts`). An `image/svg+xml` blob is therefore reachable as an `<img>`, where SVG
+ * is inert, and nowhere a document could be scripted.
+ */
+const MIME_TYPES: Readonly<Record<string, string>> = Object.freeze({
+  ogg: 'audio/ogg',
+  oga: 'audio/ogg',
+  opus: 'audio/ogg',
+  mp3: 'audio/mpeg',
+  wav: 'audio/wav',
+  m4a: 'audio/mp4',
+  flac: 'audio/flac',
+  mp4: 'video/mp4',
+  m4v: 'video/mp4',
+  webm: 'video/webm',
+  pdf: 'application/pdf',
+  epub: 'application/epub+zip',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  txt: 'text/plain; charset=utf-8',
+  md: 'text/markdown; charset=utf-8',
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  gif: 'image/gif',
+  webp: 'image/webp',
+  svg: 'image/svg+xml',
+})
 
 /**
  * Map `media://blob/<sha256>[.ext]` onto `<root>/<sha256[0:2]>/<sha256>[.ext]`, or `null`
@@ -50,6 +95,10 @@ const EXT_PATTERN = /^[a-zA-Z0-9]{1,16}$/
  * separator, a drive letter or a null byte all fail the regex before any path arithmetic
  * happens. The final `path.relative` check is kept anyway as a backstop, in case a future
  * change loosens the pattern.
+ *
+ * The optional extension is checked against `MIME_TYPES` rather than against a shape: an
+ * extension the table has no `Content-Type` for is refused here instead of being served as
+ * `application/octet-stream` for the browser to re-type.
  */
 export function resolveMediaBlobPath(
   root: string,
@@ -86,7 +135,7 @@ export function resolveMediaBlobPath(
   if (!SHA256_HEX.test(hash)) {
     return null
   }
-  if (ext !== null && !EXT_PATTERN.test(ext)) {
+  if (ext !== null && !Object.hasOwn(MIME_TYPES, ext.toLowerCase())) {
     return null
   }
 
@@ -104,29 +153,29 @@ export function resolveMediaBlobPath(
   return resolved
 }
 
-const MIME_TYPES: Readonly<Record<string, string>> = Object.freeze({
-  ogg: 'audio/ogg',
-  oga: 'audio/ogg',
-  opus: 'audio/ogg',
-  mp3: 'audio/mpeg',
-  wav: 'audio/wav',
-  m4a: 'audio/mp4',
-  flac: 'audio/flac',
-  mp4: 'video/mp4',
-  m4v: 'video/mp4',
-  webm: 'video/webm',
-  pdf: 'application/pdf',
-  png: 'image/png',
-  jpg: 'image/jpeg',
-  jpeg: 'image/jpeg',
-  gif: 'image/gif',
-  webp: 'image/webp',
-})
-
+/**
+ * The `Content-Type` for a resolved blob path. `resolveMediaBlobPath` has already refused every
+ * extension outside `MIME_TYPES`, so the fallback is reached only by an extensionless blob —
+ * which is exactly the case `X-Content-Type-Options: nosniff` on the response has to cover, since
+ * `application/octet-stream` is the type a sniffing browser would most like to second-guess.
+ */
 function mimeTypeFor(filePath: string): string {
   const ext = path.extname(filePath).slice(1).toLowerCase()
   return MIME_TYPES[ext] ?? 'application/octet-stream'
 }
+
+/**
+ * Headers every `media://` response carries, whatever its status.
+ *
+ * `nosniff` is the load-bearing one: without it Chromium may ignore the declared
+ * `Content-Type` and re-type the body from its bytes, which turns "an attacker got a blob of
+ * their choosing into the store at a hash the renderer asks for" into "…and it was interpreted
+ * as HTML". `will-navigate` already refuses to navigate to `media://` (`../security/apply.ts`),
+ * so this is the second lock on the same door rather than the only one.
+ */
+const BASE_HEADERS: Readonly<Record<string, string>> = Object.freeze({
+  'X-Content-Type-Options': 'nosniff',
+})
 
 export type RangeParseResult =
   | { kind: 'none' }
@@ -201,14 +250,14 @@ export function handleMediaProtocol(blobsRoot: string): void {
   protocol.handle(MEDIA_SCHEME, async (request) => {
     const filePath = resolveMediaBlobPath(blobsRoot, request.url)
     if (!filePath) {
-      return new Response('Forbidden', { status: 403 })
+      return new Response('Forbidden', { status: 403, headers: { ...BASE_HEADERS } })
     }
 
     let totalSize: number
     try {
       totalSize = (await stat(filePath)).size
     } catch {
-      return new Response('Not found', { status: 404 })
+      return new Response('Not found', { status: 404, headers: { ...BASE_HEADERS } })
     }
 
     const range = parseRangeHeader(request.headers.get('range'), totalSize)
@@ -216,7 +265,11 @@ export function handleMediaProtocol(blobsRoot: string): void {
     if (range.kind === 'unsatisfiable') {
       return new Response(null, {
         status: 416,
-        headers: { 'Content-Range': `bytes */${totalSize}`, 'Accept-Ranges': 'bytes' },
+        headers: {
+          ...BASE_HEADERS,
+          'Content-Range': `bytes */${totalSize}`,
+          'Accept-Ranges': 'bytes',
+        },
       })
     }
 
@@ -228,6 +281,7 @@ export function handleMediaProtocol(blobsRoot: string): void {
     const body = Readable.toWeb(nodeStream) as unknown as ReadableStream
 
     const headers = new Headers({
+      ...BASE_HEADERS,
       'Content-Type': mimeTypeFor(filePath),
       'Content-Length': String(length),
       'Accept-Ranges': 'bytes',

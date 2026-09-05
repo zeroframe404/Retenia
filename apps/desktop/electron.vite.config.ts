@@ -58,6 +58,18 @@ export default defineConfig({
     },
   },
   renderer: {
+    build: {
+      // Never inline a font as a `data:` URL.
+      //
+      // Vite inlines any asset under `assetsInlineLimit` (4 KB by default), and KaTeX ships one
+      // font small enough to qualify — `KaTeX_Size3`, the one that draws oversized delimiters.
+      // The renderer's policy is `font-src 'self'` (`src/main/security/csp.ts`), so that single
+      // inlined face was blocked in the packaged app while its ten siblings, emitted as files
+      // under `app://`, loaded fine: large brackets and integrals silently fell back to a system
+      // font. Fonts are therefore always emitted as files; everything else keeps Vite's default.
+      assetsInlineLimit: (filePath: string) =>
+        /\.(?:woff2?|ttf|otf|eot)$/i.test(filePath) ? false : undefined,
+    },
     plugins: [
       tanstackRouter({
         target: 'react',

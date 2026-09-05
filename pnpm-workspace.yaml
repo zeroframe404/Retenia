@@ -2,6 +2,14 @@ packages:
   - apps/*
   - packages/*
   - tooling/*
+# `rehype-katex@7` depends on `katex@^0.16`, while `packages/ui` depends on `katex@0.18.5`
+# directly (`KatexInline`) and ships 0.18.5's stylesheet. Without this, markdown math is rendered
+# by 0.16.47 — which emits `base`/`strut`/`mord`/`mopen`/`mclose`/`minner` class names that
+# 0.18.5's stylesheet renamed to `katex-base`/`katex-strut` and therefore does not define at all,
+# so every `$…$` in a lesson renders unstyled. One katex, one stylesheet.
+overrides:
+  katex: 0.18.5
+
 allowBuilds:
   esbuild: true
   electron: true

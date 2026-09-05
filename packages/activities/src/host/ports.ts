@@ -138,9 +138,32 @@ export type ResolveMediaPort = (asset: MediaRef) => string | null
 export const SHA256_REF_PATTERN = /^sha256:([0-9a-f]+)$/i
 
 /**
+ * The only already-resolved forms this port hands to an element: the app's own `media://`
+ * scheme, and a `blob:` object URL the renderer minted itself.
+ *
+ * `app://` is deliberately absent — activity media is content-addressed or generated, never a
+ * file bundled with the renderer — and so is everything else.
+ */
+const RESOLVED_MEDIA_PATTERN = /^(?:media:\/\/|blob:)/i
+
+/**
  * The default resolver: a content-addressed reference becomes a `media://blob/<sha256>` URL — the
- * scheme `apps/desktop`'s `media-protocol.ts` serves, with Range support — and anything that is
- * already a URL is passed through. A ref with no `src` at all has nothing to show yet.
+ * scheme `apps/desktop`'s `media-protocol.ts` serves, with Range support — a `media://`/`blob:`
+ * URL is passed through, and **anything else resolves to `null`**. A ref with no `src` at all has
+ * nothing to show yet either.
+ *
+ * The allow-list is the point. `MediaRef.src` is written by a model or comes out of an imported
+ * deck, and whatever this function returns lands verbatim in `<img src>`, `<video src>` and
+ * `new Audio(src).play()` (`../components/rich-text.tsx`, `../components/audio-button.tsx`).
+ * Passing an unrecognized string through made every one of those an attacker-chosen fetch: the
+ * renderer's CSP is the only other control, and its `img-src` allows `data:`, so a poisoned
+ * lesson could both render an arbitrary inline SVG and — the day a lesson is opened — beacon the
+ * fact home through a remote URL. `packages/activity-schema`'s `MEDIA_SRC_PATTERN` refuses the
+ * same shapes at parse time; the two layers are independent on purpose, because a `MediaRef` can
+ * reach this port from a payload that schema never parsed.
+ *
+ * A rejected `src` degrades exactly like an asset that does not exist yet: `MediaSlot` renders
+ * the `pending_media` placeholder for `null` (§11), so nothing throws and nothing loads.
  *
  * Storybook and the tests have no blob store, so they pass a resolver of their own; that is the
  * whole reason this is a port and not a string concatenation inside the renderer.
@@ -148,7 +171,8 @@ export const SHA256_REF_PATTERN = /^sha256:([0-9a-f]+)$/i
 export const defaultResolveMedia: ResolveMediaPort = (asset) => {
   if (!asset.src) return null
   const hash = SHA256_REF_PATTERN.exec(asset.src)?.[1]
-  return hash === undefined ? asset.src : `media://blob/${hash}`
+  if (hash !== undefined) return `media://blob/${hash}`
+  return RESOLVED_MEDIA_PATTERN.test(asset.src) ? asset.src : null
 }
 
 /** Epoch milliseconds. Injected so the timer is deterministic under fake timers. */
