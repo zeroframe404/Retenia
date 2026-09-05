@@ -8,7 +8,7 @@ export default defineActivityType({
       type: 'ordering_sequence',
       focus: 'The steps of a process, or events in time, put back in order.',
       rules: [
-        "Four to seven items whose correct order is the source's own.",
+        "Four to eight items whose correct order is the source's own.",
         '`scoring` is `adjacent-pairs`, so a near-miss keeps most of the credit.',
         'Add `alternativeOrders` when two steps are genuinely interchangeable.',
       ],
