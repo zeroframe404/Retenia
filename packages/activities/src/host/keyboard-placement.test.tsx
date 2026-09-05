@@ -267,6 +267,64 @@ describe('keyboard-only placement — categorize', () => {
   })
 })
 
+function multiMembershipCategorize(): Activity {
+  const base = sampleCategorize()
+  return {
+    ...base,
+    payload: {
+      family: 'categorize',
+      categories: [
+        { id: 'c1', label: 'Mamíferos' },
+        { id: 'c2', label: 'Aves' },
+        { id: 'c3', label: 'Domésticos' },
+      ],
+      items: [
+        { id: 'i1', text: 'Perro', categoryIds: ['c1', 'c3'] },
+        { id: 'i2', text: 'Gorrión', categoryIds: ['c2'] },
+      ],
+    },
+  }
+}
+
+describe('keyboard-only placement — categorize multi-membership', () => {
+  it('places one item into two categories it honestly belongs to, and grades the overlap', async () => {
+    const user = userEvent.setup()
+    const onComplete = vi.fn<(completion: ActivityCompletion) => void>()
+    renderHost(multiMembershipCategorize(), onComplete)
+    await screen.findByTestId('renderer-categorize')
+
+    await tabTo(user, byTestId('draggable-i1'))
+    await user.keyboard('{Enter}')
+    await tabTo(user, byTestId('place-c1'))
+    await user.keyboard('{Enter}')
+
+    // A first placement must not remove the item from the bank — it still belongs in c3 too,
+    // and the only way to add a second category is to pick it up again from there.
+    expect(screen.getByTestId('draggable-i1')).toBeInTheDocument()
+
+    await tabTo(user, byTestId('draggable-i1'))
+    await user.keyboard('{Enter}')
+    await tabTo(user, byTestId('place-c3'))
+    await user.keyboard('{Enter}')
+
+    expect(screen.getByTestId('placed-i1-c1')).toBeInTheDocument()
+    expect(screen.getByTestId('placed-i1-c3')).toBeInTheDocument()
+
+    await tabTo(user, byTestId('draggable-i2'))
+    await user.keyboard('{Enter}')
+    await tabTo(user, byTestId('place-c2'))
+    await user.keyboard('{Enter}')
+
+    await tabTo(user, byTestId('check-button'))
+    await user.keyboard('{Enter}')
+    await tabTo(user, byTestId('continue-button'))
+    await user.keyboard('{Enter}')
+
+    await waitFor(() => expect(onComplete).toHaveBeenCalled())
+    expect(completionOf(onComplete).result?.score).toBe(1)
+  })
+})
+
 describe('keyboard-only placement — ordering', () => {
   it('reorders with the move buttons and grades the result', async () => {
     const user = userEvent.setup()

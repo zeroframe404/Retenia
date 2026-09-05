@@ -1,0 +1,107 @@
+{
+  "activity": {
+    "id": "0192f000-0000-7000-8000-00000000006a",
+    "schemaVersion": 1,
+    "type": "mark_the_words",
+    "family": "text_mark",
+    "lang": "es-AR",
+    "prompt": "Marcá los verbos de la oración.",
+    "skills": ["es.gramatica.verbo"],
+    "difficulty": 2,
+    "grading": {
+      "method": "det"
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "partial"
+    },
+    "payload": {
+      "family": "text_mark",
+      "tokens": [
+        {
+          "id": "t1",
+          "text": "El"
+        },
+        {
+          "id": "t2",
+          "text": "profesor"
+        },
+        {
+          "id": "t3",
+          "text": "volvió"
+        },
+        {
+          "id": "t4",
+          "text": "del"
+        },
+        {
+          "id": "t5",
+          "text": "recreo,"
+        },
+        {
+          "id": "t6",
+          "text": "saludó"
+        },
+        {
+          "id": "t7",
+          "text": "y"
+        },
+        {
+          "id": "t8",
+          "text": "empezó"
+        },
+        {
+          "id": "t9",
+          "text": "la"
+        },
+        {
+          "id": "t10",
+          "text": "clase."
+        }
+      ],
+      "correctIds": ["t3", "t6", "t8"]
+    }
+  },
+  "answers": [
+    {
+      "name": "all three verbs",
+      "response": {
+        "markedIds": ["t3", "t6", "t8"]
+      },
+      "expect": {
+        "score": 1,
+        "correct": true
+      }
+    },
+    {
+      "name": "two of three",
+      "response": {
+        "markedIds": ["t3", "t6"]
+      },
+      "expect": {
+        "score": 0.8,
+        "correct": true
+      }
+    },
+    {
+      "name": "one verb plus the contraction wrongly marked",
+      "response": {
+        "markedIds": ["t3", "t4"]
+      },
+      "expect": {
+        "score": 0.4,
+        "correct": false
+      }
+    },
+    {
+      "name": "nothing",
+      "response": {
+        "markedIds": []
+      },
+      "expect": {
+        "score": 0,
+        "correct": false
+      }
+    }
+  ]
+}

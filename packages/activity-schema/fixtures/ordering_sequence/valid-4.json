@@ -1,0 +1,88 @@
+{
+  "activity": {
+    "id": "0192f000-0001-7000-8000-000000000001",
+    "schemaVersion": 1,
+    "type": "ordering_sequence",
+    "family": "ordering",
+    "lang": "es-AR",
+    "prompt": "Ordená los pasos para preparar un café instantáneo.",
+    "skills": ["vida.rutinas"],
+    "difficulty": 1,
+    "grading": {
+      "method": "det"
+    },
+    "review": {
+      "eligible": true,
+      "ratingStrategy": "ordering"
+    },
+    "payload": {
+      "family": "ordering",
+      "items": [
+        {
+          "id": "i1",
+          "text": "Hervir el agua"
+        },
+        {
+          "id": "i2",
+          "text": "Agregar el café instantáneo"
+        },
+        {
+          "id": "i3",
+          "text": "Agregar azúcar"
+        },
+        {
+          "id": "i4",
+          "text": "Agregar leche"
+        },
+        {
+          "id": "i5",
+          "text": "Revolver"
+        }
+      ],
+      "correctOrder": ["i1", "i2", "i3", "i4", "i5"],
+      "alternativeOrders": [["i1", "i2", "i4", "i3", "i5"]],
+      "scoring": "adjacent-pairs"
+    }
+  },
+  "answers": [
+    {
+      "name": "correct",
+      "response": {
+        "order": ["i1", "i2", "i3", "i4", "i5"]
+      },
+      "expect": {
+        "score": 1,
+        "correct": true,
+        "signals": {
+          "pairsOutOfOrder": 0
+        }
+      }
+    },
+    {
+      "name": "alternative (milk before sugar, both interchangeable)",
+      "response": {
+        "order": ["i1", "i2", "i4", "i3", "i5"]
+      },
+      "expect": {
+        "score": 1,
+        "correct": true,
+        "signals": {
+          "pairsOutOfOrder": 0
+        }
+      }
+    },
+    {
+      "name": "near miss (water and coffee swapped, not interchangeable)",
+      "response": {
+        "order": ["i2", "i1", "i3", "i4", "i5"]
+      },
+      "expect": {
+        "score": 0.75,
+        "correct": false,
+        "signals": {
+          "pairsOutOfOrder": 1
+        }
+      }
+    }
+  ]
+}
