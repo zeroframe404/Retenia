@@ -42,9 +42,14 @@ export interface ActivityLabels {
   confidence: Record<ConfidenceLevel, string>
   selfGradeHeading: string
   selfGrade: Record<Grade, string>
+  /** `dialog_cards`' two-button self rating (§4 row 3: "I knew it / no"). */
+  selfRatingKnew: string
+  selfRatingForgot: string
   revealAnswer: string
   front: string
   back: string
+  /** The near-miss diff under a `text_input` answer: "Your answer" vs. `modelAnswer`. */
+  yourAnswer: string
   /** Keyboard alternative to drag-and-drop (§9: "a keyboard alternative for every drag-and-drop"). */
   dragKeyboardHint: string
   pickUp: string
@@ -89,9 +94,12 @@ export const DEFAULT_ACTIVITY_LABELS: ActivityLabels = Object.freeze({
   confidence: { sure: 'Sure', unsure: 'Not sure', guessed: 'Guessed' },
   selfGradeHeading: 'How well did you remember it?',
   selfGrade: { 1: 'Again', 2: 'Hard', 3: 'Good', 4: 'Easy' },
+  selfRatingKnew: 'I knew it',
+  selfRatingForgot: 'No',
   revealAnswer: 'Show the answer',
   front: 'Front',
   back: 'Back',
+  yourAnswer: 'Your answer',
   dragKeyboardHint:
     'Drag, or press Enter to pick up, the arrow keys to choose a place and Enter to drop it.',
   pickUp: 'Pick up',

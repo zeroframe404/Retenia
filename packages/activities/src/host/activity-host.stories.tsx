@@ -7,6 +7,7 @@ import {
   sampleLongText,
   sampleOrdering,
   samplePairs,
+  sampleTextInput,
 } from '@retenia/activity-schema/testing/samples'
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { expect, userEvent, waitFor, within } from 'storybook/test'
@@ -242,6 +243,36 @@ export const KeyboardOnlyDragAndDrop: Story = {
       'data-tone',
       'correct',
     )
+  },
+}
+
+/** `dialog_cards` (§4 row 3): the same M-self grader, a two-button "I knew it / no" variant. */
+export const DialogCardsSelfRating: Story = {
+  args: { activity: { ...sampleCards(), type: 'dialog_cards' } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(await canvas.findByTestId('reveal-button'))
+    await expect(canvas.queryByTestId('grade-2')).not.toBeInTheDocument()
+
+    await userEvent.click(canvas.getByTestId('grade-3'))
+    const panel = await canvas.findByTestId('feedback-panel')
+    await expect(panel).toHaveAttribute('data-tone', 'correct')
+  },
+}
+
+/** §4 row 5: a `short_answer` near miss shows a character-level diff, not just the model answer. */
+export const NearMissDiff: Story = {
+  args: { activity: sampleTextInput() },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const input = await canvas.findByTestId('text-input')
+    // Two substitutions against "París": over the FUZ tolerance, but still worth showing the diff.
+    await userEvent.type(input, 'Parxz')
+    await userEvent.click(canvas.getByTestId('check-button'))
+
+    const panel = await canvas.findByTestId('feedback-panel')
+    await expect(panel).toHaveAttribute('data-tone', 'partial')
+    await expect(canvas.getByTestId('answer-diff')).toBeVisible()
   },
 }
 

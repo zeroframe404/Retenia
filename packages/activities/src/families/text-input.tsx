@@ -1,5 +1,6 @@
 import { Input } from '@retenia/ui'
 import { MathField } from '../components/math-field'
+import { TextDiff } from '../components/text-diff'
 import { useFamilyActivity } from '../host/activity-context'
 
 /**
@@ -46,12 +47,18 @@ export function Renderer() {
         </p>
       )}
 
-      {result !== null && !result.correct && (
-        <p className="text-sm" data-testid="model-answer">
-          <span className="text-muted">{labels.modelAnswer}: </span>
-          {answers[0]?.value ?? ''}
-        </p>
-      )}
+      {result !== null &&
+        !result.correct &&
+        (inputKind === 'text' && result.score > 0 ? (
+          // A near miss (§10's FUZ tolerance let it through partial credit): the diff shows which
+          // characters were the difference, not just the answer the learner already failed to type.
+          <TextDiff got={value} expected={answers[0]?.value ?? ''} />
+        ) : (
+          <p className="text-sm" data-testid="model-answer">
+            <span className="text-muted">{labels.modelAnswer}: </span>
+            {answers[0]?.value ?? ''}
+          </p>
+        ))}
     </div>
   )
 }

@@ -516,6 +516,85 @@ describe('<ActivityHost/> — the other MVP families', () => {
   })
 })
 
+describe('<ActivityHost/> — dialog_cards, the two-button self rating', () => {
+  function dialogCards(): Activity {
+    return { ...sampleCards(), type: 'dialog_cards' }
+  }
+
+  it('offers "I knew it" / "No" instead of the four-grade fieldset', async () => {
+    const user = userEvent.setup()
+    renderHost({ activity: dialogCards() })
+    await ready('renderer-cards')
+    await user.click(screen.getByTestId('reveal-button'))
+
+    expect(screen.queryByTestId('grade-2')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('grade-4')).not.toBeInTheDocument()
+    expect(screen.getByTestId('grade-1')).toHaveTextContent('No')
+    expect(screen.getByTestId('grade-3')).toHaveTextContent('I knew it')
+  })
+
+  it('"I knew it" reports a Good rating', async () => {
+    const user = userEvent.setup()
+    const onComplete = vi.fn<(completion: ActivityCompletion) => void>()
+    renderHost({ activity: dialogCards(), onComplete })
+    await ready('renderer-cards')
+    await user.click(screen.getByTestId('reveal-button'))
+    await user.click(screen.getByTestId('grade-3'))
+    await user.click(await screen.findByTestId('continue-button'))
+
+    await waitFor(() => expect(onComplete).toHaveBeenCalled())
+    expect(completionOf(onComplete).result?.rating).toBe(3)
+  })
+
+  it('"No" reports an Again rating', async () => {
+    const user = userEvent.setup()
+    const onComplete = vi.fn<(completion: ActivityCompletion) => void>()
+    renderHost({ activity: dialogCards(), onComplete })
+    await ready('renderer-cards')
+    await user.click(screen.getByTestId('reveal-button'))
+    await user.click(screen.getByTestId('grade-1'))
+    await user.click(await screen.findByTestId('continue-button'))
+
+    await waitFor(() => expect(onComplete).toHaveBeenCalled())
+    expect(completionOf(onComplete).result?.rating).toBe(1)
+  })
+})
+
+describe('<ActivityHost/> — text_input near-miss diff', () => {
+  it('shows a character-level diff instead of the plain model answer on a near miss', async () => {
+    const user = userEvent.setup()
+    renderHost({ activity: sampleTextInput() })
+    await ready('renderer-text_input')
+
+    // Two substitutions against "París" (normalized "paris"): a relative edit distance of 0.4,
+    // over the FUZ tolerance of 0.2, so it grades incorrect but with real partial credit.
+    await user.type(screen.getByTestId('text-input'), 'Parxz')
+    await user.click(screen.getByTestId('check-button'))
+
+    const panel = await screen.findByTestId('feedback-panel')
+    expect(panel).toHaveAttribute('data-tone', 'partial')
+    expect(screen.queryByTestId('model-answer')).not.toBeInTheDocument()
+
+    const diff = screen.getByTestId('answer-diff')
+    expect(diff).toHaveTextContent('Parxz')
+    expect(diff).toHaveTextContent('París')
+    expect(diff.querySelector('.line-through')).not.toBeNull()
+    expect(diff.querySelector('.underline')).not.toBeNull()
+  })
+
+  it('keeps the plain model answer, not a diff, on a total miss', async () => {
+    const user = userEvent.setup()
+    renderHost({ activity: sampleTextInput() })
+    await ready('renderer-text_input')
+
+    await user.click(screen.getByTestId('check-button'))
+    const panel = await screen.findByTestId('feedback-panel')
+    expect(panel).toHaveAttribute('data-tone', 'incorrect')
+    expect(screen.getByTestId('model-answer')).toHaveTextContent('París')
+    expect(screen.queryByTestId('answer-diff')).not.toBeInTheDocument()
+  })
+})
+
 describe('<ActivityHost/> — an unregistered type', () => {
   it('says so instead of crashing', async () => {
     const activity = sampleChoice()
