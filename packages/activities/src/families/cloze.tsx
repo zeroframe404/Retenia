@@ -1,7 +1,7 @@
 import type { ClozeGap, Response } from '@retenia/activity-schema'
 import { cn } from '@retenia/ui'
 import { useMemo, useState } from 'react'
-import { DragLayer, DropZone } from '../components/drag-layer'
+import { DragLayer, DropZone, type PlacementContextValue } from '../components/drag-layer'
 import { type BankToken, TokenBank } from '../components/token-bank'
 import { useFamilyActivity } from '../host/activity-context'
 import { formatLabel } from '../labels'
@@ -58,18 +58,29 @@ export function Renderer() {
     write(gapId, token.text)
   }
 
-  function clear(gapId: string) {
+  /**
+   * Emptying a gap. It reports through the layer for the same reason `pairs` and `ordering` do:
+   * this button unmounts with the filling it removes, so focus would fall to `<body>`, and the
+   * polite live region would be left saying the word is still in the gap.
+   */
+  function clear(gapId: string, gapLabel: string, placement: PlacementContextValue) {
+    const tokenId = assigned[gapId]
+    const word = answer.gaps[gapId] ?? ''
     const next = { ...assigned }
     delete next[gapId]
     setAssigned(next)
     const gapsAnswer = { ...answer.gaps }
     delete gapsAnswer[gapId]
     respond({ gaps: gapsAnswer })
+    placement.reportRemoval({ itemId: tokenId, itemName: word || gapLabel, zoneId: gapId })
   }
 
   // A `<div>`, not a `<p>`: the word-bank gaps are block-level drop regions, and a block element
   // inside a paragraph is invalid HTML that browsers silently unnest.
-  const body = (
+  //
+  // Taking `placement` as an argument rather than reading it with `usePlacement()`: the passage is
+  // built here, above the layer's provider, and only the word-bank mode is wrapped in one at all.
+  const bodyFor = (placement: PlacementContextValue | null) => (
     <div className="flex flex-wrap items-center gap-1 text-sm leading-loose">
       {segments.map((segment, index) => {
         if (segment.kind === 'text') {
@@ -110,7 +121,9 @@ export function Renderer() {
               {value && !locked && (
                 <button
                   type="button"
-                  onClick={() => clear(segment.id)}
+                  onClick={() => {
+                    if (placement) clear(segment.id, label, placement)
+                  }}
                   data-testid={`clear-${segment.id}`}
                   className="text-muted text-xs underline"
                 >
@@ -147,21 +160,23 @@ export function Renderer() {
   if (mode !== 'wordbank') {
     return (
       <div className="flex flex-col gap-4" data-testid="renderer-cloze">
-        {body}
+        {bodyFor(null)}
       </div>
     )
   }
 
   return (
     <DragLayer onPlace={place}>
-      <div className="flex flex-col gap-4" data-testid="renderer-cloze">
-        {body}
-        <TokenBank
-          tokens={shuffledBank}
-          usedIds={Object.values(assigned)}
-          singleUse={singleUseDraggables ?? false}
-        />
-      </div>
+      {(placement) => (
+        <div className="flex flex-col gap-4" data-testid="renderer-cloze">
+          {bodyFor(placement)}
+          <TokenBank
+            tokens={shuffledBank}
+            usedIds={Object.values(assigned)}
+            singleUse={singleUseDraggables ?? false}
+          />
+        </div>
+      )}
     </DragLayer>
   )
 }

@@ -79,10 +79,28 @@ export interface ActivityLabels {
   back: string
   /** The near-miss diff under a `text_input` answer: "Your answer" vs. `modelAnswer`. */
   yourAnswer: string
+  /** Heading and drop-zone name of the area an `ordering` answer is built in. */
+  answerAreaHeading: string
   /** Keyboard alternative to drag-and-drop (§9: "a keyboard alternative for every drag-and-drop"). */
   dragKeyboardHint: string
   pickUp: string
   drop: string
+  /**
+   * What the live region says once something has happened to a placement, as a statement rather
+   * than as the imperative on the button that caused it: `pickUp`/`drop`/`removePlacement` name an
+   * action still to take, and a screen reader reading "Pick up: cat" *after* the pick-up describes
+   * the wrong moment.
+   *
+   * There is one per moment the answer changes, because the region is `aria-atomic` and holds the
+   * last sentence: with no `removedAnnouncement`, a user who took a token back out and came back
+   * to the region was still told it was placed. `{item}` throughout; `{zone}` for the two that
+   * name one; `{position}` and `{total}` for a reorder.
+   */
+  pickedUpAnnouncement: string
+  placedAnnouncement: string
+  cancelledAnnouncement: string
+  removedAnnouncement: string
+  movedAnnouncement: string
   removePlacement: string
   moveUp: string
   moveDown: string
@@ -151,10 +169,16 @@ export const DEFAULT_ACTIVITY_LABELS: ActivityLabels = Object.freeze({
   front: 'Front',
   back: 'Back',
   yourAnswer: 'Your answer',
+  answerAreaHeading: 'Your answer',
   dragKeyboardHint:
     'Drag, or press Enter to pick up, the arrow keys to choose a place and Enter to drop it.',
   pickUp: 'Pick up',
   drop: 'Place here',
+  pickedUpAnnouncement: '“{item}” picked up',
+  placedAnnouncement: '“{item}” placed in {zone}',
+  cancelledAnnouncement: '“{item}” put back',
+  removedAnnouncement: '“{item}” removed from {zone}',
+  movedAnnouncement: '“{item}” moved to position {position} of {total}',
   removePlacement: 'Remove',
   moveUp: 'Move up',
   moveDown: 'Move down',

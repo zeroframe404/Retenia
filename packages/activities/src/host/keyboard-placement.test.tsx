@@ -226,6 +226,31 @@ describe('keyboard-only placement — matching pairs', () => {
     expect(screen.getByTestId('match-p3')).toHaveTextContent('París')
     expect(screen.getByTestId('match-p2')).toHaveTextContent('')
   })
+
+  it('takes a match back out and leaves the left side empty', async () => {
+    const user = userEvent.setup()
+    renderHost(samplePairs())
+    await screen.findByTestId('renderer-pairs')
+
+    await tabTo(user, byTestId('draggable-p1'))
+    await user.keyboard('{Enter}')
+    await tabTo(user, byTestId('place-p1'))
+    await user.keyboard('{Enter}')
+    expect(screen.getByTestId('match-p1')).toHaveTextContent('París')
+
+    await tabTo(user, byTestId('clear-p1'))
+    await user.keyboard('{Enter}')
+
+    // Empty, not "replaced by the next guess": a withdrawn match is an answer of its own.
+    expect(screen.getByTestId('match-p1')).toHaveTextContent('')
+    expect(screen.queryByTestId('clear-p1')).not.toBeInTheDocument()
+    // …and the right side is back in play, ready for another left side.
+    await tabTo(user, byTestId('draggable-p1'))
+    await user.keyboard('{Enter}')
+    await tabTo(user, byTestId('place-p2'))
+    await user.keyboard('{Enter}')
+    expect(screen.getByTestId('match-p2')).toHaveTextContent('París')
+  })
 })
 
 describe('keyboard-only placement — categorize', () => {
@@ -325,6 +350,13 @@ describe('keyboard-only placement — categorize multi-membership', () => {
   })
 })
 
+/** The ids in the answer area, top to bottom. */
+function idsInAnswer(): string[] {
+  return [...screen.getByTestId('ordering-answer').children].map((item) =>
+    (item.getAttribute('data-testid') ?? '').replace('ordering-item-', ''),
+  )
+}
+
 describe('keyboard-only placement — ordering', () => {
   it('reorders with the move buttons and grades the result', async () => {
     const user = userEvent.setup()
@@ -332,22 +364,21 @@ describe('keyboard-only placement — ordering', () => {
     renderHost(sampleOrdering(), onComplete)
     await screen.findByTestId('renderer-ordering')
 
-    const idsOnScreen = () =>
-      [...screen.getByTestId('renderer-ordering').children].map((item) =>
-        (item.getAttribute('data-testid') ?? '').replace('ordering-item-', ''),
-      )
-
     // Selection sort with the two buttons alone: enough to reach any permutation from any start.
+    // Every move is Tab-to-the-control then Enter — the move buttons are as reachable and as
+    // activatable from the keyboard as the drop zones are, which is the whole claim of this file.
     const target = ['i1', 'i2', 'i3', 'i4']
     for (let slot = 0; slot < target.length; slot += 1) {
       const wanted = target[slot] as string
-      let at = idsOnScreen().indexOf(wanted)
+      let at = idsInAnswer().indexOf(wanted)
       while (at > slot) {
-        await user.click(screen.getByTestId(`move-up-${wanted}`))
+        const moveUp = await tabTo(user, byTestId(`move-up-${wanted}`))
+        expect(moveUp).toHaveFocus()
+        await user.keyboard('{Enter}')
         at -= 1
       }
     }
-    expect(idsOnScreen()).toEqual(target)
+    expect(idsInAnswer()).toEqual(target)
 
     await tabTo(user, byTestId('check-button'))
     await user.keyboard('{Enter}')
@@ -380,9 +411,9 @@ describe('keyboard-only placement — ordering', () => {
     renderHost(sampleOrdering())
     await screen.findByTestId('renderer-ordering')
 
-    const items = [...screen.getByTestId('renderer-ordering').children]
-    const first = (items[0]?.getAttribute('data-testid') ?? '').replace('ordering-item-', '')
-    const last = (items.at(-1)?.getAttribute('data-testid') ?? '').replace('ordering-item-', '')
+    const ids = idsInAnswer()
+    const first = ids[0] as string
+    const last = ids.at(-1) as string
     expect(screen.getByTestId(`move-up-${first}`)).toBeDisabled()
     expect(screen.getByTestId(`move-down-${last}`)).toBeDisabled()
   })
@@ -428,15 +459,199 @@ describe('arrow keys walk the drop zones while an item is held', () => {
 })
 
 describe('placement is locked once the answer is in', () => {
-  it('offers no pick-up and no drop after grading', async () => {
+  it('offers no pick-up, no drop and no removal after grading', async () => {
     const user = userEvent.setup()
     renderHost(samplePairs())
     await screen.findByTestId('renderer-pairs')
 
-    await user.click(screen.getByTestId('check-button'))
+    await tabTo(user, byTestId('draggable-p1'))
+    await user.keyboard('{Enter}')
+    await tabTo(user, byTestId('place-p1'))
+    await user.keyboard('{Enter}')
+
+    await tabTo(user, byTestId('check-button'))
+    await user.keyboard('{Enter}')
     await screen.findByTestId('feedback-panel')
 
     expect(screen.getByTestId('draggable-p1')).toBeDisabled()
     expect(screen.queryByTestId('place-p1')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('clear-p1')).not.toBeInTheDocument()
+  })
+})
+
+describe('every change to the answer is announced, and none of them drops focus', () => {
+  it('names the token it picked up and the zone it landed in', async () => {
+    const user = userEvent.setup()
+    renderHost(samplePairs())
+    await screen.findByTestId('renderer-pairs')
+
+    // Nothing has happened yet, so the live region says nothing — an `aria-live` region that
+    // starts with text would be read out on mount for no reason.
+    expect(screen.getByTestId('placement-announcer')).toHaveTextContent('')
+
+    await tabTo(user, byTestId('draggable-p1'))
+    await user.keyboard('{Enter}')
+    // A statement of what happened, not the imperative from the button that caused it.
+    expect(screen.getByTestId('placement-announcer')).toHaveTextContent('“París” picked up')
+
+    await tabTo(user, byTestId('place-p2'))
+    await user.keyboard('{Enter}')
+    // The placement is the moment the answer changes and focus lands nowhere readable, so the
+    // announcement carries both halves: where it went, and what went there.
+    expect(screen.getByTestId('placement-announcer')).toHaveTextContent('“París” placed in Italia')
+  })
+
+  it('names a cloze gap by the same label its "place here" button uses', async () => {
+    const user = userEvent.setup()
+    renderHost(wordbankCloze())
+    await screen.findByTestId('renderer-cloze')
+
+    const token = screen
+      .getAllByRole('button')
+      .find((button) => button.textContent === 'París') as HTMLElement
+    await tabTo(user, (element) => element === token)
+    await user.keyboard('{Enter}')
+    expect(screen.getByTestId('placement-announcer')).toHaveTextContent('“París” picked up')
+
+    await tabTo(user, byTestId('place-g1'))
+    await user.keyboard('{Enter}')
+    expect(screen.getByTestId('placement-announcer')).toHaveTextContent('“París” placed in Gap 1')
+  })
+
+  it("replaces dnd-kit's id-reading announcements and its wrong keyboard instructions", async () => {
+    renderHost(samplePairs())
+    await screen.findByTestId('renderer-pairs')
+
+    // dnd-kit describes a `KeyboardSensor` this layer does not install; the token bank's own hint
+    // describes the keys that are wired up, and it is what a draggable is described by.
+    const described = screen.getByTestId('draggable-p1').getAttribute('aria-describedby') ?? ''
+    expect(document.getElementById(described)).toHaveTextContent(
+      'press Enter to pick up, the arrow keys to choose a place and Enter to drop it',
+    )
+    expect(document.body.textContent).not.toContain('press the space bar')
+  })
+
+  it('announces a removal, so the region is not left describing a placement that is gone', async () => {
+    const user = userEvent.setup()
+    renderHost(samplePairs())
+    await screen.findByTestId('renderer-pairs')
+
+    await tabTo(user, byTestId('draggable-p1'))
+    await user.keyboard('{Enter}')
+    await tabTo(user, byTestId('place-p1'))
+    await user.keyboard('{Enter}')
+    expect(screen.getByTestId('placement-announcer')).toHaveTextContent('“París” placed in Francia')
+
+    await tabTo(user, byTestId('clear-p1'))
+    await user.keyboard('{Enter}')
+
+    // The region is `aria-atomic`, so it holds one sentence: leaving the placement standing tells
+    // a user who comes back to it that the match is still there.
+    expect(screen.getByTestId('placement-announcer')).toHaveTextContent(
+      '“París” removed from Francia',
+    )
+    // …and the button that was pressed unmounted with the match, so focus has to be sent
+    // somewhere. The token is back in play, which is where the next action starts.
+    expect(screen.getByTestId('draggable-p1')).toHaveFocus()
+  })
+
+  it.each([
+    ['cloze', 'clear-g1'],
+    ['ordering', 'clear-i1'],
+  ])('never leaves focus on <body> after a removal in %s', async (family, control) => {
+    const user = userEvent.setup()
+    if (family === 'cloze') {
+      renderHost(wordbankCloze())
+      await screen.findByTestId('renderer-cloze')
+      const token = screen
+        .getAllByRole('button')
+        .find((button) => button.textContent === 'París') as HTMLElement
+      await tabTo(user, (element) => element === token)
+      await user.keyboard('{Enter}')
+      await tabTo(user, byTestId('place-g1'))
+      await user.keyboard('{Enter}')
+    } else {
+      renderHost(sampleOrdering())
+      await screen.findByTestId('renderer-ordering')
+    }
+
+    await tabTo(user, byTestId(control))
+    await user.keyboard('{Enter}')
+
+    expect(document.activeElement).not.toBe(document.body)
+    expect(screen.getByTestId('placement-announcer')).toHaveTextContent('removed from')
+  })
+
+  it('announces taking an item out of a category, where the token is the control', async () => {
+    const user = userEvent.setup()
+    renderHost(sampleCategorize())
+    await screen.findByTestId('renderer-categorize')
+
+    await tabTo(user, byTestId('draggable-i1'))
+    await user.keyboard('{Enter}')
+    await tabTo(user, byTestId('place-c1'))
+    await user.keyboard('{Enter}')
+
+    await tabTo(user, byTestId('placed-i1-c1'))
+    await user.keyboard('{Enter}')
+
+    expect(screen.getByTestId('placement-announcer')).toHaveTextContent('removed from')
+    expect(document.activeElement).not.toBe(document.body)
+  })
+
+  it('announces a cancelled pick-up and puts focus back on the token', async () => {
+    const user = userEvent.setup()
+    renderHost(samplePairs())
+    await screen.findByTestId('renderer-pairs')
+
+    const token = await tabTo(user, byTestId('draggable-p1'))
+    await user.keyboard('{Enter}')
+    // Picking up moves focus onto the first zone's "place here" button, which Escape unmounts.
+    expect(screen.getByTestId('place-p1')).toHaveFocus()
+
+    await user.keyboard('{Escape}')
+
+    expect(screen.getByTestId('draggable-p1')).toHaveAttribute('aria-pressed', 'false')
+    expect(token).toHaveFocus()
+    expect(screen.getByTestId('placement-announcer')).toHaveTextContent('“París” put back')
+  })
+
+  it('sends focus into the bank after a placement, not back to the top of the widget', async () => {
+    const user = userEvent.setup()
+    renderHost(wordbankCloze())
+    await screen.findByTestId('renderer-cloze')
+
+    const token = screen
+      .getAllByRole('button')
+      .find((button) => button.textContent === 'París') as HTMLElement
+    await tabTo(user, (element) => element === token)
+    await user.keyboard('{Enter}')
+    await tabTo(user, byTestId('place-g1'))
+    await user.keyboard('{Enter}')
+
+    // The bank is `singleUse` here, so the placed token is gone and the next one takes the focus.
+    // Parking it on the layer root instead put every Move/Remove button in the answer area between
+    // the user and the bank they were working in, and the walk grew with every token placed.
+    expect(document.activeElement?.getAttribute('data-testid')).toMatch(/^draggable-/)
+  })
+
+  it('says it again when the same token is picked up twice', async () => {
+    const user = userEvent.setup()
+    renderHost(samplePairs())
+    await screen.findByTestId('renderer-pairs')
+
+    await tabTo(user, byTestId('draggable-p1'))
+    await user.keyboard('{Enter}')
+    const first = screen.getByTestId('placement-announcer').firstElementChild
+    await user.keyboard('{Escape}')
+
+    await tabTo(user, byTestId('draggable-p1'))
+    await user.keyboard('{Enter}')
+    const second = screen.getByTestId('placement-announcer').firstElementChild
+
+    // Identical text: without a fresh node the region would not change and nothing would be
+    // read out the second time.
+    expect(second).toHaveTextContent('“París” picked up')
+    expect(second).not.toBe(first)
   })
 })
