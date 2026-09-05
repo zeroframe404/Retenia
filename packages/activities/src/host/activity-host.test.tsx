@@ -583,6 +583,25 @@ describe('<ActivityHost/> — text_input near-miss diff', () => {
     expect(diff.querySelector('.underline')).not.toBeNull()
   })
 
+  it('also shows the diff for inputKind "letters" (short_answer/valid-3), not just "text"', async () => {
+    const user = userEvent.setup()
+    const base = sampleTextInput()
+    const activity: Activity = {
+      ...base,
+      payload: { ...base.payload, inputKind: 'letters', answers: [{ value: 'murciélago' }] },
+    }
+    renderHost({ activity })
+    await ready('renderer-text_input')
+
+    // Fixtures/short_answer/valid-3.json's own "wrong" case: score ≤ 0.6, correct: false.
+    await user.type(screen.getByTestId('text-input'), 'vampiro')
+    await user.click(screen.getByTestId('check-button'))
+
+    const panel = await screen.findByTestId('feedback-panel')
+    expect(panel).toHaveAttribute('data-tone', 'partial')
+    expect(screen.getByTestId('answer-diff')).toHaveTextContent('murciélago')
+  })
+
   it('keeps the plain model answer, not a diff, on a total miss', async () => {
     const user = userEvent.setup()
     renderHost({ activity: sampleTextInput() })

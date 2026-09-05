@@ -49,9 +49,13 @@ export function Renderer() {
 
       {result !== null &&
         !result.correct &&
-        (inputKind === 'text' && result.score > 0 ? (
-          // A near miss (§10's FUZ tolerance let it through partial credit): the diff shows which
-          // characters were the difference, not just the answer the learner already failed to type.
+        // 'number', 'math' and 'regex' have their own grading branch in gradeTextInput; every other
+        // kind ('text', 'letters', …) falls to its FUZ default, so a character diff reads the same
+        // way for all of them. A near miss is that FUZ tolerance letting partial credit through.
+        (inputKind !== 'number' &&
+        inputKind !== 'math' &&
+        inputKind !== 'regex' &&
+        result.score > 0 ? (
           <TextDiff got={value} expected={answers[0]?.value ?? ''} />
         ) : (
           <p className="text-sm" data-testid="model-answer">
