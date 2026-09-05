@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { richTextSchema, shortIdSchema } from '../common'
+import { COLLECTION_MAX, richTextSchema, shortIdSchema } from '../common'
 
 /** `categorize` (§7): group sort — every item belongs to one or more categories. */
 
@@ -11,13 +11,13 @@ export const categorySchema = z.object({
 export const categorizeItemSchema = z.object({
   id: shortIdSchema,
   text: richTextSchema,
-  categoryIds: z.array(shortIdSchema).min(1),
+  categoryIds: z.array(shortIdSchema).min(1).max(COLLECTION_MAX),
 })
 export type CategorizeItem = z.infer<typeof categorizeItemSchema>
 
 export const categorizePayloadSchema = z.object({
   family: z.literal('categorize'),
-  categories: z.array(categorySchema).min(2),
-  items: z.array(categorizeItemSchema).min(2),
+  categories: z.array(categorySchema).min(2).max(COLLECTION_MAX),
+  items: z.array(categorizeItemSchema).min(2).max(COLLECTION_MAX),
 })
 export type CategorizePayload = z.infer<typeof categorizePayloadSchema>
