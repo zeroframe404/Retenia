@@ -40,6 +40,25 @@ export interface GradeResult {
   meta: GradeMeta
 }
 
+/**
+ * The learner's correction of a rating the grader proposed (§3's M-ai: *"the rubric returns
+ * a rating and the user can correct it"*).
+ *
+ * Recorded on the grade rather than swallowed, because it is the only evidence we will ever
+ * have that the rubric was wrong: §17 risk 3 asks for the thresholds to be re-tuned against
+ * measured behaviour, and a systematic override is exactly that measurement.
+ */
+export interface RatingOverride {
+  /** What the grader proposed, or `null` when it declined to rate (`uncertain`). */
+  from: Grade | null
+  /** What the learner chose instead. */
+  to: Grade
+  /** Free text from the learner, when they gave one. */
+  reason?: string
+  /** ISO-8601 instant of the correction. */
+  at?: string
+}
+
 /** The raw signals §13 of `docs/spec/03-activities.md` requires every attempt to record
  *  "in order to recalibrate". */
 export interface GradeMeta {
@@ -51,6 +70,17 @@ export interface GradeMeta {
   /** Certainty-based marking, when the type asked for it (`confidence_mcq`, diagnostics,
    *  mock exams). Absent means it was never asked — which is not the same as `unsure`. */
   confidence?: ConfidenceLevel
+  /**
+   * The AI grader declined to commit to a score (`docs/spec/04-path-generation.md` §12:
+   * *"when in doubt it declares `uncertain`"*), which *"affects neither Elo nor FSRS"*.
+   *
+   * `toRating` therefore returns `null` for it under **every** rule, and no review log is
+   * written — the UI asks the learner to self-rate instead, and their press arrives as an
+   * explicit rating rather than as a derived one.
+   */
+  uncertain?: boolean
+  /** Set when the learner corrected the rating the grader proposed. */
+  ratingOverride?: RatingOverride
 }
 
 /**
@@ -335,9 +365,9 @@ export interface RatingSignals {
  *
  * Returns `null` when the activity produces no rating and therefore **no review log**:
  * M-none (the games with chance of §5, which "do not feed the scheduler"), anything with
- * `eligible: false`, and M-self — where the user presses the button and there is nothing
- * to derive. Use `feedsScheduler` to tell the last case, which is waiting for input, from
- * the first two, which are finished.
+ * `eligible: false`, M-self — where the user presses the button and there is nothing to
+ * derive — and an `uncertain` AI grade. Use `feedsScheduler` to tell the cases waiting for
+ * input from the ones that are finished.
  */
 export function toRating(
   result: GradeResult,
@@ -348,6 +378,9 @@ export function toRating(
   // Written as a comparison rather than a set lookup so the switch below stays provably
   // exhaustive: these two are the only rules that never produce a rating themselves.
   if (!review.eligible || review.rule === 'self' || review.rule === 'none') return null
+  // §12 of `docs/spec/04-path-generation.md`: an `uncertain` grade affects neither Elo nor
+  // FSRS. Checked before the bands so it holds whatever the score happened to be.
+  if (result.meta.uncertain === true) return null
 
   assertScore(result.score)
   assertCount('meta.timeMs', result.meta.timeMs, 0)

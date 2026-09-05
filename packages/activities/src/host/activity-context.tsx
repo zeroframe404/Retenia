@@ -5,6 +5,7 @@ import type {
   Response,
   ResponseFamily,
 } from '@retenia/activity-schema'
+import type { Grade } from '@retenia/core'
 import { createContext, useContext } from 'react'
 import type { ActivityLabels } from '../labels'
 import type { ActivityMachineState, ActivityMode, ActivityStatus } from '../machine/types'
@@ -53,6 +54,11 @@ export interface ActivityContextValue {
   explanation: ExplanationState
   /** Whether the "Explain" button has anything to call: an authored `explanation`, or a tutor port. */
   canExplain: boolean
+  /**
+   * Whether the rating on screen may still be corrected — §3's M-ai, *"the rubric returns a
+   * rating and the user can correct it"*. True only while the feedback is up.
+   */
+  canOverrideRating: boolean
 
   respond: (response: unknown) => void
   /** Records the presented answer without moving the machine to `answering`. */
@@ -62,6 +68,9 @@ export interface ActivityContextValue {
   requestHint: () => void
   dismissHint: () => void
   retry: () => void
+  /** Replaces the grader's rating with the learner's, recording the change (and any reason
+   *  they gave) in `result.meta.ratingOverride`. */
+  overrideRating: (rating: Grade, reason?: string) => void
   complete: () => void
   skip: () => void
   explain: () => void

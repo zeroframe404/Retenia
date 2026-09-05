@@ -1,5 +1,6 @@
 import type { Activity, GradeResult, MediaRef } from '@retenia/activity-schema'
-import type { GradeMeta } from '@retenia/core'
+import type { AiGradeEngine, ExplainAnswer, GradeMeta } from '@retenia/core'
+import { AI_GRADE_ENGINES } from '@retenia/core'
 
 /**
  * The ports `<ActivityHost/>` depends on, in the sense `docs/spec/01-decisions.md` §5 gives the
@@ -36,6 +37,68 @@ export class ExplainAnswerUnavailableError extends Error {
 export const staticExplainAnswer: ExplainAnswerPort = async ({ activity }) => {
   if (activity.explanation) return activity.explanation
   throw new ExplainAnswerUnavailableError()
+}
+
+/**
+ * What the learner wrote, as a domain `ExplainAnswer` wants it: the text of a `long_text`
+ * answer, and the serialized response for every other family — a `matching_pairs` answer has no
+ * prose, and JSON is a truer rendering of it than a guess at one would be.
+ */
+export function answerTextOf(activity: Activity, response: unknown): string {
+  if (
+    activity.family === 'long_text' &&
+    typeof response === 'object' &&
+    response !== null &&
+    'text' in response &&
+    typeof response.text === 'string'
+  ) {
+    return response.text
+  }
+  return response === null || response === undefined ? '' : JSON.stringify(response)
+}
+
+/**
+ * Adapts `@retenia/core`'s domain `ExplainAnswer` — which knows nothing about React or about a
+ * family response — to the host's port.
+ *
+ * The two exist separately on purpose: the domain port is what `packages/activity-ai` and the
+ * tutor of sub-phase 9.4 implement, and the host port is what a renderer calls. This is the one
+ * seam between them, and it is where the `GradeResult` on screen is turned back into the
+ * `AiGradeResult` the explainer was given — using the rubric breakdown the AI grader left on
+ * `meta.ai`, so the explanation can talk about criteria rather than about a bare percentage.
+ */
+function aiEngineOf(engine: string | undefined): AiGradeEngine {
+  // A deterministic grade being explained (`fuzzy`, `keypoints`…) has no AI engine of its own;
+  // reporting `local` says "no model produced this", which is exactly true.
+  return AI_GRADE_ENGINES.includes(engine as AiGradeEngine) ? (engine as AiGradeEngine) : 'local'
+}
+
+export function explainAnswerPort(explain: ExplainAnswer): ExplainAnswerPort {
+  return async ({ activity, response, result, signal }) =>
+    explain({
+      activity: {
+        id: activity.id,
+        type: activity.type,
+        lang: activity.lang,
+        prompt: activity.prompt,
+        ...(activity.instructions === undefined ? {} : { instructions: activity.instructions }),
+      },
+      answer: answerTextOf(activity, response),
+      gradeResult:
+        result === null
+          ? null
+          : {
+              perCriterion: result.meta.ai?.perCriterion ?? [],
+              score: result.score,
+              rating: result.rating,
+              feedback: result.feedback,
+              uncertain: result.meta.uncertain ?? false,
+              evidence: result.meta.ai?.evidence ?? [],
+              engine: aiEngineOf(result.meta.engine),
+              injectionSuspected: result.meta.ai?.injectionSuspected ?? false,
+            },
+      ...(signal === undefined ? {} : { signal }),
+    })
 }
 
 export interface SpeakInput {

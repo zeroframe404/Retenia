@@ -1,8 +1,10 @@
 import { Button, cn } from '@retenia/ui'
-import { CheckCircle2Icon, CircleAlertIcon, XCircleIcon } from 'lucide-react'
+import { CheckCircle2Icon, CircleAlertIcon, ShieldAlertIcon, XCircleIcon } from 'lucide-react'
 import { useActivity } from '../host/activity-context'
 import { formatLabel } from '../labels'
+import { RatingChip } from './rating-chip'
 import { RichText } from './rich-text'
+import { RubricBreakdown } from './rubric-breakdown'
 
 /**
  * What the user sees once a `GradeResult` exists: the verdict, the grader's feedback, the model
@@ -15,6 +17,12 @@ import { RichText } from './rich-text'
  * It is `role="status"` with `aria-live="polite"`: a screen-reader user finds out the answer was
  * wrong without having to go looking for it, and — per `docs/spec/01-decisions.md` §7 rule 5 — the
  * wording never punishes the error.
+ *
+ * An AI-graded answer (§10's **AI** row) adds three things to the same panel: the rubric
+ * breakdown with the quotes the grader took from the answer, a rating chip the learner can
+ * correct, and — when the score came from the offline fallback — the label that says so. §6 of
+ * `01-decisions.md` makes cost visible, and the corollary is that a free estimate must never be
+ * presented as a paid judgement.
  */
 
 export type FeedbackTone = 'correct' | 'partial' | 'incorrect'
@@ -56,6 +64,11 @@ export function FeedbackPanel() {
         ? labels.partiallyCorrect
         : labels.incorrect
   const explainable = canExplain || explanation.status !== 'idle'
+  // The chip is for the ratings a *person* is expected to weigh in on: §3's M-ai, and the
+  // `uncertain` grade that has no rating at all. Every other rule derives its rating from the
+  // answer, and offering to override those would invite a learner to talk themselves into a
+  // longer interval on a question they got wrong.
+  const showRating = result.meta.ai !== undefined || result.meta.uncertain === true
 
   return (
     <section
@@ -74,6 +87,23 @@ export function FeedbackPanel() {
       </h2>
 
       {result.feedback && <RichText className="text-sm">{result.feedback}</RichText>}
+
+      {result.meta.ai !== undefined && <RubricBreakdown detail={result.meta.ai} />}
+
+      {result.meta.ai?.injectionSuspected === true && (
+        <p className="text-muted flex items-start gap-2 text-xs" data-testid="injection-notice">
+          <ShieldAlertIcon aria-hidden className="mt-0.5 size-3.5 shrink-0" />
+          {labels.injectionNotice}
+        </p>
+      )}
+
+      {result.meta.engine === 'fake' && (
+        <p className="text-muted text-xs" data-testid="estimated-grade">
+          {labels.estimatedGrade}
+        </p>
+      )}
+
+      {showRating && <RatingChip />}
 
       {explanation.status === 'ready' && explanation.text && (
         <div data-testid="explanation">

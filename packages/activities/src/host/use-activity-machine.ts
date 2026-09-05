@@ -1,11 +1,12 @@
-import { gradeActivity, rateResult } from '@retenia/activity-graders'
+import { createLongTextAiGrader, gradeActivity, rateResult } from '@retenia/activity-graders'
 import type { Activity, GradeResult } from '@retenia/activity-schema'
-import type { GradeMeta, PersonalPace } from '@retenia/core'
+import type { AiGrader, Grade, GradeMeta, PersonalPace, ReviewContext } from '@retenia/core'
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { type ActivityEventHandler, activityEvent } from '../events'
 import { type ActivityLabels, resolveLabels } from '../labels'
 import {
   canHint as canHintOf,
+  canOverrideRating as canOverrideRatingOf,
   canRetry as canRetryOf,
   canSubmit as canSubmitOf,
   createActivityReducer,
@@ -92,6 +93,34 @@ export function defaultGrade(personal: PersonalPace): GradePort {
     const graded = gradeActivity(activity, response, meta)
     return rateResult(applyHintPenalty(graded, activity, meta.hintsUsed), activity, personal)
   }
+}
+
+/** Whether this activity is one of §10's **AI** rows rather than a deterministic one. */
+export function isAiGraded(activity: Activity): activity is Activity<'long_text'> {
+  return activity.family === 'long_text' && activity.grading.method === 'ai'
+}
+
+/**
+ * The `grade` port for a host that has an `AiGrader` wired: `free_recall` and `essay_rubric` go
+ * to the rubric grader, everything else keeps the deterministic dispatch.
+ *
+ * The hint penalty is deliberately *not* applied to an AI grade. §7's `hintPenalty` docks a
+ * measurement, and a rubric score is a judgement about what the learner wrote — a hint that
+ * helped them write it is already visible in the text the rubric read. Docking it again would
+ * discount the same help twice, and §3's M-ai has no hint clause.
+ */
+export function createAiGradePort(
+  grader: AiGrader,
+  personal: PersonalPace,
+  options: { context?: ReviewContext } = {},
+): GradePort {
+  const longText = createLongTextAiGrader(grader, {
+    personalPace: personal,
+    ...(options.context === undefined ? {} : { context: options.context }),
+  })
+  const fallback = defaultGrade(personal)
+  return (activity, response, meta) =>
+    isAiGraded(activity) ? longText(activity, response, meta) : fallback(activity, response, meta)
 }
 
 function machineConfig(activity: Activity, mode: ActivityMode): ActivityMachineConfig {
@@ -285,6 +314,16 @@ export function useActivityMachine(options: UseActivityMachineOptions): Activity
   const requestHint = useCallback(() => dispatch({ type: 'REQUEST_HINT' }), [])
   const dismissHint = useCallback(() => dispatch({ type: 'DISMISS_HINT' }), [])
   const retry = useCallback(() => dispatch({ type: 'RETRY' }), [])
+  const overrideRating = useCallback(
+    (rating: Grade, reason?: string) =>
+      dispatch({
+        type: 'OVERRIDE_RATING',
+        rating,
+        ...(reason === undefined || reason.trim() === '' ? {} : { reason: reason.trim() }),
+        at: new Date(nowRef.current()).toISOString(),
+      }),
+    [],
+  )
   const complete = useCallback(() => dispatch({ type: 'COMPLETE' }), [])
   const skip = useCallback(() => dispatch({ type: 'SKIP' }), [])
 
@@ -337,6 +376,7 @@ export function useActivityMachine(options: UseActivityMachineOptions): Activity
     canSubmit: canSubmitOf(state),
     canHint: canHintOf(state, config),
     canRetry: canRetryOf(state, config),
+    canOverrideRating: canOverrideRatingOf(state),
     showTimer: showTimer ?? (mode === 'test' || timeLimitMs !== null),
     deferFeedback: defersFeedback(config),
     hintsAvailable: allowsHints(config),
@@ -352,6 +392,7 @@ export function useActivityMachine(options: UseActivityMachineOptions): Activity
     requestHint,
     dismissHint,
     retry,
+    overrideRating,
     complete,
     skip,
     explain,

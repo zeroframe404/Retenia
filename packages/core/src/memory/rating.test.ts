@@ -651,6 +651,32 @@ describe('toRating — input validation', () => {
   })
 })
 
+describe('toRating — an uncertain AI grade', () => {
+  /**
+   * `docs/spec/04-path-generation.md` §12: *"when in doubt it declares `uncertain`"*, which
+   * *"affects neither Elo nor FSRS"*. The consequence here is total — no rating, therefore no
+   * review log — and it holds whatever the score happened to be.
+   */
+  it('produces no rating, whatever the score', () => {
+    expect(toRating(grade(1, true, { uncertain: true }), spec('ai'), PERSONAL)).toBeNull()
+    expect(toRating(grade(0, false, { uncertain: true }), spec('ai'), PERSONAL)).toBeNull()
+  })
+
+  it.each(RATING_RULES.filter((rule) => rule !== 'self' && rule !== 'none'))(
+    'holds under the %s rule too, so no grader can smuggle one past it',
+    (rule) => {
+      expect(toRating(grade(1, true, { uncertain: true }), spec(rule), PERSONAL)).toBeNull()
+    },
+  )
+
+  it('does not stand in the way of a rating the learner supplied themselves', () => {
+    // `clampForContext` is the path an override takes: the person decided, so it is honoured.
+    expect(
+      clampForContext(RATING.Good, spec('ai'), grade(0.5, false, { uncertain: true }), PERSONAL),
+    ).toBe(RATING.Good)
+  })
+})
+
 describe('feedsScheduler', () => {
   it('is false for the lesson-only types and for M-none', () => {
     expect(feedsScheduler({ eligible: false, rule: 'binary' })).toBe(false)
