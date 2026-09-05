@@ -50,6 +50,13 @@
       "when": 1788537580802,
       "tag": "0006_review_activity_type_and_stats",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1788614745510,
+      "tag": "0007_funny_lorna_dane",
+      "breakpoints": true
     }
   ]
 }

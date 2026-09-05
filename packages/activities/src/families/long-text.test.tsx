@@ -21,6 +21,19 @@ import { completionOf } from '../testing/completion'
  * seam sub-phase 5.5 exists to create.
  */
 
+/**
+ * `userEvent` types a sentence one keystroke at a time, re-rendering the host on each, and then
+ * runs a whole grade cycle. Every `describe` below contains at least one such test; they take
+ * ~0.5 s each locally, comfortably inside Vitest's 5 s default — until `pnpm test` runs sixteen
+ * packages at once on a Windows CI runner, where this file has been measured at a ~50x
+ * slowdown (transform 104 s against 1.8 s) and the heaviest of them times out.
+ *
+ * Same remedy, and same reasoning, as `SLOW_SIMULATION_MS` in
+ * `packages/core/src/memory/simulator.test.ts`: only the clock is relaxed. Not one assertion,
+ * and not one line of any test body, changes.
+ */
+const SLOW_INTERACTION_MS = 30_000
+
 const NO_PACE = { medianMs: null }
 
 const FULL_ANSWER =
@@ -65,7 +78,7 @@ async function answerAndCheck(user: ReturnType<typeof userEvent.setup>, text: st
   return screen.findByTestId('feedback-panel')
 }
 
-describe('the long_text renderer', () => {
+describe('the long_text renderer', { timeout: SLOW_INTERACTION_MS }, () => {
   it('counts words against the activity’s range and says Markdown is allowed', async () => {
     const user = userEvent.setup()
     renderHost({ activity: sampleEssayRubric() })
@@ -95,7 +108,7 @@ describe('the long_text renderer', () => {
   })
 })
 
-describe('an essay graded end to end by the fake grader', () => {
+describe('an essay graded end to end by the fake grader', { timeout: SLOW_INTERACTION_MS }, () => {
   it('runs offline: score, rubric breakdown, model answer and an estimate label', async () => {
     const user = userEvent.setup()
     const onComplete = vi.fn<(completion: ActivityCompletion) => void>()
@@ -144,7 +157,7 @@ describe('an essay graded end to end by the fake grader', () => {
   })
 })
 
-describe('the rubric breakdown', () => {
+describe('the rubric breakdown', { timeout: SLOW_INTERACTION_MS }, () => {
   it('shows a score, an anchor and a comment per criterion, and the quotes from the answer', async () => {
     const user = userEvent.setup()
     renderHost({
@@ -206,7 +219,7 @@ describe('the rubric breakdown', () => {
   })
 })
 
-describe('the rating chip', () => {
+describe('the rating chip', { timeout: SLOW_INTERACTION_MS }, () => {
   it('shows what the answer will be scheduled as', async () => {
     const user = userEvent.setup()
     renderHost({ activity: sampleEssayRubric(), grade: gradePortFor(async () => aiResult()) })
@@ -294,7 +307,7 @@ describe('the rating chip', () => {
   })
 })
 
-describe('an uncertain grade', () => {
+describe('an uncertain grade', { timeout: SLOW_INTERACTION_MS }, () => {
   it('schedules nothing and asks the learner to rate it themselves', async () => {
     const user = userEvent.setup()
     const onComplete = vi.fn<(completion: ActivityCompletion) => void>()

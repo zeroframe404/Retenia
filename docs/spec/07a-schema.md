@@ -49,6 +49,7 @@ Packaging note (Windows first): the `.node` binaries of both drivers and `sqlite
 | 4 | `0004_card_importance_override_expiry` | `02d281654f5e` | `cards.importance_override_expires_at` (nullable) and its partial index: when a per-card importance override lapses. `NULL` is a permanent override; a timestamp makes it urgent mode, the temporary 48–72 h push to desired retention 0.97 (`02-memory-system.md` §7 rule 5). |
 | 5 | `0005_review_sessions` | `04a28924ae33` | `review_sessions`: the frozen daily queue and how far through it the user got, so a session survives the app being closed (`02-memory-system.md` §12). |
 | 6 | `0006_review_activity_type_and_stats` | `105d9b6eb30d` | `review_logs.activity_type` (backfilled `NULL`) and `context = 'diagnostic'`, so the exercise → rating mapping of `02-memory-system.md` §10 can be measured per type (§17 risk 3) and the prior-knowledge diagnostic can seed memory; plus `activity_stats`, the rolling per-type median that decides what "fast" and "slow" mean for this user. Widening a CHECK rebuilds the table in SQLite, which is what the `__new_review_logs` copy is. |
+| 7 | `0007_attempt_mode_and_review_session` | `e83a39101051` |  |
 
 ## Tables
 
@@ -78,7 +79,7 @@ Packaging note (Windows first): the `.node` binaries of both drivers and `sqlite
 | `cards` | Memory system | 24 | 2 | 5 | 14 |
 | `lesson_sessions` | Sessions, attempts and review log | 16 | 1 | 2 | 10 |
 | `review_sessions` | Sessions, attempts and review log | 20 | 0 | 2 | 12 |
-| `attempts` | Sessions, attempts and review log | 23 | 5 | 5 | 14 |
+| `attempts` | Sessions, attempts and review log | 25 | 6 | 6 | 14 |
 | `review_logs` | Sessions, attempts and review log | 23 | 2 | 4 | 13 |
 | `activity_stats` | Sessions, attempts and review log | 10 | 0 | 1 | 6 |
 | `jobs` | Infrastructure | 23 | 1 | 4 | 9 |
@@ -1012,9 +1013,12 @@ Checks:
 | `deleted_at` | integer | yes |  |  |
 | `device_id` | text | no |  |  |
 | `version` | integer | no | `1` |  |
+| `mode` | text | no | `'study'` |  |
+| `review_session_id` | text | yes |  | → `review_sessions.id` |
 
 Indexes:
 
+- `attempts_review_session` (`review_session_id`)
 - `attempts_started` (`started_at`)
 - `attempts_card` (`card_id`)
 - `attempts_exam_attempt` (`exam_attempt_id`)

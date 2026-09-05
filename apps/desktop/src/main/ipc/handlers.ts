@@ -30,6 +30,7 @@ import type { BackupService } from '../backups/service'
 import { ensureDevMediaSample } from '../dev/media-sample'
 import { collectSystemInfo, exportDiagnostics } from '../diagnostics/export'
 import type { JobsFacade } from '../jobs/facade'
+import type { ServedActivity } from '../memory/activity-service'
 import type { MemoryService } from '../memory/service'
 import { getDevMediaSamplePath, getLogsDir } from '../paths'
 import { maskSecret } from '../secrets/store'
@@ -136,7 +137,7 @@ function toCardDto(card: Card) {
   }
 }
 
-function toEntryDto(entry: SessionEntry | null) {
+function toEntryDto(entry: SessionEntry | null, activity: ServedActivity | null = null) {
   if (entry === null) return null
   if (entry.kind === 'reinforcement') return { kind: entry.kind, node: entry.node }
   return {
@@ -146,6 +147,7 @@ function toEntryDto(entry: SessionEntry | null) {
     retrievability: entry.retrievability,
     desiredRetention: entry.options.desiredRetention,
     examId: entry.examId,
+    activity,
   }
 }
 
@@ -460,23 +462,42 @@ export function createHandlers({
 
     'session.next': async () => {
       if (!memory) unavailable('memory', dbUnavailableReason)
-      const { entry, progress, item, preview } = await memory.sessionNext()
+      const { entry, progress, item, preview, activity } = await memory.sessionNext()
       return {
-        entry: toEntryDto(entry),
+        entry: toEntryDto(entry, activity),
         progress: toProgressDto(progress),
         item: toItemDto(item),
         preview: toPreviewDto(preview),
       }
     },
 
-    'session.answer': async ({ rating, exerciseScore, durationMs, attemptId }) => {
+    'session.answer': async ({
+      rating,
+      exerciseScore,
+      durationMs,
+      attemptId,
+      activityId,
+      attempt,
+    }) => {
       if (!memory) unavailable('memory', dbUnavailableReason)
-      const { result, progress } = await memory.sessionAnswer({
-        rating,
-        ...(exerciseScore === undefined ? {} : { exerciseScore }),
-        ...(durationMs === undefined ? {} : { durationMs }),
-        ...(attemptId === undefined ? {} : { attemptId }),
-      })
+      const { result, progress } = await memory.sessionAnswer(
+        {
+          rating,
+          ...(exerciseScore === undefined ? {} : { exerciseScore }),
+          ...(durationMs === undefined ? {} : { durationMs }),
+          ...(attemptId === undefined ? {} : { attemptId }),
+          ...(activityId === undefined ? {} : { activityId }),
+        },
+        attempt === undefined
+          ? undefined
+          : {
+              answer: attempt.answer ?? null,
+              feedback: attempt.feedback ?? null,
+              correct: attempt.correct,
+              tries: attempt.tries,
+              hintsUsed: attempt.hintsUsed,
+            },
+      )
       return {
         card: toCardDto(result.card),
         drilled: result.drilled,

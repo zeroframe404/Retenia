@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fuzzSeed, hashString, mulberry32 } from './prng'
+import { fuzzSeed, hashString, mulberry32, pickWithSeed, shuffleWithRng } from './prng'
 
 describe('hashString (FNV-1a)', () => {
   it('reproduces the published test vectors', () => {
@@ -57,5 +57,37 @@ describe('fuzzSeed', () => {
     expect(fuzzSeed(id, 0)).toBe(fuzzSeed(id, 0))
     expect(fuzzSeed(id, 0)).not.toBe(fuzzSeed(id, 1))
     expect(fuzzSeed(id, 0)).not.toBe(fuzzSeed('019a05a4-3fc0-7b39-9bf2-1abab07b14b2', 0))
+  })
+})
+
+describe('shuffleWithRng', () => {
+  it('returns a permutation without touching the input', () => {
+    const items = [1, 2, 3, 4, 5]
+    const shuffled = shuffleWithRng(items, mulberry32(7))
+    expect([...shuffled].sort((a, b) => a - b)).toEqual(items)
+    expect(items).toEqual([1, 2, 3, 4, 5])
+  })
+
+  it('is deterministic for the same seed', () => {
+    expect(shuffleWithRng([1, 2, 3, 4, 5], mulberry32(7))).toEqual(
+      shuffleWithRng([1, 2, 3, 4, 5], mulberry32(7)),
+    )
+  })
+
+  it('handles an empty list', () => {
+    expect(shuffleWithRng([], mulberry32(1))).toEqual([])
+  })
+})
+
+describe('pickWithSeed', () => {
+  it('returns undefined when there is nothing to pick', () => {
+    expect(pickWithSeed([], 'seed')).toBeUndefined()
+  })
+
+  it('picks the same item for the same seed and a different one for another', () => {
+    const items = ['a', 'b', 'c', 'd', 'e']
+    expect(pickWithSeed(items, 'seed-1')).toBe(pickWithSeed(items, 'seed-1'))
+    const picks = new Set(['s1', 's2', 's3', 's4', 's5', 's6'].map((s) => pickWithSeed(items, s)))
+    expect(picks.size).toBeGreaterThan(1)
   })
 })

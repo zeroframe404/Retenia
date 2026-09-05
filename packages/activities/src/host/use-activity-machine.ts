@@ -43,6 +43,14 @@ export const DEFAULT_MAX_ATTEMPTS = 1
 
 export interface ActivityCompletion {
   activity: Activity
+  /**
+   * What the learner submitted, in the family's answer shape; `null` for a skip.
+   *
+   * The grade alone cannot say *what* they got wrong, and §13 rule 2 keeps the raw answer on
+   * the attempt "in order to recalibrate" — so the completion carries the response it was
+   * derived from rather than making every caller reach back for it.
+   */
+  response: unknown
   /** `null` only when the activity was skipped before any grade. */
   result: GradeResult | null
   outcome: ActivityOutcome
@@ -275,6 +283,7 @@ export function useActivityMachine(options: UseActivityMachineOptions): Activity
         emitted.add('onComplete')
         onCompleteRef.current?.({
           activity,
+          response: state.response,
           result: state.result,
           outcome: state.outcome ?? 'graded',
           attempts: state.attempts,

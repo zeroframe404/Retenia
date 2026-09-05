@@ -25,6 +25,8 @@
   },
   "dependencies": {
     "@electron-toolkit/utils": "4.0.0",
+    "@retenia/activities": "workspace:*",
+    "@retenia/activity-schema": "workspace:*",
     "@retenia/core": "workspace:*",
     "@retenia/db": "workspace:*",
     "@retenia/i18n": "workspace:*",

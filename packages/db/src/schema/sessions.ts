@@ -47,6 +47,11 @@ export const ATTEMPT_CONTEXTS = [
 ] as const
 export type AttemptContext = (typeof ATTEMPT_CONTEXTS)[number]
 
+/** How the activity was served — §12's study/test split and §5's Legendary policy. Mirrors
+ *  `AttemptMode` in `@retenia/core`; a test pins the two lists together. */
+export const ATTEMPT_MODES = ['study', 'test', 'review'] as const
+export type AttemptMode = (typeof ATTEMPT_MODES)[number]
+
 /** Declared confidence (diagnostic and mock exams): weights `1.0 / 0.6 / 0.3` in Elo and
  * marks "confident misconceptions". */
 export const CONFIDENCE_LEVELS = ['sure', 'unsure', 'guessed'] as const
@@ -184,7 +189,17 @@ export const attempts = sqliteTable(
       .notNull()
       .references(() => activities.id),
     context: text('context', { enum: ATTEMPT_CONTEXTS }).notNull(),
+    /**
+     * How the activity was served (§12's study/test split, §5's Legendary). Added by
+     * migration 0007, so — like `cards.importance_override_expires_at` — it carries no
+     * CHECK: SQLite cannot add one with `ALTER TABLE`, and a table rebuild to gain it would
+     * be a heavier change than the constraint is worth while the enum is enforced by the
+     * IPC contract and by `AttemptMode` on the way in.
+     */
+    mode: text('mode', { enum: ATTEMPT_MODES }).notNull().default('study'),
     lessonSessionId: text('lesson_session_id').references(() => lessonSessions.id),
+    /** The daily review session this answer belonged to. Added by migration 0007. */
+    reviewSessionId: text('review_session_id').references(() => reviewSessions.id),
     examAttemptId: text('exam_attempt_id').references(() => examAttempts.id),
     cardId: text('card_id').references(() => cards.id),
     startedAt: timestampColumn('started_at').notNull(),
@@ -211,6 +226,7 @@ export const attempts = sqliteTable(
   (t) => [
     index('attempts_activity').on(t.activityId),
     index('attempts_session').on(t.lessonSessionId),
+    index('attempts_review_session').on(t.reviewSessionId),
     index('attempts_exam_attempt').on(t.examAttemptId),
     index('attempts_card').on(t.cardId),
     index('attempts_started').on(t.startedAt),

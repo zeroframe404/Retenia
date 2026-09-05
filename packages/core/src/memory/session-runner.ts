@@ -55,6 +55,15 @@ export type SessionPlanSnapshot = {
   newGated: boolean
   composedAt: string
   studyDay: number
+  /**
+   * The seed the plan was composed with.
+   *
+   * Not decoration: the activity selector of `../sessions` draws every tie-break from it,
+   * and a resumed session rebuilds from this snapshot rather than from the plan. Without it
+   * a session that survived an app restart would serve different activity types after the
+   * restart than before it, for the same cards, in the same order.
+   */
+  seed: string
 }
 
 /** One thing the user did, in order. `logId` is `null` for a skip — nothing was written. */
@@ -64,6 +73,14 @@ export type SessionOutcome = {
   logId: string | null
   durationMs: number | null
   at: string
+  /**
+   * The activity that was served for this card, or `null` when the plain flashcard was.
+   *
+   * It is what lets the selector's session history be a *fold over the outcomes* rather than
+   * a second piece of state: `undo` pops an outcome and the media budget and last-served
+   * type go back with it, with nothing to keep in sync.
+   */
+  activityId: string | null
 }
 
 export type SessionProgress = {
@@ -97,6 +114,7 @@ export function snapshotPlan(plan: SessionPlan, boundary: DayBoundary): SessionP
     newGated: plan.newGated,
     composedAt: plan.composedAt.toISOString(),
     studyDay: studyDayNumber(plan.composedAt, boundary.dayStartHour, boundary.timeZone),
+    seed: plan.seed,
   }
 }
 
@@ -120,6 +138,8 @@ export type SessionAnswerInput =
       /** Overrides the runner's own timer — a host that measured it more precisely. */
       durationMs?: number | null
       attemptId?: string | null
+      /** The activity that produced this rating, when one did rather than a grade button. */
+      activityId?: string | null
     }
 
 export interface SessionAnswerResult {
@@ -217,15 +237,23 @@ function normalizeAnswer(input: SessionAnswerInput): {
   exerciseScore: number | null
   durationMs: number | null
   attemptId: string | null
+  activityId: string | null
 } {
   if (typeof input === 'number') {
-    return { rating: input, exerciseScore: null, durationMs: null, attemptId: null }
+    return {
+      rating: input,
+      exerciseScore: null,
+      durationMs: null,
+      attemptId: null,
+      activityId: null,
+    }
   }
   return {
     rating: input.rating,
     exerciseScore: input.exerciseScore ?? null,
     durationMs: input.durationMs ?? null,
     attemptId: input.attemptId ?? null,
+    activityId: input.activityId ?? null,
   }
 }
 
@@ -310,7 +338,7 @@ export function createSessionRunner(deps: SessionRunnerDeps): SessionRunner {
       if (entry.kind === 'reinforcement') {
         throw new TypeError('session: a reinforcement node is not answered with a rating')
       }
-      const { rating, exerciseScore, durationMs, attemptId } = normalizeAnswer(input)
+      const { rating, exerciseScore, durationMs, attemptId, activityId } = normalizeAnswer(input)
       if (rating !== 1 && rating !== 2 && rating !== 3 && rating !== 4) {
         throw new RangeError(`session: rating must be 1 (Again) … 4 (Easy), got ${String(rating)}`)
       }
@@ -337,6 +365,7 @@ export function createSessionRunner(deps: SessionRunnerDeps): SessionRunner {
         logId: result.log.id,
         durationMs: measured,
         at: now.toISOString(),
+        activityId,
       })
       if (drillEntry === null) progress.cursor += 1
       else drillEntry = null
@@ -366,6 +395,9 @@ export function createSessionRunner(deps: SessionRunnerDeps): SessionRunner {
           logId: null,
           durationMs: null,
           at: clock.now().toISOString(),
+          // A skipped activity was shown but never engaged with, so it does not spend the
+          // session's variety budget: it may legitimately come back.
+          activityId: null,
         })
       }
       if (drillEntry === null) progress.cursor += 1

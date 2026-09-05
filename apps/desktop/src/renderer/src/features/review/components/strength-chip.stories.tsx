@@ -35,6 +35,7 @@ export const Due: Story = {
       retrievability: 0.82,
       desiredRetention: 0.9,
       examId: null,
+      activity: null,
     },
   },
 }
@@ -48,6 +49,7 @@ export const Critical: Story = {
       retrievability: 0.22,
       desiredRetention: 0.97,
       examId: null,
+      activity: null,
     },
   },
 }
@@ -61,6 +63,7 @@ export const New: Story = {
       retrievability: 0,
       desiredRetention: 0.9,
       examId: null,
+      activity: null,
     },
   },
 }
@@ -74,6 +77,7 @@ export const Relearning: Story = {
       retrievability: 0.55,
       desiredRetention: 0.92,
       examId: null,
+      activity: null,
     },
   },
 }
@@ -87,6 +91,7 @@ export const Exam: Story = {
       retrievability: 0.7,
       desiredRetention: 0.97,
       examId: '019213cd-0000-7000-8000-000000000009',
+      activity: null,
     },
   },
 }

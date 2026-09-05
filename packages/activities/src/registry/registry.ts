@@ -4,9 +4,10 @@ import {
   ACTIVITY_TYPES,
   familyOf,
   isActivityType,
+  progressionOf,
   validateActivity,
 } from '@retenia/activity-schema'
-import type { ActivityFamily, GradeMeta, RatingRule } from '@retenia/core'
+import type { ActivityFamily, GradeMeta, ProgressionStage, RatingRule } from '@retenia/core'
 import type { ActivityRendererComponent } from './renderers'
 import { familyRenderer, hasRenderer } from './renderers'
 
@@ -24,9 +25,17 @@ import { familyRenderer, hasRenderer } from './renderers'
 export const SOURCE_MODES = ['chunk', 'section', 'skill', 'document'] as const
 export type SourceMode = (typeof SOURCE_MODES)[number]
 
-/** §5's progression per skill: recognition → assisted production → free production. */
-export const PROGRESSION_STAGES = ['theory', 'recognition', 'assisted', 'production'] as const
-export type ProgressionStage = (typeof PROGRESSION_STAGES)[number]
+/**
+ * §5's progression per skill: recognition → assisted production → free production.
+ *
+ * Re-exported from `@retenia/core` rather than declared here. The session generator
+ * (`@retenia/core`'s `src/sessions`) is what reads these stages to decide what a due skill is
+ * asked, and `core` may import no internal package (`tooling/scripts/check-deps.mjs`) — so the
+ * list has to live there. Re-exporting keeps every type file's `review.progression` import
+ * unchanged while leaving exactly one definition to drift from.
+ */
+export type { ProgressionStage } from '@retenia/core'
+export { PROGRESSION_STAGES } from '@retenia/core'
 
 export interface ActivityGenerationSpec {
   /** The prompt `packages/ai` fills in for this type. A stub until sub-phase 8.3. */
@@ -132,7 +141,10 @@ export function resetActivityTypeRegistry(): void {
 export interface ActivityTypeDefinition {
   type: ActivityType
   generator: Omit<ActivityGenerationSpec, 'schemaRef'> & { schemaRef?: ActivityFamily }
-  review: Omit<ActivityReviewSpec, 'strategy'> & { strategy?: RatingRule }
+  review: Omit<ActivityReviewSpec, 'strategy' | 'progression'> & {
+    strategy?: RatingRule
+    progression?: ProgressionStage
+  }
   capabilities?: Partial<ActivityCapabilities>
   /** Overrides the family renderer — an escape hatch for a type that needs its own screen. */
   Renderer?: ActivityRendererComponent
@@ -174,7 +186,11 @@ export function defineActivityType(definition: ActivityTypeDefinition): Activity
     grader: definition.grader ?? gradeActivity,
     validate: definition.validate ?? validateActivity,
     generator: { schemaRef: meta.family, ...definition.generator },
-    review: { strategy: meta.ratingStrategy, ...definition.review },
+    review: {
+      strategy: meta.ratingStrategy,
+      progression: progressionOf(type),
+      ...definition.review,
+    },
     capabilities: { ...DEFAULT_CAPABILITIES, ...definition.capabilities },
   })
 }

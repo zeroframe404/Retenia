@@ -11,12 +11,25 @@ export default defineConfig({
       // native modules like better-sqlite3 need: `sqlite-vec` also resolves a loadable
       // extension from its own package directory, and neither survives being bundled.
       //
-      // The workspace packages are the other way round: `@retenia/ipc-contract`,
-      // `@retenia/core` and `@retenia/db` all ship TypeScript source with no build step, so
-      // Node could not `require` them at runtime and they have to be bundled. `zod` comes
-      // along with the contract.
+      // The workspace packages are the other way round: every `@retenia/*` package ships
+      // TypeScript source with no build step (their `exports` point straight at
+      // `./src/index.ts`), so Node could not `require` them at runtime and they have to be
+      // bundled. `zod` comes along with the contract.
+      //
+      // This list is therefore not optional polish: **any** `@retenia/*` package imported
+      // from `src/main/**` must appear here. Leave one out and the emitted
+      // `out/main/index.js` keeps a bare import that resolves to raw TypeScript; the main
+      // process throws on startup, no window ever opens, and the only thing that notices is
+      // the e2e job, where all of Playwright fails at once with "timeout ... while setting
+      // up electronApp". `externalize-main-deps.test.ts` keeps the list honest.
       externalizeDeps: {
-        exclude: ['@retenia/ipc-contract', '@retenia/core', '@retenia/db', 'zod'],
+        exclude: [
+          '@retenia/ipc-contract',
+          '@retenia/core',
+          '@retenia/db',
+          '@retenia/activity-schema',
+          'zod',
+        ],
       },
       rollupOptions: {
         input: {

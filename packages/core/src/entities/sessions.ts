@@ -1,6 +1,7 @@
 import type { Entity, JsonObject, JsonValue } from './_common'
 import type {
   AttemptContext,
+  AttemptMode,
   CardState,
   ConfidenceLevel,
   LessonSessionStatus,
@@ -29,7 +30,17 @@ export interface LessonSession extends Entity {
 export interface Attempt extends Entity {
   activityId: string
   context: AttemptContext
+  /**
+   * How the activity was served — `docs/spec/03-activities.md` §12's study/test split and
+   * §5's Legendary policy. `test` means hints were withheld and feedback deferred, so a
+   * slow answer under it is not evidence of the same thing a slow `study` answer is; §17
+   * risk 3's "measure true retention per type and adjust" cannot be done honestly without
+   * knowing which posture produced the row.
+   */
+  mode: AttemptMode
   lessonSessionId: string | null
+  /** The daily review session this answer belonged to, when it came from one. */
+  reviewSessionId: string | null
   examAttemptId: string | null
   /** Set when the attempt fed the scheduler — the link to the review log. */
   cardId: string | null

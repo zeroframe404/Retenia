@@ -159,7 +159,7 @@ export {
   schedulingOptionsFromParameters,
   stepUnitToMinutes,
 } from './parameters'
-export { fuzzSeed, hashString, mulberry32 } from './prng'
+export { fuzzSeed, hashString, mulberry32, pickWithSeed, shuffleWithRng } from './prng'
 export type {
   GradeMeta,
   GradeResult,

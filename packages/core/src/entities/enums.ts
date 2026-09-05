@@ -91,6 +91,29 @@ export type ActivityFamily = (typeof ACTIVITY_FAMILIES)[number]
 export const ACTIVITY_STATUSES = ['ready', 'pending_media', 'needs_review', 'rejected'] as const
 export type ActivityStatus = (typeof ACTIVITY_STATUSES)[number]
 
+/**
+ * How much help an activity type gives the learner — `docs/spec/03-activities.md` §5's
+ * "progression per skill": *"1st exposure → recognition (`mcq` / `true_false` /
+ * `cloze_dropdown`); medium stability → assisted production (`cloze_wordbank`,
+ * `sentence_builder`, `matching`); high stability → free production (`cloze_typed`,
+ * `short_answer`, `free_recall`)"*.
+ *
+ * It lives in `core` rather than in the activity registry because the session generator —
+ * which is the thing that reads it — is domain logic, and `core` may import no internal
+ * package (`tooling/scripts/check-deps.mjs`). `packages/activities` imports it from here so
+ * there is one list, not two that drift.
+ *
+ * `theory` is the odd one out: it is not a rung of the ladder but the marker for the
+ * lesson-only types (`disclosure_block`), which are never selected for review.
+ */
+export const PROGRESSION_STAGES = ['theory', 'recognition', 'assisted', 'production'] as const
+export type ProgressionStage = (typeof PROGRESSION_STAGES)[number]
+
+/** How an activity is being served — `docs/spec/03-activities.md` §12's study/test split
+ *  and §5's "Legendary" policy. Mirrors the `ActivityHost` machine's own modes. */
+export const ATTEMPT_MODES = ['study', 'test', 'review'] as const
+export type AttemptMode = (typeof ATTEMPT_MODES)[number]
+
 // --- exams and item bank --------------------------------------------------------------
 
 export const EXAM_KINDS = ['dated', 'mock', 'final', 'diagnostic'] as const

@@ -89,6 +89,7 @@ describe('loadMigrations()', () => {
       '0004_card_importance_override_expiry',
       '0005_review_sessions',
       '0006_review_activity_type_and_stats',
+      '0007_attempt_mode_and_review_session',
     ])
     for (const migration of migrations) expect(migration.sql.length).toBeGreaterThan(0)
   })
@@ -130,6 +131,7 @@ describe('migrate()', () => {
       '0004_card_importance_override_expiry',
       '0005_review_sessions',
       '0006_review_activity_type_and_stats',
+      '0007_attempt_mode_and_review_session',
     ])
     expect(result.alreadyApplied).toEqual([])
     expect(listTables(opened)).toEqual([...EXPECTED_TABLES])
@@ -149,6 +151,7 @@ describe('migrate()', () => {
       '0004_card_importance_override_expiry',
       '0005_review_sessions',
       '0006_review_activity_type_and_stats',
+      '0007_attempt_mode_and_review_session',
     ])
     expect(listTables(opened)).toEqual([...EXPECTED_TABLES])
     expect(opened.sqlite.prepare('SELECT count(*) AS n FROM importance_levels').get()).toEqual({
@@ -178,7 +181,7 @@ describe('migrate()', () => {
 
   it('accepts the raw handle and the Drizzle instance as targets too', () => {
     opened = openDatabase(IN_MEMORY)
-    expect(migrate(opened.sqlite).applied).toHaveLength(7)
+    expect(migrate(opened.sqlite).applied).toHaveLength(8)
     expect(migrate(opened.db).applied).toHaveLength(0)
   })
 

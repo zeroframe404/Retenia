@@ -6,6 +6,12 @@
  * `vitest` (a devDependency) never enters a production bundle.
  */
 
+export type { CardEntrySpec } from './activity-fixtures'
+export {
+  activityOptionFixture,
+  cardEntryFixture,
+  nextActivityId,
+} from './activity-fixtures'
 export {
   auditContract,
   blobsContract,
