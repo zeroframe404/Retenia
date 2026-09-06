@@ -2,10 +2,12 @@ import { useState } from 'react'
 import { SourceDetail } from './source-detail'
 import { SourceList } from './source-list'
 import {
+  useAddCourseFromFolder,
   useAddSourceFromDialog,
   useAddSourceFromFiles,
   useAddSourceFromText,
   useContextualizationEstimate,
+  useCreateCardFromClip,
   useDeleteSource,
   useLibraryJobEvents,
   useRetrySource,
@@ -32,6 +34,7 @@ function ConnectedSourceDetail({ id, onBack }: { id: string; onBack: () => void 
   const docQuery = useSourceDoc(id)
   const chunksQuery = useSourceChunks(id, { excludeFrontmatter })
   const estimateQuery = useContextualizationEstimate(id)
+  const createClip = useCreateCardFromClip()
   return (
     <SourceDetail
       source={sourceQuery.data?.source ?? undefined}
@@ -42,6 +45,17 @@ function ConnectedSourceDetail({ id, onBack }: { id: string; onBack: () => void 
       excludeFrontmatter={excludeFrontmatter}
       onExcludeFrontmatterChange={setExcludeFrontmatter}
       onBack={onBack}
+      onCreateClip={({ startSec, endSec, text }) =>
+        createClip.mutate({
+          sourceId: id,
+          startSec,
+          endSec,
+          // A clip over silence has no transcript to be the card's back; the mutation's own
+          // fallback (the source title and the timestamp) is better than an empty string,
+          // which the contract would reject anyway.
+          ...(text.length > 0 ? { back: text } : {}),
+        })
+      }
     />
   )
 }
@@ -60,6 +74,7 @@ export function LibraryPage({ searchQuery }: LibraryPageProps) {
 
   const sourcesQuery = useSources()
   const addFromDialog = useAddSourceFromDialog()
+  const addCourse = useAddCourseFromFolder()
   const addFromFiles = useAddSourceFromFiles()
   const addFromText = useAddSourceFromText()
   const retry = useRetrySource()
@@ -81,6 +96,7 @@ export function LibraryPage({ searchQuery }: LibraryPageProps) {
       onRetry={(id) => retry.mutate({ id })}
       onDelete={(id) => remove.mutate({ id })}
       onAddFromDialog={() => addFromDialog.mutate(undefined)}
+      onAddCourseFromFolder={() => addCourse.mutate(undefined)}
       onDropFiles={(files) => {
         void readDroppedFiles(files).then((read) => addFromFiles.mutate({ files: read }))
       }}

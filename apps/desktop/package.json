@@ -35,6 +35,7 @@
     "@retenia/i18n": "workspace:*",
     "@retenia/ingest": "workspace:*",
     "@retenia/ipc-contract": "workspace:*",
+    "@retenia/readers": "workspace:*",
     "@retenia/ui": "workspace:*",
     "@sentry/electron": "7.18.0",
     "@tanstack/react-query": "5.102.8",

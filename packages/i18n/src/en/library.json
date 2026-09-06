@@ -82,5 +82,34 @@
     "noModel": "No embedding model configured; text search only.",
     "pending": "{count, plural, one {# source not indexed} other {# sources not indexed}}",
     "notEmbeddedHint": "This source is not in the semantic index yet."
-  }
+  },
+  "media": {
+    "tab": "Media",
+    "play": "Play",
+    "pause": "Pause",
+    "mute": "Mute",
+    "unmute": "Unmute",
+    "back": "Back 10 seconds",
+    "forward": "Forward 10 seconds",
+    "transcript": "Transcript",
+    "keyframes": "Slides",
+    "noTranscript": "This source has no transcript yet.",
+    "noKeyframes": "No slides were found.",
+    "followPlayhead": "Follow playback",
+    "clip": "Clip",
+    "clipStart": "Mark the start",
+    "clipEnd": "Create a card",
+    "clipSave": "Save",
+    "clipCancel": "Cancel",
+    "clipHint": "Move to the end of the clip and press the button again.",
+    "clipCreated": "A card was created from that clip.",
+    "localNotice": "Your files are processed locally on your computer. Nothing is uploaded except the frames or text you enable.",
+    "partOf": "Lesson {index} of {total}: {title}",
+    "frameAt": "Slide at {label}",
+    "unavailable": "This source has not been processed yet."
+  },
+  "addFolder": "Add a course folder",
+  "courseImported": "Imported {count} lessons as a single source.",
+  "courseTruncated": "The folder holds more files than one import can take; the first {count} were used.",
+  "courseEmpty": "That folder has no audio or video in it."
 }

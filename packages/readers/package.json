@@ -10,23 +10,36 @@
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "lint": "biome check ."
+    "lint": "biome check .",
+    "storybook": "storybook dev -p 6007 --no-open",
+    "storybook:build": "storybook build -o storybook-static"
   },
   "dependencies": {
     "@retenia/core": "workspace:*",
     "@retenia/ui": "workspace:*",
+    "lucide-react": "1.39.0",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
   "devDependencies": {
     "@retenia/config": "workspace:*",
+    "@retenia/i18n": "workspace:*",
+    "@storybook/addon-themes": "10.5.10",
+    "@storybook/react-vite": "10.2.0",
+    "@tailwindcss/vite": "4.3.3",
     "@testing-library/jest-dom": "7.0.1",
     "@testing-library/react": "16.3.3",
     "@testing-library/user-event": "14.6.6",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.5",
+    "i18next": "26.4.1",
+    "i18next-icu": "2.4.4",
     "jsdom": "30.0.1",
+    "motion": "13.1.1",
+    "react-i18next": "17.0.13",
+    "storybook": "10.2.0",
     "typescript": "7.0.2",
+    "vite": "7.3.6",
     "vitest": "4.1.11"
   }
 }
