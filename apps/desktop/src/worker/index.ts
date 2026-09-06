@@ -36,6 +36,36 @@ function exitWhenIdle(port: Electron.MessagePortMain): void {
   }
 }
 
+/**
+ * Second line of defence for sub-phase 6.4's sidecars.
+ *
+ * Cancelling a job aborts its `AbortController`, and `runSidecar`'s own abort listener
+ * kill-trees whatever ffmpeg or whisper-cli it started — that is the path that runs in
+ * practice, and it fires long before the pool's five-second grace expires. This covers the
+ * case where the worker is told to stop without any job being cancelled first, or is sent
+ * SIGTERM: without it, a `utilityProcess` that goes away mid-transcription would leave a
+ * transcoder running with nothing left to kill it.
+ *
+ * Registered lazily, because `@retenia/ingest/sidecars` pulls in `node:child_process` and
+ * every other job in this worker has no use for it.
+ *
+ * What this cannot cover is an unconditional kill — `SIGKILL`, or Windows' `TerminateProcess`,
+ * which is what `UtilityProcess.kill()` does there. No handler runs then, and Node exposes
+ * neither a Job Object nor `PR_SET_PDEATHSIG` to tie a child's lifetime to its parent's. The
+ * gap is recorded rather than papered over; the cooperative path above is what makes it
+ * narrow.
+ */
+function killSidecarsOnExit(): void {
+  const teardown = (): void => {
+    void import('@retenia/ingest/sidecars')
+      .then(async ({ killAllSidecars }) => killAllSidecars())
+      .catch(() => undefined)
+  }
+  process.on('SIGTERM', teardown)
+  process.on('SIGINT', teardown)
+  process.on('exit', teardown)
+}
+
 function buildContext(
   port: Electron.MessagePortMain,
   jobId: string,
@@ -139,13 +169,17 @@ process.parentPort.once('message', (event) => {
     process.exit(1)
   }
 
+  killSidecarsOnExit()
   const handshake = jobHandshakeSchema.safeParse(event.data)
   if (!handshake.success) {
     console.error('[job-worker] malformed handshake; exiting:', handshake.error.message)
     process.exit(1)
   }
   registry = createJobRegistry(
-    createJobDefinitions(handshake.data.readableRoots, handshake.data.modelsRoot),
+    createJobDefinitions(handshake.data.readableRoots, handshake.data.modelsRoot, {
+      binRoot: handshake.data.binRoot ?? handshake.data.modelsRoot,
+      ...(handshake.data.hostEnv === undefined ? {} : { hostEnv: handshake.data.hostEnv }),
+    }),
   )
 
   port.on('message', (message) => handle(port, message.data))

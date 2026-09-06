@@ -361,6 +361,8 @@ function makeDeps(overrides: Partial<HandlerDeps> = {}): HandlerDeps {
     library: {
       addFromFile: vi.fn(),
       addFromBytes: vi.fn(),
+      addCourseFromFolder: vi.fn(),
+      createCardFromClip: vi.fn(),
       addFromText: vi.fn(),
       retry: vi.fn(),
       list: vi.fn(async () => []),

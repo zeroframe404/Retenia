@@ -91,5 +91,25 @@ export const jobHandshakeSchema = z.object({
    * the blob store, or a book into the models directory.
    */
   modelsRoot: z.string(),
+  /**
+   * `<userData>/bin`, where sub-phase 6.4's media job installs and runs ffmpeg and
+   * whisper-cli. Named separately for the same reason `modelsRoot` is — it is a directory a
+   * job *writes* to outside the blob store — and with one extra caveat worth stating: it is
+   * the only writable directory whose contents are then **executed**. What keeps that
+   * bounded is that only `installSidecar` writes here, every archive is checked against the
+   * SHA-256 in `packages/ingest/src/sidecars/manifest.json` before it is unpacked, and only
+   * the binaries the manifest names are ever spawned.
+   */
+  binRoot: z.string().optional(),
+  /**
+   * The handful of host environment variables a spawned sidecar needs.
+   *
+   * The pool forks workers with `env: {}` so a provider API key can never reach a parser,
+   * which means the worker's own `process.env` is empty and it cannot look these up. On
+   * Linux that mostly goes unnoticed; on Windows a process with no `SystemRoot` fails to
+   * initialise Winsock and dies before it parses its arguments. Main reads them with
+   * `forwardableEnv` and passes them here.
+   */
+  hostEnv: z.record(z.string(), z.string()).optional(),
 })
 export type JobHandshake = z.infer<typeof jobHandshakeSchema>

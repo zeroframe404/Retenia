@@ -18,6 +18,7 @@ import {
 import { ArrowLeftIcon } from 'lucide-react'
 import { useT } from '../../i18n/use-t'
 import { SourceChunks } from './source-chunks'
+import { SourceMedia } from './source-media'
 
 export interface SourceDetailProps {
   source: SourceSummary | undefined
@@ -30,6 +31,8 @@ export interface SourceDetailProps {
   excludeFrontmatter: boolean
   onExcludeFrontmatterChange: (value: boolean) => void
   onBack: () => void
+  /** "Crear tarjeta desde este fragmento", for a selected time range (sub-phase 6.4). */
+  onCreateClip?: (clip: { startSec: number; endSec: number; text: string }) => void
 }
 
 function SectionNode({
@@ -85,8 +88,12 @@ export function SourceDetail({
   excludeFrontmatter,
   onExcludeFrontmatterChange,
   onBack,
+  onCreateClip,
 }: SourceDetailProps) {
   const t = useT('library')
+  // A recording's first question is "play it", not "show me its section tree", so the media
+  // tab is both present and default for the two kinds that have one.
+  const isMedia = source?.kind === 'audio' || source?.kind === 'video'
 
   return (
     <div className="flex h-full flex-col gap-4">
@@ -114,12 +121,29 @@ export function SourceDetail({
             </div>
           )}
 
-          <Tabs defaultValue="sections" className="flex min-h-0 flex-1 flex-col gap-3">
+          <Tabs
+            defaultValue={isMedia ? 'media' : 'sections'}
+            className="flex min-h-0 flex-1 flex-col gap-3"
+          >
             <TabsList className="self-start">
               <TabsIndicator />
+              {isMedia && <TabsTab value="media">{t('media.tab')}</TabsTab>}
               <TabsTab value="sections">{t('detail.sections')}</TabsTab>
               <TabsTab value="chunks">{t('chunks.title')}</TabsTab>
             </TabsList>
+
+            {isMedia && source !== undefined && (
+              <TabsPanel value="media" className="flex min-h-0 flex-1 flex-col">
+                <ScrollArea className="min-h-0 flex-1">
+                  <SourceMedia
+                    sourceId={source.id}
+                    kind={source.kind as 'audio' | 'video'}
+                    media={source.meta?.media}
+                    {...(onCreateClip === undefined ? {} : { onCreateClip })}
+                  />
+                </ScrollArea>
+              </TabsPanel>
+            )}
 
             <TabsPanel value="sections" className="flex min-h-0 flex-1 flex-col">
               <ScrollArea className="min-h-0 flex-1">

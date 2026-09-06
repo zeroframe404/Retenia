@@ -32,6 +32,17 @@ export function useSourceChunks(id: string, options: { excludeFrontmatter?: bool
   })
 }
 
+/**
+ * The source's citable units — transcript windows and keyframes (sub-phase 6.4).
+ *
+ * The player's data source, deliberately in place of `library.getSourceDoc`: a course's parsed
+ * document is tens of thousands of blocks in one structured clone, and all the player needs is
+ * where each window and each slide sits on the timeline.
+ */
+export function useSourceUnits(id: string) {
+  return useIpcQuery('library.listUnits', { id, kinds: ['segment', 'keyframe'] })
+}
+
 /** What the "improved index" toggle would cost. Provider-free: it is arithmetic over the
  *  chunks, so it answers before any API key exists (`docs/spec/05-ingestion-rag.md` §4.2). */
 export function useContextualizationEstimate(id: string) {
@@ -45,6 +56,22 @@ export function useAddSourceFromDialog() {
       void client.invalidateQueries({ queryKey: LIST_KEY })
     },
   })
+}
+
+/** A course folder as one source (sub-phase 6.4). Main opens the directory picker, so the
+ *  renderer never names a path for it to enumerate. */
+export function useAddCourseFromFolder() {
+  const client = useQueryClient()
+  return useIpcMutation('library.addCourseFromFolder', {
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: LIST_KEY })
+    },
+  })
+}
+
+/** "Crear tarjeta desde este fragmento", from a range selected in the player. */
+export function useCreateCardFromClip() {
+  return useIpcMutation('library.createCardFromClip', {})
 }
 
 export function useAddSourceFromFiles() {

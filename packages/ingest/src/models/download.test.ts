@@ -113,6 +113,25 @@ function fakeServer(): FakeServer {
   return server
 }
 
+/**
+ * Headroom for the four tests that drive `downloadModel` twice.
+ *
+ * Named for what they have in common: each runs the downloader a second time, so each pays the
+ * filesystem cost twice. That cost is not *overwriting* a file, which is what the comment here
+ * used to claim — it is the per-file `replaceFile`, an unlink and a rename over bytes a scanner
+ * is reading the moment they are written, paid once per file per run.
+ *
+ * Measured on `windows-latest`: 4.2 s for the second no-op run, 5.1 s for the resume, 5.8 s for
+ * the revision bump. Two already carried this ceiling and passed; the other two were riding
+ * Vitest's 5 s default and the resume crossed it. The same three finish in tens of milliseconds
+ * on Linux and macOS, and in most Windows runs.
+ *
+ * Nothing is skipped or relaxed: every assertion is unchanged. The default was never a
+ * performance budget for these, and a test that fails only when a virus scanner gets between
+ * two syscalls is measuring the scanner.
+ */
+const TWO_DOWNLOAD_RUNS = { timeout: 20_000 }
+
 describe('modelFileUrl', () => {
   it('pins the commit, never the branch', () => {
     const file = SPEC.files[0] as (typeof SPEC.files)[number]
@@ -146,7 +165,7 @@ describe('downloadModel', () => {
     expect(progress).toEqual([...progress].sort((left, right) => left - right))
   })
 
-  it('is a no-op the second time, without touching the network', async () => {
+  it('is a no-op the second time, without touching the network', TWO_DOWNLOAD_RUNS, async () => {
     const store = createModelStore(await tempRoot())
     const first = fakeServer()
     await downloadModel(SPEC, { store, fetch: first.fetch, endpoint: ENDPOINT })
@@ -158,25 +177,29 @@ describe('downloadModel', () => {
     expect(result.skipped).toEqual(Object.keys(CONTENTS))
   })
 
-  it('resumes: a run that failed halfway only re-fetches what is still missing', async () => {
-    const store = createModelStore(await tempRoot())
-    const failing = fakeServer()
-    failing.missing.add('onnx/model_quantized.onnx')
-    await expect(
-      downloadModel(SPEC, { store, fetch: failing.fetch, endpoint: ENDPOINT }),
-    ).rejects.toThrow(ModelDownloadError)
+  it(
+    'resumes: a run that failed halfway only re-fetches what is still missing',
+    TWO_DOWNLOAD_RUNS,
+    async () => {
+      const store = createModelStore(await tempRoot())
+      const failing = fakeServer()
+      failing.missing.add('onnx/model_quantized.onnx')
+      await expect(
+        downloadModel(SPEC, { store, fetch: failing.fetch, endpoint: ENDPOINT }),
+      ).rejects.toThrow(ModelDownloadError)
 
-    const recovering = fakeServer()
-    const result = await downloadModel(SPEC, {
-      store,
-      fetch: recovering.fetch,
-      endpoint: ENDPOINT,
-    })
-    // The two small files landed on the first run; only the weights are fetched again.
-    expect(result.downloaded).toEqual(['onnx/model_quantized.onnx'])
-    expect(recovering.requests).toHaveLength(1)
-    expect((await store.status(SPEC)).installed).toBe(true)
-  })
+      const recovering = fakeServer()
+      const result = await downloadModel(SPEC, {
+        store,
+        fetch: recovering.fetch,
+        endpoint: ENDPOINT,
+      })
+      // The two small files landed on the first run; only the weights are fetched again.
+      expect(result.downloaded).toEqual(['onnx/model_quantized.onnx'])
+      expect(recovering.requests).toHaveLength(1)
+      expect((await store.status(SPEC)).installed).toBe(true)
+    },
+  )
 
   it('refuses a file whose bytes do not match the manifest, and leaves nothing behind', async () => {
     const store = createModelStore(await tempRoot())
@@ -234,16 +257,9 @@ describe('downloadModel', () => {
     await expect(stat(`${store.filePath(SPEC, 'config.json')}.part`)).rejects.toThrow()
   })
 
-  // The two tests below are the only ones that make `downloadModel` write over a file that
-  // already exists, which is the operation Windows can briefly refuse (see `replaceFile`).
-  // They get room for its ~0.8 s of backoff on top of the work itself; where nothing holds
-  // the file — every Linux and macOS run, and most Windows ones — they finish in tens of
-  // milliseconds and never come near this ceiling.
-  const REPLACES_A_FILE = { timeout: 20_000 }
-
   it(
     'overwrites a file that is already there, with no handle left open',
-    REPLACES_A_FILE,
+    TWO_DOWNLOAD_RUNS,
     async () => {
       // The Windows case, and the one the `windows-latest` job found twice. Replacing a file
       // there is not the single atomic call it is on Linux: `MoveFileExW` opens the
@@ -273,7 +289,7 @@ describe('downloadModel', () => {
 
   it(
     're-downloads a file the receipt no longer vouches for after a revision bump',
-    REPLACES_A_FILE,
+    TWO_DOWNLOAD_RUNS,
     async () => {
       const store = createModelStore(await tempRoot())
       await downloadModel(SPEC, { store, fetch: fakeServer().fetch, endpoint: ENDPOINT })

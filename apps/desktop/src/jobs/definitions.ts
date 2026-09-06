@@ -16,6 +16,12 @@ export { canonicalize, confinePath, isInsideRoot, JobCancelledError, whenAborted
 /**
  * Every job kind this build can run.
  *
+ * `ingestParseSource` also covers audio and video (sub-phase 6.4): it branches on the
+ * source's kind rather than gaining a job of its own, because the media pipeline's output is
+ * a `SourceDoc` of exactly the same shape, and a second kind would mean a second chain in
+ * `library/service.ts`, a second entry in the renderer's invalidation list and a second thing
+ * for `retrySource` to choose between — all to describe the same step.
+ *
  * `sleep` and `hashFile` are the demo pair the queue shipped with, exercising it end to
  * end — progress, cancellation, retries, the `utilityProcess` round trip. `fsrsOptimize`
  * (sub-phase 4.6) is the first real one: it trains the FSRS parameters on the user's own
@@ -129,7 +135,22 @@ async function hashFile(path: string, ctx: JobContext): Promise<{ sha256: string
  * Electron's `app.getPath` — which this module must not import, since it is shared with the
  * worker bundle and has to stay free of Electron.
  */
-export function createJobDefinitions(readableRoots: readonly string[], modelsRoot?: string) {
+export interface SidecarEnvironment {
+  /** `<userData>/bin` — where sub-phase 6.4's media job installs ffmpeg and whisper-cli. */
+  binRoot: string
+  /** `<repo>/.sidecars`, when a development tree has one. */
+  devRoot?: string
+  /** `<app>/resources/bin`, for a build that bundles them. */
+  bundledRoot?: string
+  /** Host values the worker cannot read for itself (it is forked with an empty env). */
+  hostEnv?: Record<string, string>
+}
+
+export function createJobDefinitions(
+  readableRoots: readonly string[],
+  modelsRoot?: string,
+  sidecars?: SidecarEnvironment,
+) {
   // `readableRoots[0]` is the blob store; the models root is passed separately because it is
   // the one directory a job *writes* outside the blob store, and only these two jobs may.
   const models = modelsRoot ?? (readableRoots[0] as string)
@@ -137,7 +158,7 @@ export function createJobDefinitions(readableRoots: readonly string[], modelsRoo
     registerJob(sleepJob),
     registerJob(createHashFileJob(readableRoots)),
     registerJob(createFsrsOptimizeJob(readableRoots)),
-    registerJob(createIngestParseJob(readableRoots)),
+    registerJob(createIngestParseJob(readableRoots, models, sidecars)),
     registerJob(createIngestChunkJob(readableRoots)),
     registerJob(createIngestEmbedJob(models, readableRoots)),
     registerJob(createDownloadModelJob(models, readableRoots)),

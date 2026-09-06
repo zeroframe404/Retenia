@@ -15,6 +15,7 @@ const baseArgs = {
   onRetry: () => {},
   onDelete: () => {},
   onAddFromDialog: () => {},
+  onAddCourseFromFolder: () => {},
   onDropFiles: () => {},
   onAddFromText: () => {},
 }

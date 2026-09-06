@@ -82,5 +82,34 @@
     "noModel": "No hay modelo de embeddings configurado; solo búsqueda por texto.",
     "pending": "{count, plural, one {# fuente sin indexar} other {# fuentes sin indexar}}",
     "notEmbeddedHint": "Esta fuente todavía no está en el índice semántico."
-  }
+  },
+  "media": {
+    "tab": "Multimedia",
+    "play": "Reproducir",
+    "pause": "Pausar",
+    "mute": "Silenciar",
+    "unmute": "Activar el sonido",
+    "back": "Retroceder 10 segundos",
+    "forward": "Adelantar 10 segundos",
+    "transcript": "Transcripción",
+    "keyframes": "Diapositivas",
+    "noTranscript": "Todavía no hay transcripción para esta fuente.",
+    "noKeyframes": "No se encontraron diapositivas.",
+    "followPlayhead": "Seguir la reproducción",
+    "clip": "Recortar",
+    "clipStart": "Marcar el inicio",
+    "clipEnd": "Crear tarjeta",
+    "clipSave": "Guardar",
+    "clipCancel": "Cancelar",
+    "clipHint": "Movete hasta el final del fragmento y volvé a tocar el botón.",
+    "clipCreated": "Se creó una tarjeta con ese fragmento.",
+    "localNotice": "Tus archivos se procesan localmente en tu computadora. No se sube nada salvo los fotogramas o el texto que habilites.",
+    "partOf": "Clase {index} de {total}: {title}",
+    "frameAt": "Diapositiva en {label}",
+    "unavailable": "Esta fuente todavía no se procesó."
+  },
+  "addFolder": "Agregar una carpeta de curso",
+  "courseImported": "Se importaron {count} clases como una sola fuente.",
+  "courseTruncated": "La carpeta tiene más archivos de los que se pueden importar de una vez; se tomaron los primeros {count}.",
+  "courseEmpty": "Esa carpeta no tiene audio ni video."
 }

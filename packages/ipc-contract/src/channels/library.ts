@@ -39,9 +39,60 @@ export type SourceStatus = z.infer<typeof sourceStatusSchema>
 /** Where the source stands in the *vector* index — a different question from whether it
  *  parsed (sub-phase 6.3, `docs/spec/05-ingestion-rag.md` §3). Mirrors `EMBEDDING_STATUSES`
  *  in `packages/core/src/entities/enums.ts`; its own test asserts the two lists agree. */
+/** Mirrors `SOURCE_UNIT_KINDS` in `packages/core/src/entities/enums.ts`; its own test asserts
+ *  the two lists still agree. */
+export const SOURCE_UNIT_KINDS = ['page', 'slide', 'section', 'keyframe', 'segment'] as const
+export const sourceUnitKindSchema = z.enum(SOURCE_UNIT_KINDS)
+export type SourceUnitKind = z.infer<typeof sourceUnitKindSchema>
+
 export const EMBEDDING_STATUSES = ['pending', 'running', 'ready', 'failed'] as const
 export const embeddingStatusSchema = z.enum(EMBEDDING_STATUSES)
 export type EmbeddingStatus = z.infer<typeof embeddingStatusSchema>
+
+/** One file of a media source, positioned on the source's virtual timeline (sub-phase 6.4).
+ *  A single recording has one part; a course folder has one per lecture. */
+export const mediaPartSchema = z.object({
+  blobSha256: z.string(),
+  mime: z.string(),
+  title: z.string(),
+  startSec: z.number(),
+  durationSec: z.number().nullable(),
+  ordinal: z.int(),
+})
+export type MediaPartDto = z.infer<typeof mediaPartSchema>
+
+/**
+ * What the media pipeline learned about an `audio`/`video` source.
+ *
+ * Carried on both `sourceMetaSchema` and `sourceDocSchema.meta`, because the player needs it
+ * from the cheap `library.getSource` call rather than from the whole `SourceDoc` — a course's
+ * document is tens of thousands of blocks, and the player only wants to know which file to
+ * load and where it starts.
+ */
+export const mediaMetaSchema = z.object({
+  durationSec: z.number().nullable(),
+  parts: z.array(mediaPartSchema),
+  transcript: z
+    .object({
+      engine: z.string(),
+      modelId: z.string(),
+      variant: z.string(),
+      language: z.string().nullable(),
+      vad: z.boolean(),
+      vttBlobSha256: z.string().nullable(),
+    })
+    .nullable(),
+  keyframes: z
+    .object({
+      count: z.int(),
+      strategy: z.enum(['scene', 'interval']),
+      duplicatesDropped: z.int(),
+      overBudgetDropped: z.int(),
+    })
+    .nullable(),
+  vision: z.object({ provider: z.string(), framesDescribed: z.int() }).nullable(),
+})
+export type MediaMetaDto = z.infer<typeof mediaMetaSchema>
 
 /** What `library/service.ts`'s `onJobSettled` writes into `sources.meta` once a parse
  *  succeeds — not the full `SourceDoc`, just enough for a source card to summarize it. */
@@ -59,6 +110,8 @@ export const sourceMetaSchema = z
     frontmatterChunkCount: z.number().optional(),
     chunkTokenCount: z.number().optional(),
     chunkingVersion: z.string().optional(),
+    /** Sub-phase 6.4, for `audio`/`video` sources. */
+    media: mediaMetaSchema.optional(),
   })
   .nullable()
 
@@ -120,8 +173,12 @@ const assetSchema = z.object({
   id: z.string(),
   blobSha256: z.string(),
   mime: z.string(),
-  kind: z.enum(['image', 'thumbnail']),
+  /** `keyframe` and `caption` are sub-phase 6.4's; mirrors `packages/ingest`'s `AssetKind`. */
+  kind: z.enum(['image', 'thumbnail', 'keyframe', 'caption']),
   locator: locatorSchema.optional(),
+  /** A keyframe's OCR or vision description. */
+  text: z.string().optional(),
+  meta: z.record(z.string(), z.unknown()).optional(),
 })
 
 /**
@@ -147,6 +204,7 @@ export const sourceDocSchema = z.object({
     ocrConfidence: z.number().optional(),
     warnings: z.array(z.string()),
     frontmatter: z.record(z.string(), z.unknown()).optional(),
+    media: mediaMetaSchema.optional(),
   }),
 })
 export type SourceDocDto = z.infer<typeof sourceDocSchema>
@@ -158,6 +216,24 @@ export const MAX_IMPORT_FILE_BYTES = 256 * 1024 * 1024
 
 /** One `chunks` row as the Library shows it: enough to render the list and open the source at
  *  the right page, without shipping the audit columns. */
+/** One `source_units` row as the player needs it: a transcript window to jump to, or a
+ *  keyframe to draw a marker for. */
+export const sourceUnitSummarySchema = z.object({
+  id: z.uuid(),
+  kind: sourceUnitKindSchema,
+  ordinal: z.int(),
+  /** `p. 12`, `Slide 4`, `12:30`. */
+  label: z.string().nullable(),
+  /** Media offsets in milliseconds, on the source's global timeline. */
+  tStartMs: z.int().nullable(),
+  tEndMs: z.int().nullable(),
+  /** A transcript window's text, or a keyframe's OCR. */
+  text: z.string().nullable(),
+  /** The keyframe image, for `media://blob/<sha>.png`. */
+  blobSha256: z.string().nullable(),
+})
+export type SourceUnitSummary = z.infer<typeof sourceUnitSummarySchema>
+
 export const chunkSummarySchema = z.object({
   id: z.uuid(),
   ordinal: z.int(),
@@ -291,6 +367,43 @@ export const libraryChannels = defineContract({
     output: z.object({ sources: z.array(sourceSummarySchema) }),
   },
 
+  /**
+   * A course folder as one source (sub-phase 6.4): opens a native directory picker, walks it
+   * in main, and imports every audio or video file under it as an ordered part of a single
+   * source whose section tree is the folder tree.
+   *
+   * `void` input is load-bearing, exactly as it is for `addSourceFromDialog`: main opens its
+   * own dialog, so the renderer never names a directory for the main process to enumerate.
+   * `source` is `null` when the user cancels.
+   */
+  'library.addCourseFromFolder': {
+    input: z.void(),
+    output: z.object({
+      source: sourceSummarySchema.nullable(),
+      fileCount: z.int(),
+      /** Entries the walk deliberately did not follow — symlinks, unreadable directories. */
+      skipped: z.array(z.string()),
+      /** True when the folder held more than the walk's cap, so the import is partial. */
+      truncated: z.boolean(),
+    }),
+  },
+
+  /**
+   * The source's citable units — transcript windows and keyframes (sub-phases 6.2 and 6.4).
+   *
+   * The player reads this rather than `library.getSourceDoc`: a course's parsed document is
+   * tens of thousands of blocks in one structured clone, and all the player needs is where the
+   * segments and the slides are.
+   */
+  'library.listUnits': {
+    input: z.object({
+      id: z.uuid(),
+      kinds: z.array(sourceUnitKindSchema).min(1).max(SOURCE_UNIT_KINDS.length).optional(),
+      limit: z.int().min(1).max(5_000).optional(),
+    }),
+    output: z.object({ units: z.array(sourceUnitSummarySchema) }),
+  },
+
   'library.addSourceFromText': {
     input: z.object({
       text: z.string().min(1).max(2_000_000),
@@ -393,6 +506,27 @@ export const libraryChannels = defineContract({
       /** The question. Defaults to the chunk's heading path when the user gives none. */
       front: z.string().min(1).max(2000).optional(),
       /** Overrides the chunk text as the answer, for a user who trimmed it. */
+      back: z.string().min(1).max(20000).optional(),
+    }),
+    output: z.object({ itemId: z.uuid(), cardId: z.uuid() }),
+  },
+
+  /**
+   * "Crear tarjeta desde este fragmento", for a time range selected in the player
+   * (sub-phase 6.4).
+   *
+   * Separate from `createCardFromChunk` because a chunk is a 60–90 s window the chunker chose
+   * and a clip is a range the learner dragged; the two almost never coincide. Same provenance
+   * either way — the card can always be traced back to the moment it came from.
+   */
+  'library.createCardFromClip': {
+    input: z.object({
+      sourceId: z.uuid(),
+      startSec: z.number().min(0),
+      endSec: z.number().min(0),
+      /** The question. Defaults to the source's title and the timestamp. */
+      front: z.string().min(1).max(2000).optional(),
+      /** The transcript covering the range. */
       back: z.string().min(1).max(20000).optional(),
     }),
     output: z.object({ itemId: z.uuid(), cardId: z.uuid() }),

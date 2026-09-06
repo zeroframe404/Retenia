@@ -35,7 +35,11 @@ export async function persistChunkDrafts(
         tStart: unit.tStartMs,
         tEnd: unit.tEndMs,
         text: unit.text,
-        blobSha256: null,
+        // A keyframe unit stands for a stored image (sub-phase 6.4); every other kind has
+        // none. Reading it from the draft rather than hardcoding `null` is also what keeps
+        // the frame's blob referenced, since `BlobRepository.referencedShas` counts a blob as
+        // live only while a `sources` or `source_units` row points at it.
+        blobSha256: unit.blobSha256 ?? null,
         // The draft's key travels into `meta` so a later re-chunk — or a reader that wants
         // "the row for page 12" — can find the unit without re-deriving it from the ordinal,
         // which is not unique across kinds.

@@ -72,7 +72,16 @@ const MIME_TYPES: Readonly<Record<string, string>> = Object.freeze({
   mp4: 'video/mp4',
   m4v: 'video/mp4',
   webm: 'video/webm',
+  mkv: 'video/x-matroska',
+  mov: 'video/quicktime',
+  vtt: 'text/vtt; charset=utf-8',
   pdf: 'application/pdf',
+  // A parsed `SourceDoc` (sub-phase 6.1) is stored as `application/json`, so the blob store
+  // already writes `<sha256>.json` files. Nothing fetches one over `media://` today — the
+  // Library reads them through IPC — but the store writing a name this table refuses is
+  // exactly the "blob nothing can ever fetch" the comment above warns about, and the pinning
+  // test found it the moment it started iterating the real table instead of a sample.
+  json: 'application/json',
   epub: 'application/epub+zip',
   docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',

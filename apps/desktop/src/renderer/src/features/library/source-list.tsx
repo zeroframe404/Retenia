@@ -11,7 +11,7 @@ import {
   Input,
   Textarea,
 } from '@retenia/ui'
-import { ClipboardPasteIcon, LibraryBigIcon, PlusIcon } from 'lucide-react'
+import { ClipboardPasteIcon, FolderPlusIcon, LibraryBigIcon, PlusIcon } from 'lucide-react'
 import { useId, useState } from 'react'
 import { useT } from '../../i18n/use-t'
 import { SourceCard } from './source-card'
@@ -22,6 +22,8 @@ export interface SourceListProps {
   onRetry: (id: string) => void
   onDelete: (id: string) => void
   onAddFromDialog: () => void
+  /** Opens a directory picker and imports a course folder as one source (sub-phase 6.4). */
+  onAddCourseFromFolder: () => void
   onDropFiles: (files: File[]) => void
   onAddFromText: (text: string, title: string) => void
 }
@@ -37,6 +39,7 @@ export function SourceList({
   onRetry,
   onDelete,
   onAddFromDialog,
+  onAddCourseFromFolder,
   onDropFiles,
   onAddFromText,
 }: SourceListProps) {
@@ -61,6 +64,10 @@ export function SourceList({
         <Button variant="outline" size="sm" onClick={onAddFromDialog}>
           <PlusIcon aria-hidden="true" />
           {t('addFile')}
+        </Button>
+        <Button variant="outline" size="sm" onClick={onAddCourseFromFolder}>
+          <FolderPlusIcon aria-hidden="true" />
+          {t('addFolder')}
         </Button>
         <Button variant="outline" size="sm" onClick={() => setPasteOpen(true)}>
           <ClipboardPasteIcon aria-hidden="true" />

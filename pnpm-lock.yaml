@@ -59,6 +59,9 @@ importers:
       '@retenia/ipc-contract':
         specifier: workspace:*
         version: link:../../packages/ipc-contract
+      '@retenia/readers':
+        specifier: workspace:*
+        version: link:../../packages/readers
       '@retenia/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -700,6 +703,9 @@ importers:
       '@retenia/ui':
         specifier: workspace:*
         version: link:../ui
+      lucide-react:
+        specifier: 1.39.0
+        version: 1.39.0(react@19.2.8)
       react:
         specifier: 19.2.8
         version: 19.2.8
@@ -710,6 +716,18 @@ importers:
       '@retenia/config':
         specifier: workspace:*
         version: link:../config
+      '@retenia/i18n':
+        specifier: workspace:*
+        version: link:../i18n
+      '@storybook/addon-themes':
+        specifier: 10.5.10
+        version: 10.5.10(storybook@10.2.0(@testing-library/dom@10.4.1)(prettier@3.9.6)(react@19.2.8))
+      '@storybook/react-vite':
+        specifier: 10.2.0
+        version: 10.2.0(esbuild@0.28.2)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(rollup@4.63.1)(storybook@10.2.0(@testing-library/dom@10.4.1)(prettier@3.9.6)(react@19.2.8))(supports-color@7.2.0)(typescript@7.0.2)(vite@7.3.6(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.33.0)(tsx@4.23.13)(yaml@2.9.0))
+      '@tailwindcss/vite':
+        specifier: 4.3.3
+        version: 4.3.3(vite@7.3.6(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.33.0)(tsx@4.23.13)(yaml@2.9.0))
       '@testing-library/jest-dom':
         specifier: 7.0.1
         version: 7.0.1(@testing-library/dom@10.4.1)(vitest@4.1.11)
@@ -725,15 +743,33 @@ importers:
       '@types/react-dom':
         specifier: 19.2.5
         version: 19.2.5(@types/react@19.2.18)
+      i18next:
+        specifier: 26.4.1
+        version: 26.4.1(typescript@7.0.2)
+      i18next-icu:
+        specifier: 2.4.4
+        version: 2.4.4(intl-messageformat@11.2.14)
       jsdom:
         specifier: 30.0.1
         version: 30.0.1(@noble/hashes@2.4.0)
+      motion:
+        specifier: 13.1.1
+        version: 13.1.1(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      react-i18next:
+        specifier: 17.0.13
+        version: 17.0.13(i18next@26.4.1(typescript@7.0.2))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(typescript@7.0.2)
+      storybook:
+        specifier: 10.2.0
+        version: 10.2.0(@testing-library/dom@10.4.1)(prettier@3.9.6)(react@19.2.8)
       typescript:
         specifier: 7.0.2
         version: 7.0.2
+      vite:
+        specifier: 7.3.6
+        version: 7.3.6(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.33.0)(tsx@4.23.13)(yaml@2.9.0)
       vitest:
         specifier: 4.1.11
-        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(@vitest/coverage-v8@4.1.11)(jsdom@30.0.1(@noble/hashes@2.4.0))(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.0))
+        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(@vitest/coverage-v8@4.1.11)(jsdom@30.0.1(@noble/hashes@2.4.0))(vite@7.3.6(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.33.0)(tsx@4.23.13)(yaml@2.9.0))
 
   packages/ui:
     dependencies:

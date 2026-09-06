@@ -189,6 +189,8 @@ export function chunkTranscript(
     })
   })
 
+  units.push(...keyframeUnits(doc, units.length))
+
   return {
     units,
     chunks,
@@ -196,4 +198,43 @@ export function chunkTranscript(
     normalizedText: normalized.text,
     warnings,
   }
+}
+
+/**
+ * The video's keyframes, as citable units (sub-phase 6.4).
+ *
+ * Emitted here rather than by the media pipeline for one structural reason:
+ * `SourceRepository.replaceUnits` soft-deletes **every** unit of a source before inserting,
+ * so anything written by the parse job would be wiped by the chunk job that always follows it
+ * — and the frames' blobs, no longer referenced by any live row, would then be collected.
+ * Making the chunker the single writer of `source_units` removes the race instead of trying to
+ * sequence around it, and it means a re-chunk rebuilds the markers from the stored `SourceDoc`
+ * without ffmpeg running again.
+ *
+ * No chunk points at one. A keyframe is an anchor for a citation and a marker on the player's
+ * scrubber, not a passage retrieval should return; its OCR text reaches the index through the
+ * fused "said + shown" block the pipeline already wrote into the transcript.
+ */
+function keyframeUnits(doc: SourceDoc, afterOrdinal: number): SourceUnitDraft[] {
+  const frames = doc.assets
+    .filter((asset) => asset.kind === 'keyframe' && typeof asset.locator?.timeSec === 'number')
+    .sort((left, right) => (left.locator?.timeSec ?? 0) - (right.locator?.timeSec ?? 0))
+
+  return frames.map((asset, index) => {
+    const timeSec = asset.locator?.timeSec ?? 0
+    return {
+      key: `keyframe:${index + 1}`,
+      kind: 'keyframe',
+      // Numbered after the transcript windows so `listUnits`' `ordinal, id` ordering stays
+      // meaningful across both kinds rather than interleaving two sequences that both start
+      // at 1.
+      ordinal: afterOrdinal + index + 1,
+      label: timestampLabel(timeSec),
+      tStartMs: Math.round(timeSec * 1_000),
+      tEndMs: null,
+      text: asset.text ?? null,
+      blockIds: [],
+      blobSha256: asset.blobSha256,
+    }
+  })
 }

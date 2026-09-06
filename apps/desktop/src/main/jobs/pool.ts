@@ -54,6 +54,10 @@ export interface JobPoolOptions extends JobPoolHandlers {
   readableRoots: readonly string[]
   /** `<userData>/models`; where the two model-aware jobs write. Sent in the handshake. */
   modelsRoot: string
+  /** `<userData>/bin`; where sub-phase 6.4's media job installs its sidecars. */
+  binRoot?: string
+  /** Host environment values a spawned sidecar needs — the worker's own env is empty. */
+  hostEnv?: Record<string, string>
   size?: number
   /** Retire a worker after this many jobs. */
   maxJobsPerWorker?: number
@@ -158,6 +162,8 @@ export function createJobPool(options: JobPoolOptions): JobPool {
           type: 'handshake',
           readableRoots: [...options.readableRoots],
           modelsRoot: options.modelsRoot,
+          ...(options.binRoot === undefined ? {} : { binRoot: options.binRoot }),
+          ...(options.hostEnv === undefined ? {} : { hostEnv: options.hostEnv }),
         } satisfies JobHandshake,
         [port2],
       )

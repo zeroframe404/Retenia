@@ -1,5 +1,5 @@
-import { readFile } from 'node:fs/promises'
-import { basename } from 'node:path'
+import { createReadStream } from 'node:fs'
+import { basename, join } from 'node:path'
 import type { TextGenerator } from '@retenia/ai'
 import type {
   AbortSignalLike,
@@ -52,6 +52,13 @@ export interface LibraryService {
   /** A file the renderer holds (drag-and-drop): its bytes and name, never a path — main
    *  does not open files the renderer names. */
   addFromBytes(name: string, bytes: Uint8Array): Promise<Source>
+  /** A folder of lectures as ONE source, with the folder tree as its outline (sub-phase 6.4). */
+  addCourseFromFolder(folder: string): Promise<{
+    source: Source
+    fileCount: number
+    skipped: string[]
+    truncated: boolean
+  }>
   addFromText(text: string, title: string): Promise<Source>
   /** Re-enqueues the same parse for a `failed` (or stuck) source. */
   retry(sourceId: string): Promise<Source>
@@ -100,6 +107,14 @@ export interface LibraryService {
    * everything ends in active recall — so the question is the user's, and the heading path is
    * only the fallback when they gave none from a result list.
    */
+  /** "Crear tarjeta desde este fragmento", for a selected time range (sub-phase 6.4). */
+  createCardFromClip(input: {
+    sourceId: string
+    startSec: number
+    endSec: number
+    front?: string
+    back?: string
+  }): Promise<{ itemId: string; cardId: string }>
   createCardFromChunk(input: {
     chunkId: string
     front?: string
@@ -124,6 +139,15 @@ export interface LibraryServiceOptions {
 
 /** Thrown by `contextualize` when there is no provider to ask. Its own class so the IPC layer
  *  can turn it into "not configured yet" rather than an unexplained failure. */
+/** A folder the user picked that holds no audio or video at all. Its own error so the dialog
+ *  can say "no media here" rather than reporting an empty import as a success. */
+export class EmptyCourseFolderError extends Error {
+  constructor(readonly folder: string) {
+    super(`"${folder}" contains no audio or video files`)
+    this.name = 'EmptyCourseFolderError'
+  }
+}
+
 export class ContextualizationUnavailableError extends Error {
   constructor() {
     super('No AI provider is configured for the "cheap" role yet')
@@ -143,6 +167,17 @@ function blobExtOf(source: Source): string | null {
   return typeof ext === 'string' ? ext : null
 }
 
+/** `12:30` / `1:02:30` — the same shape `timestampLabel` gives a transcript window, so a
+ *  clip's citation reads like every other media citation. */
+function timeLabel(ms: number): string {
+  const whole = Math.max(0, Math.floor(ms / 1_000))
+  const hours = Math.floor(whole / 3_600)
+  const minutes = Math.floor((whole % 3_600) / 60)
+  const seconds = whole % 60
+  const mm = hours > 0 ? String(minutes).padStart(2, '0') : String(minutes)
+  return `${hours > 0 ? `${hours}:` : ''}${mm}:${String(seconds).padStart(2, '0')}`
+}
+
 export function createLibraryService({
   repos,
   blobStore,
@@ -160,6 +195,11 @@ export function createLibraryService({
         ext: blobExtOf(source),
         kind: source.kind,
         title: source.title,
+        // Sub-phase 6.4: a course folder is one source made of many files, and
+        // `sources.blob_sha256` can hold only the first of them. Durations and timeline
+        // offsets are not knowable without ffprobe, so what is written at import is the
+        // ordered part list *without* them; the job probes and returns the completed one.
+        ...(mediaPartsOf(source) === undefined ? {} : { parts: mediaPartsOf(source) }),
       },
       { subjectId: source.id },
     )
@@ -174,6 +214,12 @@ export function createLibraryService({
       { sourceId, sourceDocBlobSha256, ...(tokenizer === undefined ? {} : { tokenizer }) },
       { subjectId: sourceId },
     )
+
+  /** The ordered media files a source is made of, as written at import (sub-phase 6.4). */
+  const mediaPartsOf = (source: Source): JsonObject[] | undefined => {
+    const parts = (source.meta as { mediaParts?: unknown } | null)?.mediaParts
+    return Array.isArray(parts) && parts.length > 0 ? (parts as JsonObject[]) : undefined
+  }
 
   /** The `SourceDoc` blob a source was last parsed into, if it has been parsed at all. */
   const sourceDocBlobOf = (source: Source | undefined): string | undefined => {
@@ -246,8 +292,17 @@ export function createLibraryService({
     kind: Source['kind'],
     title: string,
     originUri: string | null,
+  ): Promise<Source> =>
+    addStored(await blobStore.put(bytes, mime), kind, title, originUri, undefined)
+
+  /** Creates the `sources` row for an already-stored blob and queues its parse. */
+  const addStored = async (
+    put: Awaited<ReturnType<typeof blobStore.put>>,
+    kind: Source['kind'],
+    title: string,
+    originUri: string | null,
+    mediaParts: JsonObject[] | undefined,
   ): Promise<Source> => {
-    const put = await blobStore.put(bytes, mime)
     const source = await repos.sources.create({
       kind,
       title,
@@ -255,7 +310,7 @@ export function createLibraryService({
       blobSha256: put.sha256,
       status: 'pending',
       language: null,
-      meta: { blobExt: put.ext },
+      meta: { blobExt: put.ext, ...(mediaParts === undefined ? {} : { mediaParts }) },
       error: null,
       ingestedAt: null,
       embeddingStatus: 'pending',
@@ -270,8 +325,59 @@ export function createLibraryService({
     addFromFile: async (path, originalName) => {
       const name = originalName ?? basename(path)
       const { kind, mime } = detectSource(name)
-      const bytes = await readFile(path)
-      return addBytes(new Uint8Array(bytes), mime, kind, name, `file://${path}`)
+      // Streamed rather than read whole. Sub-phase 6.1's sources topped out at a scanned book;
+      // a lecture recording is routinely a gigabyte, and `readFile` would put all of it on
+      // main's heap on the way to a store that hashes it in chunks anyway.
+      const put = await blobStore.put(createReadStream(path), mime)
+      return addStored(put, kind, name, `file://${path}`, undefined)
+    },
+
+    /**
+     * A course folder as one source (sub-phase 6.4).
+     *
+     * One `sources` row, not one per lecture: the acceptance criterion asks for it, and it is
+     * what makes the folder tree usable as an outline. Every file becomes a *part* laid end to
+     * end on a virtual timeline, so a citation into lesson twelve is a single number rather
+     * than a file plus an offset.
+     */
+    addCourseFromFolder: async (folder) => {
+      const { walkCourseFolder } = await import('./course')
+      const walk = await walkCourseFolder(folder)
+      if (walk.parts.length === 0) {
+        throw new EmptyCourseFolderError(basename(folder))
+      }
+
+      const stored: JsonObject[] = []
+      let first: Awaited<ReturnType<typeof blobStore.put>> | undefined
+      for (const part of walk.parts) {
+        const { mime } = detectSource(part.relPath)
+        const put = await blobStore.put(createReadStream(join(folder, part.relPath)), mime)
+        first ??= put
+        stored.push({
+          blobSha256: put.sha256,
+          ext: put.ext,
+          mime: put.mime,
+          title: part.title,
+          sectionPath: [...part.sectionPath],
+          ordinal: part.ordinal,
+        })
+      }
+
+      // Every lecture in a course is the same medium; the first one decides the source's kind.
+      const { kind } = detectSource(walk.parts[0]?.relPath ?? '')
+      const source = await addStored(
+        first as NonNullable<typeof first>,
+        kind,
+        basename(folder),
+        `file://${folder}`,
+        stored,
+      )
+      return {
+        source,
+        fileCount: walk.parts.length,
+        skipped: walk.skipped,
+        truncated: walk.truncated,
+      }
     },
 
     addFromBytes: async (name, bytes) => {
@@ -394,6 +500,74 @@ export function createLibraryService({
       return queued
     },
 
+    /**
+     * A card from a range of a recording, rather than from a chunk.
+     *
+     * `createCardFromChunk` cannot serve this: a chunk is a 60–90 s window the chunker chose,
+     * and a range the learner dragged over the transcript almost never coincides with one.
+     * The provenance is the same shape either way — a source plus a locator — so the card is
+     * as citable as any other; it simply names a time span instead of a chunk id.
+     *
+     * `annotationId` stays null. `ANNOTATION_KINDS` has a `clip` member and no repository
+     * behind it yet, and half-building one here to store a row nothing reads would be worse
+     * than saying plainly that clips become cards and not annotations until sub-phase 6.6.
+     */
+    createCardFromClip: async ({ sourceId, startSec, endSec, front, back }) => {
+      const source = await repos.sources.findById(sourceId)
+      if (source === undefined) throw new Error(`No source ${sourceId}`)
+
+      const tStartMs = Math.max(0, Math.round(startSec * 1_000))
+      const tEndMs = Math.max(tStartMs, Math.round(endSec * 1_000))
+      const label = timeLabel(tStartMs)
+      const text = (back ?? '').trim()
+
+      return repos.transaction(async (tx) => {
+        const item = await tx.knowledgeItems.create({
+          lessonId: null,
+          topicId: null,
+          kind: 'fact',
+          fields: {
+            // The front is the learner's question. A card whose front is a passage and whose
+            // back is the same passage tests nothing (`docs/spec/01-decisions.md` §7), so the
+            // fallback is the source and the timestamp — a prompt, not an answer.
+            front: front ?? `${source.title} — ${label}`,
+            back: text.length > 0 ? text : label,
+          },
+          sourceId,
+          annotationId: null,
+          locator: { tStartMs, tEndMs, label, blockIds: [] },
+          asOf: null,
+          importance: 'normal',
+          status: 'active',
+          createdBy: 'user',
+          tags: [],
+        })
+
+        const card = await tx.cards.create({
+          itemId: item.id,
+          template: 'basic',
+          payload: null,
+          due: new Date(),
+          stability: 0,
+          difficulty: 0,
+          scheduledDays: 0,
+          learningSteps: 0,
+          reps: 0,
+          lapses: 0,
+          state: CARD_STATE.New,
+          lastReview: null,
+          suspended: false,
+          buriedUntil: null,
+          leech: false,
+          importanceOverride: null,
+          importanceOverrideExpiresAt: null,
+          examId: null,
+        })
+
+        return { itemId: item.id, cardId: card.id }
+      })
+    },
+
     createCardFromChunk: async ({ chunkId, front, back }) => {
       const chunk = await repos.chunks.findById(chunkId)
       if (chunk === undefined) throw new Error(`No chunk ${chunkId}`)
@@ -480,7 +654,14 @@ export function createLibraryService({
         needsOcr: result.needsOcr,
         ocrPages: result.ocrPages,
         warnings: result.warnings,
+        // Sub-phase 6.4.
+        ...(result.media === undefined ? {} : { media: result.media as unknown as JsonObject }),
       }
+      // The job's part list supersedes the one written at import — it is the one carrying real
+      // durations and timeline offsets — so the import-time copy is dropped rather than left
+      // beside it to be read by mistake. `delete` rather than `undefined`, because a JSON
+      // column has no way to spell "present but undefined".
+      if (result.media !== undefined) delete meta.mediaParts
       await repos.sources.update(sourceId, { language: result.language, meta })
       // Chunking is queued *before* the source is marked ready, so nothing can observe a
       // `ready` source that has no chunks and conclude the document is empty.
