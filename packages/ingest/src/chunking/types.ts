@@ -28,6 +28,10 @@ export interface SourceUnitDraft {
   tEndMs: number | null
   text: string | null
   blockIds: readonly string[]
+  /** The image this unit stands for, when it is one — a video keyframe (sub-phase 6.4).
+   *  `source_units.blob_sha256`, and what keeps the frame's blob referenced so a GC pass does
+   *  not collect a picture the player is still drawing a marker for. */
+  blobSha256?: string | null
 }
 
 /** The `chunks.locator` JSON column. Keys are snake_case because `parseSourceLocator` in

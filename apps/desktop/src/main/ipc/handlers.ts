@@ -311,6 +311,10 @@ function parsedMeta(meta: Source['meta']): SourceSummary['meta'] {
     ...(typeof parsed.chunkTokenCount === 'number'
       ? { chunkTokenCount: parsed.chunkTokenCount }
       : {}),
+    // Sub-phase 6.4. This copy is hand-written rather than a spread, so a field the pipeline
+    // starts writing and this list forgets is silently absent in the renderer rather than a
+    // type error — which is exactly how `media` would have gone missing.
+    ...(parsed.media === undefined ? {} : { media: parsed.media }),
     ...(typeof parsed.chunkingVersion === 'string'
       ? { chunkingVersion: parsed.chunkingVersion }
       : {}),
@@ -545,6 +549,47 @@ export function createHandlers({
           filePaths,
           filePaths.map((path) => library.addFromFile(path)),
         ),
+      }
+    },
+
+    'library.addCourseFromFolder': async (_input, event) => {
+      const window = BrowserWindow.fromWebContents(event.sender)
+      const dialogOptions: Electron.OpenDialogOptions = {
+        title: 'Add a course folder',
+        properties: ['openDirectory'],
+      }
+      const { canceled, filePaths } = window
+        ? await dialog.showOpenDialog(window, dialogOptions)
+        : await dialog.showOpenDialog(dialogOptions)
+      const folder = filePaths[0]
+      if (canceled || folder === undefined) {
+        return { source: null, fileCount: 0, skipped: [], truncated: false }
+      }
+      const result = await library.addCourseFromFolder(folder)
+      return {
+        source: toSourceSummary(result.source),
+        fileCount: result.fileCount,
+        skipped: result.skipped,
+        truncated: result.truncated,
+      }
+    },
+
+    'library.createCardFromClip': async (input) => library.createCardFromClip(input),
+
+    'library.listUnits': async ({ id, kinds, limit }) => {
+      const units = await library.getUnits(id)
+      const wanted = kinds === undefined ? units : units.filter((unit) => kinds.includes(unit.kind))
+      return {
+        units: (limit === undefined ? wanted : wanted.slice(0, limit)).map((unit) => ({
+          id: unit.id,
+          kind: unit.kind,
+          ordinal: unit.ordinal,
+          label: unit.label,
+          tStartMs: unit.tStart,
+          tEndMs: unit.tEnd,
+          text: unit.text,
+          blobSha256: unit.blobSha256,
+        })),
       }
     },
 

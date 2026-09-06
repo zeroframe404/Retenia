@@ -9,9 +9,12 @@
     "./chunking": "./src/chunking/index.ts",
     "./contextualize": "./src/contextualize/index.ts",
     "./embeddings": "./src/embeddings/index.ts",
+    "./media": "./src/media/index.ts",
     "./models": "./src/models/index.ts",
     "./prompts": "./src/contextualize/prompt-files.ts",
-    "./rerank": "./src/rerank/index.ts"
+    "./rerank": "./src/rerank/index.ts",
+    "./sidecars": "./src/sidecars/index.ts",
+    "./sidecars/env": "./src/sidecars/env.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",

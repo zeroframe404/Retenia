@@ -62,16 +62,63 @@ export interface Section {
   children: Section[]
 }
 
-export type AssetKind = 'image' | 'thumbnail'
+/** `keyframe` and `caption` are sub-phase 6.4's: a frame lifted from a video at
+ *  `locator.timeSec`, and the WebVTT transcript of the whole source. */
+export type AssetKind = 'image' | 'thumbnail' | 'keyframe' | 'caption'
 
-/** A figure, embedded image, or a rendered page/slide thumbnail — bytes the parser wrote to
- *  the blob store via `ParseContext.putAsset`, kept only by reference here. */
+/** A figure, embedded image, a rendered page/slide thumbnail, a video keyframe or a caption
+ *  track — bytes the parser wrote to the blob store via `ParseContext.putAsset`, kept only by
+ *  reference here. */
 export interface Asset {
   id: string
   blobSha256: string
   mime: string
   kind: AssetKind
   locator?: Locator
+  /** Text found *in* the asset: a keyframe's OCR or vision description. Kept on the asset
+   *  rather than only folded into a block so a re-chunk can rebuild the fused "said + shown"
+   *  text from the stored `SourceDoc` without running ffmpeg or Tesseract again. */
+  text?: string
+  /** Whatever produced `text` wants recorded — OCR confidence, the provider's id. */
+  meta?: Record<string, unknown>
+}
+
+/** One file inside a media source. A single recording is a one-part source; a course folder
+ *  is many, laid end to end on the virtual timeline (`@retenia/core`'s `buildTimeline`). */
+export interface MediaPartMeta {
+  blobSha256: string
+  mime: string
+  /** The lesson's title, derived from its file name. */
+  title: string
+  /** Where this part begins on the source's global timeline. */
+  startSec: number
+  durationSec: number | null
+  ordinal: number
+}
+
+/** What sub-phase 6.4's pipeline learned about a media source, for the player and the
+ *  Library. Everything here is derived; the citable form lives in `source_units`. */
+export interface MediaMeta {
+  durationSec: number | null
+  parts: MediaPartMeta[]
+  transcript: {
+    engine: string
+    modelId: string
+    /** `cpu` or a CUDA build. */
+    variant: string
+    language: string | null
+    /** Whether Silero VAD was in play — it changes where segments are cut, so a transcript
+     *  produced with and without it are not the same artefact. */
+    vad: boolean
+    vttBlobSha256: string | null
+  } | null
+  keyframes: {
+    count: number
+    strategy: 'scene' | 'interval'
+    duplicatesDropped: number
+    overBudgetDropped: number
+  } | null
+  vision: { provider: string; framesDescribed: number } | null
 }
 
 export interface SourceDocMeta {
@@ -90,6 +137,8 @@ export interface SourceDocMeta {
   warnings: string[]
   /** YAML/TOML frontmatter, for Markdown sources. */
   frontmatter?: Record<string, unknown>
+  /** Present for `audio` and `video` sources (sub-phase 6.4). */
+  media?: MediaMeta
 }
 
 /** What every parser in `src/parsers/` returns: one document, fully read into memory,

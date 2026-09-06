@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises'
 import {
   type JobContext,
   type JobDefinition,
+  type JsonObject,
   SOURCE_KINDS,
   type SourceKind,
   uuidv7,
@@ -9,6 +10,8 @@ import {
 import type { SourceDoc } from '@retenia/ingest'
 import { createFsBlobStore } from '../main/blobs/store'
 import { confinePath } from './confine'
+import type { SidecarEnvironment } from './definitions'
+import { runMediaParse } from './ingest-media'
 
 /**
  * Parsing an imported source into a `SourceDoc` (sub-phase 6.1;
@@ -22,6 +25,19 @@ import { confinePath } from './confine'
  * the same root main's already uses, needs no coordination — writes are content-addressed.
  */
 
+/** One file of a media source. A single recording has exactly one; a course folder has one
+ *  per lecture, in reading order. */
+export interface IngestParsePart {
+  blobSha256: string
+  ext: string | null
+  mime: string
+  /** The lesson's title, derived from its file name at import time. */
+  title: string
+  /** Folder titles, outermost first — the course's own outline. */
+  sectionPath: string[]
+  ordinal: number
+}
+
 export interface IngestParseInput {
   sourceId: string
   blobSha256: string
@@ -30,6 +46,13 @@ export interface IngestParseInput {
   /** The source's title at enqueue time (the imported file's name, typically) — the
    *  fallback a parser uses when the format itself carries no better one. */
   title: string
+  /**
+   * The media files this source is made of (sub-phase 6.4), when it is an `audio` or `video`
+   * one. Absent for every other kind, and for a single recording it is just the one blob the
+   * fields above already name — the field exists because a course folder is *one source with
+   * many files*, and `sources.blob_sha256` can only hold the first of them.
+   */
+  parts?: IngestParsePart[]
 }
 
 /**
@@ -47,14 +70,83 @@ export type IngestParseResult = {
   needsOcr: boolean
   ocrPages: number[]
   warnings: string[]
+  /**
+   * What the media pipeline learned (sub-phase 6.4), for `sources.meta.media`. Absent for
+   * every other kind. Durations and timeline offsets are only knowable after ffprobe has run,
+   * so the completed part list comes back from the job rather than being written at import.
+   */
+  media?: {
+    durationSec: number | null
+    parts: {
+      blobSha256: string
+      mime: string
+      title: string
+      startSec: number
+      durationSec: number | null
+      ordinal: number
+    }[]
+    transcript: {
+      engine: string
+      modelId: string
+      variant: string
+      language: string | null
+      vad: boolean
+      vttBlobSha256: string | null
+    } | null
+    keyframes: {
+      count: number
+      strategy: 'scene' | 'interval'
+      duplicatesDropped: number
+      overBudgetDropped: number
+    } | null
+    vision: { provider: string; framesDescribed: number } | null
+  }
 }
 
 function isSourceKind(value: unknown): value is SourceKind {
   return typeof value === 'string' && (SOURCE_KINDS as readonly string[]).includes(value)
 }
 
+function parseParts(payload: JsonObject): IngestParsePart[] | undefined {
+  const parts = payload.parts
+  if (parts === undefined || parts === null) return undefined
+  if (!Array.isArray(parts) || parts.length === 0) {
+    throw new Error('ingestParseSource needs "parts" to be a non-empty array when present')
+  }
+  return parts.map((raw, index) => {
+    const part = raw as Record<string, unknown>
+    const blobSha256 = part.blobSha256
+    const mime = part.mime
+    const title = part.title
+    const ext = part.ext ?? null
+    const sectionPath = part.sectionPath ?? []
+    const ordinal = part.ordinal ?? index
+    if (typeof blobSha256 !== 'string' || blobSha256.length !== 64) {
+      throw new Error(`ingestParseSource part ${index} needs a 64-character hex "blobSha256"`)
+    }
+    if (typeof mime !== 'string' || mime.length === 0) {
+      throw new Error(`ingestParseSource part ${index} needs a non-empty string "mime"`)
+    }
+    if (typeof title !== 'string' || title.length === 0) {
+      throw new Error(`ingestParseSource part ${index} needs a non-empty string "title"`)
+    }
+    if (ext !== null && typeof ext !== 'string') {
+      throw new Error(`ingestParseSource part ${index} needs "ext" as a string or null`)
+    }
+    if (!Array.isArray(sectionPath) || sectionPath.some((entry) => typeof entry !== 'string')) {
+      throw new Error(`ingestParseSource part ${index} needs "sectionPath" as an array of strings`)
+    }
+    if (typeof ordinal !== 'number' || !Number.isInteger(ordinal) || ordinal < 0) {
+      throw new Error(`ingestParseSource part ${index} needs a non-negative integer "ordinal"`)
+    }
+    return { blobSha256, ext, mime, title, sectionPath: sectionPath as string[], ordinal }
+  })
+}
+
 export function createIngestParseJob(
   readableRoots: readonly string[],
+  modelsRoot?: string,
+  sidecars?: SidecarEnvironment,
 ): JobDefinition<IngestParseInput, IngestParseResult> {
   return {
     type: 'ingestParseSource',
@@ -81,9 +173,17 @@ export function createIngestParseJob(
       if (typeof title !== 'string' || title.length === 0) {
         throw new Error('ingestParseSource needs a non-empty string "title"')
       }
-      return { sourceId, blobSha256, ext, kind, title }
+      const parts = parseParts(payload)
+      return { sourceId, blobSha256, ext, kind, title, ...(parts === undefined ? {} : { parts }) }
     },
-    run: (input, ctx) => run(readableRoots, input, ctx),
+    // A transcription is minutes of work that a flaky download or a transient lock can
+    // interrupt, so it gets the same retry budget as the model download rather than the
+    // default three.
+    defaultMaxAttempts: 5,
+    run: (input, ctx) =>
+      input.kind === 'audio' || input.kind === 'video'
+        ? runMediaParse({ readableRoots, modelsRoot, sidecars }, input, ctx)
+        : run(readableRoots, input, ctx),
   }
 }
 

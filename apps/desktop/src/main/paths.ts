@@ -37,6 +37,38 @@ export function getModelsRoot(): string {
   return join(app.getPath('userData'), 'models')
 }
 
+/**
+ * `userData/bin`, where the media sidecars are downloaded (sub-phase 6.4).
+ *
+ * Separate from both the blob store and the models root, because it holds a third kind of
+ * thing: *executables*. They are re-downloadable rather than user data, so a backup should
+ * skip them; they are verified against the checked-in manifest rather than by the `blobs`
+ * table, so a blob GC pass has no business here; and they are versioned by upstream release
+ * tag (`<bin>/ffmpeg/autobuild-2026-09-06-13-06/ffmpeg`), so a pinned-version bump downloads
+ * beside the old build instead of over a binary that may be running.
+ *
+ * `docs/spec/07-architecture.md` §13.4 records why the app downloads these rather than
+ * bundling them: a 148 MB ffmpeg and a 670 MB CUDA whisper would dominate a 90–120 MB
+ * installer and would all have to be code-signed, and §11 names on-demand sidecars as the
+ * mitigation for antivirus false positives.
+ */
+export function getSidecarsRoot(): string {
+  return join(app.getPath('userData'), 'bin')
+}
+
+/**
+ * `<app>/resources/bin` — the first tier the sidecar resolver looks in.
+ *
+ * Nothing is shipped there today, but `electron-builder.yml` already allowlists and
+ * `asarUnpack`s the directory against the "optional GPU package" §11 imagines, and a build
+ * that does bundle a binary should win over whatever was downloaded last week. Run through
+ * `resolveUnpacked` because a spawned process is opened by the OS loader, which cannot read
+ * through `app.asar`.
+ */
+export function getBundledSidecarsRoot(): string {
+  return resolveUnpacked(join(process.resourcesPath ?? app.getAppPath(), 'bin'))
+}
+
 /** `userData/settings.json`: a placeholder store until the real `settings` table lands in
  * sub-phase 3.5 (see `src/main/settings/store.ts`). */
 export function getSettingsPath(): string {

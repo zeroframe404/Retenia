@@ -29,6 +29,8 @@ export type {
   ChunkSummary,
   ContextualizationEstimateDto,
   EmbeddingStatus,
+  MediaMetaDto,
+  MediaPartDto,
   SearchHit,
   SearchMode,
   SectionDto,
@@ -36,15 +38,20 @@ export type {
   SourceKind,
   SourceStatus,
   SourceSummary,
+  SourceUnitKind,
+  SourceUnitSummary,
 } from './channels/library'
 export {
   chunkSummarySchema,
   contextualizationEstimateSchema,
   EMBEDDING_STATUSES,
   embeddingStatusSchema,
+  mediaMetaSchema,
+  mediaPartSchema,
   SEARCH_MODES,
   SOURCE_KINDS,
   SOURCE_STATUSES,
+  SOURCE_UNIT_KINDS,
   searchHitSchema,
   searchModeSchema,
   sourceDocSchema,
@@ -52,6 +59,8 @@ export {
   sourceMetaSchema,
   sourceStatusSchema,
   sourceSummarySchema,
+  sourceUnitKindSchema,
+  sourceUnitSummarySchema,
 } from './channels/library'
 export type {
   Forecast,

@@ -1,6 +1,8 @@
-import { dirname } from 'node:path'
+import { dirname, join } from 'node:path'
 import { createJobRegistry, createJobScheduler, uuidv7 } from '@retenia/core'
+import { forwardableEnv } from '@retenia/ingest/sidecars/env'
 import type { JobProgressEvent, JobSummary } from '@retenia/ipc-contract'
+import { app } from 'electron'
 import { createJobDefinitions } from '../../jobs/definitions'
 import { createFsBlobStore } from '../blobs/store'
 import { type AppDatabase, openAppDatabase } from '../db/open'
@@ -10,10 +12,12 @@ import { createLibraryService, type LibraryService } from '../library/service'
 import { log } from '../logging/log'
 import {
   getBlobsRoot,
+  getBundledSidecarsRoot,
   getDevMediaSamplePath,
   getEmbeddingHostPath,
   getJobWorkerPath,
   getModelsRoot,
+  getSidecarsRoot,
   getWorkRoot,
 } from '../paths'
 import { createJobsFacade, type JobsFacade } from './facade'
@@ -80,6 +84,8 @@ function unavailableLibraryService(reason: string): LibraryService {
   return {
     addFromFile: fail,
     addFromBytes: fail,
+    addCourseFromFolder: fail,
+    createCardFromClip: fail,
     addFromText: fail,
     retry: fail,
     list: fail,
@@ -128,15 +134,35 @@ export function bootstrapJobs({
   // `getModelsRoot()` is where the two model-aware jobs of sub-phase 6.3 write ONNX
   // weights; it is a readable root *and* is named explicitly in the handshake, because it is
   // the one directory outside the blob store a job may write to.
+  // `getSidecarsRoot()` is sub-phase 6.4's: the third directory outside the blob store a job
+  // writes to, and the only one whose contents are then *executed*. It is bounded by the fact
+  // that only `installSidecar` writes there, every archive is checked against the SHA-256 in
+  // `packages/ingest/src/sidecars/manifest.json` before it is unpacked, and only the binaries
+  // that manifest names are ever spawned.
   const modelsRoot = getModelsRoot()
+  const binRoot = getSidecarsRoot()
   const readableRoots = [
     getBlobsRoot(),
     getWorkRoot(),
     modelsRoot,
+    binRoot,
     dirname(getDevMediaSamplePath()),
   ]
 
-  const registry = createJobRegistry(createJobDefinitions(readableRoots))
+  // The worker is forked with an empty environment so a provider key can never reach a
+  // parser, which also means it cannot read the handful of variables a spawned ffmpeg needs.
+  // Main reads them here and passes them through the handshake.
+  const hostEnv = forwardableEnv(process.env)
+  const sidecars = {
+    binRoot,
+    bundledRoot: getBundledSidecarsRoot(),
+    // A checkout's `.sidecars/`, so `node tooling/download-sidecars.ts --install` is enough to
+    // work on the media pipeline without the app downloading anything.
+    ...(app.isPackaged ? {} : { devRoot: join(app.getAppPath(), '..', '..', '.sidecars') }),
+    hostEnv,
+  }
+
+  const registry = createJobRegistry(createJobDefinitions(readableRoots, modelsRoot, sidecars))
 
   // Minted per launch, not persisted: its whole job is to be different from the id any
   // previous run stamped into a lease, so recovery can recognise stranded work without
@@ -188,7 +214,14 @@ export function bootstrapJobs({
       await embeddings.onJobSettled(job)
     },
     createPool: (handlers) =>
-      createJobPool({ ...handlers, entryPath: getJobWorkerPath(), readableRoots, modelsRoot }),
+      createJobPool({
+        ...handlers,
+        entryPath: getJobWorkerPath(),
+        readableRoots,
+        modelsRoot,
+        binRoot,
+        hostEnv,
+      }),
   })
 
   return {
