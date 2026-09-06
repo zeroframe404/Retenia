@@ -98,35 +98,50 @@ afterEach(async () => {
 })
 
 describe('replacing a file the platform has locked', () => {
-  it('retries past a transient lock and still installs the right bytes', async () => {
-    const store = createModelStore(await tempRoot())
-    injected.renameFailures = 3
+  // Same ceiling, and for the same reason, as the two replace cases in `download.test.ts`:
+  // these deliberately spend the retry budget, and each attempt is a real unlink and rename.
+  // On `windows-latest` that ran 3711 ms and 2769 ms against a 5 s default — green, but by a
+  // margin thin enough to go red on a busier runner — where locally they are 202 ms and
+  // 792 ms. The ceiling costs nothing when the filesystem is quick.
+  const SPENDS_THE_RETRY_BUDGET = { timeout: 20_000 }
 
-    const result = await downloadModel(SPEC, { store, fetch: serve, endpoint: 'https://x.test' })
+  it(
+    'retries past a transient lock and still installs the right bytes',
+    SPENDS_THE_RETRY_BUDGET,
+    async () => {
+      const store = createModelStore(await tempRoot())
+      injected.renameFailures = 3
 
-    expect(result.downloaded).toEqual(['config.json'])
-    // Three refusals, then the one that landed.
-    expect(injected.renameCalls).toBe(4)
-    expect(await readFile(store.filePath(SPEC, 'config.json'), 'utf-8')).toBe(BODY)
-    expect((await store.status(SPEC)).installed).toBe(true)
-  })
+      const result = await downloadModel(SPEC, { store, fetch: serve, endpoint: 'https://x.test' })
 
-  it('gives up rather than looping forever, and leaves no partial behind', async () => {
-    const store = createModelStore(await tempRoot())
-    // More refusals than the policy has attempts: the lock is not transient after all.
-    injected.renameFailures = 99
+      expect(result.downloaded).toEqual(['config.json'])
+      // Three refusals, then the one that landed.
+      expect(injected.renameCalls).toBe(4)
+      expect(await readFile(store.filePath(SPEC, 'config.json'), 'utf-8')).toBe(BODY)
+      expect((await store.status(SPEC)).installed).toBe(true)
+    },
+  )
 
-    await expect(
-      downloadModel(SPEC, { store, fetch: serve, endpoint: 'https://x.test' }),
-    ).rejects.toThrow(/EPERM/)
+  it(
+    'gives up rather than looping forever, and leaves no partial behind',
+    SPENDS_THE_RETRY_BUDGET,
+    async () => {
+      const store = createModelStore(await tempRoot())
+      // More refusals than the policy has attempts: the lock is not transient after all.
+      injected.renameFailures = 99
 
-    // Bounded: the caller sees the platform's own error, not a hang and not a retry storm.
-    expect(injected.renameCalls).toBe(6)
-    const target = store.filePath(SPEC, 'config.json')
-    await expect(stat(target)).rejects.toThrow()
-    await expect(stat(`${target}.part`)).rejects.toThrow()
-    expect((await store.status(SPEC)).installed).toBe(false)
-  })
+      await expect(
+        downloadModel(SPEC, { store, fetch: serve, endpoint: 'https://x.test' }),
+      ).rejects.toThrow(/EPERM/)
+
+      // Bounded: the caller sees the platform's own error, not a hang and not a retry storm.
+      expect(injected.renameCalls).toBe(6)
+      const target = store.filePath(SPEC, 'config.json')
+      await expect(stat(target)).rejects.toThrow()
+      await expect(stat(`${target}.part`)).rejects.toThrow()
+      expect((await store.status(SPEC)).installed).toBe(false)
+    },
+  )
 
   it('does not retry an error that is not a lock', async () => {
     const store = createModelStore(await tempRoot())
