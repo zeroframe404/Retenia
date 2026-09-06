@@ -1,9 +1,9 @@
 import { createHash } from 'node:crypto'
-import { once } from 'node:events'
 import { createWriteStream } from 'node:fs'
 import { mkdir, rename, rm } from 'node:fs/promises'
 import { dirname } from 'node:path'
-import { Readable } from 'node:stream'
+import { Readable, Transform, type TransformCallback } from 'node:stream'
+import { pipeline } from 'node:stream/promises'
 import type { ModelFile, ModelSpec } from './catalog'
 import type { ModelStore } from './store'
 
@@ -117,22 +117,35 @@ async function downloadFile(
   const hash = createHash('sha256')
   let written = 0
 
-  const sink = createWriteStream(partial)
+  // The hash has to see every byte on the way past, which is what this Transform is for.
+  //
+  // Both halves of this matter, and an earlier hand-rolled version got both wrong:
+  //
+  //  - `pipeline` resolves only once the *destination is closed*, not merely finished.
+  //    `WriteStream.end(callback)` fires on `'finish'`, while the file descriptor is still
+  //    open — and renaming over an existing file with an open handle fails on Windows. That
+  //    is not theoretical: it is the second download of a file after a revision bump, which
+  //    is exactly what the CI job on `windows-latest` caught.
+  //  - `pipeline` propagates an error instead of hanging. Hand-written backpressure
+  //    (`write()` → `await once(stream, 'drain')`) never settles if the stream errors or is
+  //    destroyed in between, because no `'drain'` is ever emitted — a hang, not a failure.
+  const tap = new Transform({
+    transform(chunk: Buffer, _encoding: BufferEncoding, callback: TransformCallback) {
+      hash.update(chunk)
+      written += chunk.byteLength
+      onBytes(chunk.byteLength)
+      callback(null, chunk)
+    },
+  })
+
   try {
-    // Written by hand rather than through `stream.pipeline` because the hash has to see
-    // every byte on its way past: a transform in the middle would do the same thing with
-    // more machinery, and this keeps the backpressure (`write` → `drain`) visible.
-    for await (const part of asNodeStream(response.body) as AsyncIterable<Buffer | Uint8Array>) {
-      if (options.signal?.aborted === true) throw new Error('the model download was cancelled')
-      const buffer = part instanceof Buffer ? part : Buffer.from(part)
-      hash.update(buffer)
-      written += buffer.byteLength
-      onBytes(buffer.byteLength)
-      if (!sink.write(buffer)) await once(sink, 'drain')
-    }
-    await new Promise<void>((resolve, reject) => {
-      sink.end((error?: Error | null) => (error ? reject(error) : resolve()))
-    })
+    await pipeline(
+      asNodeStream(response.body),
+      tap,
+      createWriteStream(partial),
+      // Aborts the whole chain and destroys every stream in it, including the open fd.
+      { ...(options.signal === undefined ? {} : { signal: options.signal }) },
+    )
 
     const digest = hash.digest('hex')
     if (digest !== file.sha256) {
@@ -151,9 +164,16 @@ async function downloadFile(
     return written
   } catch (error) {
     // Whatever went wrong — a reset connection, a wrong hash, a cancellation — the partial
-    // file is not something a later run should find and trust.
-    sink.destroy()
+    // file is not something a later run should find and trust. `pipeline` has already
+    // destroyed the streams by the time this runs, so the handle is closed and the unlink
+    // cannot fail on Windows either.
     await rm(partial, { force: true })
+    // A cancelled transfer reaches here as Node's generic `AbortError` ("The operation was
+    // aborted"), which would land in the job's `error` column and tell the user nothing.
+    // Say the same thing the loop in `downloadModel` says when it stops between files.
+    if (options.signal?.aborted === true) {
+      throw new Error(`the model download was cancelled while fetching ${file.path}`)
+    }
     throw error
   }
 }

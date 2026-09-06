@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { mkdtemp, readFile, rm, stat } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Readable } from 'node:stream'
@@ -224,6 +224,31 @@ describe('downloadModel', () => {
       }),
     ).rejects.toThrow(/cancelled/)
     await expect(stat(`${store.filePath(SPEC, 'config.json')}.part`)).rejects.toThrow()
+  })
+
+  it('overwrites a file that is already there, with no handle left open', async () => {
+    // The Windows case. `rename` onto an existing target fails there if the source still has
+    // an open handle, and `WriteStream.end(callback)` fires on `'finish'` — before the fd is
+    // closed. On Linux this passes either way, which is exactly why it took a `windows-latest`
+    // job to find it; the assertion here is the portable half (the bytes really were
+    // replaced), and `download.ts` explains the rest.
+    const store = createModelStore(await tempRoot())
+    await downloadModel(SPEC, { store, fetch: fakeServer().fetch, endpoint: ENDPOINT })
+
+    // Corrupt one file in place and drop the receipt, so the next run has to rewrite it over
+    // the existing bytes rather than creating it.
+    const target = store.filePath(SPEC, 'onnx/model_quantized.onnx')
+    await writeFile(target, 'z'.repeat(4096))
+    await rm(join(store.directory(SPEC), '.retenia-model.json'), { force: true })
+
+    const result = await downloadModel(SPEC, {
+      store,
+      fetch: fakeServer().fetch,
+      endpoint: ENDPOINT,
+    })
+    expect(result.downloaded).toContain('onnx/model_quantized.onnx')
+    expect(await readFile(target, 'utf-8')).toBe(CONTENTS['onnx/model_quantized.onnx'])
+    await expect(stat(`${target}.part`)).rejects.toThrow()
   })
 
   it('re-downloads a file the receipt no longer vouches for after a revision bump', async () => {
