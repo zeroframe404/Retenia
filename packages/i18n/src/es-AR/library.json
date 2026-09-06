@@ -1,5 +1,41 @@
 {
   "title": "Biblioteca",
-  "comingSoon": "La biblioteca de fuentes llega en una fase posterior.",
-  "searchPlaceholder": "Buscar en la biblioteca…"
+  "searchPlaceholder": "Buscar en la biblioteca…",
+  "addFile": "Agregar archivo",
+  "pasteText": "Pegar texto",
+  "dropLabel": "Arrastrá archivos acá, o hacé clic para elegir",
+  "dropHint": "PDF, DOCX, EPUB, PPTX, Markdown, TXT, o una imagen",
+  "pasteDialogTitle": "Pegar texto",
+  "pasteTitleLabel": "Título",
+  "pasteTitlePlaceholder": "ej. Apuntes de la clase",
+  "pasteTextLabel": "Texto",
+  "pasteTextPlaceholder": "Pegá o escribí el texto a importar…",
+  "pasteSubmit": "Agregar",
+  "pasteCancel": "Cancelar",
+  "empty": {
+    "title": "Tu biblioteca está vacía",
+    "description": "Agregá un archivo PDF, DOCX, EPUB, PPTX, Markdown o una imagen, o pegá texto, para empezar."
+  },
+  "status": {
+    "pending": "Pendiente",
+    "processing": "Procesando",
+    "ready": "Listo",
+    "failed": "Falló"
+  },
+  "retry": "Reintentar",
+  "delete": "Eliminar",
+  "summary": "{blocks, plural, one {# bloque} other {# bloques}} · {assets, plural, one {# archivo adjunto} other {# archivos adjuntos}}",
+  "needsOcr": "Algunas páginas pueden necesitar OCR",
+  "detail": {
+    "backToList": "Volver a la biblioteca",
+    "sections": "Secciones",
+    "noSections": "Todavía no hay secciones",
+    "blocks": "Vista previa",
+    "notParsedYet": "Esta fuente todavía no terminó de procesarse.",
+    "warnings": "Advertencias"
+  },
+  "deleteConfirmTitle": "¿Eliminar esta fuente?",
+  "deleteConfirmDescription": "Se quita de tu biblioteca. Esta acción no se puede deshacer.",
+  "deleteConfirmAction": "Eliminar",
+  "deleteConfirmCancel": "Cancelar"
 }

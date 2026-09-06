@@ -1,0 +1,138 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`parseEpub > follows the spine, nests chapters by their own headings, and titles them from nav.xhtml 1`] = `
+{
+  "assets": [
+    {
+      "blobSha256": "9557761a0b4820dda52ab2e4eb0743a4e5e1f8d9aaf9872fa377971d1a2242ff",
+      "id": "asset-0",
+      "kind": "image",
+      "mime": "image/png",
+    },
+  ],
+  "blocks": [
+    {
+      "hash": "744eefcb7023c6001e342478009a03264be370ee705c1a8d0d43761aff85ded4",
+      "id": "id-1",
+      "locator": {
+        "anchor": "0/1",
+      },
+      "text": "This guide covers the basics of spaced repetition.",
+      "type": "paragraph",
+    },
+    {
+      "hash": "3cf15e707d0ce21d929c1327cecfc434dfa35c524a00a2ffbe1daa42df9bed04",
+      "id": "id-3",
+      "locator": {
+        "anchor": "0/3",
+      },
+      "text": "Retrieval practice strengthens memory more than re-reading does.",
+      "type": "paragraph",
+    },
+    {
+      "hash": "1508c0a22c81ff5a7b0d497438c10ef7917a86d164339311ca9174fba1fe5fc3",
+      "html": "<ul>
+      <li>Active recall</li>
+      <li>Spacing effect</li>
+    </ul>",
+      "id": "id-4",
+      "locator": {
+        "anchor": "0/4",
+      },
+      "text": "Active recall
+Spacing effect",
+      "type": "list",
+    },
+    {
+      "hash": "5b0dc77c5c4cfad622a0b98c2702da5fb06052ce539e013c843ed14581a86df4",
+      "id": "id-7",
+      "locator": {
+        "anchor": "1/1",
+      },
+      "text": "A diagram of the review cycle:",
+      "type": "paragraph",
+    },
+    {
+      "hash": "6cfac5a6ddaa813b4ebd1d6042d16c6df2c0b4374fc5d7e072225b0fb5da046b",
+      "id": "id-8",
+      "locator": {
+        "anchor": "1/2",
+      },
+      "text": "Review cycle diagram",
+      "type": "figure",
+    },
+    {
+      "hash": "232c087401f8db25315903f3626eda03edf66513e6e75c7acded29f6109b64ca",
+      "html": "<table>
+      <tr><th>Stage</th><th>Interval</th></tr>
+      <tr><td>Learning</td><td>1 day</td></tr>
+      <tr><td>Review</td><td>6 days</td></tr>
+    </table>",
+      "id": "id-9",
+      "locator": {
+        "anchor": "1/3",
+      },
+      "text": "Stage | Interval
+Learning | 1 day
+Review | 6 days",
+      "type": "table",
+    },
+  ],
+  "id": "id-11",
+  "kind": "epub",
+  "language": "en",
+  "meta": {
+    "warnings": [],
+  },
+  "sections": [
+    {
+      "blocks": [],
+      "children": [
+        {
+          "blocks": [
+            "id-1",
+          ],
+          "children": [
+            {
+              "blocks": [
+                "id-3",
+                "id-4",
+              ],
+              "children": [],
+              "id": "id-2",
+              "level": 2,
+              "title": "Why it works",
+            },
+          ],
+          "id": "id-0",
+          "level": 1,
+          "title": "Introduction",
+        },
+      ],
+      "id": "id-5",
+      "level": 0,
+      "title": "Introduction",
+    },
+    {
+      "blocks": [],
+      "children": [
+        {
+          "blocks": [
+            "id-7",
+            "id-8",
+            "id-9",
+          ],
+          "children": [],
+          "id": "id-6",
+          "level": 1,
+          "title": "Advanced Topics",
+        },
+      ],
+      "id": "id-10",
+      "level": 0,
+      "title": "Advanced Topics",
+    },
+  ],
+  "title": "Sample Study Guide",
+}
+`;

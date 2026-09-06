@@ -2,7 +2,9 @@ import { dirname } from 'node:path'
 import { createJobRegistry, createJobScheduler, uuidv7 } from '@retenia/core'
 import type { JobProgressEvent, JobSummary } from '@retenia/ipc-contract'
 import { createJobDefinitions } from '../../jobs/definitions'
+import { createFsBlobStore } from '../blobs/store'
 import { type AppDatabase, openAppDatabase } from '../db/open'
+import { createLibraryService, type LibraryService } from '../library/service'
 import { log } from '../logging/log'
 import { getBlobsRoot, getDevMediaSamplePath, getJobWorkerPath, getWorkRoot } from '../paths'
 import { createJobsFacade, type JobsFacade } from './facade'
@@ -23,6 +25,9 @@ import { createJobRunner, type JobRunner } from './runner'
 
 export interface JobsSubsystem {
   readonly facade: JobsFacade
+  /** The source library (sub-phase 6.1) — import, retry, read back a parse. Degrades the
+   *  same way `facade` does when the database did not open. */
+  readonly library: LibraryService
   /** The shared connection jobs, settings, blobs, secrets and backups all read and write
    *  through — `null` when it failed to open, in which case every one of those subsystems
    *  degrades the same way `unavailableFacade` does below. */
@@ -54,6 +59,24 @@ function unavailableFacade(reason: string): JobsFacade {
   }
 }
 
+/** Same idea, for the library: importing anything needs the database it records sources in. */
+function unavailableLibraryService(reason: string): LibraryService {
+  const fail = (): never => {
+    throw new Error(`The source library is unavailable: ${reason}`)
+  }
+  return {
+    addFromFile: fail,
+    addFromBytes: fail,
+    addFromText: fail,
+    retry: fail,
+    list: fail,
+    get: fail,
+    getDoc: fail,
+    remove: fail,
+    onJobSettled: fail,
+  }
+}
+
 export function bootstrapJobs({
   deviceId,
   emit,
@@ -67,6 +90,7 @@ export function bootstrapJobs({
     log.error('[jobs] the database did not open; background jobs are disabled:', reason)
     return {
       facade: unavailableFacade(reason),
+      library: unavailableLibraryService(reason),
       database: null,
       start: async () => {},
       stop: async () => {},
@@ -103,15 +127,23 @@ export function bootstrapJobs({
     ownWorkerPids: () => runner.livePids(),
   })
 
+  // The same root the worker's own `BlobStore` (`apps/desktop/src/jobs/ingest-parse.ts`,
+  // `readableRoots[0]`) writes into. Both are pure `node:fs`, so a second instance here
+  // needs no coordination with the worker's.
+  const blobStore = createFsBlobStore(getBlobsRoot())
+  const library = createLibraryService({ repos: database.repos, blobStore, scheduler })
+
   runner = createJobRunner({
     scheduler,
     emit,
+    onSettled: (job) => library.onJobSettled(job),
     createPool: (handlers) =>
       createJobPool({ ...handlers, entryPath: getJobWorkerPath(), readableRoots }),
   })
 
   return {
     facade: createJobsFacade({ scheduler, runner, demoEnabled }),
+    library,
     database,
     start: () => runner.start(),
     stop: async () => {

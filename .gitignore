@@ -27,6 +27,10 @@ apps/desktop/e2e/__screenshots__/*.png
 # Storybook
 storybook-static/
 
+# tesseract.js caches the language traineddata it downloads in the current working
+# directory unless a cachePath is configured — harmless locally, never committed.
+*.traineddata
+
 # Python virtualenv of the fixture generator (tooling/fsrs-fixtures/README.md)
 .venv/
 

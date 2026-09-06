@@ -13,10 +13,29 @@
     "lint": "biome check ."
   },
   "dependencies": {
-    "@retenia/core": "workspace:*"
+    "@retenia/core": "workspace:*",
+    "@hyzyla/pdfium": "2.1.13",
+    "fast-xml-parser": "4.5.7",
+    "fflate": "0.8.3",
+    "franc-min": "6.2.0",
+    "mammoth": "1.12.2",
+    "mdast-util-to-string": "4.0.0",
+    "node-html-parser": "6.1.13",
+    "pdfjs-dist": "6.3.289",
+    "remark-frontmatter": "5.0.0",
+    "remark-gfm": "4.0.1",
+    "remark-parse": "11.0.0",
+    "tesseract.js": "7.0.0",
+    "unified": "11.0.5",
+    "unist-util-visit": "5.1.0",
+    "yaml": "2.9.0"
   },
   "devDependencies": {
     "@retenia/config": "workspace:*",
+    "@types/mdast": "4.0.4",
+    "@types/node": "24.13.3",
+    "@types/pdfkit": "0.17.6",
+    "pdfkit": "0.20.2",
     "typescript": "7.0.2",
     "vitest": "4.1.11"
   }

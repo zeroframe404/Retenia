@@ -20,6 +20,10 @@ export const jobProgressSchema = z.object({
   progress: z.number().min(0).max(1).nullable(),
   message: z.string().nullable(),
   error: z.string().nullable(),
+  /** The domain row this job is about (a source, a path version…), when it has one — same
+   *  field as `jobSummarySchema.subjectId`, so a listener can match a push to what it cares
+   *  about without a `jobs.find` round trip. */
+  subjectId: z.string().nullable(),
 })
 export type JobProgressEvent = z.infer<typeof jobProgressSchema>
 

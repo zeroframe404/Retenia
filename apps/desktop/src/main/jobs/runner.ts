@@ -27,6 +27,15 @@ export interface JobRunnerOptions {
    */
   createPool: (handlers: JobPoolHandlers) => JobPool
   emit: (event: JobProgressEvent) => void
+  /**
+   * Called with a job's row every time it reaches a terminal status (`succeeded`, `failed`
+   * or `cancelled`) — the seam a domain-specific service applies its own effect through,
+   * e.g. `apps/desktop/src/main/library/service.ts` turning an `ingestParseSource` job's
+   * result into a `sources` row update (sub-phase 6.1). The runner does not await it and
+   * catches whatever it throws or rejects with, logging rather than letting a listener's
+   * failure touch the claim loop — it is a notification, not a step in settling the job.
+   */
+  onSettled?: (job: Job) => void | Promise<void>
   /** How often to refresh a running job's lease. Must be well inside the scheduler's
    *  `leaseTimeoutMs`, or a long job would keep re-queueing itself. */
   heartbeatMs?: number
@@ -57,6 +66,7 @@ export function createJobRunner({
   scheduler,
   createPool,
   emit,
+  onSettled,
   heartbeatMs = DEFAULT_HEARTBEAT_MS,
   pollMs = DEFAULT_POLL_MS,
   persistProgressMs = DEFAULT_PERSIST_PROGRESS_MS,
@@ -64,6 +74,7 @@ export function createJobRunner({
   /** What we know about each job we handed out, so a message can become an event. */
   interface Running {
     kind: string
+    subjectId: string | null
     progress: number | null
     message: string | null
     lastPersistedAt: number
@@ -102,13 +113,24 @@ export function createJobRunner({
       message: state?.message ?? null,
       // Same rule as `toJobSummary`: no main-process paths cross the bridge.
       error: redactPathsOrNull(job.error),
+      subjectId: job.subjectId,
     }
+  }
+
+  /** Fire-and-forget: a listener's own failure is this runner's problem to log, never the
+   *  claim loop's or the caller's to handle. */
+  function notifySettled(job: Job): void {
+    if (onSettled === undefined) return
+    Promise.resolve(onSettled(job)).catch((error: unknown) => {
+      log.error(`[jobs] onSettled listener failed for ${job.id}:`, error)
+    })
   }
 
   async function settle(jobId: string, finish: () => Promise<Job>): Promise<void> {
     try {
       const job = await finish()
       emitNow(eventFor(job))
+      notifySettled(job)
     } catch (error) {
       log.error(`[jobs] could not record the outcome of ${jobId}:`, error)
     } finally {
@@ -131,6 +153,7 @@ export function createJobRunner({
       progress: value,
       message: message === null ? null : redactPaths(message),
       error: null,
+      subjectId: state.subjectId,
     })
 
     // Persisted far more slowly than it is pushed: better-sqlite3 writes synchronously on
@@ -241,7 +264,13 @@ export function createJobRunner({
         // must not outlive the dispatch — otherwise its next genuine failure is swallowed and
         // the row sits `running` for good.
         cancelled.delete(job.id)
-        running.set(job.id, { kind: job.kind, progress: null, message: null, lastPersistedAt: 0 })
+        running.set(job.id, {
+          kind: job.kind,
+          subjectId: job.subjectId,
+          progress: null,
+          message: null,
+          lastPersistedAt: 0,
+        })
 
         const dispatched = pool.dispatch({
           type: 'start',
@@ -309,14 +338,10 @@ export function createJobRunner({
       if (wasRunning) cancelled.add(id)
       pool.cancel(id)
       running.delete(id)
-      emitNow({
-        id: job.id,
-        kind: job.kind,
-        status: job.status,
-        progress: null,
-        message: null,
-        error: redactPathsOrNull(job.error),
-      })
+      // `running` no longer has an entry for `id` (just deleted above), so `eventFor` reports
+      // no progress/message — the same `null`s this used to hardcode.
+      emitNow(eventFor(job))
+      notifySettled(job)
       return job
     },
 

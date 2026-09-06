@@ -28,6 +28,7 @@ export default defineConfig({
           '@retenia/core',
           '@retenia/db',
           '@retenia/activity-schema',
+          '@retenia/ingest',
           'zod',
         ],
       },

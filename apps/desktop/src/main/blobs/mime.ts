@@ -24,6 +24,9 @@ const MIME_TO_EXT: Readonly<Record<string, string>> = Object.freeze({
   'application/epub+zip': 'epub',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
   'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'pptx',
+  // A parsed `SourceDoc` (sub-phase 6.1, `docs/spec/07-architecture.md` §5: "store the raw
+  // SourceDoc JSON as a blob for reprocessing").
+  'application/json': 'json',
   'text/plain': 'txt',
   'text/markdown': 'md',
   'image/png': 'png',

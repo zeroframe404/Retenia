@@ -1,0 +1,142 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`parsePdf > extracts a born-digital PDF with a correct section tree and page locators 1`] = `
+{
+  "assets": [],
+  "blocks": [
+    {
+      "hash": "37dcb2a69bc62bedb86575204992f04dc0a30779a0b4f2835ebec51fe6fc0e57",
+      "id": "id-1",
+      "locator": {
+        "bbox": [
+          72,
+          678,
+          445.0440000000003,
+          40,
+        ],
+        "page": 1,
+      },
+      "text": "This is the introduction. Spaced repetition schedules review of material at increasing intervals to strengthen long-term retention, and this document walks through the theory.",
+      "type": "paragraph",
+    },
+    {
+      "hash": "7ae4b757580c191c028b1657cee648a2eed34842446deab467405facffeacdae",
+      "id": "id-3",
+      "locator": {
+        "bbox": [
+          72,
+          692,
+          400.63200000000023,
+          40,
+        ],
+        "page": 2,
+      },
+      "text": "Retrieval practice — actively recalling an answer rather than re-reading it — produces more durable memories than passive review, a finding replicated across many studies.",
+      "type": "paragraph",
+    },
+    {
+      "hash": "81fe2432f747914a3b360d3d52ca4742a0e968502afaf345b1c55eb11792d07f",
+      "id": "id-5",
+      "locator": {
+        "bbox": [
+          72,
+          678,
+          429.36000000000035,
+          40,
+        ],
+        "page": 3,
+      },
+      "text": "The FSRS algorithm models memory as two quantities, stability and retrievability, and schedules the next review for whichever moment retrievability crosses a target threshold.",
+      "type": "paragraph",
+    },
+    {
+      "hash": "fc7fe5858e03ff99b00d689f26d7443e7c4559d68f4bb8852f40d6ae082aca00",
+      "id": "id-7",
+      "locator": {
+        "bbox": [
+          72,
+          692,
+          440.16000000000054,
+          40,
+        ],
+        "page": 4,
+      },
+      "text": "Review logs record every attempt — the card, the grade given, and the interval that had elapsed since the previous review — and this history is what a scheduler is trained on.",
+      "type": "paragraph",
+    },
+    {
+      "hash": "09cd3acdfb61dba906741091a2d73a23e480362cfff523a41bad442219644e4a",
+      "id": "id-9",
+      "locator": {
+        "bbox": [
+          72,
+          678,
+          430.0680000000004,
+          40,
+        ],
+        "page": 5,
+      },
+      "text": "Combining a transparent scheduler with content generated from the reader's own sources is the central bet this whole project makes, and the rest of the document builds on it.",
+      "type": "paragraph",
+    },
+  ],
+  "id": "id-10",
+  "kind": "pdf",
+  "language": "en",
+  "meta": {
+    "needsOcr": false,
+    "pageCount": 5,
+    "warnings": [],
+  },
+  "sections": [
+    {
+      "blocks": [
+        "id-1",
+      ],
+      "children": [
+        {
+          "blocks": [
+            "id-3",
+          ],
+          "children": [],
+          "id": "id-2",
+          "level": 2,
+          "title": "1.1 Background",
+        },
+      ],
+      "id": "id-0",
+      "level": 1,
+      "title": "Chapter 1: Introduction",
+    },
+    {
+      "blocks": [
+        "id-5",
+      ],
+      "children": [
+        {
+          "blocks": [
+            "id-7",
+          ],
+          "children": [],
+          "id": "id-6",
+          "level": 2,
+          "title": "2.1 Data collection",
+        },
+      ],
+      "id": "id-4",
+      "level": 1,
+      "title": "Chapter 2: Methods",
+    },
+    {
+      "blocks": [
+        "id-9",
+      ],
+      "children": [],
+      "id": "id-8",
+      "level": 1,
+      "title": "Chapter 3: Conclusion",
+    },
+  ],
+  "title": "Chapter 1: Introduction",
+}
+`;

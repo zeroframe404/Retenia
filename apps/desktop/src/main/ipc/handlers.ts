@@ -19,17 +19,21 @@ import type {
   SessionSummary,
   SettingsKey,
   SettingsRepository,
+  Source,
   StatsOverview,
   TrueRetention,
   UrgentModeHours,
 } from '@retenia/core'
 import { GRADES, SETTINGS } from '@retenia/core'
-import type { Contract } from '@retenia/ipc-contract'
+import type { Contract, SourceSummary } from '@retenia/ipc-contract'
 import { app, BrowserWindow, dialog, nativeTheme } from 'electron'
 import type { BackupService } from '../backups/service'
 import { ensureDevMediaSample } from '../dev/media-sample'
 import { collectSystemInfo, exportDiagnostics } from '../diagnostics/export'
 import type { JobsFacade } from '../jobs/facade'
+import { IMPORTABLE_EXTENSIONS } from '../library/detect-kind'
+import type { LibraryService } from '../library/service'
+import { log } from '../logging/log'
 import type { ServedActivity } from '../memory/activity-service'
 import type { MemoryService } from '../memory/service'
 import { getDevMediaSamplePath, getLogsDir } from '../paths'
@@ -49,6 +53,7 @@ export interface HandlerDeps {
   settings: SettingsStore
   updater: Updater
   jobs: JobsFacade
+  library: LibraryService
   blobStore: BlobStore
   /** Forwarded to the main-process Sentry client, once telemetry is on. */
   reportRendererError: (error: { name: string; message: string; stack?: string }) => void
@@ -256,11 +261,65 @@ function toStatsDto(stats: StatsOverview) {
   }
 }
 
+/** Imports each file independently: one unreadable or unsupported file must not sink the
+ *  rest of a multi-select or a multi-file drop. Failures are logged, not surfaced per-file —
+ *  the source list simply shows what actually got added. */
+async function addEach(
+  labels: readonly string[],
+  attempts: readonly Promise<Source>[],
+): Promise<SourceSummary[]> {
+  const results = await Promise.allSettled(attempts)
+  const sources: SourceSummary[] = []
+  for (const [index, result] of results.entries()) {
+    if (result.status === 'fulfilled') {
+      sources.push(toSourceSummary(result.value))
+    } else {
+      // Never let this message read as an ES import statement (the word "import" followed
+      // by a quoted string): electron-vite finds the built main chunk's last import with a
+      // regex, and a message shaped like one made it inject its `__dirname` shim inside the
+      // string instead of at module scope — main then threw before opening a window.
+      log.error(`[library] could not add "${labels[index]}":`, result.reason)
+    }
+  }
+  return sources
+}
+
+/** `sources.meta` holds what the parse produced — the renderer's `meta` — and, from the
+ *  moment of import, `blobExt` (see `library/service.ts`), which is main's business only.
+ *  The DTO carries the former, and only once a parse has produced it. */
+function parsedMeta(meta: Source['meta']): SourceSummary['meta'] {
+  if (meta === null || typeof meta.sourceDocBlobSha256 !== 'string') return null
+  const parsed = meta as unknown as NonNullable<SourceSummary['meta']>
+  return {
+    sourceDocBlobSha256: parsed.sourceDocBlobSha256,
+    blockCount: parsed.blockCount,
+    assetCount: parsed.assetCount,
+    needsOcr: parsed.needsOcr,
+    ocrPages: parsed.ocrPages,
+    warnings: parsed.warnings,
+  }
+}
+
+function toSourceSummary(source: Source): SourceSummary {
+  return {
+    id: source.id,
+    kind: source.kind,
+    title: source.title,
+    status: source.status,
+    language: source.language,
+    error: source.error,
+    meta: parsedMeta(source.meta),
+    createdAt: source.createdAt.toISOString(),
+    ingestedAt: source.ingestedAt?.toISOString() ?? null,
+  }
+}
+
 /** The implementation of every channel in the contract. */
 export function createHandlers({
   settings,
   updater,
   jobs,
+  library,
   blobStore,
   reportRendererError,
   secrets,
@@ -349,6 +408,54 @@ export function createHandlers({
     'jobs.retry': ({ id }) => jobs.retry(id),
 
     'jobs.enqueueDemo': (input) => jobs.enqueueDemo(input),
+
+    // --- library: import, watch, read back a parse (sub-phase 6.1) ---
+
+    'library.listSources': async (input) => ({
+      sources: (await library.list(input)).map(toSourceSummary),
+    }),
+
+    'library.getSource': async ({ id }) => {
+      const source = await library.get(id)
+      return { source: source === undefined ? null : toSourceSummary(source) }
+    },
+
+    'library.getSourceDoc': async ({ id }) => ({ doc: (await library.getDoc(id)) ?? null }),
+
+    'library.addSourceFromDialog': async (_input, event) => {
+      const window = BrowserWindow.fromWebContents(event.sender)
+      const dialogOptions: Electron.OpenDialogOptions = {
+        title: 'Add to Library',
+        properties: ['openFile', 'multiSelections'],
+        filters: [{ name: 'Supported files', extensions: IMPORTABLE_EXTENSIONS }],
+      }
+      const { canceled, filePaths } = window
+        ? await dialog.showOpenDialog(window, dialogOptions)
+        : await dialog.showOpenDialog(dialogOptions)
+      if (canceled) return { sources: [] }
+      return {
+        sources: await addEach(
+          filePaths,
+          filePaths.map((path) => library.addFromFile(path)),
+        ),
+      }
+    },
+
+    'library.addSourceFromFiles': async ({ files }) => ({
+      sources: await addEach(
+        files.map((file) => file.name),
+        files.map((file) => library.addFromBytes(file.name, file.bytes)),
+      ),
+    }),
+
+    'library.addSourceFromText': async ({ text, title }) =>
+      toSourceSummary(await library.addFromText(text, title)),
+
+    'library.retrySource': async ({ id }) => toSourceSummary(await library.retry(id)),
+
+    'library.deleteSource': async ({ id }) => {
+      await library.remove(id)
+    },
 
     // --- memory: importance, urgent mode, reschedule (docs/spec/02-memory-system.md §7) ---
 

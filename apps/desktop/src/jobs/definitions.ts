@@ -4,6 +4,7 @@ import { stat } from 'node:fs/promises'
 import { type JobContext, type JobDefinition, registerJob } from '@retenia/core'
 import { canonicalize, confinePath, isInsideRoot, JobCancelledError, whenAborted } from './confine'
 import { createFsrsOptimizeJob } from './fsrs-optimize'
+import { createIngestParseJob } from './ingest-parse'
 
 // Re-exported from their own module: they are shared with `fsrsOptimize` and are the one
 // copy of the path-confinement check.
@@ -127,5 +128,6 @@ export function createJobDefinitions(readableRoots: readonly string[]) {
     registerJob(sleepJob),
     registerJob(createHashFileJob(readableRoots)),
     registerJob(createFsrsOptimizeJob(readableRoots)),
+    registerJob(createIngestParseJob(readableRoots)),
   ]
 }

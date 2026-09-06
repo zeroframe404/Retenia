@@ -407,6 +407,7 @@ describe('JobRunner', () => {
           progress: 0.25,
           message: '25/100 bytes',
           error: null,
+          subjectId: null,
         },
       ])
     })

@@ -263,6 +263,7 @@ if (gotLock) {
       settings,
       updater,
       jobs: jobs.facade,
+      library: jobs.library,
       blobStore,
       secrets: secretStore,
       backups: backupService,
