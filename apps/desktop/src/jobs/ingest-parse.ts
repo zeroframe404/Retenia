@@ -6,7 +6,7 @@ import {
   type SourceKind,
   uuidv7,
 } from '@retenia/core'
-import { createTesseractOcrProvider, parseDocument, type SourceDoc } from '@retenia/ingest'
+import type { SourceDoc } from '@retenia/ingest'
 import { createFsBlobStore } from '../main/blobs/store'
 import { confinePath } from './confine'
 
@@ -102,6 +102,11 @@ async function run(
   )
   const bytes = new Uint8Array(await readFile(path))
 
+  // Loaded here, not at the top of the module: this file is shared by main and the job
+  // worker (`definitions.ts`), and only the worker ever runs a parse. The parsers drag in
+  // pdfjs, tesseract and pdfium, which main has no reason to evaluate at startup.
+  const { createTesseractOcrProvider, parseDocument } = await import('@retenia/ingest')
+
   ctx.progress(0.15, `parsing ${input.kind}`)
   const doc = await parseDocument(
     input.kind,
@@ -113,7 +118,10 @@ async function run(
         return { id: uuidv7(), blobSha256: put.sha256, mime: put.mime, kind }
       },
     },
-    ocrProvider,
+    // Local Tesseract by default (`docs/spec/05-ingestion-rag.md` §1); a cloud `OcrProvider`
+    // (Gemini Flash-Lite, Mistral OCR) is a phase-7 addition behind the same port, not a
+    // change to this job.
+    createTesseractOcrProvider(),
   )
   if (ctx.signal.aborted) throw new Error('ingestParseSource was cancelled')
 
@@ -133,8 +141,3 @@ async function run(
     warnings: doc.meta.warnings,
   }
 }
-
-/** Local Tesseract by default (`docs/spec/05-ingestion-rag.md` §1); a cloud `OcrProvider`
- *  (Gemini Flash-Lite, Mistral OCR) is a phase-7 addition behind the same port, not a change
- *  to this job. */
-const ocrProvider = createTesseractOcrProvider()

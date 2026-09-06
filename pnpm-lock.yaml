@@ -29,6 +29,9 @@ importers:
       '@electron-toolkit/utils':
         specifier: 4.0.0
         version: 4.0.0(electron@44.1.1(supports-color@7.2.0))
+      '@hyzyla/pdfium':
+        specifier: 2.1.13
+        version: 2.1.13
       '@retenia/activities':
         specifier: workspace:*
         version: link:../../packages/activities
@@ -89,6 +92,9 @@ importers:
       lucide-react:
         specifier: 1.39.0
         version: 1.39.0(react@19.2.8)
+      pdfjs-dist:
+        specifier: 6.3.289
+        version: 6.3.289
       react:
         specifier: 19.2.8
         version: 19.2.8
@@ -107,6 +113,9 @@ importers:
       sqlite-vec:
         specifier: 0.1.9
         version: 0.1.9
+      tesseract.js:
+        specifier: 7.0.0
+        version: 7.0.0
       zod:
         specifier: 4.5.4
         version: 4.5.4
@@ -582,68 +591,68 @@ importers:
   packages/ingest:
     dependencies:
       '@hyzyla/pdfium':
-        specifier: ^2.1.13
+        specifier: 2.1.13
         version: 2.1.13
       '@retenia/core':
         specifier: workspace:*
         version: link:../core
       fast-xml-parser:
-        specifier: ^4.5.1
+        specifier: 4.5.7
         version: 4.5.7
       fflate:
-        specifier: ^0.8.2
+        specifier: 0.8.3
         version: 0.8.3
       franc-min:
-        specifier: ^6.2.0
+        specifier: 6.2.0
         version: 6.2.0
       mammoth:
-        specifier: ^1.9.0
+        specifier: 1.12.2
         version: 1.12.2
       mdast-util-to-string:
-        specifier: ^4.0.0
+        specifier: 4.0.0
         version: 4.0.0
       node-html-parser:
-        specifier: ^6.1.13
+        specifier: 6.1.13
         version: 6.1.13
       pdfjs-dist:
-        specifier: ^6.1.20
+        specifier: 6.3.289
         version: 6.3.289
       remark-frontmatter:
-        specifier: ^5.0.0
+        specifier: 5.0.0
         version: 5.0.0(supports-color@7.2.0)
       remark-gfm:
         specifier: 4.0.1
         version: 4.0.1(supports-color@7.2.0)
       remark-parse:
-        specifier: ^11.0.0
+        specifier: 11.0.0
         version: 11.0.0(supports-color@7.2.0)
       tesseract.js:
-        specifier: ^7.0.0
+        specifier: 7.0.0
         version: 7.0.0
       unified:
-        specifier: ^11.0.5
+        specifier: 11.0.5
         version: 11.0.5
       unist-util-visit:
-        specifier: ^5.0.0
+        specifier: 5.1.0
         version: 5.1.0
       yaml:
-        specifier: ^2.6.1
+        specifier: 2.9.0
         version: 2.9.0
     devDependencies:
       '@retenia/config':
         specifier: workspace:*
         version: link:../config
       '@types/mdast':
-        specifier: ^4.0.4
+        specifier: 4.0.4
         version: 4.0.4
       '@types/node':
         specifier: 24.13.3
         version: 24.13.3
       '@types/pdfkit':
-        specifier: ^0.17.6
+        specifier: 0.17.6
         version: 0.17.6
       pdfkit:
-        specifier: ^0.20.2
+        specifier: 0.20.2
         version: 0.20.2
       typescript:
         specifier: 7.0.2

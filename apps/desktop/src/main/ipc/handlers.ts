@@ -274,7 +274,11 @@ async function addFiles(
     if (result.status === 'fulfilled') {
       sources.push(toSourceSummary(result.value))
     } else {
-      log.error(`[library] could not import "${paths[index]}":`, result.reason)
+      // Never let this message read as an ES import statement (the word "import" followed
+      // by a quoted string): electron-vite finds the built main chunk's last import with a
+      // regex, and a message shaped like one made it inject its `__dirname` shim inside the
+      // string instead of at module scope — main then threw before opening a window.
+      log.error(`[library] could not add "${paths[index]}":`, result.reason)
     }
   }
   return sources

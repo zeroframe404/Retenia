@@ -31,6 +31,13 @@ asarUnpack:
   # `vec0` virtual table, so without this a packaged build cannot build its database at all.
   # `resolveUnpacked` in src/main/paths.ts points at the copy this leaves on disk.
   - '**/node_modules/sqlite-vec-*/**'
+  # The ingest parsers' runtime assets (sub-phase 6.1). tesseract.js starts its recognizer as
+  # a `worker_threads` Worker from a script path inside its own package and loads its wasm
+  # core next to it; pdfium locates `pdfium.wasm` relative to its own module URL. Both need
+  # real files, the same reason the sidecars above do.
+  - '**/node_modules/tesseract.js/**'
+  - '**/node_modules/tesseract.js-core/**'
+  - '**/node_modules/@hyzyla/pdfium/**'
 asar: true
 # better-sqlite3 13 ships N-API prebuilds for every platform inside its tarball, which is why
 # `pnpm-workspace.yaml` already sets `allowBuilds.better-sqlite3: false`. Letting
