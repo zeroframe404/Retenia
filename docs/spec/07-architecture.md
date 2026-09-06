@@ -245,11 +245,19 @@ RETURNING *;
 Progress by messages → `webContents.send('jobs:progress')`; cancellation with
 `AbortController`; backoff of 2ⁿ minutes; a "Processing" panel with a bar per source.
 
-**Binaries:** LGPL ffmpeg in `resources/bin` with `asarUnpack` (invoked as a process, with a
-notice and a link to the sources: it does not contaminate the licence); pre-compiled
-whisper-cli (CPU + CUDA, detect the NVIDIA GPU) with GGML models downloaded on demand
-(`nodejs-whisper` compiles at postinstall with MinGW: unacceptable for end users); yt-dlp only
-as an optional plugin with weekly auto-update and SHA256 verification.
+**Binaries:** LGPL ffmpeg and a pre-compiled whisper-cli (CPU + CUDA, detect the NVIDIA GPU),
+both invoked as processes — which is what keeps the LGPL off the app's own licence — with GGML
+models downloaded on demand (`nodejs-whisper` compiles at postinstall with MinGW: unacceptable
+for end users); yt-dlp only as an optional plugin with weekly auto-update and SHA256
+verification.
+
+Sub-phase 6.4 resolves each binary through three tiers, most trusted first: `resources/bin`
+(bundled, `asarUnpack`ed — nothing ships there today, but the "optional GPU package" §11
+imagines would), then `.sidecars/` (a development checkout), then `<userData>/bin` (downloaded
+at first use, hash-checked against a checked-in manifest). §13.4 item 4 records why downloading
+beat bundling. The LGPL obligation — a notice and a link to the sources — is discharged in
+`docs/dev/sidecars.md` and in the app's third-party notices; note that `check-licenses.mjs`
+cannot see any of this, since it reads `pnpm licenses list` and these are not npm packages.
 
 **Keyframes:** `-vf "select='gt(scene,0.3)'"` or `fps=1/10` + dHash.
 
@@ -404,10 +412,49 @@ lessons as SCORM/xAPI is left for later.
    `supportedArchitectures.cpu: ['current', 'wasm32']` in `pnpm-workspace.yaml`, so a
    platform with no prebuild degrades to WASM without a second adapter. Measured on a
    5,000-review fixture: ~500 ms to train, log loss 0.378 → 0.356.
-3. **Video player:** media-chrome (safe) vs Vidstack 1.x (better React API, uncertain
-   activity): decide in sub-phase 6.4 after reviewing commits.
-4. **Local Whisper:** sherpa-onnx (one addon for STT + VAD + TTS) vs a bundled whisper-cli (no
-   compilation): decide in 6.4 based on ease of packaging with CUDA.
+3. ~~**Video player:** media-chrome (safe) vs Vidstack 1.x (better React API, uncertain
+   activity): decide in sub-phase 6.4 after reviewing commits.~~ **Taken in sub-phase 6.4:**
+   *neither*. A thin own player over a plain `<video>`, in `packages/readers/src/media/`.
+   media-chrome 4.19.2 styles its controls with `<style>` elements inside shadow roots and
+   therefore requires `style-src 'unsafe-inline'` (muxinc/media-chrome#898) — against §4's
+   security checklist and against a rule CLAUDE.md states without qualification. Vidstack was
+   not the escape hatch this entry assumed: it is at 0.6.15, not the "1.x" the stack table
+   names, its last release was February 2026, and its author has moved to Mux to build
+   Video.js v10, so the "uncertain activity" resolved to *stalled*. The cost of building the
+   controls is smaller than it looks, because every affordance this sub-phase needs — keyframe
+   markers on the scrubber, a transcript that seeks, a clip range, J/K/L, and continuous
+   playback across a course's twelve files — is custom work on top of any of the candidates;
+   none of them models a multi-file source. Captions are added with `addTextTrack` rather than
+   a `<track>` element, because `media://` is cross-origin to the `app://` renderer and a
+   `<track>` is a CORS-checked subresource where a media element's own request is not.
+4. ~~**Local Whisper:** sherpa-onnx (one addon for STT + VAD + TTS) vs a bundled whisper-cli (no
+   compilation): decide in 6.4 based on ease of packaging with CUDA.~~ **Taken in sub-phase
+   6.4:** whisper.cpp's prebuilt `whisper-cli`, **downloaded on demand rather than bundled**.
+   Both candidates avoid compiling on the user's machine — `sherpa-onnx-node` 1.13.7
+   (Apache-2.0) ships platform binaries through `optionalDependencies` — so this entry's own
+   tiebreaker decides it: only whisper.cpp publishes a CUDA build
+   (`whisper-cublas-12.4.0-bin-x64.zip`, 670 MB; an 11.8 variant at 269 MB), while the
+   sherpa-onnx npm packages are CPU-only, and §7 asks literally for "whisper-cli (CPU + CUDA,
+   detect the NVIDIA GPU)". The other half of sherpa-onnx's appeal fell away too: whisper.cpp
+   v1.9.2 has **Silero VAD as a first-class flag** (`--vad -vm <silero>.bin`, 885 kB), so the
+   addon would have been carried for a feature already in the binary — and this sub-phase
+   grows no energy-based detector either, because whisper produces correct segment timestamps
+   without VAD, making it a cost and boundary-quality optimisation rather than a correctness
+   requirement.
+
+   Nothing is bundled. The CPU archives are 8.2 MB (win-x64) and 9.5 MB (linux-x64), ffmpeg's
+   LGPL build is 148 MB, and the default model `ggml-small-q5_1` is 190 MB; all are fetched
+   into `<userData>/bin` and `<userData>/models` on first use, each verified against a SHA-256
+   in `packages/ingest/src/sidecars/manifest.json`. That is §11's own "sidecars downloaded on
+   demand" mitigation for antivirus and installer size, and it also sidesteps the LGPL
+   redistribution question entirely: the app points the user at BtbN's published artifact
+   rather than shipping a relinkable copy of it. `ggml-large-v3-turbo-q5_0` (574 MB) is the
+   quality upgrade, preferred automatically only when a CUDA build is in play — on a CPU-only
+   machine it runs at roughly real time, which reads as a hang.
+
+   **Scoped to ingestion transcription.** sherpa-onnx remains the right shape for phase 11's
+   accent lab, where in-process VAD and TTS are wanted per utterance and spawning a CLI each
+   time would be the wrong design. This entry is not a rejection of that library.
 5. **Default embeddings:** EmbeddingGemma (better Spanish, 300M) vs multilingual-e5-small
    (faster on CPU): measure in 6.3 with your corpus.
 6. **Reference locale for accents:** `en-GB` vs `en-US` for the segmental scoring of the Irish
