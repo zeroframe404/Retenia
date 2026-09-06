@@ -16,22 +16,54 @@ import { MAX_COURSE_DEPTH, MAX_COURSE_FILES, walkCourseFolder } from './course'
 
 const roots: string[] = []
 
+/**
+ * Builds a throwaway folder from a `path -> contents` map.
+ *
+ * Each directory is created once rather than once per file, and the files are written in
+ * batches rather than one awaited call after another. That is not a micro-optimisation: the
+ * truncation case below lays down `MAX_COURSE_FILES + 5` entries, and the serial version of
+ * this helper spent over five seconds doing it on `windows-latest` — a fixture cost, charged
+ * to a test whose subject is the walk's bound and not the filesystem's write throughput.
+ *
+ * The batch is bounded because libuv's threadpool is, and an unbounded `Promise.all` over
+ * hundreds of opens is how a constrained runner gets EMFILE.
+ */
+const WRITE_BATCH = 32
+
+/** Room for the one case that lays down five hundred files. */
+const HEAVY_FIXTURE = { timeout: 30_000 }
+
 async function tree(spec: Record<string, string>): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), 'retenia-course-'))
   roots.push(root)
-  for (const [relPath, contents] of Object.entries(spec)) {
-    const full = join(root, relPath)
-    await mkdir(join(full, '..'), { recursive: true })
-    await writeFile(full, contents)
+
+  const entries = Object.entries(spec).map(([relPath, contents]) => ({
+    full: join(root, relPath),
+    contents,
+  }))
+  const directories = new Set(entries.map((entry) => join(entry.full, '..')))
+  for (const directory of directories) await mkdir(directory, { recursive: true })
+
+  for (let start = 0; start < entries.length; start += WRITE_BATCH) {
+    await Promise.all(
+      entries
+        .slice(start, start + WRITE_BATCH)
+        .map((entry) => writeFile(entry.full, entry.contents)),
+    )
   }
   return root
 }
 
+// The same headroom, for the same reason, on the way back out: removing the truncation case's
+// five hundred files is the heaviest teardown here, and `retryDelay` covers the Windows case
+// where a file just written is still held open by a scan when the remove reaches it.
 afterEach(async () => {
   await Promise.all(
-    roots.splice(0).map((root) => rm(root, { recursive: true, force: true, maxRetries: 5 })),
+    roots
+      .splice(0)
+      .map((root) => rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 })),
   )
-})
+}, HEAVY_FIXTURE.timeout)
 
 describe('walkCourseFolder', () => {
   it('reads a Udemy-shaped folder in the author’s own order', async () => {
@@ -130,18 +162,25 @@ describe('walkCourseFolder', () => {
     expect(skipped.some((entry) => entry.includes('escape'))).toBe(true)
   })
 
-  it('reports truncation rather than importing an unbounded number of files', async () => {
-    const spec: Record<string, string> = {}
-    for (let i = 0; i < MAX_COURSE_FILES + 5; i += 1) {
-      spec[`${String(i).padStart(4, '0')}-lesson.mp4`] = 'x'
-    }
-    const root = await tree(spec)
+  // Five hundred files is the heaviest fixture in this file by an order of magnitude, and
+  // creating them is work Windows charges for. The assertions below are unchanged; only the
+  // room to lay the fixture down is.
+  it(
+    'reports truncation rather than importing an unbounded number of files',
+    HEAVY_FIXTURE,
+    async () => {
+      const spec: Record<string, string> = {}
+      for (let i = 0; i < MAX_COURSE_FILES + 5; i += 1) {
+        spec[`${String(i).padStart(4, '0')}-lesson.mp4`] = 'x'
+      }
+      const root = await tree(spec)
 
-    const { parts, truncated } = await walkCourseFolder(root)
+      const { parts, truncated } = await walkCourseFolder(root)
 
-    expect(truncated).toBe(true)
-    expect(parts).toHaveLength(MAX_COURSE_FILES)
-  })
+      expect(truncated).toBe(true)
+      expect(parts).toHaveLength(MAX_COURSE_FILES)
+    },
+  )
 
   it('answers with nothing for a folder holding no media at all', async () => {
     // The service turns this into `EmptyCourseFolderError`, so the dialog can say "no media
