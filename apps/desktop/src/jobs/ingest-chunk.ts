@@ -104,7 +104,7 @@ async function run(
   // Loaded here rather than at the top of the module for the same reason `ingest-parse.ts`
   // does it: this file is shared with main through `definitions.ts`, and only the worker
   // chunks. `js-tiktoken`'s rank table alone is ~1.7 MB main has no use for.
-  const { chunkSourceDoc, createTokenCounter } = await import('@retenia/ingest')
+  const { chunkSourceDoc, createTokenCounter } = await import('@retenia/ingest/chunking')
 
   ctx.progress(0.2, 'chunking')
   const tokenizerId = input.tokenizer ?? 'chars4'

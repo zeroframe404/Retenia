@@ -191,7 +191,7 @@ export function createLibraryService({
   let prompt: { template: string; system: string; version: string } | undefined
   const contextualizePrompt = async (): Promise<NonNullable<typeof prompt>> => {
     if (prompt !== undefined) return prompt
-    const { systemFromTemplate } = await import('@retenia/ingest')
+    const { systemFromTemplate } = await import('@retenia/ingest/contextualize')
     const { loadContextualizePrompt, readPromptVersion } = await import('@retenia/ingest/prompts')
     const template = loadContextualizePrompt()
     prompt = {
@@ -213,7 +213,9 @@ export function createLibraryService({
     source: Source | undefined,
     chunks: readonly Chunk[],
   ): Promise<DocumentContext> => {
-    const { buildOutlineFromHeadingPaths, describeDocument } = await import('@retenia/ingest')
+    const { buildOutlineFromHeadingPaths, describeDocument } = await import(
+      '@retenia/ingest/contextualize'
+    )
     const context = describeDocument(
       {
         title: source?.title ?? '',
@@ -314,7 +316,7 @@ export function createLibraryService({
     getUnits: (id) => repos.sources.listUnits(id),
 
     estimateContextualization: async (id) => {
-      const { estimateContextualization: estimate } = await import('@retenia/ingest')
+      const { estimateContextualization: estimate } = await import('@retenia/ingest/contextualize')
       const { system } = await contextualizePrompt()
       const chunks = await repos.chunks.listBySource(id)
       const source = await repos.sources.findById(id)
@@ -327,7 +329,7 @@ export function createLibraryService({
 
     contextualize: async (id, options = {}) => {
       if (textGenerator === undefined) throw new ContextualizationUnavailableError()
-      const { contextualizeChunks } = await import('@retenia/ingest')
+      const { contextualizeChunks } = await import('@retenia/ingest/contextualize')
       const { template, version } = await contextualizePrompt()
 
       const chunks = await repos.chunks.listBySource(id)
@@ -360,7 +362,10 @@ export function createLibraryService({
     },
 
     rechunkStaleSources: async (tokenizer) => {
-      const { chunkingVersion } = await import('@retenia/ingest')
+      // The `/chunking` slice, not the package barrel: the barrel is the parser stack —
+      // pdfjs, tesseract, mammoth, the embedding providers — and every one of them would be
+      // loaded here to read a version string out of a pure function.
+      const { chunkingVersion } = await import('@retenia/ingest/chunking')
       const version = chunkingVersion({
         id: tokenizer ?? 'chars4',
         // The counter is never called here — `chunkingVersion` only reads the id — so there

@@ -6,7 +6,12 @@
   "description": "Extractors, structural chunking, contextual retrieval, embeddings, jobs (Node only), sidecar manager.",
   "exports": {
     ".": "./src/index.ts",
-    "./prompts": "./src/contextualize/prompt-files.ts"
+    "./chunking": "./src/chunking/index.ts",
+    "./contextualize": "./src/contextualize/index.ts",
+    "./embeddings": "./src/embeddings/index.ts",
+    "./models": "./src/models/index.ts",
+    "./prompts": "./src/contextualize/prompt-files.ts",
+    "./rerank": "./src/rerank/index.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",

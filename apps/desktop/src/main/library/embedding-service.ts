@@ -109,7 +109,7 @@ export function createEmbeddingService(options: EmbeddingServiceOptions): Embedd
       const baseUrl = await getSetting('retrieval.ollamaBaseUrl')
       const model = await getSetting('retrieval.ollamaModel')
       const nativeDims = await getSetting('retrieval.ollamaDims')
-      const { createOllamaEmbedding } = await import('@retenia/ingest')
+      const { createOllamaEmbedding } = await import('@retenia/ingest/embeddings')
       return {
         model: { kind: 'ollama', baseUrl, model, nativeDims },
         jobPayload: { ollama: { baseUrl, model, nativeDims } },
@@ -119,7 +119,7 @@ export function createEmbeddingService(options: EmbeddingServiceOptions): Embedd
       }
     }
 
-    const { findModel } = await import('@retenia/ingest')
+    const { findModel } = await import('@retenia/ingest/models')
     const spec = findModel(configured)
     if (spec === undefined || spec.kind !== 'embedding') {
       // A setting written by a newer build, or a model dropped from the catalog. Retrieval
@@ -186,7 +186,7 @@ export function createEmbeddingService(options: EmbeddingServiceOptions): Embedd
     if (!(await getSetting('retrieval.rerankerEnabled'))) return undefined
     const modelId = await getSetting('retrieval.rerankerModel')
     const device = await getSetting('retrieval.device')
-    const { findModel } = await import('@retenia/ingest')
+    const { findModel } = await import('@retenia/ingest/models')
     const spec = findModel(modelId)
     if (spec === undefined || spec.kind !== 'reranker') {
       log.warn(`[embeddings] "${modelId}" is not a reranker in this build`)

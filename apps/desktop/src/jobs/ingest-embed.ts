@@ -166,14 +166,10 @@ async function run(
   )
   const payload = JSON.parse(await readFile(textsPath, 'utf-8')) as EmbedTextsBlob
 
-  const {
-    createModelStore,
-    createOllamaEmbedding,
-    createTransformersEmbedding,
-    downloadModel,
-    isEmbeddingDevice,
-    requireModel,
-  } = await import('@retenia/ingest')
+  const { createModelStore, downloadModel, requireModel } = await import('@retenia/ingest/models')
+  const { createOllamaEmbedding, createTransformersEmbedding, isEmbeddingDevice } = await import(
+    '@retenia/ingest/embeddings'
+  )
 
   let provider: {
     modelId: string

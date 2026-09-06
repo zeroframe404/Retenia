@@ -1,3 +1,19 @@
+/**
+ * Everything `@retenia/ingest` offers, in one place — convenient for tests, and the wrong
+ * thing to import from the app.
+ *
+ * This barrel is the whole package: pdfjs, tesseract, mammoth, the remark stack, the
+ * embedding providers. Loading it costs the better part of a second even when the caller
+ * only wanted a pure function, and a `utilityProcess` that exists to load a model has no use
+ * for a PDF parser. `package.json` therefore exports the slices as well —
+ * `@retenia/ingest/chunking`, `/contextualize`, `/embeddings`, `/models`, `/rerank`,
+ * `/prompts` — and every `await import(…)` in `apps/desktop` names the one it needs.
+ *
+ * That is not only startup polish: with the barrel behind a dynamic import, the first test in
+ * a file paid all of it, and on a loaded `windows-latest` runner that single test crossed
+ * Vitest's 5 s timeout while its eighteen siblings finished in milliseconds.
+ */
+
 export type {
   ChunkDraft,
   ChunkingResult,

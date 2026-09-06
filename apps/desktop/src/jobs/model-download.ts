@@ -63,7 +63,7 @@ async function run(
 ): Promise<DownloadModelResult> {
   // Loaded here rather than at the top of the module for the reason `ingest-chunk.ts` gives:
   // `definitions.ts` is shared with main, and only the worker downloads.
-  const { createModelStore, downloadModel, requireModel } = await import('@retenia/ingest')
+  const { createModelStore, downloadModel, requireModel } = await import('@retenia/ingest/models')
 
   const spec = requireModel(input.modelId)
   // The models root is app-owned and passed in from `getModelsRoot()`, but it still goes

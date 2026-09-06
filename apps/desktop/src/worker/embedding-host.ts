@@ -76,9 +76,10 @@ async function loadEmbedder(
   // A different model than the one resident: drop it first rather than hold two.
   await unload()
   const startedAt = Date.now()
-  const { createOllamaEmbedding, createTransformersEmbedding, requireModel } = await import(
-    '@retenia/ingest'
+  const { createOllamaEmbedding, createTransformersEmbedding } = await import(
+    '@retenia/ingest/embeddings'
   )
+  const { requireModel } = await import('@retenia/ingest/models')
 
   if (model.kind === 'ollama') {
     const provider = createOllamaEmbedding({
@@ -117,7 +118,8 @@ async function loadReranker(
 
   await reranker?.reranker.dispose?.()
   const startedAt = Date.now()
-  const { createTransformersReranker, requireModel } = await import('@retenia/ingest')
+  const { createTransformersReranker } = await import('@retenia/ingest/rerank')
+  const { requireModel } = await import('@retenia/ingest/models')
   const local = await createTransformersReranker({
     spec: requireModel(modelId, 'reranker'),
     modelsRoot,
