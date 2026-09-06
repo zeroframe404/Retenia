@@ -69,20 +69,28 @@ describe('library.listSources', () => {
   })
 })
 
-describe('library.addSourceFromPaths', () => {
-  const { input } = contract['library.addSourceFromPaths']
+describe('library.addSourceFromFiles', () => {
+  const { input } = contract['library.addSourceFromFiles']
+  const bytes = new Uint8Array([0x25, 0x50, 0x44, 0x46])
 
-  it('takes one or more absolute paths', () => {
-    expect(input.parse({ paths: ['/home/me/book.pdf'] })).toEqual({ paths: ['/home/me/book.pdf'] })
+  it('takes one or more named files as bytes — never a path', () => {
+    expect(input.parse({ files: [{ name: 'book.pdf', bytes }] })).toEqual({
+      files: [{ name: 'book.pdf', bytes }],
+    })
+    expect(input.safeParse({ files: [{ name: '/home/me/book.pdf' }] }).success).toBe(false)
   })
 
-  it('rejects an empty list', () => {
-    expect(input.safeParse({ paths: [] }).success).toBe(false)
+  it('rejects an empty list, an empty file, and a nameless one', () => {
+    expect(input.safeParse({ files: [] }).success).toBe(false)
+    expect(input.safeParse({ files: [{ name: 'a.pdf', bytes: new Uint8Array() }] }).success).toBe(
+      false,
+    )
+    expect(input.safeParse({ files: [{ name: '', bytes }] }).success).toBe(false)
   })
 
   it('bounds the batch size', () => {
-    const paths = Array.from({ length: 51 }, (_unused, i) => `/f${i}.pdf`)
-    expect(input.safeParse({ paths }).success).toBe(false)
+    const files = Array.from({ length: 51 }, (_unused, i) => ({ name: `f${i}.pdf`, bytes }))
+    expect(input.safeParse({ files }).success).toBe(false)
   })
 })
 

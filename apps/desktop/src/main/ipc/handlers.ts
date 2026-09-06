@@ -261,14 +261,14 @@ function toStatsDto(stats: StatsOverview) {
   }
 }
 
-/** Imports each path independently: one unreadable or unsupported file must not sink the
- *  rest of a multi-select drop. Failures are logged, not surfaced per-file — the source
- *  list simply shows what actually got added. */
-async function addFiles(
-  library: LibraryService,
-  paths: readonly string[],
+/** Imports each file independently: one unreadable or unsupported file must not sink the
+ *  rest of a multi-select or a multi-file drop. Failures are logged, not surfaced per-file —
+ *  the source list simply shows what actually got added. */
+async function addEach(
+  labels: readonly string[],
+  attempts: readonly Promise<Source>[],
 ): Promise<SourceSummary[]> {
-  const results = await Promise.allSettled(paths.map((path) => library.addFromFile(path)))
+  const results = await Promise.allSettled(attempts)
   const sources: SourceSummary[] = []
   for (const [index, result] of results.entries()) {
     if (result.status === 'fulfilled') {
@@ -278,10 +278,26 @@ async function addFiles(
       // by a quoted string): electron-vite finds the built main chunk's last import with a
       // regex, and a message shaped like one made it inject its `__dirname` shim inside the
       // string instead of at module scope — main then threw before opening a window.
-      log.error(`[library] could not add "${paths[index]}":`, result.reason)
+      log.error(`[library] could not add "${labels[index]}":`, result.reason)
     }
   }
   return sources
+}
+
+/** `sources.meta` holds what the parse produced — the renderer's `meta` — and, from the
+ *  moment of import, `blobExt` (see `library/service.ts`), which is main's business only.
+ *  The DTO carries the former, and only once a parse has produced it. */
+function parsedMeta(meta: Source['meta']): SourceSummary['meta'] {
+  if (meta === null || typeof meta.sourceDocBlobSha256 !== 'string') return null
+  const parsed = meta as unknown as NonNullable<SourceSummary['meta']>
+  return {
+    sourceDocBlobSha256: parsed.sourceDocBlobSha256,
+    blockCount: parsed.blockCount,
+    assetCount: parsed.assetCount,
+    needsOcr: parsed.needsOcr,
+    ocrPages: parsed.ocrPages,
+    warnings: parsed.warnings,
+  }
 }
 
 function toSourceSummary(source: Source): SourceSummary {
@@ -292,7 +308,7 @@ function toSourceSummary(source: Source): SourceSummary {
     status: source.status,
     language: source.language,
     error: source.error,
-    meta: source.meta as SourceSummary['meta'],
+    meta: parsedMeta(source.meta),
     createdAt: source.createdAt.toISOString(),
     ingestedAt: source.ingestedAt?.toISOString() ?? null,
   }
@@ -417,11 +433,19 @@ export function createHandlers({
         ? await dialog.showOpenDialog(window, dialogOptions)
         : await dialog.showOpenDialog(dialogOptions)
       if (canceled) return { sources: [] }
-      return { sources: await addFiles(library, filePaths) }
+      return {
+        sources: await addEach(
+          filePaths,
+          filePaths.map((path) => library.addFromFile(path)),
+        ),
+      }
     },
 
-    'library.addSourceFromPaths': async ({ paths }) => ({
-      sources: await addFiles(library, paths),
+    'library.addSourceFromFiles': async ({ files }) => ({
+      sources: await addEach(
+        files.map((file) => file.name),
+        files.map((file) => library.addFromBytes(file.name, file.bytes)),
+      ),
     }),
 
     'library.addSourceFromText': async ({ text, title }) =>

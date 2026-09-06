@@ -66,6 +66,7 @@ function unavailableLibraryService(reason: string): LibraryService {
   }
   return {
     addFromFile: fail,
+    addFromBytes: fail,
     addFromText: fail,
     retry: fail,
     list: fail,

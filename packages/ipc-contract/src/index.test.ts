@@ -47,7 +47,7 @@ describe('contract', () => {
       'jobs.list',
       'jobs.retry',
       'library.addSourceFromDialog',
-      'library.addSourceFromPaths',
+      'library.addSourceFromFiles',
       'library.addSourceFromText',
       'library.deleteSource',
       'library.getSource',

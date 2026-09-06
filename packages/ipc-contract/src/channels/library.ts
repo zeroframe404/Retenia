@@ -134,6 +134,11 @@ export const sourceDocSchema = z.object({
 })
 export type SourceDocDto = z.infer<typeof sourceDocSchema>
 
+/** Per dropped file: well above a book-sized PDF or a high-resolution scan, and small enough
+ *  that the copy IPC's structured clone makes of it is no concern on a desktop. Files chosen
+ *  through the native dialog have no cap — main reads those itself. */
+export const MAX_IMPORT_FILE_BYTES = 256 * 1024 * 1024
+
 export const libraryChannels = defineContract({
   'library.listSources': {
     input: z.object({
@@ -161,11 +166,29 @@ export const libraryChannels = defineContract({
     output: z.object({ sources: z.array(sourceSummarySchema) }),
   },
 
-  /** For drag-and-drop: the renderer resolves each dropped `File` to an absolute path via
-   *  the preload's `getPathForFile` (not this contract — see `apps/desktop/src/preload`)
-   *  and hands the paths here. */
-  'library.addSourceFromPaths': {
-    input: z.object({ paths: z.array(z.string().min(1)).min(1).max(50) }),
+  /** For drag-and-drop. The renderer already holds each dropped `File`, so it sends the
+   *  bytes themselves and main never opens a path the renderer named — the invariant
+   *  `jobs.enqueue` states ("main picks the file … so the renderer never names a path for
+   *  the main process to open"), kept here too. IPC's structured clone carries a
+   *  `Uint8Array` as is, and the name is all main needs to detect the kind. */
+  'library.addSourceFromFiles': {
+    input: z.object({
+      files: z
+        .array(
+          z.object({
+            name: z.string().min(1).max(300),
+            bytes: z
+              .instanceof(Uint8Array)
+              .refine((bytes) => bytes.byteLength > 0, 'a dropped file cannot be empty')
+              .refine(
+                (bytes) => bytes.byteLength <= MAX_IMPORT_FILE_BYTES,
+                `a dropped file is at most ${MAX_IMPORT_FILE_BYTES} bytes`,
+              ),
+          }),
+        )
+        .min(1)
+        .max(50),
+    }),
     output: z.object({ sources: z.array(sourceSummarySchema) }),
   },
 

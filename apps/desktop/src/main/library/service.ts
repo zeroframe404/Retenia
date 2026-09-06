@@ -28,7 +28,11 @@ import { detectSource } from './detect-kind'
 const JOB_KIND = 'ingestParseSource'
 
 export interface LibraryService {
+  /** A file main itself located (the native Open dialog) — the only path-based entry point. */
   addFromFile(path: string, originalName?: string): Promise<Source>
+  /** A file the renderer holds (drag-and-drop): its bytes and name, never a path — main
+   *  does not open files the renderer names. */
+  addFromBytes(name: string, bytes: Uint8Array): Promise<Source>
   addFromText(text: string, title: string): Promise<Source>
   /** Re-enqueues the same parse for a `failed` (or stuck) source. */
   retry(sourceId: string): Promise<Source>
@@ -47,6 +51,18 @@ export interface LibraryServiceOptions {
   scheduler: JobScheduler
 }
 
+/**
+ * Which extension the blob store wrote a source's file under. `BlobStore.put` names the
+ * file `<sha256>.<ext>` from the mime, and the worker reads it back through
+ * `blobStore.path(sha256, ext)` — so the ext has to travel with the source, or a retry has
+ * no way to find the file. It lives in `sources.meta` from the moment of import; the parse
+ * result is merged on top later (`onJobSettled`), never written over it.
+ */
+function blobExtOf(source: Source): string | null {
+  const ext = source.meta?.blobExt
+  return typeof ext === 'string' ? ext : null
+}
+
 export function createLibraryService({
   repos,
   blobStore,
@@ -60,7 +76,7 @@ export function createLibraryService({
         // `blobSha256`/`kind` are validated non-null by `addFromFile`/`addFromText`/`retry`
         // before this is ever called — every source this service creates has both.
         blobSha256: source.blobSha256 as string,
-        ext: null,
+        ext: blobExtOf(source),
         kind: source.kind,
         title: source.title,
       },
@@ -82,7 +98,7 @@ export function createLibraryService({
       blobSha256: put.sha256,
       status: 'pending',
       language: null,
-      meta: null,
+      meta: { blobExt: put.ext },
       error: null,
       ingestedAt: null,
     })
@@ -96,6 +112,11 @@ export function createLibraryService({
       const { kind, mime } = detectSource(name)
       const bytes = await readFile(path)
       return addBytes(new Uint8Array(bytes), mime, kind, name, `file://${path}`)
+    },
+
+    addFromBytes: async (name, bytes) => {
+      const { kind, mime } = detectSource(name)
+      return addBytes(bytes, mime, kind, name, null)
     },
 
     addFromText: async (text, title) =>
@@ -146,7 +167,9 @@ export function createLibraryService({
 
       if (job.status === 'succeeded' && job.result !== null) {
         const result = job.result as unknown as IngestParseResult
+        const existing = await repos.sources.findById(sourceId)
         const meta: JsonObject = {
+          ...existing?.meta,
           sourceDocBlobSha256: result.sourceDocBlobSha256,
           blockCount: result.blockCount,
           assetCount: result.assetCount,

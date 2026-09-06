@@ -3,9 +3,17 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { JobContext } from '@retenia/core'
 import type { SourceDoc } from '@retenia/ingest'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { createFsBlobStore } from '../main/blobs/store'
 import { createIngestParseJob } from './ingest-parse'
+
+// `run` imports the parser stack lazily (pdfjs, tesseract, mammoth, …) so main never loads
+// it. Its first load is a few seconds on a cold, busy machine — a CI runner, or this suite
+// alongside the e2e build — which is not what the 5 s per-test budget below is meant to
+// measure. Warm it once, outside any test.
+beforeAll(async () => {
+  await import('@retenia/ingest')
+})
 
 /**
  * The job definition end to end, against a real (temp-directory) `BlobStore` — the same

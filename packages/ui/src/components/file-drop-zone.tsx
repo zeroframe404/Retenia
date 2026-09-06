@@ -4,9 +4,9 @@ import { useId, useState } from 'react'
 import { cn } from '../lib/cn'
 
 export interface FileDropZoneProps {
-  /** Called with the dropped or browsed files. Resolving a dropped file to an on-disk
-   * path (Electron's `webUtils.getPathForFile`) is the app's job — this component only
-   * ever emits `File` objects. */
+  /** Called with the dropped or browsed files. What to do with them (read their bytes and
+   * hand those to the main process, say) is the app's job — this component only ever emits
+   * `File` objects. */
   onFiles: (files: File[]) => void
   /** Forwarded to the native file input, e.g. `".pdf,.docx,video/*"`. */
   accept?: string

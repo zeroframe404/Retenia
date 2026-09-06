@@ -360,6 +360,7 @@ function makeDeps(overrides: Partial<HandlerDeps> = {}): HandlerDeps {
     },
     library: {
       addFromFile: vi.fn(),
+      addFromBytes: vi.fn(),
       addFromText: vi.fn(),
       retry: vi.fn(),
       list: vi.fn(async () => []),
@@ -696,20 +697,30 @@ describe('library channels', () => {
     expect(deps.library.addFromText).toHaveBeenCalledExactlyOnceWith('Cells are alive.', 'Cells.md')
   })
 
-  it('imports every path from a drop, dropping only the ones that fail', async () => {
+  it('imports every dropped file from its bytes, dropping only the ones that fail', async () => {
     const deps = makeDeps()
-    deps.library.addFromFile = vi.fn(async (path: string) => {
-      if (path === '/bad.exe') throw new Error('not a supported file type')
-      return { ...source, id: path }
+    deps.library.addFromBytes = vi.fn(async (name: string) => {
+      if (name === 'bad.exe') throw new Error('not a supported file type')
+      return { ...source, id: name }
     })
     const handlers = createHandlers(deps)
+    const bytes = new Uint8Array([1, 2, 3])
 
-    const result = await handlers['library.addSourceFromPaths'](
-      { paths: ['/a.pdf', '/bad.exe', '/b.pdf'] },
+    const result = await handlers['library.addSourceFromFiles'](
+      {
+        files: [
+          { name: 'a.pdf', bytes },
+          { name: 'bad.exe', bytes },
+          { name: 'b.pdf', bytes },
+        ],
+      },
       fakeEvent,
     )
 
-    expect(result.sources.map((s) => s.id)).toEqual(['/a.pdf', '/b.pdf'])
+    expect(result.sources.map((s) => s.id)).toEqual(['a.pdf', 'b.pdf'])
+    expect(deps.library.addFromBytes).toHaveBeenCalledWith('a.pdf', bytes)
+    // The bytes channel is the only drop path: main never reads a renderer-named file.
+    expect(deps.library.addFromFile).not.toHaveBeenCalled()
   })
 
   it('opens a native dialog and imports every file chosen, resolving nothing on cancel', async () => {

@@ -1,7 +1,8 @@
-import { mkdtempSync, realpathSync, rmSync } from 'node:fs'
+import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
+  type BlobStore,
   createJobRegistry,
   createJobScheduler,
   type EntityPatch,
@@ -127,6 +128,7 @@ describe('LibraryService', () => {
   let dir: string
   let sources: ReturnType<typeof createInMemorySourceRepository>
   let scheduler: JobScheduler
+  let blobStore: BlobStore
   let service: LibraryService
 
   beforeEach(() => {
@@ -140,10 +142,11 @@ describe('LibraryService', () => {
       registry,
       runId: 'run-under-test',
     })
+    blobStore = createFsBlobStore(dir)
     service = createLibraryService({
       // Only `sources` is exercised; the rest of `Repositories` is never read.
       repos: { sources } as never,
-      blobStore: createFsBlobStore(dir),
+      blobStore,
       scheduler,
     })
   })
@@ -244,5 +247,73 @@ describe('LibraryService', () => {
 
     const untouched = await service.get(source.id)
     expect(untouched?.status).toBe('pending')
+  })
+
+  it('enqueues the parse with the extension the blob was stored under, so the worker finds it', async () => {
+    const file = join(dir, 'Cell Biology.pdf')
+    writeFileSync(file, '%PDF-1.4 (not really)')
+
+    const source = await service.addFromFile(file)
+
+    const [job] = await scheduler.listActive()
+    expect(job?.payload).toMatchObject({
+      sourceId: source.id,
+      blobSha256: source.blobSha256,
+      kind: 'pdf',
+      ext: 'pdf',
+    })
+    // The path the worker will build from that payload is the file `put` actually wrote.
+    expect(await blobStore.has(source.blobSha256 as string, 'pdf')).toBe(true)
+    expect(await blobStore.has(source.blobSha256 as string, null)).toBe(false)
+  })
+
+  it('imports dropped bytes by name alone, never a path, and rejects an unsupported name', async () => {
+    const source = await service.addFromBytes('scan.png', new Uint8Array([0x89, 0x50, 0x4e, 0x47]))
+
+    expect(source.kind).toBe('image')
+    expect(source.originUri).toBeNull()
+    expect(await blobStore.has(source.blobSha256 as string, 'png')).toBe(true)
+
+    await expect(service.addFromBytes('archive.zip', new Uint8Array([1]))).rejects.toThrow(
+      /not a supported file type/,
+    )
+  })
+
+  it('re-enqueues a retry with the same extension', async () => {
+    const source = await service.addFromBytes('scan.png', new Uint8Array([0x89, 0x50, 0x4e, 0x47]))
+    await sources.markFailed(source.id, 'boom')
+
+    await service.retry(source.id)
+
+    const jobs = await scheduler.listActive()
+    expect(jobs).toHaveLength(2)
+    for (const job of jobs) {
+      expect(job.payload).toMatchObject({ sourceId: source.id, ext: 'png' })
+    }
+  })
+
+  it('keeps the stored extension when the parse result lands in meta', async () => {
+    const source = await service.addFromBytes('notes.md', new TextEncoder().encode('# Hi'))
+    await service.onJobSettled({
+      id: 'job-md',
+      kind: 'ingestParseSource',
+      status: 'succeeded',
+      subjectId: source.id,
+      error: null,
+      result: {
+        sourceDocBlobSha256: 'b'.repeat(64),
+        title: 'notes.md',
+        language: 'en',
+        blockCount: 1,
+        assetCount: 0,
+        needsOcr: false,
+        ocrPages: [],
+        warnings: [],
+      },
+    } as unknown as Job)
+
+    const updated = await service.get(source.id)
+    expect(updated?.status).toBe('ready')
+    expect(updated?.meta).toMatchObject({ blobExt: 'md', sourceDocBlobSha256: 'b'.repeat(64) })
   })
 })

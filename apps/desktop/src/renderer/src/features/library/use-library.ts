@@ -32,9 +32,9 @@ export function useAddSourceFromDialog() {
   })
 }
 
-export function useAddSourceFromPaths() {
+export function useAddSourceFromFiles() {
   const client = useQueryClient()
-  return useIpcMutation('library.addSourceFromPaths', {
+  return useIpcMutation('library.addSourceFromFiles', {
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: LIST_KEY })
     },

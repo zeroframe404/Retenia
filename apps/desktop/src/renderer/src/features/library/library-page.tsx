@@ -3,7 +3,7 @@ import { SourceDetail } from './source-detail'
 import { SourceList } from './source-list'
 import {
   useAddSourceFromDialog,
-  useAddSourceFromPaths,
+  useAddSourceFromFiles,
   useAddSourceFromText,
   useDeleteSource,
   useLibraryJobEvents,
@@ -12,6 +12,17 @@ import {
   useSourceDoc,
   useSources,
 } from './use-library'
+
+/** What `library.addSourceFromFiles` takes for each dropped `File`: its bytes and name. The
+ *  renderer never learns a path, let alone sends one. */
+async function readDroppedFiles(files: File[]) {
+  return Promise.all(
+    files.map(async (file) => ({
+      name: file.name,
+      bytes: new Uint8Array(await file.arrayBuffer()),
+    })),
+  )
+}
 
 function ConnectedSourceDetail({ id, onBack }: { id: string; onBack: () => void }) {
   const sourceQuery = useSource(id)
@@ -39,7 +50,7 @@ export function LibraryPage({ searchQuery }: LibraryPageProps) {
 
   const sourcesQuery = useSources()
   const addFromDialog = useAddSourceFromDialog()
-  const addFromPaths = useAddSourceFromPaths()
+  const addFromFiles = useAddSourceFromFiles()
   const addFromText = useAddSourceFromText()
   const retry = useRetrySource()
   const remove = useDeleteSource()
@@ -60,9 +71,9 @@ export function LibraryPage({ searchQuery }: LibraryPageProps) {
       onRetry={(id) => retry.mutate({ id })}
       onDelete={(id) => remove.mutate({ id })}
       onAddFromDialog={() => addFromDialog.mutate(undefined)}
-      onDropFiles={(files) =>
-        addFromPaths.mutate({ paths: files.map((file) => window.retenia.getPathForFile(file)) })
-      }
+      onDropFiles={(files) => {
+        void readDroppedFiles(files).then((read) => addFromFiles.mutate({ files: read }))
+      }}
       onAddFromText={(text, title) => addFromText.mutate({ text, title })}
     />
   )

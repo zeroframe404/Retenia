@@ -86,12 +86,11 @@ function stubApi(sources: SourceSummary[]) {
       deleteSource,
       addSourceFromText,
       addSourceFromDialog: vi.fn(async () => ok({ sources: [] })),
-      addSourceFromPaths: vi.fn(async () => ok({ sources: [] })),
+      addSourceFromFiles: vi.fn(async () => ok({ sources: [] })),
     },
     events: { on: vi.fn(() => vi.fn()) },
   }
   vi.stubGlobal('api', api)
-  vi.stubGlobal('retenia', { getPathForFile: vi.fn((file: File) => `/tmp/${file.name}`) })
   window.api = api as unknown as typeof window.api
   return api
 }
