@@ -4,6 +4,7 @@ import { mkdir, rename, rm } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { Readable, Transform, type TransformCallback } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
+import { setTimeout as delay } from 'node:timers/promises'
 import type { ModelFile, ModelSpec } from './catalog'
 import type { ModelStore } from './store'
 
@@ -90,6 +91,56 @@ function asNodeStream(body: unknown): NodeJS.ReadableStream {
 }
 
 /**
+ * Backoff before each attempt of `replaceFile`, in ms — six tries over ~0.8 s.
+ *
+ * Long enough to outlast a virus scan of a few hundred KB, short enough that a genuinely
+ * locked file still fails inside a test's timeout rather than looking like a hang.
+ */
+const REPLACE_RETRY_DELAYS_MS = [0, 25, 50, 100, 200, 400] as const
+
+/** Windows codes for "someone else has this file open right now"; all transient. */
+const TRANSIENT_LOCK_CODES = new Set(['EPERM', 'EACCES', 'EBUSY', 'ENOTEMPTY'])
+
+function isTransientLock(error: unknown): boolean {
+  const code = (error as NodeJS.ErrnoException | null)?.code
+  return code !== undefined && TRANSIENT_LOCK_CODES.has(code)
+}
+
+/**
+ * Moves `partial` onto `target`, replacing whatever is there, in a way that survives Windows.
+ *
+ * On Linux and macOS the first `rename` is atomic, succeeds, and nothing else here runs. On
+ * Windows `MoveFileExW` with REPLACE_EXISTING has to open the *destination*, and the
+ * destination can be held by something outside this process — Defender scans a file the
+ * moment it is written, and in a re-download these files were written seconds ago by the run
+ * this one is replacing. That is exactly the shape of the `windows-latest` failure: the tests
+ * that replace an existing file stalled past their timeout while the six in the same file
+ * that only ever *create* one finished in 17–170 ms, and the temp directory could not be
+ * removed afterwards because a handle was still on it.
+ *
+ * Two things make it survivable. Unlinking first turns a replace into a create, which does
+ * not need a handle on the destination at all; and both steps are retried with backoff,
+ * because the lock is a passing scan rather than a permanent state. A crash between the two
+ * leaves the target missing, which the next `status()` reads as "not installed" and
+ * re-downloads — the same outcome as a half-written file, and never a wrong one.
+ */
+async function replaceFile(partial: string, target: string): Promise<void> {
+  let lastError: unknown
+  for (const backoff of REPLACE_RETRY_DELAYS_MS) {
+    if (backoff > 0) await delay(backoff)
+    try {
+      await rm(target, { force: true })
+      await rename(partial, target)
+      return
+    } catch (error) {
+      if (!isTransientLock(error)) throw error
+      lastError = error
+    }
+  }
+  throw lastError
+}
+
+/**
  * Streams one file to `<final>.part`, hashing as it goes, and only renames it into place
  * once the digest matches. Returns the bytes written.
  */
@@ -160,7 +211,7 @@ async function downloadFile(
         file.path,
       )
     }
-    await rename(partial, target)
+    await replaceFile(partial, target)
     return written
   } catch (error) {
     // Whatever went wrong — a reset connection, a wrong hash, a cancellation — the partial

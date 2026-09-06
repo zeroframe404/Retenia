@@ -48,7 +48,15 @@ async function tempRoot(): Promise<string> {
   return root
 }
 afterEach(async () => {
-  await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })))
+  await Promise.all(
+    roots.splice(0).map((root) =>
+      // `maxRetries` for the same reason `replaceFile` retries: on Windows a file that was
+      // just written can be held open by a scan for a moment, and a recursive remove over it
+      // fails with ENOTEMPTY. Without this, a slow teardown is reported as a second,
+      // unrelated failure on top of whatever the test itself did.
+      rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 }),
+    ),
+  )
 })
 
 interface FakeServer {
@@ -226,45 +234,61 @@ describe('downloadModel', () => {
     await expect(stat(`${store.filePath(SPEC, 'config.json')}.part`)).rejects.toThrow()
   })
 
-  it('overwrites a file that is already there, with no handle left open', async () => {
-    // The Windows case. `rename` onto an existing target fails there if the source still has
-    // an open handle, and `WriteStream.end(callback)` fires on `'finish'` — before the fd is
-    // closed. On Linux this passes either way, which is exactly why it took a `windows-latest`
-    // job to find it; the assertion here is the portable half (the bytes really were
-    // replaced), and `download.ts` explains the rest.
-    const store = createModelStore(await tempRoot())
-    await downloadModel(SPEC, { store, fetch: fakeServer().fetch, endpoint: ENDPOINT })
+  // The two tests below are the only ones that make `downloadModel` write over a file that
+  // already exists, which is the operation Windows can briefly refuse (see `replaceFile`).
+  // They get room for its ~0.8 s of backoff on top of the work itself; where nothing holds
+  // the file — every Linux and macOS run, and most Windows ones — they finish in tens of
+  // milliseconds and never come near this ceiling.
+  const REPLACES_A_FILE = { timeout: 20_000 }
 
-    // Corrupt one file in place and drop the receipt, so the next run has to rewrite it over
-    // the existing bytes rather than creating it.
-    const target = store.filePath(SPEC, 'onnx/model_quantized.onnx')
-    await writeFile(target, 'z'.repeat(4096))
-    await rm(join(store.directory(SPEC), '.retenia-model.json'), { force: true })
+  it(
+    'overwrites a file that is already there, with no handle left open',
+    REPLACES_A_FILE,
+    async () => {
+      // The Windows case, and the one the `windows-latest` job found twice. Replacing a file
+      // there is not the single atomic call it is on Linux: `MoveFileExW` opens the
+      // destination, and the destination can be held for a moment by a scan of the bytes the
+      // previous run just wrote. On Linux this passes however `download.ts` does it, which is
+      // why it took CI to find; the assertion here is the portable half (the bytes really were
+      // replaced, and no `.part` is left), and `replaceFile` explains the rest.
+      const store = createModelStore(await tempRoot())
+      await downloadModel(SPEC, { store, fetch: fakeServer().fetch, endpoint: ENDPOINT })
 
-    const result = await downloadModel(SPEC, {
-      store,
-      fetch: fakeServer().fetch,
-      endpoint: ENDPOINT,
-    })
-    expect(result.downloaded).toContain('onnx/model_quantized.onnx')
-    expect(await readFile(target, 'utf-8')).toBe(CONTENTS['onnx/model_quantized.onnx'])
-    await expect(stat(`${target}.part`)).rejects.toThrow()
-  })
+      // Corrupt one file in place and drop the receipt, so the next run has to rewrite it over
+      // the existing bytes rather than creating it.
+      const target = store.filePath(SPEC, 'onnx/model_quantized.onnx')
+      await writeFile(target, 'z'.repeat(4096))
+      await rm(join(store.directory(SPEC), '.retenia-model.json'), { force: true })
 
-  it('re-downloads a file the receipt no longer vouches for after a revision bump', async () => {
-    const store = createModelStore(await tempRoot())
-    await downloadModel(SPEC, { store, fetch: fakeServer().fetch, endpoint: ENDPOINT })
+      const result = await downloadModel(SPEC, {
+        store,
+        fetch: fakeServer().fetch,
+        endpoint: ENDPOINT,
+      })
+      expect(result.downloaded).toContain('onnx/model_quantized.onnx')
+      expect(await readFile(target, 'utf-8')).toBe(CONTENTS['onnx/model_quantized.onnx'])
+      await expect(stat(`${target}.part`)).rejects.toThrow()
+    },
+  )
 
-    const bumped: ModelSpec = { ...SPEC, revision: 'd'.repeat(40) }
-    const server = fakeServer()
-    server.requests.length = 0
-    // The fake server keys off SPEC.revision in the URL, so point it at the new one.
-    const result = await downloadModel(bumped, {
-      store,
-      endpoint: ENDPOINT,
-      fetch: async (url) => server.fetch(url.replace(bumped.revision, SPEC.revision)),
-    })
-    expect(result.downloaded).toEqual(Object.keys(CONTENTS))
-    expect((await store.status(bumped)).installed).toBe(true)
-  })
+  it(
+    're-downloads a file the receipt no longer vouches for after a revision bump',
+    REPLACES_A_FILE,
+    async () => {
+      const store = createModelStore(await tempRoot())
+      await downloadModel(SPEC, { store, fetch: fakeServer().fetch, endpoint: ENDPOINT })
+
+      const bumped: ModelSpec = { ...SPEC, revision: 'd'.repeat(40) }
+      const server = fakeServer()
+      server.requests.length = 0
+      // The fake server keys off SPEC.revision in the URL, so point it at the new one.
+      const result = await downloadModel(bumped, {
+        store,
+        endpoint: ENDPOINT,
+        fetch: async (url) => server.fetch(url.replace(bumped.revision, SPEC.revision)),
+      })
+      expect(result.downloaded).toEqual(Object.keys(CONTENTS))
+      expect((await store.status(bumped)).installed).toBe(true)
+    },
+  )
 })
