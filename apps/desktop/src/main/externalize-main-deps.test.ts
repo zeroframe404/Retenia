@@ -109,3 +109,47 @@ describe('electron.vite.config.ts main externalization', () => {
     expect(excludedFromExternalization()).toContain(pkg)
   })
 })
+
+/**
+ * The mirror image of the rule above, and a trap the `@retenia/*` scan cannot see.
+ *
+ * `externalizeDeps` decides what to leave external from **this package's own**
+ * `dependencies`. A native module reached only *through* a bundled workspace package — the
+ * ingest pipeline dynamically imports `@huggingface/transformers`, which loads
+ * `onnxruntime-node` — is not in that list, so the bundler inlines the whole library. It then
+ * cannot find its `.node` addon at runtime, and every model load fails in the packaged build
+ * while working perfectly in `pnpm dev`.
+ *
+ * Listing the package here as a direct dependency of the app is what fixes it: it is then
+ * external, and electron-builder packs it (with `asarUnpack` for the shared libraries that
+ * sit beside the addon — see `electron-builder.yml`).
+ */
+const RUNTIME_RESOLVED_THROUGH_WORKSPACE = [
+  // → onnxruntime-node (sub-phase 6.3's local embedding and reranker models)
+  '@huggingface/transformers',
+  // → its own worker script and wasm core (sub-phase 6.1's OCR)
+  'tesseract.js',
+  // → `pdfium.wasm`, located relative to its own module URL
+  '@hyzyla/pdfium',
+  // → a loadable SQLite extension, opened by the OS loader
+  'sqlite-vec',
+  // → an N-API prebuild
+  'better-sqlite3',
+] as const
+
+describe('packages that resolve files at runtime', () => {
+  const dependencies = Object.keys(
+    (
+      JSON.parse(readFileSync(path.join(desktopRoot, 'package.json'), 'utf-8')) as {
+        dependencies?: Record<string, string>
+      }
+    ).dependencies ?? {},
+  )
+
+  it.each(RUNTIME_RESOLVED_THROUGH_WORKSPACE)(
+    'lists %s in the app’s own dependencies, so it stays external',
+    (pkg) => {
+      expect(dependencies).toContain(pkg)
+    },
+  )
+})

@@ -1,8 +1,10 @@
 {
-  "description": "License exceptions for Retenia dependencies. Add entries to \"exceptions\" as \"<package-name>\": \"<reason; link to the decision if applicable>\" for packages whose license is acceptable but does not fit the allowlist in check-licenses.mjs.",
+  "description": "License exceptions for Retenia dependencies. Add entries to \"exceptions\" as \"<package-name>\": \"<reason; link to the decision if applicable>\" (a trailing \"*\" covers a family of platform-specific packages that share one license decision) for packages whose license is acceptable but does not fit the allowlist in check-licenses.mjs.",
   "exceptions": {
     "@csstools/color-helpers": "MIT-0 (MIT with the attribution clause removed) — strictly more permissive than MIT; transitive dep of Tailwind 4/lightningcss.",
     "@csstools/css-syntax-patches-for-csstree": "MIT-0 (MIT with the attribution clause removed) — strictly more permissive than MIT; transitive dep of Tailwind 4/lightningcss.",
+    "@img/sharp-libvips-*": "LGPL-3.0-or-later — libvips, shipped as an unmodified prebuilt shared library that sharp loads dynamically, which is the arrangement LGPL §4 exists for; we neither modify it nor link it statically. It arrives as a transitive dependency of @huggingface/transformers (packages/ingest, sub-phase 6.3), whose image pipelines Retenia never uses — we embed and rerank text only — so it is dead weight in the installer rather than a component of the app.",
+    "@img/sharp-wasm32": "Apache-2.0 AND LGPL-3.0-or-later AND MIT — the wasm fallback build of the same libvips; same reasoning as @img/sharp-libvips-*, and the same unused transitive dependency.",
     "caniuse-lite": "CC-BY-4.0 — attribution-only browser support data, not code; transitive dep of browserslist (Vite/PostCSS toolchain).",
     "chownr": "BlueOak-1.0.0 — OSI-approved permissive license; transitive dep of electron-builder (dev-only, not shipped in the app).",
     "duck": "BSD (the bundled LICENSE file is the plain two-clause BSD text, i.e. BSD-2-Clause, just not spelled as that exact SPDX id in package.json) — transitive dep of mammoth's parser-combinator library (lop), sub-phase 6.1.",

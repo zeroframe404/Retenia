@@ -259,6 +259,9 @@ describe('vector and hybrid search', () => {
       meta: null,
       error: null,
       ingestedAt: null,
+      embeddingStatus: 'pending',
+      embeddingModelId: null,
+      embeddingError: null,
     })
     const texts = ['el corazón bombea sangre', 'la glucólisis produce ATP', 'sangre y oxígeno']
     const chunks = []
@@ -485,6 +488,9 @@ describe('source cascade', () => {
       meta: null,
       error: null,
       ingestedAt: null,
+      embeddingStatus: 'pending',
+      embeddingModelId: null,
+      embeddingError: null,
     })
     const unit = await repos.sources.createUnit({
       sourceId: source.id,

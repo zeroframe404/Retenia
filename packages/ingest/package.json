@@ -14,9 +14,10 @@
     "lint": "biome check ."
   },
   "dependencies": {
+    "@huggingface/transformers": "4.2.0",
+    "@hyzyla/pdfium": "2.1.13",
     "@retenia/ai": "workspace:*",
     "@retenia/core": "workspace:*",
-    "@hyzyla/pdfium": "2.1.13",
     "fast-xml-parser": "4.5.7",
     "fflate": "0.8.3",
     "franc-min": "6.2.0",

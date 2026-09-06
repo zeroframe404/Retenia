@@ -25,6 +25,7 @@
   },
   "dependencies": {
     "@electron-toolkit/utils": "4.0.0",
+    "@huggingface/transformers": "4.2.0",
     "@hyzyla/pdfium": "2.1.13",
     "@retenia/activities": "workspace:*",
     "@retenia/activity-schema": "workspace:*",

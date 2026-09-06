@@ -120,6 +120,7 @@ describe('createJobPool', () => {
   const makePool = (overrides: Record<string, unknown> = {}) =>
     createJobPool({
       entryPath: '/out/main/job-worker.js',
+      modelsRoot: '/models',
       readableRoots: ['/userData/blobs'],
       size: 1,
       onMessage,
@@ -148,7 +149,11 @@ describe('createJobPool', () => {
 
     expect(children).toHaveLength(2)
     for (const child of children) {
-      expect(child.posted[0]).toEqual({ type: 'handshake', readableRoots: ['/userData/blobs'] })
+      expect(child.posted[0]).toEqual({
+        type: 'handshake',
+        readableRoots: ['/userData/blobs'],
+        modelsRoot: '/models',
+      })
     }
   })
 

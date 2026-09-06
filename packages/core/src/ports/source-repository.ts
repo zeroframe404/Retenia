@@ -1,4 +1,4 @@
-import type { Source, SourceStatus, SourceUnit } from '../entities'
+import type { EmbeddingStatus, Source, SourceStatus, SourceUnit } from '../entities'
 import type { CrudRepository, ListOptions, NewEntity } from './audit'
 
 /**
@@ -13,6 +13,32 @@ export interface SourceRepository extends CrudRepository<Source> {
   markIngested(id: string, at: Date): Promise<Source>
   /** Marks ingestion failed: `status = 'failed'`, `error = message`. */
   markFailed(id: string, message: string): Promise<Source>
+
+  // --- the vector index ---
+
+  /**
+   * Records where the source stands in the vector index, in one write
+   * (`docs/spec/05-ingestion-rag.md` §3).
+   *
+   * `modelId` is the space its vectors are in and is only meaningful alongside
+   * `status: 'ready'`; passing `null` with any other status is what a reindex does when it
+   * drops the old vectors. `error` is cleared unless given, because every transition out of
+   * `failed` means the previous reason no longer applies.
+   */
+  setEmbeddingState(
+    id: string,
+    state: { status: EmbeddingStatus; modelId?: string | null; error?: string | null },
+  ): Promise<Source>
+  /**
+   * Sources that are not embedded in `modelId`'s space and have chunks to embed — the
+   * reindex sweep of sub-phase 6.3, run at startup and whenever the embedding model changes.
+   *
+   * "Not embedded in this space" covers three populations at once, and missing any of them
+   * leaves part of the library permanently unsearchable by vector: a source that has never
+   * been embedded, one whose last run failed, and one embedded under a *different* model —
+   * whose vectors must be dropped rather than queried alongside the new ones.
+   */
+  sourceIdsNeedingEmbedding(modelId: string): Promise<string[]>
 
   // --- source units ---
   findUnit(id: string): Promise<SourceUnit | undefined>

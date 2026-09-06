@@ -24,6 +24,21 @@ allowBuilds:
   # `scripts` field is dev-only build tooling (webpack/rollup), no install-time lifecycle
   # hook actually runs.
   tesseract.js: false
+  # `@huggingface/transformers` (packages/ingest) pulls these three in. All are skipped
+  # deliberately, and none of them costs us a feature we use:
+  #   - onnxruntime-node ships CPU N-API prebuilds for every platform we target
+  #     (`bin/napi-v6/{win32,linux,darwin}/{x64,arm64}`) inside the tarball; its postinstall
+  #     only fetches the *CUDA* execution-provider binaries from a Nuget feed — hundreds of
+  #     megabytes, Linux/Windows x64 only, and a network call in every CI install. The
+  #     accelerator is opt-in from the app's AI settings instead (see
+  #     `packages/ingest/src/embeddings/device.ts`), which is also the only place that knows
+  #     whether the machine has a supported GPU at all.
+  #   - sharp is transformers.js's image decoder. We only ever embed text, its own platform
+  #     binaries arrive as optional dependencies, and its install script is a check, not a build.
+  #   - protobufjs' postinstall only prints a CLI hint.
+  onnxruntime-node: false
+  protobufjs: false
+  sharp: false
 # The FSRS optimizer binding (apps/desktop) ships native N-API prebuilds for every platform
 # we target *and* a wasm32-wasi build exposing the same API. npm refuses the WASI package on
 # a cpu mismatch; only this pulls it, and it is what keeps the optimizer working on a

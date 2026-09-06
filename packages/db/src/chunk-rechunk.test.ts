@@ -56,6 +56,9 @@ describe('chunk persistence (sub-phase 6.2)', () => {
       meta: null,
       error: null,
       ingestedAt: null,
+      embeddingStatus: 'pending',
+      embeddingModelId: null,
+      embeddingError: null,
     })
     sourceId = source.id
   })

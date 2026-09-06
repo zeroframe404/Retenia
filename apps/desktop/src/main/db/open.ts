@@ -1,4 +1,5 @@
-import type { UnitOfWork } from '@retenia/core'
+import type { IdGenerator, UnitOfWork } from '@retenia/core'
+import { uuidv7 } from '@retenia/core'
 import { createRepositories, migrate, type OpenedDatabase, openDatabase } from '@retenia/db'
 import { bundledMigrations } from '@retenia/db/migrations-bundled'
 import { getLoadablePath } from 'sqlite-vec'
@@ -17,6 +18,10 @@ import { getDatabasePath, resolveUnpacked } from '../paths'
 export interface AppDatabase {
   readonly opened: OpenedDatabase
   readonly repos: UnitOfWork
+  /** Mints UUIDv7s for rows that are written outside a repository — the vec0 tables, which
+   *  Drizzle cannot model (sub-phase 6.3's `embedding-service.ts`). The repositories use the
+   *  same generator, so ids stay monotonic across both paths. */
+  readonly ids: IdGenerator
   close(): void
 }
 
@@ -48,10 +53,12 @@ export function openAppDatabase(deviceId: string): AppDatabase {
     throw error
   }
 
-  const repos = createRepositories(opened, { deviceId })
+  const ids: IdGenerator = { next: () => uuidv7() }
+  const repos = createRepositories(opened, { deviceId, ids })
   return {
     opened,
     repos,
+    ids,
     close: () => opened.close(),
   }
 }

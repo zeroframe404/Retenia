@@ -14,6 +14,7 @@ import type {
   SourceUnit,
   UnitOfWork,
 } from '@retenia/core'
+import { CARD_STATE } from '@retenia/core'
 import type {
   ContextualizationEstimate,
   DocumentContext,
@@ -41,6 +42,9 @@ const PARSE_JOB_KIND = 'ingestParseSource'
 /** Headings past this are a table of contents, not the shape of the document. */
 const DOCUMENT_OUTLINE_ENTRIES = 60
 const CHUNK_JOB_KIND = 'ingestChunkSource'
+/** How much of a chunk stands in for a question when the user gave none and the chunk has no
+ *  heading path either. Long enough to recognise, short enough not to be the answer. */
+const CARD_FRONT_FALLBACK_CHARS = 120
 
 export interface LibraryService {
   /** A file main itself located (the native Open dialog) — the only path-based entry point. */
@@ -87,6 +91,20 @@ export interface LibraryService {
    * is what makes it resumable, cancellable and visible.
    */
   rechunkStaleSources(tokenizer?: TokenizerId): Promise<string[]>
+  /**
+   * "Crear tarjeta desde este fragmento" (sub-phase 6.3): one knowledge item and its first
+   * card, made from a chunk and pointing back at it.
+   *
+   * The chunk text is the *answer*. A card whose front is a passage and whose back is the
+   * same passage tests nothing — `docs/spec/01-decisions.md` §7's first principle is that
+   * everything ends in active recall — so the question is the user's, and the heading path is
+   * only the fallback when they gave none from a result list.
+   */
+  createCardFromChunk(input: {
+    chunkId: string
+    front?: string
+    back?: string
+  }): Promise<{ itemId: string; cardId: string }>
   remove(id: string): Promise<void>
   /** Wired into `createJobRunner`'s `onSettled`; a no-op for any job that is not one of ours. */
   onJobSettled(job: Job): Promise<void>
@@ -238,6 +256,9 @@ export function createLibraryService({
       meta: { blobExt: put.ext },
       error: null,
       ingestedAt: null,
+      embeddingStatus: 'pending',
+      embeddingModelId: null,
+      embeddingError: null,
     })
     await enqueueParse(source)
     return source
@@ -366,6 +387,69 @@ export function createLibraryService({
         queued.push(sourceId)
       }
       return queued
+    },
+
+    createCardFromChunk: async ({ chunkId, front, back }) => {
+      const chunk = await repos.chunks.findById(chunkId)
+      if (chunk === undefined) throw new Error(`No chunk ${chunkId}`)
+
+      const { parseSourceLocator } = await import('@retenia/core')
+      const locator = parseSourceLocator(chunk)
+
+      // One transaction: an item with no card is a row nothing will ever show the user, and
+      // a card with no item cannot be rendered at all.
+      return repos.transaction(async (tx) => {
+        const item = await tx.knowledgeItems.create({
+          lessonId: null,
+          topicId: null,
+          kind: 'fact',
+          fields: {
+            front: front ?? chunk.headingPath ?? chunk.text.slice(0, CARD_FRONT_FALLBACK_CHARS),
+            back: back ?? chunk.text,
+          },
+          sourceId: chunk.sourceId,
+          annotationId: null,
+          // The provenance that makes the card citable: page or timestamp, and the exact
+          // blocks it covers.
+          locator: {
+            chunkId: chunk.id,
+            ...(locator.page === null ? {} : { page: locator.page }),
+            ...(locator.label === null ? {} : { label: locator.label }),
+            ...(locator.tStartMs === null ? {} : { tStartMs: locator.tStartMs }),
+            blockIds: [...locator.blockIds],
+          },
+          asOf: null,
+          importance: 'normal',
+          status: 'active',
+          createdBy: 'user',
+          tags: [],
+        })
+
+        // A genuinely new card: `state = New`, due now, with the FSRS fields at the zeros
+        // `ts-fsrs` starts from. The scheduler introduces it on the next session.
+        const card = await tx.cards.create({
+          itemId: item.id,
+          template: 'basic',
+          payload: null,
+          due: new Date(),
+          stability: 0,
+          difficulty: 0,
+          scheduledDays: 0,
+          learningSteps: 0,
+          reps: 0,
+          lapses: 0,
+          state: CARD_STATE.New,
+          lastReview: null,
+          suspended: false,
+          buriedUntil: null,
+          leech: false,
+          importanceOverride: null,
+          importanceOverrideExpiresAt: null,
+          examId: null,
+        })
+
+        return { itemId: item.id, cardId: card.id }
+      })
     },
 
     remove: async (id) => {

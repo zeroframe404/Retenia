@@ -264,6 +264,7 @@ if (gotLock) {
       updater,
       jobs: jobs.facade,
       library: jobs.library,
+      embeddings: jobs.embeddings,
       blobStore,
       secrets: secretStore,
       backups: backupService,

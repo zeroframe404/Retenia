@@ -3,6 +3,7 @@ import type {
   BlobStore,
   Card,
   Chunk,
+  ChunkSearchHit,
   Forecast,
   ImportanceLevel,
   JsonValue,
@@ -26,13 +27,14 @@ import type {
   UrgentModeHours,
 } from '@retenia/core'
 import { GRADES, parseSourceLocator, SETTINGS } from '@retenia/core'
-import type { ChunkSummary, Contract, SourceSummary } from '@retenia/ipc-contract'
+import type { ChunkSummary, Contract, SearchHit, SourceSummary } from '@retenia/ipc-contract'
 import { app, BrowserWindow, dialog, nativeTheme } from 'electron'
 import type { BackupService } from '../backups/service'
 import { ensureDevMediaSample } from '../dev/media-sample'
 import { collectSystemInfo, exportDiagnostics } from '../diagnostics/export'
 import type { JobsFacade } from '../jobs/facade'
 import { IMPORTABLE_EXTENSIONS } from '../library/detect-kind'
+import type { EmbeddingService } from '../library/embedding-service'
 import type { LibraryService } from '../library/service'
 import { log } from '../logging/log'
 import type { ServedActivity } from '../memory/activity-service'
@@ -55,6 +57,8 @@ export interface HandlerDeps {
   updater: Updater
   jobs: JobsFacade
   library: LibraryService
+  /** The vector half of the library (sub-phase 6.3). `null` when the database did not open. */
+  embeddings: EmbeddingService | null
   blobStore: BlobStore
   /** Forwarded to the main-process Sentry client, once telemetry is on. */
   reportRendererError: (error: { name: string; message: string; stack?: string }) => void
@@ -351,6 +355,42 @@ function toChunkSummary(chunk: Chunk): ChunkSummary {
   }
 }
 
+/** `<b>` is the only markup FTS5's `snippet()` puts in, and it is what tells the renderer
+ *  which run of the passage matched. */
+const HIGHLIGHT = /<\/?b>/
+
+/**
+ * One `ChunkSearchHit` as the wire carries it.
+ *
+ * A hit the vector branch alone found has no `snippet` — `snippet()` is an FTS5 function and
+ * there was no FTS5 match to take one from — so the head of the chunk stands in, and
+ * `highlighted` tells the renderer which of the two it is holding.
+ */
+function toSearchHit(hit: ChunkSearchHit, sources: ReadonlyMap<string, Source>): SearchHit {
+  const source = sources.get(hit.chunk.sourceId)
+  const snippet = hit.snippet ?? `${hit.chunk.text.slice(0, SNIPPET_FALLBACK_CHARS)}…`
+  return {
+    chunkId: hit.chunk.id,
+    sourceId: hit.chunk.sourceId,
+    sourceTitle: source?.title ?? '',
+    sourceKind: source?.kind ?? 'text',
+    score: hit.score,
+    fusionScore: hit.fusionScore,
+    snippet,
+    highlighted: hit.snippet !== undefined && HIGHLIGHT.test(hit.snippet),
+    headingPath: hit.chunk.headingPath,
+    label: hit.sourceLocator.label,
+    page: hit.sourceLocator.page,
+    tStartMs: hit.sourceLocator.tStartMs,
+    blockIds: [...hit.blockIds],
+    matchedFts: hit.fts !== undefined,
+    matchedVector: hit.vector !== undefined,
+  }
+}
+
+/** How much of a purely semantic hit to show when there is no FTS5 snippet to quote. */
+const SNIPPET_FALLBACK_CHARS = 240
+
 function toSourceSummary(source: Source): SourceSummary {
   return {
     id: source.id,
@@ -360,6 +400,9 @@ function toSourceSummary(source: Source): SourceSummary {
     language: source.language,
     error: source.error,
     meta: parsedMeta(source.meta),
+    embeddingStatus: source.embeddingStatus,
+    embeddingModelId: source.embeddingModelId,
+    embeddingError: source.embeddingError,
     createdAt: source.createdAt.toISOString(),
     ingestedAt: source.ingestedAt?.toISOString() ?? null,
   }
@@ -371,6 +414,7 @@ export function createHandlers({
   updater,
   jobs,
   library,
+  embeddings,
   blobStore,
   reportRendererError,
   secrets,
@@ -518,6 +562,67 @@ export function createHandlers({
 
     'library.deleteSource': async ({ id }) => {
       await library.remove(id)
+    },
+
+    // --- retrieval (sub-phase 6.3, docs/spec/05-ingestion-rag.md §4) ---
+
+    'library.search': async ({ query, mode, k, sourceIds, kinds, prefix }) => {
+      if (!embeddings) unavailable('search', dbUnavailableReason)
+
+      // The library is listed once and used for both jobs below: resolving the `kinds` facet
+      // to source ids, and giving each hit the title of the source it came from — a citation
+      // without the book it came from is not a citation.
+      const sources = new Map((await library.list()).map((source) => [source.id, source] as const))
+      const modelId = (await embeddings.activeModelId()) ?? null
+
+      // The kinds facet is resolved here rather than pushed into the query: `chunks` has no
+      // `kind` column, and this keeps the two facets intersecting in one place.
+      let ids = sourceIds
+      if (kinds !== undefined) {
+        const matching = [...sources.values()]
+          .filter((source) => kinds.includes(source.kind))
+          .map((source) => source.id)
+        ids = ids === undefined ? matching : ids.filter((id) => matching.includes(id))
+        // An empty list is a real answer ("no source of those kinds"), not "every source".
+        if (ids.length === 0) return { hits: [], modelId, degraded: false, tookMs: 0 }
+      }
+
+      const startedAt = Date.now()
+      const hits = await embeddings.search(query, {
+        ...(mode === undefined ? {} : { mode }),
+        ...(k === undefined ? {} : { k }),
+        ...(ids === undefined ? {} : { sourceIds: ids }),
+        ...(prefix === undefined ? {} : { prefix }),
+      })
+      const tookMs = Date.now() - startedAt
+
+      return {
+        hits: hits.map((hit) => toSearchHit(hit, sources)),
+        modelId,
+        // `vector` never ran when no hit carries a vector rank *and* a vector search was
+        // wanted — which is exactly the case the UI has to disclose.
+        degraded:
+          (mode ?? 'hybrid') !== 'fts' &&
+          (modelId === null || hits.every((hit) => hit.vector === undefined)),
+        tookMs,
+      }
+    },
+
+    'library.createCardFromChunk': ({ chunkId, front, back }) =>
+      library.createCardFromChunk({
+        chunkId,
+        ...(front === undefined ? {} : { front }),
+        ...(back === undefined ? {} : { back }),
+      }),
+
+    'library.embedSource': async ({ id }) => {
+      if (!embeddings) unavailable('search', dbUnavailableReason)
+      await embeddings.embedSource(id)
+    },
+
+    'library.retrievalStatus': async () => {
+      if (!embeddings) unavailable('search', dbUnavailableReason)
+      return embeddings.status()
     },
 
     // --- memory: importance, urgent mode, reschedule (docs/spec/02-memory-system.md §7) ---

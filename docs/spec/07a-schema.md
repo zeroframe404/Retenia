@@ -51,13 +51,14 @@ Packaging note (Windows first): the `.node` binaries of both drivers and `sqlite
 | 6 | `0006_review_activity_type_and_stats` | `105d9b6eb30d` | `review_logs.activity_type` (backfilled `NULL`) and `context = 'diagnostic'`, so the exercise → rating mapping of `02-memory-system.md` §10 can be measured per type (§17 risk 3) and the prior-knowledge diagnostic can seed memory; plus `activity_stats`, the rolling per-type median that decides what "fast" and "slow" mean for this user. Widening a CHECK rebuilds the table in SQLite, which is what the `__new_review_logs` copy is. |
 | 7 | `0007_attempt_mode_and_review_session` | `e83a39101051` |  |
 | 8 | `0008_chunk_identity_and_context` | `ccf88f5ee61f` | `chunks.chunk_key` (the chunker's `sha256(source_id, block_ids, text)`, so re-chunking an unchanged source keeps the row and its embeddings), `chunks.chunking_version` (the reindex trigger) and `chunks.is_frontmatter` (a table of contents or bibliography, kept and citable but excluded from path generation); plus a `context` column on `chunks_fts` and its rebuilt triggers, so the contextual-retrieval text is searchable beside the chunk it situates (`05-ingestion-rag.md` §4). |
+| 9 | `0009_source_embedding_state` | `7a4e9b591fed` | `sources.embedding_status`, `sources.embedding_model_id` and `sources.embedding_error`, plus the `sources_embedding` index: where each source stands in the *vector* index, which is a different question from whether it parsed. `embedding_model_id` is the reindex trigger — the startup sweep re-embeds every source whose space is not the active provider's, so switching embedding models can never leave two spaces mixed in one query (`05-ingestion-rag.md` §3). Added with `ALTER TABLE` rather than a table rebuild, which would drop the source soft-delete cascade triggers of migration 0001. |
 
 ## Tables
 
 | Table | Group | Columns | Foreign keys | Indexes | Checks |
 |---|---|---|---|---|---|
 | `blobs` | Source library | 12 | 0 | 1 | 6 |
-| `sources` | Source library | 15 | 1 | 2 | 6 |
+| `sources` | Source library | 18 | 1 | 3 | 6 |
 | `source_units` | Source library | 15 | 2 | 1 | 7 |
 | `chunks` | Source library | 20 | 2 | 5 | 7 |
 | `annotations` | Source library | 15 | 2 | 2 | 7 |
@@ -145,9 +146,13 @@ Checks:
 | `deleted_at` | integer | yes |  |  |
 | `device_id` | text | no |  |  |
 | `version` | integer | no | `1` |  |
+| `embedding_status` | text | no | `'pending'` |  |
+| `embedding_model_id` | text | yes |  |  |
+| `embedding_error` | text | yes |  |  |
 
 Indexes:
 
+- `sources_embedding` (`embedding_status`, `embedding_model_id`)
 - `sources_blob` (`blob_sha256`)
 - `sources_status` (`status`)
 

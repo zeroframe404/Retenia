@@ -50,6 +50,22 @@ export type SourceKind = (typeof SOURCE_KINDS)[number]
 export const SOURCE_STATUSES = ['pending', 'processing', 'ready', 'failed'] as const
 export type SourceStatus = (typeof SOURCE_STATUSES)[number]
 
+/**
+ * Where a source stands in the *vector* index, which is a different question from whether it
+ * parsed (`sources.status`): a source can be perfectly readable and searchable by BM25 while
+ * its embeddings are missing, queued behind a model download, or stale because the user
+ * switched embedding models (`docs/spec/05-ingestion-rag.md` §3, "never mix spaces; reindex
+ * as a job").
+ *
+ * - `pending` — chunked, not embedded yet. Also where a source lands when the model changes.
+ * - `running` — an `ingestEmbedSource` job holds it.
+ * - `ready` — every live chunk has a vector in `sources.embedding_model_id`'s space.
+ * - `failed` — the last run failed; `embedding_error` says why, and retrieval degrades to
+ *   full text rather than to nothing.
+ */
+export const EMBEDDING_STATUSES = ['pending', 'running', 'ready', 'failed'] as const
+export type EmbeddingStatus = (typeof EMBEDDING_STATUSES)[number]
+
 /** Page (PDF/EPUB), slide (PPTX), section (DOCX/Markdown/web), keyframe or transcript
  * segment (audio/video) — the citable, navigable unit a chunk points back to. */
 export const SOURCE_UNIT_KINDS = ['page', 'slide', 'section', 'keyframe', 'segment'] as const
@@ -114,13 +130,32 @@ export const sources = sqliteTable(
     /** Last ingestion error, for the "Processing" panel. */
     error: text('error'),
     ingestedAt: timestampColumn('ingested_at'),
+    /** Where this source stands in the vector index; see `EMBEDDING_STATUSES`. */
+    embeddingStatus: text('embedding_status', { enum: EMBEDDING_STATUSES })
+      .notNull()
+      .default('pending'),
+    /**
+     * The space its vectors are in — an `EmbeddingProvider.modelId`, e.g.
+     * `embeddinggemma-300m@768`. NULL until the first successful run.
+     *
+     * This column *is* the reindex trigger: the sweep at startup asks for every ready source
+     * whose `embedding_model_id` is not the active provider's, and re-embeds those. Comparing
+     * against the model rather than tracking a "stale" flag means switching models and
+     * switching back cannot lose track of what is already correct.
+     */
+    embeddingModelId: text('embedding_model_id'),
+    /** Why the last embedding run failed, for the source card. */
+    embeddingError: text('embedding_error'),
     ...auditColumns(),
   },
   (t) => [
     index('sources_status').on(t.status),
     index('sources_blob').on(t.blobSha256),
+    /** "Which sources need embedding, and which are in another space?" — one index scan. */
+    index('sources_embedding').on(t.embeddingStatus, t.embeddingModelId),
     check('sources_kind', inTextList(t.kind, SOURCE_KINDS)),
     check('sources_status', inTextList(t.status, SOURCE_STATUSES)),
+    check('sources_embedding_status', inTextList(t.embeddingStatus, EMBEDDING_STATUSES)),
     check('sources_meta_json', jsonObject(t.meta)),
     ...standardChecks('sources', t),
   ],

@@ -144,7 +144,9 @@ process.parentPort.once('message', (event) => {
     console.error('[job-worker] malformed handshake; exiting:', handshake.error.message)
     process.exit(1)
   }
-  registry = createJobRegistry(createJobDefinitions(handshake.data.readableRoots))
+  registry = createJobRegistry(
+    createJobDefinitions(handshake.data.readableRoots, handshake.data.modelsRoot),
+  )
 
   port.on('message', (message) => handle(port, message.data))
   port.start()

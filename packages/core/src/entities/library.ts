@@ -1,5 +1,11 @@
 import type { Entity, JsonObject } from './_common'
-import type { AnnotationKind, SourceKind, SourceStatus, SourceUnitKind } from './enums'
+import type {
+  AnnotationKind,
+  EmbeddingStatus,
+  SourceKind,
+  SourceStatus,
+  SourceUnitKind,
+} from './enums'
 
 /** The source library: what the user loads, how it is split for citation and retrieval, and
  *  what they mark on it (`docs/spec/07a-schema.md` "Source library"). */
@@ -28,6 +34,12 @@ export interface Source extends Entity {
   meta: JsonObject | null
   error: string | null
   ingestedAt: Date | null
+  /** Where the source stands in the vector index. */
+  embeddingStatus: EmbeddingStatus
+  /** The space its vectors are in — an `EmbeddingProvider.modelId`. `null` until embedded. */
+  embeddingModelId: string | null
+  /** Why the last embedding run failed. */
+  embeddingError: string | null
 }
 
 /** A citable subdivision of a source: a page, a slide, a transcript segment, a keyframe. */
