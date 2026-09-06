@@ -1,10 +1,4 @@
-import { createHash } from 'node:crypto'
-import { createWriteStream } from 'node:fs'
-import { mkdir, rename, rm } from 'node:fs/promises'
-import { dirname } from 'node:path'
-import { Readable, Transform, type TransformCallback } from 'node:stream'
-import { pipeline } from 'node:stream/promises'
-import { setTimeout as delay } from 'node:timers/promises'
+import { downloadToFile, type FetchLike } from '../net/fetch-to-file'
 import type { ModelFile, ModelSpec } from './catalog'
 import type { ModelStore } from './store'
 
@@ -38,17 +32,9 @@ export interface DownloadProgress {
   file: string
 }
 
-/** The `fetch` shape this module needs; injected in tests, `globalThis.fetch` in the app. */
-export type FetchLike = (
-  url: string,
-  init?: { signal?: AbortSignal; headers?: Record<string, string> },
-) => Promise<{
-  ok: boolean
-  status: number
-  statusText: string
-  body: unknown
-  arrayBuffer(): Promise<ArrayBuffer>
-}>
+/** Re-exported: this module was the original home of the injected-`fetch` seam, and the
+ *  model download tests import it from here. */
+export type { FetchLike }
 
 export interface DownloadOptions {
   store: ModelStore
@@ -81,68 +67,13 @@ export function modelFileUrl(spec: ModelSpec, file: ModelFile, endpoint = HUGGIN
   return `${endpoint}/${spec.repo}/resolve/${spec.revision}/${file.path}`
 }
 
-function asNodeStream(body: unknown): NodeJS.ReadableStream {
-  if (body === null || body === undefined) throw new Error('the response carried no body')
-  // A WHATWG `ReadableStream` (global `fetch`) or an already-Node stream (a test's fake).
-  if (typeof (body as { pipe?: unknown }).pipe === 'function') {
-    return body as NodeJS.ReadableStream
-  }
-  return Readable.fromWeb(body as Parameters<typeof Readable.fromWeb>[0])
-}
-
 /**
- * Backoff before each attempt of `replaceFile`, in ms — six tries over ~0.8 s.
+ * Fetches one model file into place, verified against the manifest.
  *
- * Long enough to outlast a virus scan of a few hundred KB, short enough that a genuinely
- * locked file still fails inside a test's timeout rather than looking like a hang.
- */
-const REPLACE_RETRY_DELAYS_MS = [0, 25, 50, 100, 200, 400] as const
-
-/** Windows codes for "someone else has this file open right now"; all transient. */
-const TRANSIENT_LOCK_CODES = new Set(['EPERM', 'EACCES', 'EBUSY', 'ENOTEMPTY'])
-
-function isTransientLock(error: unknown): boolean {
-  const code = (error as NodeJS.ErrnoException | null)?.code
-  return code !== undefined && TRANSIENT_LOCK_CODES.has(code)
-}
-
-/**
- * Moves `partial` onto `target`, replacing whatever is there, in a way that survives Windows.
- *
- * On Linux and macOS the first `rename` is atomic, succeeds, and nothing else here runs. On
- * Windows `MoveFileExW` with REPLACE_EXISTING has to open the *destination*, and the
- * destination can be held by something outside this process — Defender scans a file the
- * moment it is written, and in a re-download these files were written seconds ago by the run
- * this one is replacing. That is exactly the shape of the `windows-latest` failure: the tests
- * that replace an existing file stalled past their timeout while the six in the same file
- * that only ever *create* one finished in 17–170 ms, and the temp directory could not be
- * removed afterwards because a handle was still on it.
- *
- * Two things make it survivable. Unlinking first turns a replace into a create, which does
- * not need a handle on the destination at all; and both steps are retried with backoff,
- * because the lock is a passing scan rather than a permanent state. A crash between the two
- * leaves the target missing, which the next `status()` reads as "not installed" and
- * re-downloads — the same outcome as a half-written file, and never a wrong one.
- */
-async function replaceFile(partial: string, target: string): Promise<void> {
-  let lastError: unknown
-  for (const backoff of REPLACE_RETRY_DELAYS_MS) {
-    if (backoff > 0) await delay(backoff)
-    try {
-      await rm(target, { force: true })
-      await rename(partial, target)
-      return
-    } catch (error) {
-      if (!isTransientLock(error)) throw error
-      lastError = error
-    }
-  }
-  throw lastError
-}
-
-/**
- * Streams one file to `<final>.part`, hashing as it goes, and only renames it into place
- * once the digest matches. Returns the bytes written.
+ * The transfer itself — stream, hash on the way past, `.part` then rename with the Windows
+ * lock retry — lives in `../net/fetch-to-file.ts`, shared with the sidecar installer
+ * (sub-phase 6.4). What stays here is the part that is about *models*: the URL shape, and
+ * turning a failure into a `ModelDownloadError` that names the file.
  */
 async function downloadFile(
   spec: ModelSpec,
@@ -151,77 +82,22 @@ async function downloadFile(
   options: Required<Pick<DownloadOptions, 'fetch' | 'endpoint'>> & DownloadOptions,
   onBytes: (delta: number) => void,
 ): Promise<number> {
-  const url = modelFileUrl(spec, file, options.endpoint)
-  const response = await options.fetch(url, {
-    ...(options.signal === undefined ? {} : { signal: options.signal }),
-    headers: { accept: 'application/octet-stream' },
-  })
-  if (!response.ok) {
-    throw new ModelDownloadError(
-      `${response.status} ${response.statusText} downloading ${file.path}`,
-      file.path,
-    )
-  }
-
-  await mkdir(dirname(target), { recursive: true })
-  const partial = `${target}.part`
-  const hash = createHash('sha256')
-  let written = 0
-
-  // The hash has to see every byte on the way past, which is what this Transform is for.
-  //
-  // Both halves of this matter, and an earlier hand-rolled version got both wrong:
-  //
-  //  - `pipeline` resolves only once the *destination is closed*, not merely finished.
-  //    `WriteStream.end(callback)` fires on `'finish'`, while the file descriptor is still
-  //    open — and renaming over an existing file with an open handle fails on Windows. That
-  //    is not theoretical: it is the second download of a file after a revision bump, which
-  //    is exactly what the CI job on `windows-latest` caught.
-  //  - `pipeline` propagates an error instead of hanging. Hand-written backpressure
-  //    (`write()` → `await once(stream, 'drain')`) never settles if the stream errors or is
-  //    destroyed in between, because no `'drain'` is ever emitted — a hang, not a failure.
-  const tap = new Transform({
-    transform(chunk: Buffer, _encoding: BufferEncoding, callback: TransformCallback) {
-      hash.update(chunk)
-      written += chunk.byteLength
-      onBytes(chunk.byteLength)
-      callback(null, chunk)
-    },
-  })
-
   try {
-    await pipeline(
-      asNodeStream(response.body),
-      tap,
-      createWriteStream(partial),
-      // Aborts the whole chain and destroys every stream in it, including the open fd.
-      { ...(options.signal === undefined ? {} : { signal: options.signal }) },
-    )
-
-    const digest = hash.digest('hex')
-    if (digest !== file.sha256) {
-      throw new ModelDownloadError(
-        `${file.path} does not match the manifest: expected ${file.sha256}, got ${digest}`,
-        file.path,
-      )
-    }
-    if (written !== file.bytes) {
-      throw new ModelDownloadError(
-        `${file.path} is ${written} bytes, the manifest says ${file.bytes}`,
-        file.path,
-      )
-    }
-    await replaceFile(partial, target)
-    return written
+    return await downloadToFile({
+      url: modelFileUrl(spec, file, options.endpoint),
+      target,
+      expectedSha256: file.sha256,
+      expectedBytes: file.bytes,
+      subject: file.path,
+      fetch: options.fetch,
+      ...(options.signal === undefined ? {} : { signal: options.signal }),
+      onBytes,
+      describe: (message) => new ModelDownloadError(message, file.path),
+    })
   } catch (error) {
-    // Whatever went wrong — a reset connection, a wrong hash, a cancellation — the partial
-    // file is not something a later run should find and trust. `pipeline` has already
-    // destroyed the streams by the time this runs, so the handle is closed and the unlink
-    // cannot fail on Windows either.
-    await rm(partial, { force: true })
-    // A cancelled transfer reaches here as Node's generic `AbortError` ("The operation was
-    // aborted"), which would land in the job's `error` column and tell the user nothing.
-    // Say the same thing the loop in `downloadModel` says when it stops between files.
+    // A cancelled transfer arrives as Node's generic `AbortError` ("The operation was
+    // aborted"), which would land in the job's `error` column and tell the user nothing. Say
+    // the same thing the loop in `downloadModel` says when it stops between files.
     if (options.signal?.aborted === true) {
       throw new Error(`the model download was cancelled while fetching ${file.path}`)
     }
