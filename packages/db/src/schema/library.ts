@@ -27,7 +27,8 @@ import {
  *
  * The two search structures over `chunks` — the FTS5 table `chunks_fts` and the sqlite-vec
  * table `embeddings` — are virtual tables that Drizzle cannot model; they are created by
- * the raw-SQL migration `0001_fts5_vec0_seed.sql` and queried through `src/search.ts`.
+ * the raw-SQL migrations `0001_fts5_vec0_seed.sql` and `0008_chunk_identity_and_context.sql`
+ * and queried through `src/search.ts`.
  */
 
 /** What a source is: decides the extractor (docs/spec/05-ingestion-rag.md §1). */
@@ -191,6 +192,32 @@ export const chunks = sqliteTable(
     headingPath: text('heading_path'),
     /** The 50–100 tokens of "contextual retrieval" context, when the improved index is on. */
     context: text('context'),
+    /**
+     * `sha256(source_id, block_ids, text)`, the chunker's own deterministic key
+     * (`packages/ingest/src/chunking/chunk-key.ts`). The row's `id` is a UUIDv7 like every
+     * other row's; this is the *natural* key beside it, and it is what makes re-chunking
+     * idempotent: an unchanged document produces the same keys, so the store can leave those
+     * rows — and the embeddings hanging off them — exactly where they are.
+     *
+     * No hex CHECK on it, unlike `hash`: SQLite can only add one by rebuilding the table,
+     * and a rebuild drops every trigger on it — the FTS5 and vec0 sync of migrations 0001
+     * and 0002 included. A nullable column only the chunker writes is not worth that.
+     */
+    chunkKey: text('chunk_key'),
+    /**
+     * `<rules version>:<tokenizer id>` (`1:chars4`). The reindex trigger: when the chunking
+     * rules or the tokenizer change, every chunk written under the old value was cut at
+     * different boundaries and the source has to be chunked again. NULL is a chunk written
+     * before this column existed, which is equally stale.
+     */
+    chunkingVersion: text('chunking_version'),
+    /**
+     * Table of contents, copyright page, index, bibliography… Flagged, never dropped: the
+     * chunk is still citable and still worth retrieving, but stage 4 of the generation
+     * pipeline excludes it so the outline mirrors the book's argument rather than its index
+     * (`docs/spec/04-path-generation.md` §14, pitfall 6).
+     */
+    isFrontmatter: integer('is_frontmatter', { mode: 'boolean' }).notNull().default(false),
     /** Page/timestamp/anchor plus the block ids the chunk covers (`chunk_id → block_ids`). */
     locator: jsonColumn('locator').$type<JsonObject>(),
     ...auditColumns(),
@@ -199,6 +226,10 @@ export const chunks = sqliteTable(
     index('chunks_source_ordinal').on(t.sourceId, t.ordinal),
     index('chunks_hash').on(t.hash),
     index('chunks_unit').on(t.unitId),
+    /** One row per key per source, so a re-chunk can upsert instead of matching by text. */
+    uniqueIndex('chunks_source_key').on(t.sourceId, t.chunkKey),
+    /** "Which sources are stale?" is one scan of this index, not of every chunk's text. */
+    index('chunks_chunking_version').on(t.chunkingVersion),
     check('chunks_char_range', sql`${t.charStart} >= 0 AND ${t.charEnd} >= ${t.charStart}`),
     check('chunks_token_count_nonnegative', atLeast(t.tokenCount, 0)),
     check('chunks_hash_hex', sql`length(${t.hash}) = 64`),

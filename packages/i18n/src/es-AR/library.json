@@ -34,6 +34,18 @@
     "notParsedYet": "Esta fuente todavía no terminó de procesarse.",
     "warnings": "Advertencias"
   },
+  "chunks": {
+    "title": "Fragmentos",
+    "summary": "{chunks, plural, one {# fragmento} other {# fragmentos}} · {units, plural, one {# unidad} other {# unidades}}",
+    "frontmatter": "Preliminares",
+    "hideFrontmatter": "Ocultar preliminares",
+    "notChunkedYet": "Esta fuente todavía no se fragmentó.",
+    "improvedIndexTitle": "Índice mejorado",
+    "improvedIndexDescription": "Agrega 50–100 tokens de contexto a cada fragmento con un modelo barato, para que se pueda encontrar por el nombre que le da su capítulo.",
+    "improvedIndexEstimate": "≈ USD {usd} por {chunks, plural, one {# fragmento} other {# fragmentos}}",
+    "improvedIndexDone": "Todos los fragmentos ya tienen su contexto.",
+    "improvedIndexUnavailable": "Necesita un proveedor de IA, que todavía no está configurado."
+  },
   "deleteConfirmTitle": "¿Eliminar esta fuente?",
   "deleteConfirmDescription": "Se quita de tu biblioteca. Esta acción no se puede deshacer.",
   "deleteConfirmAction": "Eliminar",

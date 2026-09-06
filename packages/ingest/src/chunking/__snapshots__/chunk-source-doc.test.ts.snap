@@ -1,0 +1,58 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`chunkSourceDoc > golden: the Markdown fixture 1`] = `
+[
+  {
+    "blocks": 6,
+    "headingPath": "Sample Study Notes > Cell Biology",
+    "isFrontmatter": false,
+    "ordinal": 0,
+    "text": "Cells are the basic building blocks of all living things. The cell theory states
+that all organisms are composed of one or more cells.
+
+Every cell has a membrane, cytoplasm, and genetic material.
+
+Nucleus: holds the DNA
+Mitochondria: produces energy
+Ribosomes: build proteins
+
+Organelle | Function
+Nucleus | Stores DNA
+Mitochondria | Produces ATP
+
+def is_alive(cell):
+    return cell.has_membrane and cell.has_dna
+
+Mitosis produces two identical daughter cells from one parent cell.",
+    "tokenCount": 121,
+  },
+]
+`;
+
+exports[`chunkSourceDoc > golden: the book fixture, front matter flagged 1`] = `
+[
+  {
+    "headingPath": "Memoria y repaso espaciado",
+    "isFrontmatter": true,
+    "opens": "Segunda edición
+
+© 2026 Editorial Ejemplo. Todos",
+    "ordinal": 0,
+    "page": 1,
+  },
+  {
+    "headingPath": "Memoria y repaso espaciado > Capítulo 1. Qué es la memoria",
+    "isFrontmatter": false,
+    "opens": "La memoria no es un archivo del que se recupera ",
+    "ordinal": 1,
+    "page": 4,
+  },
+  {
+    "headingPath": "Memoria y repaso espaciado > Bibliografía",
+    "isFrontmatter": true,
+    "opens": "Dunlosky, J. et al. (2013). Improving Students’ ",
+    "ordinal": 2,
+    "page": 7,
+  },
+]
+`;

@@ -260,6 +260,8 @@ export function renderSchemaDoc(): string {
         '`review_sessions`: the frozen daily queue and how far through it the user got, so a session survives the app being closed (`02-memory-system.md` §12).',
       '0006_review_activity_type_and_stats':
         '`review_logs.activity_type` (backfilled `NULL`) and `context = \'diagnostic\'`, so the exercise → rating mapping of `02-memory-system.md` §10 can be measured per type (§17 risk 3) and the prior-knowledge diagnostic can seed memory; plus `activity_stats`, the rolling per-type median that decides what "fast" and "slow" mean for this user. Widening a CHECK rebuilds the table in SQLite, which is what the `__new_review_logs` copy is.',
+      '0008_chunk_identity_and_context':
+        "`chunks.chunk_key` (the chunker's `sha256(source_id, block_ids, text)`, so re-chunking an unchanged source keeps the row and its embeddings), `chunks.chunking_version` (the reindex trigger) and `chunks.is_frontmatter` (a table of contents or bibliography, kept and citable but excluded from path generation); plus a `context` column on `chunks_fts` and its rebuilt triggers, so the contextual-retrieval text is searchable beside the chunk it situates (`05-ingestion-rag.md` §4).",
     }
     for (const [index, migration] of loadMigrations().entries()) {
       line(

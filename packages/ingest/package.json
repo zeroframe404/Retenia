@@ -3,9 +3,10 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Extractors, chunking, embeddings, jobs (Node only), sidecar manager. Real steps land in sub-phase 6.x.",
+  "description": "Extractors, structural chunking, contextual retrieval, embeddings, jobs (Node only), sidecar manager.",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./prompts": "./src/contextualize/prompt-files.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
@@ -13,11 +14,13 @@
     "lint": "biome check ."
   },
   "dependencies": {
+    "@retenia/ai": "workspace:*",
     "@retenia/core": "workspace:*",
     "@hyzyla/pdfium": "2.1.13",
     "fast-xml-parser": "4.5.7",
     "fflate": "0.8.3",
     "franc-min": "6.2.0",
+    "js-tiktoken": "1.0.21",
     "mammoth": "1.12.2",
     "mdast-util-to-string": "4.0.0",
     "node-html-parser": "6.1.13",

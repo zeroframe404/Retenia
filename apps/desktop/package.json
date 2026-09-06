@@ -28,6 +28,7 @@
     "@hyzyla/pdfium": "2.1.13",
     "@retenia/activities": "workspace:*",
     "@retenia/activity-schema": "workspace:*",
+    "@retenia/ai": "workspace:*",
     "@retenia/core": "workspace:*",
     "@retenia/db": "workspace:*",
     "@retenia/i18n": "workspace:*",

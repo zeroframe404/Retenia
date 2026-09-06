@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 # PreToolUse hook (matcher: Bash|Edit|Write|NotebookEdit).
 # Denies destructive command patterns and edits to already-applied migrations.
+#
+# "Already applied" is approximated by "already committed": a migration file tracked by git
+# has been shipped and may be in someone's database, so docs/spec/00-conventions.md forbids
+# touching it. A brand-new, untracked file is the migration being written right now — that
+# one is allowed through, and `.claude/settings.json` puts it behind an `ask` so a human
+# still reviews it.
 set -uo pipefail
 
 input="$(cat)"
@@ -35,6 +41,21 @@ file_path="$(read_field '.tool_input.file_path')"
 
 migrations_re='(^|/)migrations/'
 
+# 0 when the path is a migration file git already tracks (committed, therefore possibly
+# applied). Unknown paths and untracked files return 1, so a new migration is not blocked.
+migration_is_committed() {
+  local path="$1" status
+  [[ "$path" =~ $migrations_re ]] || return 1
+  command -v git >/dev/null 2>&1 || return 0
+  git ls-files --error-unmatch -- "$path" >/dev/null 2>&1
+  status=$?
+  # Exit 1 is the one answer that means "git looked and the file is untracked". Anything else
+  # — 128 for "not a git repository", a bad cwd, a broken index — is git failing to answer, and
+  # an unanswered question about a migration blocks.
+  [ "$status" -eq 1 ] && return 1
+  return 0
+}
+
 # Returns 0 when any `rm` invocation in the command combines a recursive flag
 # with a force flag, in any order and in short or long form.
 rm_recursive_force() {
@@ -67,8 +88,8 @@ reason=""
 
 case "$tool_name" in
   Edit | Write | NotebookEdit | MultiEdit)
-    if [[ "$file_path" =~ $migrations_re ]]; then
-      reason="Editing files under migrations/ is blocked by repo policy: an applied migration is never modified, write a new one instead (docs/spec/00-conventions.md)."
+    if migration_is_committed "$file_path"; then
+      reason="Editing a committed migration is blocked by repo policy: an applied migration is never modified, write a new one instead (docs/spec/00-conventions.md)."
     fi
     ;;
   *)
@@ -84,7 +105,10 @@ case "$tool_name" in
       elif [[ "$command_str" =~ git[[:space:]]+reset[[:space:]]+([^\;\&\|]*[[:space:]])?--hard ]]; then
         reason="git reset --hard is blocked by repo policy (discards uncommitted work). Ask the user to run it manually if truly needed."
       elif [[ "$command_str" =~ (^|[^[:alnum:]_./-])(sed[[:space:]]+-i|tee|(\>\>?))[^\;\&\|]*migrations/ ]]; then
-        reason="Writing into migrations/ from the shell is blocked by repo policy: an applied migration is never modified, write a new one instead."
+        # Blanket, unlike the Edit/Write branch above: picking the target path out of an
+        # arbitrary shell command is guesswork, so the shell has no business writing there at
+        # all — a new migration is written with the file tools, which are reviewed.
+        reason="Writing into migrations/ from the shell is blocked by repo policy: write a new migration with the file tools instead, so it goes through review."
       fi
     fi
     ;;

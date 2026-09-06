@@ -1,12 +1,34 @@
-import type { SectionDto, SourceDocDto, SourceSummary } from '@retenia/ipc-contract'
-import { Badge, IconButton, ScrollArea } from '@retenia/ui'
+import type {
+  ChunkSummary,
+  ContextualizationEstimateDto,
+  SectionDto,
+  SourceDocDto,
+  SourceSummary,
+} from '@retenia/ipc-contract'
+import {
+  Badge,
+  IconButton,
+  ScrollArea,
+  Tabs,
+  TabsIndicator,
+  TabsList,
+  TabsPanel,
+  TabsTab,
+} from '@retenia/ui'
 import { ArrowLeftIcon } from 'lucide-react'
 import { useT } from '../../i18n/use-t'
+import { SourceChunks } from './source-chunks'
 
 export interface SourceDetailProps {
   source: SourceSummary | undefined
   /** The parser's own output — `undefined` before the source has ever finished parsing. */
   doc: SourceDocDto | undefined
+  /** The chunks sub-phase 6.2 cut from it, and how many there are in total. */
+  chunks: readonly ChunkSummary[]
+  chunkTotal: number
+  estimate: ContextualizationEstimateDto | undefined
+  excludeFrontmatter: boolean
+  onExcludeFrontmatterChange: (value: boolean) => void
   onBack: () => void
 }
 
@@ -49,10 +71,21 @@ function SectionNode({
   )
 }
 
-/** A source's own parsed content: its section tree and a preview of every block, read
- *  straight from the `SourceDoc` blob (sub-phase 6.1) — `source_units`/`chunks` do not exist
- *  until 6.2 chunks it. */
-export function SourceDetail({ source, doc, onBack }: SourceDetailProps) {
+/**
+ * A source's own content, two ways: the parser's section tree read straight from the
+ * `SourceDoc` blob (sub-phase 6.1), and the chunks the structural chunker cut from it
+ * (sub-phase 6.2) — the ones retrieval and citations use.
+ */
+export function SourceDetail({
+  source,
+  doc,
+  chunks,
+  chunkTotal,
+  estimate,
+  excludeFrontmatter,
+  onExcludeFrontmatterChange,
+  onBack,
+}: SourceDetailProps) {
   const t = useT('library')
 
   return (
@@ -81,20 +114,38 @@ export function SourceDetail({ source, doc, onBack }: SourceDetailProps) {
             </div>
           )}
 
-          <ScrollArea className="min-h-0 flex-1">
-            <h3 className="text-muted mb-2 text-xs font-semibold tracking-wide uppercase">
-              {t('detail.sections')}
-            </h3>
-            {doc.sections.length === 0 ? (
-              <p className="text-muted text-sm">{t('detail.noSections')}</p>
-            ) : (
-              <ul className="flex flex-col gap-3 pb-6">
-                {doc.sections.map((section) => (
-                  <SectionNode key={section.id} section={section} doc={doc} depth={0} />
-                ))}
-              </ul>
-            )}
-          </ScrollArea>
+          <Tabs defaultValue="sections" className="flex min-h-0 flex-1 flex-col gap-3">
+            <TabsList className="self-start">
+              <TabsIndicator />
+              <TabsTab value="sections">{t('detail.sections')}</TabsTab>
+              <TabsTab value="chunks">{t('chunks.title')}</TabsTab>
+            </TabsList>
+
+            <TabsPanel value="sections" className="flex min-h-0 flex-1 flex-col">
+              <ScrollArea className="min-h-0 flex-1">
+                {doc.sections.length === 0 ? (
+                  <p className="text-muted text-sm">{t('detail.noSections')}</p>
+                ) : (
+                  <ul className="flex flex-col gap-3 pb-6">
+                    {doc.sections.map((section) => (
+                      <SectionNode key={section.id} section={section} doc={doc} depth={0} />
+                    ))}
+                  </ul>
+                )}
+              </ScrollArea>
+            </TabsPanel>
+
+            <TabsPanel value="chunks" className="flex min-h-0 flex-1 flex-col">
+              <SourceChunks
+                chunks={chunks}
+                total={chunkTotal}
+                unitCount={source?.meta?.unitCount ?? 0}
+                estimate={estimate}
+                excludeFrontmatter={excludeFrontmatter}
+                onExcludeFrontmatterChange={onExcludeFrontmatterChange}
+              />
+            </TabsPanel>
+          </Tabs>
         </>
       )}
     </div>

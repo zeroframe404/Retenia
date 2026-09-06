@@ -16,6 +16,8 @@ export interface SeedChunk {
   headingPath?: string
   /** Page/timestamp/`block_ids`, exactly as the ingestion parsers write it. */
   locator?: JsonObject
+  /** The contextual-retrieval text (`chunks.context`), indexed beside the chunk's own. */
+  context?: string
 }
 
 export interface SeededSource {
@@ -65,6 +67,7 @@ export function seedSourceWithChunks(
         tokenCount: seed.text.split(/\s+/).length,
         hash: createHash('sha256').update(seed.text).digest('hex'),
         headingPath: seed.headingPath ?? `Fisiología > Capítulo ${ordinal + 1}`,
+        context: seed.context ?? null,
         locator: seed.locator ?? null,
         ...audit(nowMs),
       })

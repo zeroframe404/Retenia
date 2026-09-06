@@ -19,14 +19,19 @@ export const FTS_TOKENIZER = 'unicode61 remove_diacritics 2'
 
 /**
  * `bm25()` weights, one per column of `chunks_fts` in declaration order
- * (`chunk_id`, `source_id`, `text`, `heading_path`). The two UNINDEXED columns contribute
- * nothing and take weight 0; a hit in the heading path (`Fisiología > Capítulo 3`) counts
- * half a hit in the body, so a chapter title cannot outrank the paragraph that answers the
- * question. `bm25()` returns a *negative* number and lower is better.
+ * (`chunk_id`, `source_id`, `text`, `heading_path`, `context`). The two UNINDEXED columns
+ * contribute nothing and take weight 0; a hit in the heading path (`Fisiología > Capítulo 3`)
+ * counts half a hit in the body, so a chapter title cannot outrank the paragraph that answers
+ * the question. `context` — the 50–100 tokens of contextual retrieval written by a cheap model
+ * (migration 0008) — is weighted the same way and for the same reason: it exists to make an
+ * elliptical paragraph *findable*, not to outrank the source it paraphrases.
+ * `bm25()` returns a *negative* number and lower is better.
  */
-export const FTS_COLUMN_WEIGHTS = [0, 0, 1, 0.5] as const
+export const FTS_COLUMN_WEIGHTS = [0, 0, 1, 0.5, 0.5] as const
 
-/** Column indexes of `chunks_fts`, for `snippet()` and `highlight()`. */
+/** Column indexes of `chunks_fts`, for `snippet()` and `highlight()`. Snippets are only ever
+ *  taken from `text`: a citation shows what the source says, never what a model wrote about
+ *  it. */
 const FTS_TEXT_COLUMN = 2
 const FTS_HEADING_COLUMN = 3
 

@@ -1,4 +1,9 @@
-import type { SourceDocDto, SourceSummary } from '@retenia/ipc-contract'
+import type {
+  ChunkSummary,
+  ContextualizationEstimateDto,
+  SourceDocDto,
+  SourceSummary,
+} from '@retenia/ipc-contract'
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { SourceDetail } from './source-detail'
 
@@ -24,6 +29,11 @@ const source: SourceSummary = {
     needsOcr: false,
     ocrPages: [],
     warnings: [],
+    chunkCount: 2,
+    unitCount: 2,
+    frontmatterChunkCount: 1,
+    chunkTokenCount: 60,
+    chunkingVersion: '1:chars4',
   },
   createdAt: '2026-09-02T00:00:00.000Z',
   ingestedAt: '2026-09-02T00:01:00.000Z',
@@ -78,14 +88,84 @@ const doc: SourceDocDto = {
   meta: { warnings: [] },
 }
 
+const chunks: ChunkSummary[] = [
+  {
+    id: '019213cd-0000-7000-8000-00000000000a',
+    ordinal: 0,
+    text: 'Contents\nCell Biology ..... 1\nCell Structure ..... 4',
+    truncated: false,
+    tokenCount: 14,
+    headingPath: 'Cell Biology > Contents',
+    context: null,
+    isFrontmatter: true,
+    label: 'p. 1',
+    page: 1,
+    tStartMs: null,
+    tEndMs: null,
+    blockIds: ['b0'],
+  },
+  {
+    id: '019213cd-0000-7000-8000-00000000000b',
+    ordinal: 1,
+    text: 'Cells are the basic building blocks of all living things.\n\nEvery cell has a membrane, cytoplasm, and genetic material.',
+    truncated: false,
+    tokenCount: 46,
+    headingPath: 'Cell Biology > Cell Structure',
+    context: 'From chapter 1 of Cell Biology, introducing the cell as the unit of life.',
+    isFrontmatter: false,
+    label: 'p. 2',
+    page: 2,
+    tStartMs: null,
+    tEndMs: null,
+    blockIds: ['b1', 'b2'],
+  },
+]
+
+const estimate: ContextualizationEstimateDto = {
+  chunkCount: 1,
+  inputTokens: 2_400,
+  cachedInputTokens: 0,
+  outputTokens: 100,
+  usd: 0.0021,
+}
+
+/** Everything the panel shows at once: front matter flagged, one chunk already contextualized
+ *  and one still to go, and the price of finishing the job. */
+const chunkArgs = {
+  chunks,
+  chunkTotal: chunks.length,
+  estimate,
+  excludeFrontmatter: false,
+  onExcludeFrontmatterChange: () => {},
+}
+
 export const WithDoc: Story = {
-  args: { source, doc, onBack: () => {} },
+  args: { source, doc, ...chunkArgs, onBack: () => {} },
+}
+
+export const NotChunkedYet: Story = {
+  args: {
+    source: {
+      ...source,
+      meta: { ...(source.meta as NonNullable<SourceSummary['meta']>), chunkCount: 0, unitCount: 0 },
+    },
+    doc,
+    ...chunkArgs,
+    chunks: [],
+    chunkTotal: 0,
+    estimate: { chunkCount: 0, inputTokens: 0, cachedInputTokens: 0, outputTokens: 0, usd: 0 },
+    onBack: () => {},
+  },
 }
 
 export const NotYetParsed: Story = {
   args: {
     source: { ...source, status: 'processing', meta: null, ingestedAt: null },
     doc: undefined,
+    ...chunkArgs,
+    chunks: [],
+    chunkTotal: 0,
+    estimate: undefined,
     onBack: () => {},
   },
 }
@@ -103,6 +183,7 @@ export const WithWarnings: Story = {
         warnings: ['2 equations could not be converted and are not represented in this document'],
       },
     },
+    ...chunkArgs,
     onBack: () => {},
   },
 }
