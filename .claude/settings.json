@@ -22,6 +22,12 @@
       "Glob",
       "Grep"
     ],
+    "ask": [
+      "Edit(**/migrations/**)",
+      "MultiEdit(**/migrations/**)",
+      "NotebookEdit(**/migrations/**)",
+      "Write(**/migrations/**)"
+    ],
     "deny": [
       "Bash(rm -rf*)",
       "Bash(rm -fr*)",
@@ -32,10 +38,7 @@
       "Bash(git push -f*)",
       "Bash(git reset --hard*)",
       "Read(.env*)",
-      "Read(**/.env*)",
-      "Edit(**/migrations/**)",
-      "Write(**/migrations/**)",
-      "NotebookEdit(**/migrations/**)"
+      "Read(**/.env*)"
     ]
   },
   "hooks": {
@@ -64,7 +67,7 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "Bash|Edit|Write|NotebookEdit",
+        "matcher": "Bash|Edit|Write|NotebookEdit|MultiEdit",
         "hooks": [
           {
             "type": "command",

@@ -57,6 +57,16 @@ export interface Chunk extends Entity {
   hash: string
   headingPath: string | null
   context: string | null
+  /** `sha256(source_id, block_ids, text)` from the chunker: the chunk's natural key, stable
+   *  across runs, so re-chunking an unchanged source leaves these rows (and their embeddings)
+   *  alone. `null` for a chunk written by anything other than `chunkSourceDoc`. */
+  chunkKey: string | null
+  /** `<rules version>:<tokenizer id>`. A chunk whose value is not the current one was cut by
+   *  rules that no longer apply and its source needs re-chunking. */
+  chunkingVersion: string | null
+  /** Table of contents, copyright page, index, bibliography… Kept and citable, but excluded
+   *  from path generation (`docs/spec/04-path-generation.md` §14, pitfall 6). */
+  isFrontmatter: boolean
   locator: JsonObject | null
 }
 

@@ -26,6 +26,8 @@ export { backupSummarySchema } from './channels/backups'
 export type { JobStatus, JobSummary } from './channels/jobs'
 export { JOB_STATUSES, jobStatusSchema, jobSummarySchema } from './channels/jobs'
 export type {
+  ChunkSummary,
+  ContextualizationEstimateDto,
   SectionDto,
   SourceDocDto,
   SourceKind,
@@ -33,6 +35,8 @@ export type {
   SourceSummary,
 } from './channels/library'
 export {
+  chunkSummarySchema,
+  contextualizationEstimateSchema,
   SOURCE_KINDS,
   SOURCE_STATUSES,
   sourceDocSchema,

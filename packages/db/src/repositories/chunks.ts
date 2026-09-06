@@ -1,11 +1,12 @@
 import type { Chunk, ChunkRepository, NewEntity } from '@retenia/core'
-import { asc, eq } from 'drizzle-orm'
+import { and, asc, eq, isNotNull, isNull, ne, or } from 'drizzle-orm'
 import { createHybridSearch } from '../hybrid-search'
 import { chunks } from '../schema'
 import { type BaseRepository, createBaseRepository, type Row, type TableCodec } from './base'
 import type { RepositoryContext } from './context'
 import {
   defined,
+  toBool,
   toDate,
   toDateOrNull,
   toJsonObjectOrNull,
@@ -32,6 +33,9 @@ const codec: TableCodec<Chunk, NewChunk, ChunkPatch> = {
     hash: toText(row.hash),
     headingPath: toTextOrNull(row.headingPath),
     context: toTextOrNull(row.context),
+    chunkKey: toTextOrNull(row.chunkKey),
+    chunkingVersion: toTextOrNull(row.chunkingVersion),
+    isFrontmatter: toBool(row.isFrontmatter),
     locator: toJsonObjectOrNull(row.locator),
     createdAt: toDate(row.createdAt),
     updatedAt: toDate(row.updatedAt),
@@ -51,6 +55,9 @@ const codec: TableCodec<Chunk, NewChunk, ChunkPatch> = {
       hash: input.hash,
       headingPath: input.headingPath ?? null,
       context: input.context ?? null,
+      chunkKey: input.chunkKey ?? null,
+      chunkingVersion: input.chunkingVersion ?? null,
+      isFrontmatter: input.isFrontmatter ?? false,
       locator: input.locator ?? null,
     }),
   toUpdate: (patch) =>
@@ -65,6 +72,9 @@ const codec: TableCodec<Chunk, NewChunk, ChunkPatch> = {
       hash: patch.hash,
       headingPath: patch.headingPath,
       context: patch.context,
+      chunkKey: patch.chunkKey,
+      chunkingVersion: patch.chunkingVersion,
+      isFrontmatter: patch.isFrontmatter,
       locator: patch.locator,
     }),
 }
@@ -106,6 +116,109 @@ export function createChunkRepository(ctx: RepositoryContext): ChunkRepository {
     findByHash: (hash) => base.findWhere(eq(chunks.hash, hash)),
 
     createMany: base.createMany,
+
+    /**
+     * Re-chunking, by key rather than by wholesale replacement.
+     *
+     * The obvious implementation — soft-delete everything, insert the new set — is what
+     * `SourceRepository.replaceUnits` does, and it is wrong here: the vec0 triggers of
+     * migrations 0001/0002 drop a chunk's embeddings the moment it is soft-deleted, so
+     * re-parsing an unchanged book would throw away every vector and pay to compute them
+     * again. Matching on `chunk_key` — which the chunker derives from the text itself — means
+     * only the chunks that genuinely changed move.
+     */
+    replaceBySource: (sourceId, inputs) =>
+      ctx.run(async () => {
+        // Tombstones are matched too, and that is not an optimization: `chunks_source_key` is
+        // unique over *every* row, so a chunk that goes away and comes back — the user edits a
+        // paragraph, re-parses, reverts, re-parses — would otherwise collide with its own
+        // soft-deleted self. Restoring it is also the better outcome: the row keeps its id, so
+        // anything that cited it still resolves.
+        const existing = await base.findWhere(eq(chunks.sourceId, sourceId), {
+          includeDeleted: true,
+        })
+        const byKey = new Map(
+          existing
+            .filter((chunk) => chunk.chunkKey !== null)
+            .map((chunk) => [chunk.chunkKey as string, chunk]),
+        )
+        const seen = new Set<string>()
+        const result: Chunk[] = []
+
+        for (const input of inputs) {
+          const key = input.chunkKey
+          // A draft with no key has no identity to match on, so it is always an insert. That
+          // is the honest reading of "this chunk did not come from the chunker".
+          const match = key == null ? undefined : byKey.get(key)
+          if (match === undefined || key == null) {
+            result.push(await base.create({ ...input, sourceId }))
+            continue
+          }
+          seen.add(key)
+          if (match.deletedAt !== null) await base.restore(match.id)
+          // The ordinal and the unit can have moved even when the text did not — the chunk
+          // before this one may have been split — but the *context* is kept: the key is a hash
+          // of the text, so a match means this is the same span, and the 50–100 tokens someone
+          // paid a model to write about it still describe it. An incoming context wins.
+          const context = input.context ?? match.context
+          result.push(await base.update(match.id, { ...input, sourceId, context }))
+        }
+
+        for (const chunk of existing) {
+          if (chunk.deletedAt !== null) continue
+          if (chunk.chunkKey !== null && seen.has(chunk.chunkKey)) continue
+          await base.softDelete(chunk.id)
+        }
+
+        return result
+      }),
+
+    /**
+     * One `SELECT DISTINCT` over an index, not a scan of every stale chunk: this runs at
+     * startup over the whole library, and the alternative reads a book's worth of text per
+     * source to throw all of it away but the id.
+     */
+    sourceIdsNeedingRechunk: async (chunkingVersion) => {
+      const rows = await ctx.db
+        .selectDistinct({ sourceId: chunks.sourceId })
+        .from(chunks)
+        .where(
+          and(
+            isNull(chunks.deletedAt),
+            or(isNull(chunks.chunkingVersion), ne(chunks.chunkingVersion, chunkingVersion)),
+          ),
+        )
+        .orderBy(asc(chunks.sourceId))
+      return rows.map((row) => row.sourceId)
+    },
+
+    sourceIdsWithChunks: async () => {
+      const rows = await ctx.db
+        .selectDistinct({ sourceId: chunks.sourceId })
+        .from(chunks)
+        .where(isNull(chunks.deletedAt))
+        .orderBy(asc(chunks.sourceId))
+      return rows.map((row) => row.sourceId)
+    },
+
+    setContexts: (sourceId, contexts) =>
+      ctx.run(async () => {
+        if (contexts.length === 0) return 0
+        const wanted = new Map(contexts.map((entry) => [entry.chunkKey, entry.context]))
+        const existing = await base.findWhere(
+          and(eq(chunks.sourceId, sourceId), isNotNull(chunks.chunkKey)),
+        )
+        let changed = 0
+        for (const chunk of existing) {
+          const context = wanted.get(chunk.chunkKey as string)
+          // Unchanged text would still bump `version` and re-fire the FTS trigger; skipping is
+          // both cheaper and quieter in the outbox.
+          if (context === undefined || context === chunk.context) continue
+          await base.update(chunk.id, { context })
+          changed += 1
+        }
+        return changed
+      }),
 
     /**
      * `fts` and `vector` rank by their own index; `hybrid` fuses the two with RRF and, when

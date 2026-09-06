@@ -5,9 +5,9 @@ import { defineContract } from '../define'
  * The source library: importing a file or pasted text, watching it parse, and reading back
  * what the parser found (sub-phase 6.1, `docs/spec/05-ingestion-rag.md` §1).
  *
- * `source_units`/`chunks` are not part of this surface yet — sub-phase 6.2's structural
- * chunking populates those; until then the per-source detail view reads the parser's own
- * `SourceDoc` (`library.getSourceDoc`), fetched straight from the blob it was written to.
+ * `library.getSourceDoc` reads the parser's own output straight from the blob it was written
+ * to; `library.listChunks` reads the `chunks` rows sub-phase 6.2's structural chunking
+ * produced from it, which is what retrieval and citations actually use.
  */
 
 /**
@@ -46,6 +46,12 @@ export const sourceMetaSchema = z
     needsOcr: z.boolean(),
     ocrPages: z.array(z.int()),
     warnings: z.array(z.string()),
+    /** Written by sub-phase 6.2's chunk job once it settles; absent until then. */
+    chunkCount: z.number().optional(),
+    unitCount: z.number().optional(),
+    frontmatterChunkCount: z.number().optional(),
+    chunkTokenCount: z.number().optional(),
+    chunkingVersion: z.string().optional(),
   })
   .nullable()
 
@@ -139,6 +145,43 @@ export type SourceDocDto = z.infer<typeof sourceDocSchema>
  *  through the native dialog have no cap — main reads those itself. */
 export const MAX_IMPORT_FILE_BYTES = 256 * 1024 * 1024
 
+/** One `chunks` row as the Library shows it: enough to render the list and open the source at
+ *  the right page, without shipping the audit columns. */
+export const chunkSummarySchema = z.object({
+  id: z.uuid(),
+  ordinal: z.int(),
+  /** An excerpt when `truncated`: a chunk that is one huge table has no size ceiling, and this
+   *  list clamps what it renders anyway. */
+  text: z.string(),
+  truncated: z.boolean(),
+  tokenCount: z.int(),
+  headingPath: z.string().nullable(),
+  /** The 50–100 tokens of contextual retrieval, when the improved index has run. */
+  context: z.string().nullable(),
+  isFrontmatter: z.boolean(),
+  /** `p. 12`, `Slide 4`, `12:30` — what a citation shows. */
+  label: z.string().nullable(),
+  page: z.int().nullable(),
+  /** Media offsets in milliseconds, for transcript windows. */
+  tStartMs: z.int().nullable(),
+  tEndMs: z.int().nullable(),
+  /** `chunk_id → block_ids`: the source blocks this chunk covers. */
+  blockIds: z.array(z.string()),
+})
+export type ChunkSummary = z.infer<typeof chunkSummarySchema>
+
+/** What the "índice mejorado" toggle quotes before it is switched on
+ *  (`docs/spec/05-ingestion-rag.md` §4.2). */
+export const contextualizationEstimateSchema = z.object({
+  /** Chunks that still have no context — a resumed run quotes only what is left. */
+  chunkCount: z.int(),
+  inputTokens: z.int(),
+  cachedInputTokens: z.int(),
+  outputTokens: z.int(),
+  usd: z.number(),
+})
+export type ContextualizationEstimateDto = z.infer<typeof contextualizationEstimateSchema>
+
 export const libraryChannels = defineContract({
   'library.listSources': {
     input: z.object({
@@ -198,6 +241,30 @@ export const libraryChannels = defineContract({
       title: z.string().min(1).max(300),
     }),
     output: sourceSummarySchema,
+  },
+
+  /**
+   * The source's chunks in reading order (sub-phase 6.2). Paged: a 300-page book is a few
+   * hundred chunks and the detail view shows a window of them.
+   */
+  'library.listChunks': {
+    input: z.object({
+      id: z.uuid(),
+      limit: z.int().min(1).max(500).optional(),
+      offset: z.int().min(0).optional(),
+      /** Leave out the table of contents, the copyright page and the bibliography. */
+      excludeFrontmatter: z.boolean().optional(),
+    }),
+    output: z.object({ chunks: z.array(chunkSummarySchema), total: z.int() }),
+  },
+
+  /**
+   * What contextualizing this source would cost. Read-only and provider-free: it is
+   * arithmetic over the chunks and a price table, so it answers before any API key exists.
+   */
+  'library.estimateContextualization': {
+    input: z.object({ id: z.uuid() }),
+    output: contextualizationEstimateSchema,
   },
 
   /** Re-queues a `failed` source's parse with a clean slate. */

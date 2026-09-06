@@ -91,6 +91,9 @@ function createSeeds(repos: UnitOfWork, clock: TestClock): ContractSeeds {
         hash: createHash('sha256').update(text).digest('hex'),
         headingPath: null,
         context: null,
+        chunkKey: null,
+        chunkingVersion: null,
+        isFrontmatter: false,
         locator: null,
         ...overrides,
         // `text` may have come from the overrides, so the derived columns follow it.

@@ -4,6 +4,7 @@ import { stat } from 'node:fs/promises'
 import { type JobContext, type JobDefinition, registerJob } from '@retenia/core'
 import { canonicalize, confinePath, isInsideRoot, JobCancelledError, whenAborted } from './confine'
 import { createFsrsOptimizeJob } from './fsrs-optimize'
+import { createIngestChunkJob } from './ingest-chunk'
 import { createIngestParseJob } from './ingest-parse'
 
 // Re-exported from their own module: they are shared with `fsrsOptimize` and are the one
@@ -16,7 +17,8 @@ export { canonicalize, confinePath, isInsideRoot, JobCancelledError, whenAborted
  * `sleep` and `hashFile` are the demo pair the queue shipped with, exercising it end to
  * end — progress, cancellation, retries, the `utilityProcess` round trip. `fsrsOptimize`
  * (sub-phase 4.6) is the first real one: it trains the FSRS parameters on the user's own
- * review history.
+ * review history. `ingestParseSource` and `ingestChunkSource` are the ingestion pipeline
+ * (sub-phases 6.1 and 6.2), run in that order over one source.
  *
  * No Electron imports: main pulls this in for the registry's metadata (so it can reject an
  * unknown kind at enqueue time) and the worker pulls it in to actually run.
@@ -129,5 +131,6 @@ export function createJobDefinitions(readableRoots: readonly string[]) {
     registerJob(createHashFileJob(readableRoots)),
     registerJob(createFsrsOptimizeJob(readableRoots)),
     registerJob(createIngestParseJob(readableRoots)),
+    registerJob(createIngestChunkJob(readableRoots)),
   ]
 }

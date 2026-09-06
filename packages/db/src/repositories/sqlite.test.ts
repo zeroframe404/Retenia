@@ -275,6 +275,9 @@ describe('vector and hybrid search', () => {
           hash: `${ordinal}`.padStart(64, '0'),
           headingPath: null,
           context: null,
+          chunkKey: null,
+          chunkingVersion: null,
+          isFrontmatter: false,
           locator: null,
         }),
       )

@@ -34,6 +34,18 @@
     "notParsedYet": "This source has not finished parsing yet.",
     "warnings": "Warnings"
   },
+  "chunks": {
+    "title": "Chunks",
+    "summary": "{chunks, plural, one {# chunk} other {# chunks}} · {units, plural, one {# unit} other {# units}}",
+    "frontmatter": "Front matter",
+    "hideFrontmatter": "Hide front matter",
+    "notChunkedYet": "This source has not been chunked yet.",
+    "improvedIndexTitle": "Improved index",
+    "improvedIndexDescription": "Adds 50–100 tokens of situating context to every chunk with a cheap model, so a fragment is still findable by the name its chapter gave it.",
+    "improvedIndexEstimate": "≈ USD {usd} for {chunks, plural, one {# chunk} other {# chunks}}",
+    "improvedIndexDone": "Every chunk already has its context.",
+    "improvedIndexUnavailable": "Needs an AI provider, which is not configured yet."
+  },
   "deleteConfirmTitle": "Delete this source?",
   "deleteConfirmDescription": "This removes it from your library. This cannot be undone.",
   "deleteConfirmAction": "Delete",

@@ -69,5 +69,28 @@ export interface ChunkRepository extends CrudRepository<Chunk> {
   findByHash(hash: string): Promise<Chunk[]>
   /** Bulk insert for an ingestion run; one transaction. */
   createMany(inputs: readonly NewEntity<Chunk>[]): Promise<Chunk[]>
+  /**
+   * What a re-chunk does, in one transaction: chunks whose `chunkKey` is in `inputs` are
+   * updated in place — keeping their id, and therefore their embeddings and anything that
+   * cites them — chunks whose key is gone are soft-deleted, and new keys are inserted.
+   *
+   * An input with a `null` `chunkKey` can never be matched, so it is always an insert; that is
+   * the honest behaviour for a chunk with no stable identity, not a bug to work around.
+   */
+  replaceBySource(sourceId: string, inputs: readonly NewEntity<Chunk>[]): Promise<Chunk[]>
+  /** Sources with at least one live chunk not written under `chunkingVersion` — the reindex
+   *  sweep of sub-phase 6.2, run at startup when the rules or the tokenizer change. */
+  sourceIdsNeedingRechunk(chunkingVersion: string): Promise<string[]>
+  /** Sources that have at least one live chunk at all. The sweep above cannot see a source
+   *  with *no* chunks — one whose chunk job failed, or one ingested before chunking existed —
+   *  so it is the complement of this that finds them. */
+  sourceIdsWithChunks(): Promise<string[]>
+  /** Writes the contextual-retrieval context onto chunks by key, in one transaction. Returns
+   *  how many rows changed; a key that no longer exists is skipped, not an error — the source
+   *  may have been re-chunked while the job ran. */
+  setContexts(
+    sourceId: string,
+    contexts: readonly { chunkKey: string; context: string }[],
+  ): Promise<number>
   search(query: string, options: ChunkSearchOptions): Promise<ChunkSearchHit[]>
 }

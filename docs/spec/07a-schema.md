@@ -50,6 +50,7 @@ Packaging note (Windows first): the `.node` binaries of both drivers and `sqlite
 | 5 | `0005_review_sessions` | `04a28924ae33` | `review_sessions`: the frozen daily queue and how far through it the user got, so a session survives the app being closed (`02-memory-system.md` §12). |
 | 6 | `0006_review_activity_type_and_stats` | `105d9b6eb30d` | `review_logs.activity_type` (backfilled `NULL`) and `context = 'diagnostic'`, so the exercise → rating mapping of `02-memory-system.md` §10 can be measured per type (§17 risk 3) and the prior-knowledge diagnostic can seed memory; plus `activity_stats`, the rolling per-type median that decides what "fast" and "slow" mean for this user. Widening a CHECK rebuilds the table in SQLite, which is what the `__new_review_logs` copy is. |
 | 7 | `0007_attempt_mode_and_review_session` | `e83a39101051` |  |
+| 8 | `0008_chunk_identity_and_context` | `ccf88f5ee61f` | `chunks.chunk_key` (the chunker's `sha256(source_id, block_ids, text)`, so re-chunking an unchanged source keeps the row and its embeddings), `chunks.chunking_version` (the reindex trigger) and `chunks.is_frontmatter` (a table of contents or bibliography, kept and citable but excluded from path generation); plus a `context` column on `chunks_fts` and its rebuilt triggers, so the contextual-retrieval text is searchable beside the chunk it situates (`05-ingestion-rag.md` §4). |
 
 ## Tables
 
@@ -58,9 +59,9 @@ Packaging note (Windows first): the `.node` binaries of both drivers and `sqlite
 | `blobs` | Source library | 12 | 0 | 1 | 6 |
 | `sources` | Source library | 15 | 1 | 2 | 6 |
 | `source_units` | Source library | 15 | 2 | 1 | 7 |
-| `chunks` | Source library | 17 | 2 | 3 | 7 |
+| `chunks` | Source library | 20 | 2 | 5 | 7 |
 | `annotations` | Source library | 15 | 2 | 2 | 7 |
-| `chunks_fts` | Search indexes (virtual tables) | 4 | 0 | 0 | 0 |
+| `chunks_fts` | Search indexes (virtual tables) | 5 | 0 | 0 | 0 |
 | `embeddings` | Search indexes (virtual tables) | 5 | 0 | 0 | 0 |
 | `embeddings_i8` | Search indexes (virtual tables) | 5 | 0 | 0 | 0 |
 | `paths` | Learning paths | 15 | 0 | 1 | 8 |
@@ -219,9 +220,14 @@ Checks:
 | `deleted_at` | integer | yes |  |  |
 | `device_id` | text | no |  |  |
 | `version` | integer | no | `1` |  |
+| `chunk_key` | text | yes |  |  |
+| `chunking_version` | text | yes |  |  |
+| `is_frontmatter` | integer | no | `false` |  |
 
 Indexes:
 
+- `chunks_chunking_version` (`chunking_version`)
+- `chunks_source_key` UNIQUE (`source_id`, `chunk_key`)
 - `chunks_unit` (`unit_id`)
 - `chunks_hash` (`hash`)
 - `chunks_source_ordinal` (`source_id`, `ordinal`)
@@ -244,7 +250,7 @@ Triggers:
 - `chunks_embeddings_i8_au`: AFTER UPDATE OF deleted_at ON chunks
 - `chunks_fts_ad`: AFTER DELETE ON chunks
 - `chunks_fts_ai`: AFTER INSERT ON chunks
-- `chunks_fts_au`: AFTER UPDATE OF source_id, text, heading_path, deleted_at ON chunks
+- `chunks_fts_au`: AFTER UPDATE OF source_id, text, heading_path, context, deleted_at ON chunks
 
 ### `annotations`
 
@@ -295,6 +301,7 @@ CREATE VIRTUAL TABLE `chunks_fts` USING fts5(
 	`source_id` UNINDEXED,
 	`text`,
 	`heading_path`,
+	`context`,
 	tokenize = 'unicode61 remove_diacritics 2'
 )
 ```

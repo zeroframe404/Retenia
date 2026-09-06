@@ -2,6 +2,7 @@ import { is } from '@electron-toolkit/utils'
 import type {
   BlobStore,
   Card,
+  Chunk,
   Forecast,
   ImportanceLevel,
   JsonValue,
@@ -24,8 +25,8 @@ import type {
   TrueRetention,
   UrgentModeHours,
 } from '@retenia/core'
-import { GRADES, SETTINGS } from '@retenia/core'
-import type { Contract, SourceSummary } from '@retenia/ipc-contract'
+import { GRADES, parseSourceLocator, SETTINGS } from '@retenia/core'
+import type { ChunkSummary, Contract, SourceSummary } from '@retenia/ipc-contract'
 import { app, BrowserWindow, dialog, nativeTheme } from 'electron'
 import type { BackupService } from '../backups/service'
 import { ensureDevMediaSample } from '../dev/media-sample'
@@ -297,6 +298,56 @@ function parsedMeta(meta: Source['meta']): SourceSummary['meta'] {
     needsOcr: parsed.needsOcr,
     ocrPages: parsed.ocrPages,
     warnings: parsed.warnings,
+    // Written later, by the chunk job — a source between parse and chunk simply has none.
+    ...(typeof parsed.chunkCount === 'number' ? { chunkCount: parsed.chunkCount } : {}),
+    ...(typeof parsed.unitCount === 'number' ? { unitCount: parsed.unitCount } : {}),
+    ...(typeof parsed.frontmatterChunkCount === 'number'
+      ? { frontmatterChunkCount: parsed.frontmatterChunkCount }
+      : {}),
+    ...(typeof parsed.chunkTokenCount === 'number'
+      ? { chunkTokenCount: parsed.chunkTokenCount }
+      : {}),
+    ...(typeof parsed.chunkingVersion === 'string'
+      ? { chunkingVersion: parsed.chunkingVersion }
+      : {}),
+  }
+}
+
+/**
+ * How much of a chunk's text crosses the bridge. Tables, code listings and equations are never
+ * split (`ATOMIC_BLOCK_TYPES`), so one pathological source — a PDF that is a single enormous
+ * table — has no size ceiling at all, and this view line-clamps what it shows to four lines
+ * anyway. The DTO says when it truncated so nothing mistakes the excerpt for the chunk.
+ */
+const MAX_CHUNK_TEXT_CHARS = 4_000
+
+/**
+ * A `chunks` row as the Library shows it. The locator's canonical keys are snake_case (see
+ * `parseSourceLocator`), which is why this reads it through core rather than by hand.
+ *
+ * `parseSourceLocator` is deliberately permissive about the numbers it finds — it also reads
+ * rows written by importers of other apps' data — while the DTO promises integers, so they are
+ * rounded here. Without that, one imported row with a fractional page would fail the channel's
+ * *output* validation and blank the whole list rather than that one entry.
+ */
+function toChunkSummary(chunk: Chunk): ChunkSummary {
+  const locator = parseSourceLocator(chunk)
+  const round = (value: number | null): number | null => (value === null ? null : Math.round(value))
+  const truncated = chunk.text.length > MAX_CHUNK_TEXT_CHARS
+  return {
+    id: chunk.id,
+    ordinal: chunk.ordinal,
+    text: truncated ? `${chunk.text.slice(0, MAX_CHUNK_TEXT_CHARS)}…` : chunk.text,
+    truncated,
+    tokenCount: chunk.tokenCount,
+    headingPath: chunk.headingPath,
+    context: chunk.context,
+    isFrontmatter: chunk.isFrontmatter,
+    label: locator.label,
+    page: round(locator.page),
+    tStartMs: round(locator.tStartMs),
+    tEndMs: round(locator.tEndMs),
+    blockIds: [...locator.blockIds],
   }
 }
 
@@ -421,6 +472,18 @@ export function createHandlers({
     },
 
     'library.getSourceDoc': async ({ id }) => ({ doc: (await library.getDoc(id)) ?? null }),
+
+    'library.listChunks': async ({ id, limit, offset, excludeFrontmatter }) => {
+      const all = await library.getChunks(id)
+      const visible = excludeFrontmatter === true ? all.filter((c) => !c.isFrontmatter) : all
+      const from = offset ?? 0
+      return {
+        chunks: visible.slice(from, from + (limit ?? 100)).map(toChunkSummary),
+        total: visible.length,
+      }
+    },
+
+    'library.estimateContextualization': ({ id }) => library.estimateContextualization(id),
 
     'library.addSourceFromDialog': async (_input, event) => {
       const window = BrowserWindow.fromWebContents(event.sender)

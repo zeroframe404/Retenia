@@ -5,10 +5,12 @@ import {
   useAddSourceFromDialog,
   useAddSourceFromFiles,
   useAddSourceFromText,
+  useContextualizationEstimate,
   useDeleteSource,
   useLibraryJobEvents,
   useRetrySource,
   useSource,
+  useSourceChunks,
   useSourceDoc,
   useSources,
 } from './use-library'
@@ -25,12 +27,20 @@ async function readDroppedFiles(files: File[]) {
 }
 
 function ConnectedSourceDetail({ id, onBack }: { id: string; onBack: () => void }) {
+  const [excludeFrontmatter, setExcludeFrontmatter] = useState(false)
   const sourceQuery = useSource(id)
   const docQuery = useSourceDoc(id)
+  const chunksQuery = useSourceChunks(id, { excludeFrontmatter })
+  const estimateQuery = useContextualizationEstimate(id)
   return (
     <SourceDetail
       source={sourceQuery.data?.source ?? undefined}
       doc={docQuery.data?.doc ?? undefined}
+      chunks={chunksQuery.data?.chunks ?? []}
+      chunkTotal={chunksQuery.data?.total ?? 0}
+      estimate={estimateQuery.data}
+      excludeFrontmatter={excludeFrontmatter}
+      onExcludeFrontmatterChange={setExcludeFrontmatter}
       onBack={onBack}
     />
   )
@@ -42,8 +52,8 @@ export interface LibraryPageProps {
   searchQuery?: string
 }
 
-/** The Library screen (sub-phase 6.1): import sources, watch them parse via the job tray,
- *  open one to see its section tree and block preview. */
+/** The Library screen (sub-phases 6.1 and 6.2): import sources, watch them parse and chunk via
+ *  the job tray, open one to see its section tree, its block preview and its chunks. */
 export function LibraryPage({ searchQuery }: LibraryPageProps) {
   useLibraryJobEvents()
   const [selectedId, setSelectedId] = useState<string | undefined>()

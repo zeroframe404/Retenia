@@ -72,6 +72,11 @@ function unavailableLibraryService(reason: string): LibraryService {
     list: fail,
     get: fail,
     getDoc: fail,
+    getChunks: fail,
+    getUnits: fail,
+    estimateContextualization: fail,
+    contextualize: fail,
+    rechunkStaleSources: fail,
     remove: fail,
     onJobSettled: fail,
   }
@@ -145,7 +150,23 @@ export function bootstrapJobs({
     facade: createJobsFacade({ scheduler, runner, demoEnabled }),
     library,
     database,
-    start: () => runner.start(),
+    start: async () => {
+      await runner.start()
+      // The reindex sweep of sub-phase 6.2: a build whose chunking rules or tokenizer changed
+      // leaves every source's chunks cut at the wrong boundaries, and nothing else would ever
+      // notice. Queued, not awaited — it is minutes of CPU on a large library, and startup
+      // does not wait for it. A failure here costs retrieval quality, never the app.
+      library
+        .rechunkStaleSources()
+        .then((queued) => {
+          if (queued.length > 0) {
+            log.info(`[jobs] queued ${queued.length} source(s) for re-chunking`)
+          }
+        })
+        .catch((error: unknown) => {
+          log.error('[jobs] the re-chunk sweep failed:', error)
+        })
+    },
     stop: async () => {
       await runner.stop()
       database.close()
