@@ -105,19 +105,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Every PR run of this job (before this fix) showed the exact same ~47-50 minute silent
-      # stall between the build task's log group closing and the next turbo task starting —
-      # right where turbo/electron-builder write and read back thousands of small files (the
-      # unpacked Electron/Chromium runtime, node_modules, the NSIS installer). Windows Defender's
-      # real-time protection scans each file synchronously on access, which is a well-documented
-      # cause of exactly this kind of 10-50x slowdown for operations over many small files on
-      # windows-latest runners. Excluding the workspace before any of that happens is the
-      # standard fix; it costs nothing if Defender wasn't actually the bottleneck.
-      - name: Exclude the workspace from Windows Defender scanning
-        shell: pwsh
-        continue-on-error: true
-        run: Add-MpPreference -ExclusionPath "${{ github.workspace }}"
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -153,55 +140,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # `electron`'s own postinstall only unpacks its binary lazily the first time something
-      # `require()`s it. Left unforced, that first `require` happens inside Playwright's own
-      # `_electron.launch()` — a *synchronous* download (`spawnSync`) that blocks the whole test
-      # process's event loop, so every queued test's timer only fires once it finally returns,
-      # reporting a burst of identical "Test timeout ... setting up electronApp" failures instead
-      # of one clear, fast error. Forcing it here, right after install, keeps a genuine download
-      # failure isolated to this one step instead of silently swallowing the whole test run.
-      - name: Verify Electron binary is installed
-        shell: bash
-        working-directory: apps/desktop
-        run: node -e "console.log(require('electron'))"
-
-      # `--no-cache` skips turbo writing its local cache artifacts for `build`/`e2e`'s outputs
-      # (`dist/**`, `out/**`, `playwright-report/**`, `test-results/**`) — for `apps/desktop`
-      # that's an unpacked Electron/Chromium runtime plus the NSIS installer, many thousands of
-      # small files. A CI runner is destroyed after the job and nothing else reads `.turbo/cache`
-      # here (no remote cache is configured), so that write is pure, uncompensated cost — and a
-      # very plausible second contributor (besides Defender scanning, see above) to the same
-      # stall this job kept hitting right after the build task finished.
-      # Both the Defender exclusion and --no-cache (above) were confirmed applied on the last
-      # run, yet the exact same ~49-minute silent gap recurred in the exact same place — right
-      # after the build task's log group closes, before the next turbo task starts. That rules
-      # out both as the actual cause. Rather than guess a third blind fix (each guess costs a
-      # full ~50-minute CI cycle), run the real command in the foreground as always — its exit
-      # code is what the step reports — but also run a lightweight background monitor that
-      # snapshots the top CPU-consuming processes every 60s. If the stall happens again, this
-      # snapshot log says definitively what the machine is actually doing during it (Defender's
-      # scanner, a stuck signtool/electron-builder child process, or something else) instead of
-      # leaving the gap a black box.
       - name: Run Playwright E2E (builds first)
-        shell: pwsh
-        run: |
-          $monitor = Start-Job -ScriptBlock {
-            while ($true) {
-              Start-Sleep -Seconds 60
-              "=== $(Get-Date -Format o) ==="
-              Get-Process | Sort-Object CPU -Descending | Select-Object -First 15 Id,ProcessName,CPU,WorkingSet64 | Format-Table -AutoSize | Out-String
-            }
-          }
-          try {
-            pnpm e2e -- --no-cache
-            $code = $LASTEXITCODE
-          } finally {
-            Stop-Job $monitor | Out-Null
-            Write-Host "----- process monitor snapshots -----"
-            Receive-Job $monitor | Write-Host
-            Remove-Job $monitor -Force
-          }
-          exit $code
+        run: pnpm e2e
 
       - name: Upload Playwright report and traces
         if: failure()
