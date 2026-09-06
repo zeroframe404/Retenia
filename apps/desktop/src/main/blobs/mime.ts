@@ -20,6 +20,15 @@ const MIME_TO_EXT: Readonly<Record<string, string>> = Object.freeze({
   'audio/flac': 'flac',
   'video/mp4': 'mp4',
   'video/webm': 'webm',
+  // Sub-phase 6.4. Matroska and QuickTime are here because ffmpeg ingests them, not because
+  // the renderer can necessarily play them — see `../library/detect-kind.ts`.
+  'video/x-matroska': 'mkv',
+  'video/quicktime': 'mov',
+  // WebVTT captions, written by the media pipeline from whisper's `-ovtt` output. Stored as a
+  // blob rather than only as `chunks` rows so the transcript survives export and can be
+  // handed to anything that speaks VTT; the player builds its own cues in memory instead of
+  // pointing a `<track>` at this, since `media://` is cross-origin to the `app://` renderer.
+  'text/vtt': 'vtt',
   'application/pdf': 'pdf',
   'application/epub+zip': 'epub',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
@@ -41,3 +50,8 @@ const MIME_TO_EXT: Readonly<Record<string, string>> = Object.freeze({
 export function extForMime(mime: string): string | null {
   return MIME_TO_EXT[mime.toLowerCase().trim()] ?? null
 }
+
+/** Every mime the store has a name for. Exported so `../protocol/media-protocol.test.ts` can
+ *  pin the two tables against each other by iterating this one rather than by re-listing it —
+ *  a hand-written list in the test is a list that silently stops covering new rows. */
+export const KNOWN_MIMES: readonly string[] = Object.freeze(Object.keys(MIME_TO_EXT))

@@ -29,6 +29,12 @@
 *.mp4 binary
 *.wav binary
 *.webm binary
+*.ogg binary
+*.opus binary
+*.m4a binary
+*.flac binary
+*.mkv binary
+*.mov binary
 *.zip binary
 *.apkg binary
 *.epub binary

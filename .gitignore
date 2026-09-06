@@ -31,6 +31,15 @@ storybook-static/
 # directory unless a cachePath is configured — harmless locally, never committed.
 *.traineddata
 
+# Sidecar binaries (ffmpeg, whisper-cli — sub-phase 6.4). `node tooling/download-sidecars.ts
+# --install` puts the pinned, hash-verified builds here for development; the shipped app
+# downloads them into userData/bin at first use instead. Hundreds of megabytes of third-party
+# executables, never committed.
+.sidecars/
+# The same binaries in the location electron-builder would package them from. `resources/bin`
+# is an `asarUnpack` target in electron-builder.yml, so anything left here really would ship.
+apps/desktop/resources/bin/
+
 # Python virtualenv of the fixture generator (tooling/fsrs-fixtures/README.md)
 .venv/
 

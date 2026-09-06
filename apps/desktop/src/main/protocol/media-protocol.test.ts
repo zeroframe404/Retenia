@@ -77,19 +77,12 @@ describe('resolveMediaBlobPath', () => {
     // written under, and a name this scheme refuses is a blob nothing can ever fetch — the file
     // is on disk as `<hash>.<ext>`, so the bare-hash form 404s and there is no second route to
     // it. Adding a row to `../blobs/mime.ts` without one here therefore fails right here.
-    const { extForMime } = await import('../blobs/mime')
-    const mimes = [
-      'application/epub+zip',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-      'text/plain',
-      'text/markdown',
-      'image/svg+xml',
-      'audio/ogg',
-      'video/mp4',
-      'application/pdf',
-    ]
-    for (const mime of mimes) {
+    const { extForMime, KNOWN_MIMES } = await import('../blobs/mime')
+    // Every row of `MIME_TO_EXT`, not a sample of it: sub-phase 6.4 added five (mkv, mov, vtt
+    // and two more audio aliases) and a hand-written list here would have kept passing while
+    // covering none of them.
+    expect(KNOWN_MIMES.length).toBeGreaterThan(0)
+    for (const mime of KNOWN_MIMES) {
       const ext = extForMime(mime)
       expect(ext).not.toBeNull()
       expect(resolveMediaBlobPath(root, `media://blob/${hash}.${ext}`)).toBe(
