@@ -55,13 +55,19 @@ describe('derived data follows soft deletes', () => {
       'Las mitocondrias producen energía.',
     ]))
     for (const [index, chunkId] of chunkIds.entries()) {
-      insertEmbedding(opened.sqlite, {
-        id: ids.next(),
-        sourceId,
-        chunkId,
-        modelId: MODEL,
-        embedding: vector(1 + index),
-      })
+      // Precise vectors on, so the assertions below can watch *both* indexes follow the
+      // soft delete — with the default (int8 only) `embeddings` would be empty either way.
+      insertEmbedding(
+        opened.sqlite,
+        {
+          id: ids.next(),
+          sourceId,
+          chunkId,
+          modelId: MODEL,
+          embedding: vector(1 + index),
+        },
+        { storeFloat: true },
+      )
     }
     unitId = ids.next()
     opened.db

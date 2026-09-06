@@ -13,6 +13,7 @@ Retenia is a local-first desktop learning & memory app (Electron + React + TypeS
 - `pnpm lint` — Biome lint + format check over the repo, then per-package lint
 - `pnpm licenses:check` — dependency license allowlist check
 - `pnpm run schema:check` — Claude strict-mode dry run of the activity JSON Schemas against the fixtures
+- `pnpm run models:manifest` — regenerate the pinned revisions and SHA-256s of the local ONNX models
 - `pnpm e2e` — Playwright end-to-end tests (Electron, via `_electron`)
 - `pnpm storybook` — component catalog
 
@@ -56,6 +57,13 @@ pull in only the file a task needs, to keep context small:
 | `docs/spec/08-ux.md` | UX principles, screen map, gamification |
 | `docs/spec/09-feature-catalog.md` | The 125 features with MVP/V1/V2/Later tags |
 | `docs/spec/10-glossary.md` | Glossary and primary sources |
+
+Measured performance lives outside `docs/spec/`, because it is a record of runs rather than
+of decisions:
+
+| File | Covers |
+|---|---|
+| `docs/perf/rag.md` | Retrieval: hybrid query latency and recall at 50k chunks, embedding throughput and batch-size curve for the local model, and what is still unmeasured |
 
 Source of all of them: `docs/research/Retenia_Investigacion_y_Plan_Maestro.pdf`.
 

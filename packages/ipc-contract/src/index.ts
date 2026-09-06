@@ -28,6 +28,9 @@ export { JOB_STATUSES, jobStatusSchema, jobSummarySchema } from './channels/jobs
 export type {
   ChunkSummary,
   ContextualizationEstimateDto,
+  EmbeddingStatus,
+  SearchHit,
+  SearchMode,
   SectionDto,
   SourceDocDto,
   SourceKind,
@@ -37,8 +40,13 @@ export type {
 export {
   chunkSummarySchema,
   contextualizationEstimateSchema,
+  EMBEDDING_STATUSES,
+  embeddingStatusSchema,
+  SEARCH_MODES,
   SOURCE_KINDS,
   SOURCE_STATUSES,
+  searchHitSchema,
+  searchModeSchema,
   sourceDocSchema,
   sourceKindSchema,
   sourceMetaSchema,

@@ -236,9 +236,18 @@ export function vectorToBlob(vector: ArrayLike<number>): Buffer {
  * Packs a vector into the int8 blob `embeddings_i8` holds: `round(x · 127)`, clamped.
  *
  * The mapping assumes **unit vectors** — every `EmbeddingProvider` L2-normalizes, so each
- * component is already in [-1, 1] and the full int8 range is used. A component outside that
- * range is clamped rather than rejected: a single odd value must not fail an ingestion run,
- * and clamping only costs precision on that component.
+ * component is already in [-1, 1] and nothing needs clipping. It does *not* use the whole
+ * int8 range: a unit vector in 768 dimensions has components near ±1/√768 ≈ 0.036, so ×127
+ * lands them around ±5 of the available ±127, and the round-off is ~8 % per component. That
+ * averages out across 768 dimensions — `vec.test.ts` pins the resulting distance error at
+ * under 1.5 % of the full range — but it is the whole reason a quantized scan misses about a
+ * tenth of the true top-50 and the reason the "precise" setting exists at all. A scale tuned
+ * to the observed component spread would recover most of it; it would also invalidate every
+ * stored vector, so it belongs in a migration with a reindex, not here. The measurement and
+ * the option are written up in `docs/perf/rag.md`.
+ *
+ * A component outside [-1, 1] is clamped rather than rejected: a single odd value must not
+ * fail an ingestion run, and clamping only costs precision on that component.
  *
  * Quantization is done here rather than with sqlite-vec's `vec_quantize_int8(v, 'unit')`
  * because the *same* function has to be applied to the stored vectors and to the query
@@ -271,21 +280,60 @@ const INSERT_FLOAT_SQL =
 const INSERT_INT8_SQL =
   'INSERT INTO embeddings_i8 (id, source_id, chunk_id, model_id, embedding) VALUES (?, ?, ?, ?, vec_int8(?))'
 
-/** Inserts one vector into both the exact and the quantized index. Use inside a transaction
- * for bulk loads — the two writes must not be able to come apart. */
-export function insertEmbedding(sqlite: Database, row: EmbeddingRow): void {
+export interface InsertEmbeddingOptions {
+  /**
+   * Also write the exact `float[768]` vector to `embeddings`, at 4× the bytes.
+   *
+   * This is the "precise" toggle of sub-phase 6.3. Off — the default — only the int8 index
+   * is written, which is what a KNN query scans anyway: an int8 vector is 768 bytes against
+   * 3,072, so a 50k-chunk library is 37 MB instead of 184 MB. On, the float vectors are kept
+   * beside them purely so a query can *rescore* its int8 candidates exactly (see
+   * `knnChunks`), buying back the ~10 % of the true top-50 that a quantized scan misses.
+   *
+   * Off is not "approximate search": it is an exact scan of approximate vectors, whose
+   * distances are within quantization error of the true ones. On is an exact scan of
+   * approximate vectors followed by exact distances over the survivors.
+   */
+  storeFloat?: boolean
+}
+
+/**
+ * Inserts one vector into the quantized index, and into the exact one when the user has
+ * asked for precise vectors. Use inside a transaction for bulk loads — with `storeFloat`,
+ * the two writes must not be able to come apart.
+ */
+export function insertEmbedding(
+  sqlite: Database,
+  row: EmbeddingRow,
+  options: InsertEmbeddingOptions = {},
+): void {
   const args = [row.id, row.sourceId, row.chunkId, row.modelId] as const
-  prepared(sqlite, INSERT_FLOAT_SQL).run(...args, vectorToBlob(row.embedding))
+  if (options.storeFloat === true) {
+    prepared(sqlite, INSERT_FLOAT_SQL).run(...args, vectorToBlob(row.embedding))
+  }
   prepared(sqlite, INSERT_INT8_SQL).run(...args, quantizeToInt8(row.embedding))
 }
 
-/** Removes the vectors of one chunk (all models, both indexes), returning how many exact
+/** Removes the vectors of one chunk (all models, both indexes), returning how many quantized
  * vectors went. The vec0 indexes are derived data: unlike domain tables they are deleted and
  * rebuilt, never soft-deleted. */
 export function deleteEmbeddingsForChunk(sqlite: Database, chunkId: string): number {
-  const removed = prepared(sqlite, 'DELETE FROM embeddings WHERE chunk_id = ?').run(chunkId).changes
-  prepared(sqlite, 'DELETE FROM embeddings_i8 WHERE chunk_id = ?').run(chunkId)
-  return removed
+  prepared(sqlite, 'DELETE FROM embeddings WHERE chunk_id = ?').run(chunkId)
+  return prepared(sqlite, 'DELETE FROM embeddings_i8 WHERE chunk_id = ?').run(chunkId).changes
+}
+
+/**
+ * Removes every vector of one source, in both indexes — what a reindex does before it
+ * rebuilds (`docs/spec/05-ingestion-rag.md` §3: "reindex as a job … drop + rebuild per
+ * source"). Returns how many quantized vectors went.
+ *
+ * Dropping first, rather than inserting the new space alongside the old, is the whole point:
+ * a partition holding two models' vectors would answer a KNN query with distances that are
+ * not comparable, and the model filter would only hide that until the day one is missed.
+ */
+export function deleteEmbeddingsForSource(sqlite: Database, sourceId: string): number {
+  prepared(sqlite, 'DELETE FROM embeddings WHERE source_id = ?').run(sourceId)
+  return prepared(sqlite, 'DELETE FROM embeddings_i8 WHERE source_id = ?').run(sourceId).changes
 }
 
 /**
@@ -310,7 +358,8 @@ export interface KnnOptions {
   precision?: VectorPrecision
   /** How many int8 candidates to rescore exactly; default `max(2 · k, 64)`, never below `k`.
    *  Higher trades latency for recall — the benchmark's curve is in the note on
-   *  `knnChunks`. Ignored when `precision` is `float32`. */
+   *  `knnChunks`. Ignored when `precision` is `float32`, and when there is nothing to rescore
+   *  against because the user has not enabled precise vectors. */
   rescoreCandidates?: number
 }
 
@@ -355,6 +404,17 @@ function knnFloat32(
 
 const RESCORE_SQL = 'SELECT vec_distance_l2(embedding, ?) AS distance FROM embeddings WHERE id = ?'
 
+/**
+ * Converts a distance measured over int8 vectors into the float vectors' units.
+ *
+ * `quantizeToInt8` maps a unit vector's components onto `round(x · 127)`, so an L2 distance
+ * computed in that space is 127× the same distance computed over the originals, up to the
+ * rounding of each component. Dividing by 127 puts both on one scale — which matters because
+ * a result set can legitimately mix them: a source embedded before "precise vectors" was
+ * switched on has no float row to rescore against, while its neighbours do.
+ */
+const INT8_DISTANCE_SCALE = 1 / 127
+
 function knnInt8(
   sqlite: Database,
   embedding: ArrayLike<number>,
@@ -380,14 +440,15 @@ function knnInt8(
   const rescored: KnnHit[] = []
   for (const candidate of candidates) {
     const row = exact.get(blob, candidate.id) as { distance: number } | undefined
-    // A candidate with no exact row means the two indexes disagree — the embedding job is
-    // mid-write. Dropping it is the safe reading: `embeddings` is the source of truth.
-    if (row === undefined) continue
+    // No exact row is the normal case with precise vectors off: `insertEmbedding` then writes
+    // only `embeddings_i8`, and there is nothing to rescore against. Falling back to the
+    // quantized distance — rescaled to the float vectors' units, see `INT8_DISTANCE_SCALE` —
+    // keeps the candidate; dropping it would empty the vector branch entirely.
     rescored.push({
       id: candidate.id,
       chunkId: candidate.chunk_id,
       sourceId: candidate.source_id,
-      distance: row.distance,
+      distance: row === undefined ? candidate.distance * INT8_DISTANCE_SCALE : row.distance,
     })
   }
 
@@ -421,6 +482,13 @@ function knnInt8(
  * recall, slightly faster than scanning float32, over an index a quarter of the size — which
  * is the part that really matters once the database is on disk and the page cache is cold.
  * Deeper rescoring only costs latency; there is nothing left to recover.
+ *
+ * Those numbers assume the float vectors are there to rescore against, which is the
+ * "precise" setting of sub-phase 6.3. With it off — the default — `embeddings` is empty,
+ * every candidate keeps its quantized distance (rescaled by `INT8_DISTANCE_SCALE`), and the
+ * result is the first row of the table: full-speed, ~90 % of the true top-50, at a quarter
+ * of the disk. That is the trade the setting exists to offer, and it is why a missing float
+ * row is a normal state here rather than an inconsistency.
  *
  * Soft-deleted chunks — and the chunks of a soft-deleted source — never appear: the triggers
  * of migrations 0001 and 0002 drop their vectors as they go.

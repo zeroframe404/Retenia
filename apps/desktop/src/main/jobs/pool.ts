@@ -52,6 +52,8 @@ export interface JobPoolOptions extends JobPoolHandlers {
   entryPath: string
   /** Directories the job definitions may read from. Sent in the handshake. */
   readableRoots: readonly string[]
+  /** `<userData>/models`; where the two model-aware jobs write. Sent in the handshake. */
+  modelsRoot: string
   size?: number
   /** Retire a worker after this many jobs. */
   maxJobsPerWorker?: number
@@ -152,7 +154,11 @@ export function createJobPool(options: JobPoolOptions): JobPool {
       slot.pid = child.pid
       // The worker cannot receive anything until it holds the port, so it goes first.
       child.postMessage(
-        { type: 'handshake', readableRoots: [...options.readableRoots] } satisfies JobHandshake,
+        {
+          type: 'handshake',
+          readableRoots: [...options.readableRoots],
+          modelsRoot: options.modelsRoot,
+        } satisfies JobHandshake,
         [port2],
       )
     })

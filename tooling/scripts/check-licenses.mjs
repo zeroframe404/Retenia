@@ -46,6 +46,22 @@ try {
 }
 
 /**
+ * The reason `name` is excepted, or undefined.
+ *
+ * A key may end in `*` to cover a family of packages that only differ by platform — sharp's
+ * `@img/sharp-*` prebuilds are two dozen packages with one license decision between them,
+ * and which of them are installed depends on the machine running this check. Everything else
+ * is matched exactly: a wildcard is a decision about a family, not a way to be vague.
+ */
+function findException(name) {
+  if (exceptions[name]) return exceptions[name]
+  for (const [pattern, reason] of Object.entries(exceptions)) {
+    if (pattern.endsWith('*') && name.startsWith(pattern.slice(0, -1))) return reason
+  }
+  return undefined
+}
+
+/**
  * Check a single SPDX license identifier (no operators).
  */
 export function isTermAllowed(term) {
@@ -161,8 +177,9 @@ function main() {
 
   for (const [name, license] of Object.entries(packages)) {
     // Check exceptions first
-    if (exceptions[name]) {
-      console.log(`  ⓘ ${name}: ${license} (excepted: ${exceptions[name]})`)
+    const exception = findException(name)
+    if (exception) {
+      console.log(`  ⓘ ${name}: ${license} (excepted: ${exception})`)
       continue
     }
 

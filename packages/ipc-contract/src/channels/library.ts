@@ -36,6 +36,13 @@ export const SOURCE_STATUSES = ['pending', 'processing', 'ready', 'failed'] as c
 export const sourceStatusSchema = z.enum(SOURCE_STATUSES)
 export type SourceStatus = z.infer<typeof sourceStatusSchema>
 
+/** Where the source stands in the *vector* index — a different question from whether it
+ *  parsed (sub-phase 6.3, `docs/spec/05-ingestion-rag.md` §3). Mirrors `EMBEDDING_STATUSES`
+ *  in `packages/core/src/entities/enums.ts`; its own test asserts the two lists agree. */
+export const EMBEDDING_STATUSES = ['pending', 'running', 'ready', 'failed'] as const
+export const embeddingStatusSchema = z.enum(EMBEDDING_STATUSES)
+export type EmbeddingStatus = z.infer<typeof embeddingStatusSchema>
+
 /** What `library/service.ts`'s `onJobSettled` writes into `sources.meta` once a parse
  *  succeeds — not the full `SourceDoc`, just enough for a source card to summarize it. */
 export const sourceMetaSchema = z
@@ -63,6 +70,10 @@ export const sourceSummarySchema = z.object({
   language: z.string().nullable(),
   error: z.string().nullable(),
   meta: sourceMetaSchema,
+  embeddingStatus: embeddingStatusSchema,
+  /** The space the source's vectors are in, e.g. `embeddinggemma-300m@768`. */
+  embeddingModelId: z.string().nullable(),
+  embeddingError: z.string().nullable(),
   createdAt: z.iso.datetime(),
   ingestedAt: z.iso.datetime().nullable(),
 })
@@ -182,6 +193,51 @@ export const contextualizationEstimateSchema = z.object({
 })
 export type ContextualizationEstimateDto = z.infer<typeof contextualizationEstimateSchema>
 
+/**
+ * One hit from the hybrid retrieval of `docs/spec/05-ingestion-rag.md` §4
+ * (top-50 BM25 ∪ top-50 vector → RRF → reranker → top-N), with everything the Library's
+ * search results need to render a citation and to act on it.
+ */
+export const searchHitSchema = z.object({
+  chunkId: z.uuid(),
+  sourceId: z.uuid(),
+  sourceTitle: z.string(),
+  sourceKind: sourceKindSchema,
+  /** Comparable within one result set only. Higher is better in every mode. */
+  score: z.number(),
+  /** The fusion score before reranking; equal to `score` when no reranker ran. */
+  fusionScore: z.number(),
+  /**
+   * The matching passage with `<b>…</b>` around the hits — FTS5's own `snippet()`. Present
+   * only for a hit the full-text branch found, which is why a purely semantic hit shows the
+   * head of the chunk instead.
+   *
+   * Renderers must **not** put this in `innerHTML`: it is chunk text, i.e. content of a file
+   * the user imported, and the only markup in it that is ours is the `<b>` pair. The
+   * renderer parses those out and builds real elements (`renderSnippet`).
+   */
+  snippet: z.string(),
+  /** True when `snippet` carries `<b>` markers, i.e. the full-text branch matched. */
+  highlighted: z.boolean(),
+  /** `Libro > Capítulo 3 > 3.2`. */
+  headingPath: z.string().nullable(),
+  /** `p. 12`, `Slide 4`, `12:30` — what "abrir en la fuente" jumps to. */
+  label: z.string().nullable(),
+  page: z.int().nullable(),
+  tStartMs: z.int().nullable(),
+  /** The source blocks this chunk covers, for an exact citation. */
+  blockIds: z.array(z.string()),
+  /** Which branches found it, for the "why is this here" affordance and for debugging a
+   *  disappointing result set. */
+  matchedFts: z.boolean(),
+  matchedVector: z.boolean(),
+})
+export type SearchHit = z.infer<typeof searchHitSchema>
+
+export const SEARCH_MODES = ['hybrid', 'fts', 'vector'] as const
+export const searchModeSchema = z.enum(SEARCH_MODES)
+export type SearchMode = z.infer<typeof searchModeSchema>
+
 export const libraryChannels = defineContract({
   'library.listSources': {
     input: z.object({
@@ -278,5 +334,80 @@ export const libraryChannels = defineContract({
   'library.deleteSource': {
     input: z.object({ id: z.uuid() }),
     output: z.void(),
+  },
+
+  /**
+   * Hybrid retrieval over the library (sub-phase 6.3).
+   *
+   * The renderer never sees a vector: main embeds the query through the warm model host and
+   * runs the fusion, because the embedding provider lives behind `safeStorage`-held settings
+   * and a native ONNX session, neither of which belongs in a sandboxed renderer.
+   *
+   * `degraded` says the vector branch could not run — no model configured, or the host could
+   * not answer — and the results are full-text only. The UI shows that rather than pretending
+   * the answer is the whole answer.
+   */
+  'library.search': {
+    input: z.object({
+      query: z.string().min(1).max(1000),
+      mode: searchModeSchema.optional(),
+      k: z.int().min(1).max(50).optional(),
+      /** Restrict to these sources — the filter panel's source facet. */
+      sourceIds: z.array(z.uuid()).max(200).optional(),
+      /** Restrict to these source kinds — the "type" facet. */
+      kinds: z.array(sourceKindSchema).min(1).max(SOURCE_KINDS.length).optional(),
+      /** Treat the last word as a prefix, for type-ahead. */
+      prefix: z.boolean().optional(),
+    }),
+    output: z.object({
+      hits: z.array(searchHitSchema),
+      /** The space the vector branch queried, or `null` when it did not run. */
+      modelId: z.string().nullable(),
+      degraded: z.boolean(),
+      /** Round-trip time main measured, so the UI can show it and `docs/perf/rag.md` has a
+       *  number that comes from the real path rather than from a bench harness. */
+      tookMs: z.number(),
+    }),
+  },
+
+  /** Queues one source for embedding, dropping whatever space it was in. The "reindex this
+   *  source" action on a source card. */
+  'library.embedSource': {
+    input: z.object({ id: z.uuid() }),
+    output: z.void(),
+  },
+
+  /**
+   * "Crear tarjeta desde este fragmento": a new knowledge item and its first card, made from
+   * one chunk and pointing back at it.
+   *
+   * The chunk's text is the *back*; the front is the user's own question, because a card
+   * whose front is a passage and whose back is the same passage tests nothing
+   * (`docs/spec/01-decisions.md` §7: everything ends in active recall). The item keeps
+   * `source_id` and the chunk's locator, so the card can always be traced to the page it
+   * came from.
+   */
+  'library.createCardFromChunk': {
+    input: z.object({
+      chunkId: z.uuid(),
+      /** The question. Defaults to the chunk's heading path when the user gives none. */
+      front: z.string().min(1).max(2000).optional(),
+      /** Overrides the chunk text as the answer, for a user who trimmed it. */
+      back: z.string().min(1).max(20000).optional(),
+    }),
+    output: z.object({ itemId: z.uuid(), cardId: z.uuid() }),
+  },
+
+  /** What retrieval is configured with, for the search screen's status line and for the
+   *  settings screen once sub-phase 7.5 builds it. */
+  'library.retrievalStatus': {
+    input: z.void(),
+    output: z.object({
+      /** The active space, or `null` when nothing usable is configured. */
+      modelId: z.string().nullable(),
+      /** Sources not yet embedded in that space — what the sweep would queue. */
+      pendingSources: z.int(),
+      rerankerEnabled: z.boolean(),
+    }),
   },
 })

@@ -37,6 +37,9 @@ function source(overrides: Partial<SourceSummary>): SourceSummary {
     },
     createdAt: '2026-09-02T00:00:00.000Z',
     ingestedAt: '2026-09-02T00:01:00.000Z',
+    embeddingStatus: 'ready' as const,
+    embeddingModelId: 'embeddinggemma-300m@768',
+    embeddingError: null,
     ...overrides,
   }
 }
@@ -57,6 +60,9 @@ export const WithSources: Story = {
         status: 'processing',
         meta: null,
         ingestedAt: null,
+        embeddingStatus: 'ready' as const,
+        embeddingModelId: 'embeddinggemma-300m@768',
+        embeddingError: null,
       }),
       source({
         id: '019213cd-0000-7000-8000-000000000003',
@@ -65,6 +71,9 @@ export const WithSources: Story = {
         status: 'failed',
         meta: null,
         ingestedAt: null,
+        embeddingStatus: 'ready' as const,
+        embeddingModelId: 'embeddinggemma-300m@768',
+        embeddingError: null,
         error: 'No parser is implemented yet for source kind "video"',
       }),
     ],

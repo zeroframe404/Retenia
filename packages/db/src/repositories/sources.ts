@@ -1,5 +1,12 @@
-import type { NewEntity, Source, SourceRepository, SourceStatus, SourceUnit } from '@retenia/core'
-import { and, asc, eq, isNull } from 'drizzle-orm'
+import type {
+  EmbeddingStatus,
+  NewEntity,
+  Source,
+  SourceRepository,
+  SourceStatus,
+  SourceUnit,
+} from '@retenia/core'
+import { and, asc, eq, isNull, ne, or, sql } from 'drizzle-orm'
 import type { SQLiteColumn } from 'drizzle-orm/sqlite-core'
 import { chunks, sources, sourceUnits } from '../schema'
 import { type BaseRepository, createBaseRepository, type Row, type TableCodec } from './base'
@@ -34,6 +41,9 @@ const sourceCodec: TableCodec<Source, NewSource, SourcePatch> = {
     meta: toJsonObjectOrNull(row.meta),
     error: toTextOrNull(row.error),
     ingestedAt: toDateOrNull(row.ingestedAt),
+    embeddingStatus: row.embeddingStatus as EmbeddingStatus,
+    embeddingModelId: toTextOrNull(row.embeddingModelId),
+    embeddingError: toTextOrNull(row.embeddingError),
     createdAt: toDate(row.createdAt),
     updatedAt: toDate(row.updatedAt),
     deletedAt: toDateOrNull(row.deletedAt),
@@ -54,6 +64,9 @@ const sourceCodec: TableCodec<Source, NewSource, SourcePatch> = {
         input.ingestedAt === null || input.ingestedAt === undefined
           ? null
           : input.ingestedAt.getTime(),
+      embeddingStatus: input.embeddingStatus,
+      embeddingModelId: input.embeddingModelId ?? null,
+      embeddingError: input.embeddingError ?? null,
     }),
   toUpdate: (patch) =>
     defined({
@@ -67,6 +80,9 @@ const sourceCodec: TableCodec<Source, NewSource, SourcePatch> = {
       error: patch.error,
       ingestedAt:
         patch.ingestedAt === undefined ? undefined : (patch.ingestedAt?.getTime() ?? null),
+      embeddingStatus: patch.embeddingStatus,
+      embeddingModelId: patch.embeddingModelId,
+      embeddingError: patch.embeddingError,
     }),
 }
 
@@ -199,6 +215,40 @@ export function createSourceRepository(ctx: RepositoryContext): SourceRepository
       base.updateColumns(id, { status: 'ready', ingestedAt: at.getTime(), error: null }),
 
     markFailed: (id, message) => base.updateColumns(id, { status: 'failed', error: message }),
+
+    setEmbeddingState: (id, state) =>
+      base.updateColumns(id, {
+        embeddingStatus: state.status,
+        // `undefined` means "leave it"; `null` means "this source is in no space any more",
+        // which is exactly what dropping its vectors for a reindex leaves behind.
+        ...(state.modelId === undefined ? {} : { embeddingModelId: state.modelId }),
+        // Cleared unless given: every transition out of `failed` makes the old reason wrong.
+        embeddingError: state.error ?? null,
+      }),
+
+    sourceIdsNeedingEmbedding: async (modelId) => {
+      // One query for the three populations §6.3 has to catch: never embedded, last run
+      // failed, and embedded under another model. A source with no live chunks is excluded —
+      // there is nothing to embed, and including it would make the sweep re-queue every
+      // unparsed source on every start.
+      const rows = ctx.db
+        .select({ id: sources.id })
+        .from(sources)
+        .where(
+          and(
+            isNull(sources.deletedAt),
+            or(
+              ne(sources.embeddingStatus, 'ready'),
+              isNull(sources.embeddingModelId),
+              ne(sources.embeddingModelId, modelId),
+            ),
+            sql`EXISTS (SELECT 1 FROM ${chunks} WHERE ${chunks.sourceId} = ${sources.id} AND ${chunks.deletedAt} IS NULL)`,
+          ),
+        )
+        .orderBy(asc(sources.createdAt), asc(sources.id))
+        .all() as Array<{ id: string }>
+      return rows.map((row) => row.id)
+    },
 
     findUnit: units.findById,
 

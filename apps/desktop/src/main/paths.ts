@@ -20,6 +20,23 @@ export function getWorkRoot(): string {
   return join(app.getPath('userData'), 'work')
 }
 
+/**
+ * `userData/models`, where the local ONNX embedding and reranker models live
+ * (`docs/spec/05-ingestion-rag.md` §3).
+ *
+ * The layout under it is the model's Hugging Face repository path, because that is what
+ * `@huggingface/transformers` resolves a local model from when `env.localModelPath` points
+ * here and remote models are off — which is how the app guarantees that loading a model
+ * never reaches the network (`packages/ingest/src/models/store.ts`).
+ *
+ * Deliberately not the blob store: these files are content-addressed by the checked-in
+ * manifest, not by the `blobs` table, they are re-downloadable rather than user data, and a
+ * blob GC pass has no business deciding a 300 MB model is unreferenced.
+ */
+export function getModelsRoot(): string {
+  return join(app.getPath('userData'), 'models')
+}
+
 /** `userData/settings.json`: a placeholder store until the real `settings` table lands in
  * sub-phase 3.5 (see `src/main/settings/store.ts`). */
 export function getSettingsPath(): string {
@@ -67,6 +84,12 @@ export function getBackupsRoot(): string {
  */
 export function getJobWorkerPath(): string {
   return join(__dirname, 'job-worker.js')
+}
+
+/** `out/main/embedding-host.js`, the long-lived model host of sub-phase 6.3. Resolved the
+ *  same way and for the same reasons as the job worker above. */
+export function getEmbeddingHostPath(): string {
+  return join(__dirname, 'embedding-host.js')
 }
 
 /**

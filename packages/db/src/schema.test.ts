@@ -143,13 +143,19 @@ describe('v1 schema', () => {
       })
       .run()
 
-    insertEmbedding(sqlite, {
-      id: ids.next(),
-      sourceId,
-      chunkId,
-      modelId: 'embeddinggemma-300m',
-      embedding: new Float32Array(768).fill(0.1),
-    })
+    // `storeFloat` so both vec0 tables get a row: this suite's contract is one valid row per
+    // table, `embeddings` included.
+    insertEmbedding(
+      sqlite,
+      {
+        id: ids.next(),
+        sourceId,
+        chunkId,
+        modelId: 'embeddinggemma-300m',
+        embedding: new Float32Array(768).fill(0.1),
+      },
+      { storeFloat: true },
+    )
 
     const annotationId = ids.next()
     db.insert(schema.annotations)
@@ -602,7 +608,7 @@ describe('v1 schema', () => {
       expect(count(table), table).toBeGreaterThanOrEqual(1)
     }
     expect(count('importance_levels')).toBe(5)
-    expect(count('_migrations')).toBe(9)
+    expect(count('_migrations')).toBe(10)
     expect(count('lessons')).toBe(2)
   })
 

@@ -183,17 +183,28 @@ describe('embeddings_i8 (int8 quantization and exact rescoring)', () => {
   })
   afterEach(() => opened.close())
 
-  function seedThree(modelId = 'embeddinggemma-300m'): void {
+  function seedThree(modelId = 'embeddinggemma-300m', storeFloat = false): void {
     for (const [index, seed] of [1, 1.01, 2].entries()) {
-      insertEmbedding(opened.sqlite, {
-        id: ids.next(),
-        sourceId,
-        chunkId: chunkIds[index] as string,
-        modelId,
-        embedding: vector(seed),
-      })
+      insertEmbedding(
+        opened.sqlite,
+        {
+          id: ids.next(),
+          sourceId,
+          chunkId: chunkIds[index] as string,
+          modelId,
+          embedding: vector(seed),
+        },
+        { storeFloat },
+      )
     }
   }
+
+  const count = (table: 'embeddings' | 'embeddings_i8'): number =>
+    (
+      opened.sqlite.prepare<[], { n: number }>(`SELECT count(*) AS n FROM ${table}`).get() as {
+        n: number
+      }
+    ).n
 
   it('declares the quantized table beside the exact one', () => {
     const ddl = opened.sqlite
@@ -204,14 +215,64 @@ describe('embeddings_i8 (int8 quantization and exact rescoring)', () => {
     expect(ddl).toContain('embedding INT8[768]')
   })
 
-  it('writes both indexes from one insert, keyed by the same id', () => {
+  it('writes only the quantized index by default — the float vectors are opt-in', () => {
+    // The "precise" setting of sub-phase 6.3. Off, a 50k-chunk library is 37 MB of int8
+    // instead of 184 MB of float32, and the int8 table is what a KNN query scans anyway.
     seedThree()
+    expect(count('embeddings_i8')).toBe(3)
+    expect(count('embeddings')).toBe(0)
+  })
+
+  it('writes both indexes, keyed by the same id, when precise vectors are on', () => {
+    seedThree('embeddinggemma-300m', true)
     const rows = opened.sqlite
       .prepare<[], { id: string }>(
         'SELECT e.id AS id FROM embeddings e JOIN embeddings_i8 q ON q.id = e.id',
       )
       .all()
     expect(rows).toHaveLength(3)
+  })
+
+  it('round-trips a unit vector to within a bounded error', () => {
+    // The quantization round-trip bound the index depends on. Two numbers, both measured:
+    // how far one component moves, and how far the *distance* between two vectors moves —
+    // the second is what a KNN query actually ranks by, and it is far tighter because 768
+    // independent round-offs average out.
+    const dequantize = (blob: Buffer): Float32Array =>
+      Float32Array.from({ length: EMBEDDING_DIMENSIONS }, (_unused, i) => blob.readInt8(i) / 127)
+
+    const l2 = (left: Float32Array, right: Float32Array): number => {
+      let sum = 0
+      for (let i = 0; i < left.length; i++) sum += ((left[i] as number) - (right[i] as number)) ** 2
+      return Math.sqrt(sum)
+    }
+
+    let worstComponent = 0
+    for (const seed of [1, 1.01, 2, 3.7]) {
+      const original = vector(seed)
+      const restored = dequantize(quantizeToInt8(original))
+      for (let i = 0; i < original.length; i++) {
+        worstComponent = Math.max(
+          worstComponent,
+          Math.abs((original[i] as number) - (restored[i] as number)),
+        )
+      }
+    }
+    // Half a quantization step: the most `round(x · 127) / 127` can ever move a value.
+    expect(worstComponent).toBeLessThanOrEqual(0.5 / 127 + 1e-6)
+
+    for (const [a, b] of [
+      [1, 1.01],
+      [1, 2],
+      [2, 3.7],
+    ] as const) {
+      const exact = l2(vector(a), vector(b))
+      const quantized = l2(
+        dequantize(quantizeToInt8(vector(a))),
+        dequantize(quantizeToInt8(vector(b))),
+      )
+      expect(Math.abs(exact - quantized)).toBeLessThan(0.03)
+    }
   })
 
   it('scales a unit vector across the int8 range and clamps what falls outside it', () => {
@@ -229,7 +290,7 @@ describe('embeddings_i8 (int8 quantization and exact rescoring)', () => {
   })
 
   it('returns exact float distances even though the scan is quantized', () => {
-    seedThree()
+    seedThree('embeddinggemma-300m', true)
     const quantized = knnChunks(opened.sqlite, vector(1), { k: 3, modelId: 'embeddinggemma-300m' })
     const exact = knnChunks(opened.sqlite, vector(1), {
       k: 3,
@@ -327,11 +388,44 @@ describe('embeddings_i8 (int8 quantization and exact rescoring)', () => {
     )
   })
 
-  it('ignores a quantized row whose exact vector is missing (indexes mid-write)', () => {
-    seedThree()
+  it('keeps a candidate with no exact vector, on its rescaled quantized distance', () => {
+    // With precise vectors off there is nothing to rescore against for *any* row, so
+    // dropping such candidates — which is what an earlier version did, reading a missing
+    // float row as "the indexes are mid-write" — would empty the vector branch entirely.
+    seedThree('embeddinggemma-300m', true)
     opened.sqlite.prepare('DELETE FROM embeddings WHERE chunk_id = ?').run(chunkIds[0])
+
     const hits = knnChunks(opened.sqlite, vector(1), { k: 3, modelId: 'embeddinggemma-300m' })
-    expect(hits.map((hit) => hit.chunkId)).toEqual([chunkIds[1], chunkIds[2]])
+    expect(hits.map((hit) => hit.chunkId)).toEqual([chunkIds[0], chunkIds[1], chunkIds[2]])
+    // And the fallback distance is on the same scale as the exact ones beside it — the whole
+    // point of `INT8_DISTANCE_SCALE`, since one result set can legitimately mix the two.
+    expect(hits[0]?.distance).toBeCloseTo(0, 2)
+    expect(hits[0]?.distance).toBeLessThan(hits[1]?.distance as number)
+  })
+
+  it('ranks the same way with and without the exact vectors to rescore against', () => {
+    // The trade the "precise" setting offers is recall at the margin, not a different
+    // ordering of clearly-separated neighbours.
+    seedThree('embeddinggemma-300m', true)
+    const withFloats = knnChunks(opened.sqlite, vector(1), { k: 3, modelId: 'embeddinggemma-300m' })
+    opened.sqlite.prepare('DELETE FROM embeddings').run()
+    const withoutFloats = knnChunks(opened.sqlite, vector(1), {
+      k: 3,
+      modelId: 'embeddinggemma-300m',
+    })
+
+    expect(withoutFloats.map((hit) => hit.chunkId)).toEqual(withFloats.map((hit) => hit.chunkId))
+    for (const [index, hit] of withoutFloats.entries()) {
+      // Within quantization error of the exact distance, not merely in the same order. The
+      // bound is relative and it is 2 %, not 0.1 %, for the reason `quantizeToInt8` now
+      // spells out: a unit vector in 768 dimensions has components near ±1/√768 ≈ 0.036, so
+      // a fixed ×127 scale only ever reaches about a tenth of the int8 range.
+      // Absolute, because the nearest hit's exact distance is 0 (the query *is* that vector)
+      // and a relative bound there is 0/0. Over unit vectors L2 never exceeds 2, so 0.03 is
+      // about 1.5 % of the full range.
+      const exact = withFloats[index]?.distance as number
+      expect(Math.abs(hit.distance - exact)).toBeLessThan(0.03)
+    }
   })
 
   it('never rescores fewer candidates than the neighbours asked for', () => {

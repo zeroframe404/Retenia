@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { contract } from '../index'
-import { SOURCE_KINDS, SOURCE_STATUSES, sourceDocSchema, sourceSummarySchema } from './library'
+import {
+  EMBEDDING_STATUSES,
+  SOURCE_KINDS,
+  SOURCE_STATUSES,
+  sourceDocSchema,
+  sourceSummarySchema,
+} from './library'
 
 describe('source vocabulary', () => {
   /** Three copies — here, `packages/core`'s `SOURCE_KINDS`/`SOURCE_STATUSES`, and the
@@ -21,6 +27,7 @@ describe('source vocabulary', () => {
       'web',
     ])
     expect([...SOURCE_STATUSES]).toEqual(['pending', 'processing', 'ready', 'failed'])
+    expect([...EMBEDDING_STATUSES]).toEqual(['pending', 'running', 'ready', 'failed'])
   })
 })
 
@@ -39,6 +46,9 @@ const summary = {
     ocrPages: [],
     warnings: [],
   },
+  embeddingStatus: 'ready' as const,
+  embeddingModelId: 'embeddinggemma-300m@768',
+  embeddingError: null,
   createdAt: '2026-09-02T00:00:00.000Z',
   ingestedAt: '2026-09-02T00:01:00.000Z',
 }
@@ -54,6 +64,19 @@ describe('sourceSummarySchema', () => {
 
   it('rejects an unknown status', () => {
     expect(sourceSummarySchema.safeParse({ ...summary, status: 'archived' }).success).toBe(false)
+    expect(
+      sourceSummarySchema.safeParse({ ...summary, embeddingStatus: 'embedding' }).success,
+    ).toBe(false)
+  })
+
+  it('allows a source that has never been embedded to name no space', () => {
+    expect(
+      sourceSummarySchema.safeParse({
+        ...summary,
+        embeddingStatus: 'pending',
+        embeddingModelId: null,
+      }).success,
+    ).toBe(true)
   })
 })
 

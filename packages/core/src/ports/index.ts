@@ -57,6 +57,7 @@ export type {
   DomainEventType,
 } from './domain-events'
 export type { EmbeddingProvider } from './embedding-provider'
+export { embedQuery } from './embedding-provider'
 export {
   AppendOnlyViolationError,
   EntityNotFoundError,

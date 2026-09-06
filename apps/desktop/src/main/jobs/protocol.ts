@@ -83,5 +83,13 @@ export type JobResponse = z.infer<typeof jobResponseSchema>
 export const jobHandshakeSchema = z.object({
   type: z.literal('handshake'),
   readableRoots: z.array(z.string()),
+  /**
+   * `<userData>/models`, where `downloadModel` and `ingestEmbedSource` write ONNX weights
+   * (sub-phase 6.3). Named separately rather than picked out of `readableRoots` by position,
+   * because it is the one directory a job *writes* to outside the blob store — a job that
+   * had to guess which root that was would be one refactor away from writing weights into
+   * the blob store, or a book into the models directory.
+   */
+  modelsRoot: z.string(),
 })
 export type JobHandshake = z.infer<typeof jobHandshakeSchema>

@@ -30,6 +30,9 @@ const SOURCE_READY = {
   },
   createdAt: '2026-09-02T00:00:00.000Z',
   ingestedAt: '2026-09-02T00:01:00.000Z',
+  embeddingStatus: 'ready' as const,
+  embeddingModelId: 'embeddinggemma-300m@768',
+  embeddingError: null,
 }
 
 const SOURCE_FAILED = {
@@ -39,6 +42,9 @@ const SOURCE_FAILED = {
   status: 'failed' as const,
   meta: null,
   ingestedAt: null,
+  embeddingStatus: 'ready' as const,
+  embeddingModelId: 'embeddinggemma-300m@768',
+  embeddingError: null,
   error: 'No parser is implemented yet for source kind "video"',
 }
 

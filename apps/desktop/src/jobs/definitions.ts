@@ -5,7 +5,9 @@ import { type JobContext, type JobDefinition, registerJob } from '@retenia/core'
 import { canonicalize, confinePath, isInsideRoot, JobCancelledError, whenAborted } from './confine'
 import { createFsrsOptimizeJob } from './fsrs-optimize'
 import { createIngestChunkJob } from './ingest-chunk'
+import { createIngestEmbedJob } from './ingest-embed'
 import { createIngestParseJob } from './ingest-parse'
+import { createDownloadModelJob } from './model-download'
 
 // Re-exported from their own module: they are shared with `fsrsOptimize` and are the one
 // copy of the path-confinement check.
@@ -17,8 +19,10 @@ export { canonicalize, confinePath, isInsideRoot, JobCancelledError, whenAborted
  * `sleep` and `hashFile` are the demo pair the queue shipped with, exercising it end to
  * end — progress, cancellation, retries, the `utilityProcess` round trip. `fsrsOptimize`
  * (sub-phase 4.6) is the first real one: it trains the FSRS parameters on the user's own
- * review history. `ingestParseSource` and `ingestChunkSource` are the ingestion pipeline
- * (sub-phases 6.1 and 6.2), run in that order over one source.
+ * review history. `ingestParseSource`, `ingestChunkSource` and `ingestEmbedSource` are the
+ * ingestion pipeline (sub-phases 6.1, 6.2 and 6.3), run in that order over one source, and
+ * `downloadModel` fetches a local ONNX model — which `ingestEmbedSource` also does inline, so
+ * that a missing model is a phase of the work rather than an error to resolve by hand.
  *
  * No Electron imports: main pulls this in for the registry's metadata (so it can reject an
  * unknown kind at enqueue time) and the worker pulls it in to actually run.
@@ -125,12 +129,17 @@ async function hashFile(path: string, ctx: JobContext): Promise<{ sha256: string
  * Electron's `app.getPath` — which this module must not import, since it is shared with the
  * worker bundle and has to stay free of Electron.
  */
-export function createJobDefinitions(readableRoots: readonly string[]) {
+export function createJobDefinitions(readableRoots: readonly string[], modelsRoot?: string) {
+  // `readableRoots[0]` is the blob store; the models root is passed separately because it is
+  // the one directory a job *writes* outside the blob store, and only these two jobs may.
+  const models = modelsRoot ?? (readableRoots[0] as string)
   return [
     registerJob(sleepJob),
     registerJob(createHashFileJob(readableRoots)),
     registerJob(createFsrsOptimizeJob(readableRoots)),
     registerJob(createIngestParseJob(readableRoots)),
     registerJob(createIngestChunkJob(readableRoots)),
+    registerJob(createIngestEmbedJob(models, readableRoots)),
+    registerJob(createDownloadModelJob(models, readableRoots)),
   ]
 }

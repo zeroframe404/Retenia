@@ -4,9 +4,18 @@ import type { JobProgressEvent, JobSummary } from '@retenia/ipc-contract'
 import { createJobDefinitions } from '../../jobs/definitions'
 import { createFsBlobStore } from '../blobs/store'
 import { type AppDatabase, openAppDatabase } from '../db/open'
+import { createEmbeddingHost, type EmbeddingHost } from '../embeddings/host'
+import { createEmbeddingService, type EmbeddingService } from '../library/embedding-service'
 import { createLibraryService, type LibraryService } from '../library/service'
 import { log } from '../logging/log'
-import { getBlobsRoot, getDevMediaSamplePath, getJobWorkerPath, getWorkRoot } from '../paths'
+import {
+  getBlobsRoot,
+  getDevMediaSamplePath,
+  getEmbeddingHostPath,
+  getJobWorkerPath,
+  getModelsRoot,
+  getWorkRoot,
+} from '../paths'
 import { createJobsFacade, type JobsFacade } from './facade'
 import { createJobPool } from './pool'
 import { nodeProcessLiveness } from './process-liveness'
@@ -28,6 +37,10 @@ export interface JobsSubsystem {
   /** The source library (sub-phase 6.1) — import, retry, read back a parse. Degrades the
    *  same way `facade` does when the database did not open. */
   readonly library: LibraryService
+  /** Retrieval (sub-phase 6.3): embedding, reindexing and hybrid search. `null` when the
+   *  database did not open, which the search channels report rather than answering with an
+   *  empty result set. */
+  readonly embeddings: EmbeddingService | null
   /** The shared connection jobs, settings, blobs, secrets and backups all read and write
    *  through — `null` when it failed to open, in which case every one of those subsystems
    *  degrades the same way `unavailableFacade` does below. */
@@ -77,6 +90,7 @@ function unavailableLibraryService(reason: string): LibraryService {
     estimateContextualization: fail,
     contextualize: fail,
     rechunkStaleSources: fail,
+    createCardFromChunk: fail,
     remove: fail,
     onJobSettled: fail,
   }
@@ -96,6 +110,7 @@ export function bootstrapJobs({
     return {
       facade: unavailableFacade(reason),
       library: unavailableLibraryService(reason),
+      embeddings: null,
       database: null,
       start: async () => {},
       stop: async () => {},
@@ -110,7 +125,16 @@ export function bootstrapJobs({
    * rather than depending on every enqueuer to have checked.
    */
   // `getWorkRoot()` is where the optimizer stages its training CSV (sub-phase 4.6).
-  const readableRoots = [getBlobsRoot(), getWorkRoot(), dirname(getDevMediaSamplePath())]
+  // `getModelsRoot()` is where the two model-aware jobs of sub-phase 6.3 write ONNX
+  // weights; it is a readable root *and* is named explicitly in the handshake, because it is
+  // the one directory outside the blob store a job may write to.
+  const modelsRoot = getModelsRoot()
+  const readableRoots = [
+    getBlobsRoot(),
+    getWorkRoot(),
+    modelsRoot,
+    dirname(getDevMediaSamplePath()),
+  ]
 
   const registry = createJobRegistry(createJobDefinitions(readableRoots))
 
@@ -138,17 +162,39 @@ export function bootstrapJobs({
   const blobStore = createFsBlobStore(getBlobsRoot())
   const library = createLibraryService({ repos: database.repos, blobStore, scheduler })
 
+  // The warm model host (sub-phase 6.3). Lazy in both directions: nothing is spawned until
+  // the first query, and it unloads again after an idle timeout — a search box the user
+  // opened once must not leave 300 MB of weights resident, and a bulk embed in the pool must
+  // not have to share memory with a warm copy of the same model.
+  const host: EmbeddingHost = createEmbeddingHost({
+    entryPath: getEmbeddingHostPath(),
+    modelsRoot,
+  })
+  const embeddings = createEmbeddingService({
+    repos: database.repos,
+    sqlite: database.opened.sqlite,
+    blobStore,
+    scheduler,
+    host,
+    ids: database.ids,
+    getSetting: (key) => database.repos.settings.get(key),
+  })
+
   runner = createJobRunner({
     scheduler,
     emit,
-    onSettled: (job) => library.onJobSettled(job),
+    onSettled: async (job) => {
+      await library.onJobSettled(job)
+      await embeddings.onJobSettled(job)
+    },
     createPool: (handlers) =>
-      createJobPool({ ...handlers, entryPath: getJobWorkerPath(), readableRoots }),
+      createJobPool({ ...handlers, entryPath: getJobWorkerPath(), readableRoots, modelsRoot }),
   })
 
   return {
     facade: createJobsFacade({ scheduler, runner, demoEnabled }),
     library,
+    embeddings,
     database,
     start: async () => {
       await runner.start()
@@ -166,9 +212,25 @@ export function bootstrapJobs({
         .catch((error: unknown) => {
           log.error('[jobs] the re-chunk sweep failed:', error)
         })
+
+      // The reindex sweep of sub-phase 6.3, the vector counterpart of the one above: every
+      // source that is not in the active embedding space — never embedded, last run failed,
+      // or embedded under a model the user has since switched away from. Queued rather than
+      // awaited for the same reason, and a failure here costs retrieval, never the app.
+      embeddings
+        .reindexStaleSources()
+        .then((queued) => {
+          if (queued.length > 0) {
+            log.info(`[jobs] queued ${queued.length} source(s) for embedding`)
+          }
+        })
+        .catch((error: unknown) => {
+          log.error('[jobs] the embedding sweep failed:', error)
+        })
     },
     stop: async () => {
       await runner.stop()
+      await host.stop()
       database.close()
     },
   }

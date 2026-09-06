@@ -262,6 +262,8 @@ export function renderSchemaDoc(): string {
         '`review_logs.activity_type` (backfilled `NULL`) and `context = \'diagnostic\'`, so the exercise → rating mapping of `02-memory-system.md` §10 can be measured per type (§17 risk 3) and the prior-knowledge diagnostic can seed memory; plus `activity_stats`, the rolling per-type median that decides what "fast" and "slow" mean for this user. Widening a CHECK rebuilds the table in SQLite, which is what the `__new_review_logs` copy is.',
       '0008_chunk_identity_and_context':
         "`chunks.chunk_key` (the chunker's `sha256(source_id, block_ids, text)`, so re-chunking an unchanged source keeps the row and its embeddings), `chunks.chunking_version` (the reindex trigger) and `chunks.is_frontmatter` (a table of contents or bibliography, kept and citable but excluded from path generation); plus a `context` column on `chunks_fts` and its rebuilt triggers, so the contextual-retrieval text is searchable beside the chunk it situates (`05-ingestion-rag.md` §4).",
+      '0009_source_embedding_state':
+        "`sources.embedding_status`, `sources.embedding_model_id` and `sources.embedding_error`, plus the `sources_embedding` index: where each source stands in the *vector* index, which is a different question from whether it parsed. `embedding_model_id` is the reindex trigger — the startup sweep re-embeds every source whose space is not the active provider's, so switching embedding models can never leave two spaces mixed in one query (`05-ingestion-rag.md` §3). Added with `ALTER TABLE` rather than a table rebuild, which would drop the source soft-delete cascade triggers of migration 0001.",
     }
     for (const [index, migration] of loadMigrations().entries()) {
       line(

@@ -52,6 +52,38 @@ export interface SettingsMap {
   'review.easyDates': EasyDates
   'ai.budget.monthlyUsd': number
   'ai.providers.allowlist': string[]
+  /**
+   * Which embedding space the library is indexed in — a catalog model id
+   * (`embeddinggemma-300m`, `bge-m3`) or `ollama` for a local server
+   * (`docs/spec/05-ingestion-rag.md` §3).
+   *
+   * Changing it is a reindex: `sources.embedding_model_id` stops matching and the startup
+   * sweep re-embeds every source, dropping the old vectors first. That is why it is a
+   * setting and not a per-query argument — two spaces must never answer one query.
+   */
+  'retrieval.embeddingModel': string
+  /** Base URL of the OpenAI-compatible server used when the model is `ollama`. */
+  'retrieval.ollamaBaseUrl': string
+  /** The tag that server knows the model by, and the width it returns. */
+  'retrieval.ollamaModel': string
+  'retrieval.ollamaDims': number
+  /** Execution provider to try first for the local models; `auto` picks (see
+   *  `resolveDevices`). */
+  'retrieval.device': 'auto' | 'webgpu' | 'cuda' | 'dml' | 'cpu'
+  /**
+   * Keep the exact float vectors beside the int8 ones, so a KNN query can rescore its
+   * candidates exactly. 4× the index on disk for the ~10 % of the true top-50 a quantized
+   * scan misses (`packages/db/src/search.ts`).
+   */
+  'retrieval.preciseVectors': boolean
+  /**
+   * Run the local cross-encoder over the fused candidates. Off by default: it is the best
+   * single lever on result quality and it costs 0.2–1 s per 20 documents on CPU, which the
+   * user should opt into rather than discover.
+   */
+  'retrieval.rerankerEnabled': boolean
+  /** Which reranker, when one is enabled. A catalog model id. */
+  'retrieval.rerankerModel': string
   /** Whether repository mutations enqueue `outbox` rows. Off in v1 — there is nothing to
    *  sync to yet (`docs/spec/07-architecture.md` §6). */
   'sync.outboxEnabled': boolean
@@ -190,6 +222,17 @@ export const SETTINGS: { readonly [K in SettingsKey]: SettingSpec<SettingsMap[K]
   'review.easyDates': easyDatesSetting,
   'ai.budget.monthlyUsd': numberIn(0, 100000, 30),
   'ai.providers.allowlist': stringArray([]),
+  // The catalog itself lives in `packages/ingest` (Node-only), which `core` must not import,
+  // so these are plain strings validated at the point of use — an unknown id degrades to "no
+  // embedding provider is configured", which is exactly how a missing model already behaves.
+  'retrieval.embeddingModel': stringSetting('embeddinggemma-300m'),
+  'retrieval.ollamaBaseUrl': stringSetting('http://127.0.0.1:11434'),
+  'retrieval.ollamaModel': stringSetting('bge-m3'),
+  'retrieval.ollamaDims': numberIn(1, 8192, 1024),
+  'retrieval.device': oneOf(['auto', 'webgpu', 'cuda', 'dml', 'cpu'], 'auto'),
+  'retrieval.preciseVectors': booleanSetting(false),
+  'retrieval.rerankerEnabled': booleanSetting(false),
+  'retrieval.rerankerModel': stringSetting('bge-reranker-v2-m3'),
   'sync.outboxEnabled': booleanSetting(false),
 }
 

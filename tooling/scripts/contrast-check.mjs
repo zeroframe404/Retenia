@@ -210,6 +210,23 @@ const PAIRS = [
     bg: 'neutral-800',
     level: 'text',
   },
+  // The segmented control's own track sits a step darker than the page it is on, so the
+  // foreground that clears 4.5:1 against `bg` and `surface` does not clear it here: `muted`
+  // (`neutral-500`) reads 4.34:1 on `neutral-100`. That gap was invisible to this script
+  // until these two rows existed, and axe found it on the Library route instead — nine
+  // minutes into the e2e job rather than one second into this one.
+  {
+    label: 'segmented control inactive label on its neutral-100 track',
+    fg: 'neutral-600',
+    bg: 'neutral-100',
+    level: 'text',
+  },
+  {
+    label: 'segmented control inactive label on its neutral-800 track (dark)',
+    fg: 'neutral-400',
+    bg: 'neutral-800',
+    level: 'text',
+  },
   {
     label: 'sidebar active item text on brand-100',
     fg: 'brand-800',

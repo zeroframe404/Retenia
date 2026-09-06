@@ -33,6 +33,15 @@ export type SourceKind = (typeof SOURCE_KINDS)[number]
 export const SOURCE_STATUSES = ['pending', 'processing', 'ready', 'failed'] as const
 export type SourceStatus = (typeof SOURCE_STATUSES)[number]
 
+/**
+ * Where a source stands in the *vector* index — a different question from whether it parsed.
+ * A source can be `ready` and fully searchable by BM25 while its embeddings are missing,
+ * queued behind a model download, or in the space of a model the user has switched away
+ * from (`docs/spec/05-ingestion-rag.md` §3).
+ */
+export const EMBEDDING_STATUSES = ['pending', 'running', 'ready', 'failed'] as const
+export type EmbeddingStatus = (typeof EMBEDDING_STATUSES)[number]
+
 export const SOURCE_UNIT_KINDS = ['page', 'slide', 'section', 'keyframe', 'segment'] as const
 export type SourceUnitKind = (typeof SOURCE_UNIT_KINDS)[number]
 

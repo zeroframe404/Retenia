@@ -39,6 +39,9 @@ export default defineConfig({
           // Emitted alongside `index.js` so `getJobWorkerPath()` can resolve it from
           // `__dirname` in a dev run, a packaged asar and under Playwright alike.
           'job-worker': resolve(__dirname, 'src/worker/index.ts'),
+          // The warm model host (sub-phase 6.3), forked the same way and resolved from
+          // `__dirname` by `getEmbeddingHostPath()`.
+          'embedding-host': resolve(__dirname, 'src/worker/embedding-host.ts'),
         },
       },
     },

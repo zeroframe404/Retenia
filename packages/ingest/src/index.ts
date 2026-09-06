@@ -1,3 +1,19 @@
+/**
+ * Everything `@retenia/ingest` offers, in one place — convenient for tests, and the wrong
+ * thing to import from the app.
+ *
+ * This barrel is the whole package: pdfjs, tesseract, mammoth, the remark stack, the
+ * embedding providers. Loading it costs the better part of a second even when the caller
+ * only wanted a pure function, and a `utilityProcess` that exists to load a model has no use
+ * for a PDF parser. `package.json` therefore exports the slices as well —
+ * `@retenia/ingest/chunking`, `/contextualize`, `/embeddings`, `/models`, `/rerank`,
+ * `/prompts` — and every `await import(…)` in `apps/desktop` names the one it needs.
+ *
+ * That is not only startup polish: with the barrel behind a dynamic import, the first test in
+ * a file paid all of it, and on a loaded `windows-latest` runner that single test crossed
+ * Vitest's 5 s timeout while its eighteen siblings finished in milliseconds.
+ */
+
 export type {
   ChunkDraft,
   ChunkingResult,
@@ -62,7 +78,68 @@ export {
   systemFromTemplate,
 } from './contextualize'
 export { detectLanguage, MIN_DETECTABLE_LENGTH } from './detect-language'
+export type {
+  DeviceEnvironment,
+  EmbeddingDevice,
+  FeatureExtractionPipeline,
+  LocalEmbeddingProvider,
+  OllamaEmbeddingOptions,
+  PipelineTensor,
+  TransformersEmbeddingOptions,
+  TransformersModule,
+} from './embeddings'
+export {
+  assertIndexable,
+  createOllamaEmbedding,
+  createTransformersEmbedding,
+  DEFAULT_OLLAMA_BATCH_SIZE,
+  DEFAULT_OLLAMA_TIMEOUT_MS,
+  defaultBatchSize,
+  EMBEDDING_DEVICES,
+  embeddingsUrl,
+  isEmbeddingDevice,
+  l2Normalize,
+  nodeDeviceEnvironment,
+  OllamaUnavailableError,
+  probeOllamaEmbedding,
+  randomProject,
+  reduceToIndexWidth,
+  resolveDevices,
+  truncateMatryoshka,
+} from './embeddings'
 export { sha256Hex } from './hash'
+export type {
+  DimensionReduction,
+  DownloadOptions,
+  DownloadProgress,
+  DownloadResult,
+  FetchLike,
+  ModelFile,
+  ModelIssue,
+  ModelKind,
+  ModelReceipt,
+  ModelSpec,
+  ModelStatus,
+  ModelStore,
+  Pooling,
+  VerifyOptions,
+} from './models'
+export {
+  createModelStore,
+  DEFAULT_EMBEDDING_MODEL_ID,
+  DEFAULT_RERANKER_MODEL_ID,
+  downloadModel,
+  findModel,
+  graphFile,
+  INDEX_DIMENSIONS,
+  listModels,
+  ModelDownloadError,
+  modelDirectory,
+  modelFileUrl,
+  requireModel,
+  resolveModelFile,
+  sha256File,
+} from './models'
 export { createTesseractOcrProvider } from './ocr/tesseract-provider'
 export type { ParseContext } from './parse-context'
 export { parseDocument } from './parse-document'
@@ -77,6 +154,14 @@ export { parsePptx } from './parsers/pptx'
 export type { PipelineStep } from './pipeline-step'
 export { runPipeline } from './pipeline-step'
 export { encodeBgraAsPng } from './png-encoder'
+export type {
+  LocalReranker,
+  RerankerModel,
+  RerankerModule,
+  RerankerTokenizer,
+  TransformersRerankerOptions,
+} from './rerank'
+export { createTransformersReranker, DEFAULT_RERANK_BATCH_SIZE } from './rerank'
 export type { SectionTreeBuilder } from './section-tree'
 export { createSectionTree } from './section-tree'
 export type {

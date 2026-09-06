@@ -70,7 +70,17 @@ export function SegmentedControl<Value extends string>({
             className={cn(
               'rounded-sm px-3 py-1.5 text-sm font-medium transition-colors duration-fast ease-standard',
               'disabled:pointer-events-none disabled:opacity-50',
-              selected ? 'bg-surface text-text shadow-soft' : 'hover:text-text text-muted',
+              selected
+                ? 'bg-surface text-text shadow-soft'
+                : // Not `text-muted`: on this control's own track — a step darker than the
+                  // page, `neutral-100` light and `neutral-800` dark — `muted` reads at
+                  // 4.34:1 in light theme, under WCAG 2.2 AA's 4.5:1 for 14px text. It
+                  // clears it on `bg` and on `surface`, which is why the token pass missed
+                  // it and axe caught it on the Library route. `neutral-600` takes the same
+                  // text to 6.88:1 against the same track; dark theme's `neutral-400` is the
+                  // value `muted` already resolves to there, at 5.65:1. Both pairs are in
+                  // `tooling/scripts/contrast-check.mjs` now.
+                  'text-neutral-600 hover:text-text dark:text-neutral-400',
             )}
           >
             {option.label}

@@ -62,12 +62,14 @@ export type {
   FtsHit,
   FtsQueryOptions,
   FtsSearchOptions,
+  InsertEmbeddingOptions,
   KnnHit,
   KnnOptions,
   VectorPrecision,
 } from './search'
 export {
   deleteEmbeddingsForChunk,
+  deleteEmbeddingsForSource,
   EMBEDDING_DIMENSIONS,
   FTS_COLUMN_WEIGHTS,
   FTS_TOKENIZER,
