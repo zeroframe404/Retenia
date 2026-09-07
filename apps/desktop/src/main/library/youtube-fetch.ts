@@ -195,23 +195,40 @@ export interface PlaylistVideo {
   title: string
 }
 
+export interface FetchYouTubePlaylistResult {
+  videos: PlaylistVideo[]
+  /** True when the feed's entry count hit `PLAYLIST_FEED_ENTRY_LIMIT` — the signal that more
+   *  videos likely exist beyond what this fetch returned (see the function doc comment). Only
+   *  ever a lower bound: the feed gives no total count, so this is "at least this many", never a
+   *  precise "there are N more". */
+  truncated: boolean
+}
+
 const xmlParser = new XMLParser({
   ignoreAttributes: false,
   attributeNamePrefix: '@_',
   isArray: (name) => name === 'entry',
 })
 
+/** YouTube's public playlist Atom feed has never returned more than this many `<entry>`
+ *  elements regardless of the playlist's real size (an undocumented, long-standing limit of the
+ *  feed itself, not a `maxResults` this code could raise) — the threshold `truncated` below is
+ *  judged against. */
+const PLAYLIST_FEED_ENTRY_LIMIT = 15
+
 /**
  * The playlist's videos, from YouTube's public Atom feed — no Data API key, and compliant with
  * the "no yt-dlp" rule (`docs/spec/07-architecture.md`). The one real limitation: this feed
  * only ever lists a playlist's most recent entries (YouTube's own limit, not this code's), so a
- * long-standing playlist imports its latest videos rather than every video it has ever held —
- * documented rather than silently hidden (`caller` surfaces `truncated` accordingly).
+ * long-standing playlist imports its latest videos rather than every video it has ever held.
+ * Previously only documented in this comment and never actually surfaced anywhere a user could
+ * see it; `truncated` is what lets `service.ts` warn instead of silently importing a partial
+ * playlist with no indication anything was left out (`reviewer` finding).
  */
 export async function fetchYouTubePlaylist(
   playlistId: string,
   deps: { fetchImpl?: FetchImpl } = {},
-): Promise<PlaylistVideo[]> {
+): Promise<FetchYouTubePlaylistResult> {
   const fetchImpl = deps.fetchImpl ?? net.fetch
   const url = `${PLAYLIST_FEED_URL}?playlist_id=${encodeURIComponent(playlistId)}`
   const response = await fetchImpl(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) })
@@ -233,5 +250,5 @@ export async function fetchYouTubePlaylist(
       videos.push({ videoId, title })
     }
   }
-  return videos
+  return { videos, truncated: entries.length >= PLAYLIST_FEED_ENTRY_LIMIT }
 }

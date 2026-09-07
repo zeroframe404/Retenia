@@ -64,4 +64,23 @@ describe('createDefaultImageFetcher', () => {
 
     expect(result).toBeNull()
   })
+
+  it('refuses to follow a redirect, never requesting wherever it points', async () => {
+    const fetchImpl = vi.fn(
+      async (_url: string, _init?: RequestInit) =>
+        new Response(null, {
+          status: 302,
+          headers: { location: 'http://169.254.169.254/latest/meta-data/' },
+        }),
+    )
+    const fetchImage = createDefaultImageFetcher(PAGE_URL, fetchImpl as unknown as typeof fetch)
+
+    const result = await fetchImage('https://example.com/redirecting.png')
+
+    expect(result).toBeNull()
+    // Same-origin only ever validates the URL handed in; if the fetcher followed this redirect
+    // itself, the request would be to a private address it never gets a chance to check.
+    expect(fetchImpl).toHaveBeenCalledOnce()
+    expect(fetchImpl.mock.calls[0]?.[1]).toMatchObject({ redirect: 'manual' })
+  })
 })

@@ -5,6 +5,7 @@ class FakeBrowserWindow {
   webContents = {
     setWindowOpenHandler: vi.fn(),
     executeJavaScript: vi.fn(async () => '<html><body>rendered</body></html>'),
+    on: vi.fn(),
   }
   loadURL = vi.fn(async () => {})
   private destroyed = false
@@ -142,6 +143,7 @@ describe('renderWithHiddenWindow', () => {
       override webContents = {
         setWindowOpenHandler: vi.fn(),
         executeJavaScript: vi.fn(() => new Promise<string>(() => {})),
+        on: vi.fn(),
       }
     }
     vi.doMock('electron', () => ({
@@ -222,6 +224,7 @@ describe('renderWithHiddenWindow', () => {
       override webContents = {
         setWindowOpenHandler: vi.fn(),
         executeJavaScript: vi.fn(async () => 'x'.repeat(10 * 1024 * 1024 + 1)),
+        on: vi.fn(),
       }
     }
     vi.doMock('electron', () => ({ BrowserWindow: HugePageWindow, session: { fromPartition } }))
@@ -268,5 +271,114 @@ describe('renderWithHiddenWindow', () => {
 
     for (const release of releasers) release()
     await Promise.all(results)
+  })
+
+  it('rejects once the queue behind the concurrency cap is itself full, without spawning a window', async () => {
+    // Never resolves on its own — each of the 54 background renders below carries its own short
+    // `timeoutMs` instead, so the queue drains itself (via the ordinary `SpaRenderTimeoutError`
+    // path) once the assertion is done, with no manual release bookkeeping needed here.
+    class ControllableWindow extends FakeBrowserWindow {
+      override loadURL = vi.fn(() => new Promise<void>(() => {}))
+    }
+    vi.doMock('electron', () => ({ BrowserWindow: ControllableWindow, session: { fromPartition } }))
+    vi.resetModules()
+    const { renderWithHiddenWindow: renderControllable, TooManyPendingRendersError } = await import(
+      './spa-render'
+    )
+
+    // 4 active + 50 queued fills every slot this module allows; the 55th has nowhere to wait.
+    // Filling and checking that happens synchronously, within this one tick — `acquireRenderSlot`
+    // pushes its queue entry (or increments the active count) before its first `await`, so all 54
+    // calls below have already been sorted into "active" or "queued" by the time this line
+    // returns, with no `Promise.resolve()` flush needed to observe it.
+    const pending = Array.from({ length: 54 }, (_, i) =>
+      renderControllable(`https://queued.example/${i}`, { settleMs: 0, timeoutMs: 20 }).catch(
+        () => null,
+      ),
+    )
+
+    await expect(
+      renderControllable('https://one-too-many.example', { settleMs: 0, timeoutMs: 20 }),
+    ).rejects.toThrow(TooManyPendingRendersError)
+    expect(ControllableWindow.instances).toHaveLength(4)
+
+    await Promise.all(pending)
+  })
+
+  it('blocks a cross-origin navigation attempt, allowing a same-origin one', async () => {
+    await renderWithHiddenWindow('https://example.com/spa', { settleMs: 0 })
+    const window = FakeBrowserWindow.instances[0] as unknown as FakeBrowserWindow
+
+    const navigateCall = window.webContents.on.mock.calls.find(([name]) => name === 'will-navigate')
+    const redirectCall = window.webContents.on.mock.calls.find(([name]) => name === 'will-redirect')
+    expect(navigateCall).toBeDefined()
+    expect(redirectCall).toBeDefined()
+
+    const handler = navigateCall?.[1] as (
+      event: { preventDefault: () => void },
+      url: string,
+    ) => void
+    const allowed = { preventDefault: vi.fn() }
+    handler(allowed, 'https://example.com/other-page')
+    expect(allowed.preventDefault).not.toHaveBeenCalled()
+
+    const blocked = { preventDefault: vi.fn() }
+    handler(blocked, 'http://192.168.1.1/admin')
+    expect(blocked.preventDefault).toHaveBeenCalledOnce()
+  })
+
+  it('rejects when the rendered page is not a string at all (a page that redefined outerHTML)', async () => {
+    class NonStringWindow extends FakeBrowserWindow {
+      override webContents = {
+        setWindowOpenHandler: vi.fn(),
+        // biome-ignore lint/suspicious/noExplicitAny: deliberately the wrong type
+        executeJavaScript: vi.fn(async (): Promise<any> => ({ not: 'a string' })),
+        on: vi.fn(),
+      }
+    }
+    vi.doMock('electron', () => ({ BrowserWindow: NonStringWindow, session: { fromPartition } }))
+    vi.resetModules()
+    const { renderWithHiddenWindow: renderNonString } = await import('./spa-render')
+
+    await expect(renderNonString('https://example.com/spa', { settleMs: 0 })).rejects.toThrow(
+      /not a string/,
+    )
+  })
+
+  it('destroys the window before clearing session storage, not after', async () => {
+    const order: string[] = []
+    class OrderedWindow extends FakeBrowserWindow {
+      override destroy() {
+        order.push('destroy')
+        super.destroy()
+      }
+    }
+    const orderedSession = () => ({
+      ...makeFakeSession('ordered'),
+      clearStorageData: vi.fn(async () => {
+        order.push('clearStorageData')
+      }),
+    })
+    const orderedFromPartition = vi.fn(orderedSession)
+    vi.doMock('electron', () => ({
+      BrowserWindow: OrderedWindow,
+      session: { fromPartition: orderedFromPartition },
+    }))
+    vi.resetModules()
+    const { renderWithHiddenWindow: renderOrdered } = await import('./spa-render')
+
+    await renderOrdered('https://example.com/spa', { settleMs: 0 })
+
+    expect(order).toEqual(['destroy', 'clearStorageData'])
+  })
+
+  it('gives each render its own session partition rather than sharing one', async () => {
+    await renderWithHiddenWindow('https://example.com/first', { settleMs: 0 })
+    await renderWithHiddenWindow('https://example.com/second', { settleMs: 0 })
+
+    expect(fromPartition).toHaveBeenCalledTimes(2)
+    const [firstPartition] = fromPartition.mock.calls[0] as [string]
+    const [secondPartition] = fromPartition.mock.calls[1] as [string]
+    expect(firstPartition).not.toBe(secondPartition)
   })
 })

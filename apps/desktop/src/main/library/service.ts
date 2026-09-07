@@ -65,10 +65,14 @@ export interface LibraryService {
   /**
    * A pasted URL (sub-phase 6.5): fetches the page (or the video's oEmbed metadata and
    * transcript) in main, stores the result as the source's blob, and queues its parse exactly
-   * like every other kind. Returns more than one source only for a YouTube playlist URL — "one
-   * source per video in a collection" — a single page or video always returns one.
+   * like every other kind. `sources` holds more than one entry only for a YouTube playlist URL
+   * — "one source per video in a collection" — a single page or video always returns one.
+   * `truncated` is `true` only for a playlist whose public feed hit its own entry limit
+   * (`fetchYouTubePlaylist`'s `PLAYLIST_FEED_ENTRY_LIMIT`) — a long-standing playlist's older
+   * videos were left out, which the caller should tell the user rather than silently importing a
+   * partial collection.
    */
-  addFromUrl(url: string): Promise<Source[]>
+  addFromUrl(url: string): Promise<{ sources: Source[]; truncated: boolean }>
   /** Re-enqueues the same parse for a `failed` (or stuck) source. */
   retry(sourceId: string): Promise<Source>
   list(options?: { statuses?: SourceStatus[] } & ListOptions): Promise<Source[]>
@@ -155,7 +159,10 @@ export interface LibraryServiceOptions {
     url: string,
   ) => Promise<{ url: string; html: string; fetchedAt: string; rendered: boolean }>
   fetchYouTubeVideo?: (videoId: string) => Promise<YouTubeEnvelope>
-  fetchYouTubePlaylist?: (playlistId: string) => Promise<PlaylistVideo[]>
+  fetchYouTubePlaylist?: (playlistId: string) => Promise<{
+    videos: PlaylistVideo[]
+    truncated: boolean
+  }>
 }
 
 /** Thrown by `contextualize` when there is no provider to ask. Its own class so the IPC layer
@@ -487,11 +494,12 @@ export function createLibraryService({
         }
         const bytes = new TextEncoder().encode(JSON.stringify(envelope))
         const title = titleFromHtml(page.html) ?? page.url
-        return [await addBytes(bytes, 'application/json', 'web', title, page.url)]
+        const source = await addBytes(bytes, 'application/json', 'web', title, page.url)
+        return { sources: [source], truncated: false }
       }
 
       if (youtube.kind === 'playlist') {
-        const videos = await resolveFetchYouTubePlaylist(youtube.playlistId)
+        const { videos, truncated } = await resolveFetchYouTubePlaylist(youtube.playlistId)
         if (videos.length === 0) throw new EmptyYouTubePlaylistError(youtube.playlistId)
         const sources: Source[] = []
         for (const [playlistIndex, video] of videos.entries()) {
@@ -502,10 +510,10 @@ export function createLibraryService({
             }),
           )
         }
-        return sources
+        return { sources, truncated }
       }
 
-      return [await addYouTubeVideo(youtube.videoId)]
+      return { sources: [await addYouTubeVideo(youtube.videoId)], truncated: false }
     },
 
     retry: async (sourceId) => {

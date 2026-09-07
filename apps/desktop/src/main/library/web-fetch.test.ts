@@ -15,12 +15,22 @@ function fakeFetch(html: string, options: { url?: string; ok?: boolean; status?:
   })
 }
 
-/** `Response.url` is read-only in the real DOM; the fake above returns a plain `Response`
- *  (whose `.url` defaults to `''`), so tests that care about redirect resolution build one with
- *  `url` overridden directly instead of trying to construct a `Response` with a custom URL. */
-function withUrl(response: Response, url: string): Response {
-  Object.defineProperty(response, 'url', { value: url })
-  return response
+/** A real redirect response — status plus a `Location` header — the shape
+ *  `fetchFollowingValidatedRedirects` actually reads, now that redirects are driven by hand
+ *  (`redirect: 'manual'`) instead of trusting `net.fetch`'s own follow-and-report-`.url`
+ *  behaviour. */
+function redirectResponse(location: string, status = 302): Response {
+  return new Response(null, { status, headers: { location } })
+}
+
+function htmlResponse(html: string): Response {
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode(html))
+      controller.close()
+    },
+  })
+  return new Response(stream, { status: 200 })
 }
 
 const RICH_HTML = `<html><body><article>${'word '.repeat(600)}</article></body></html>`
@@ -61,6 +71,19 @@ describe('fetchWebPage', () => {
     expect(headers.get('User-Agent')).toMatch(/Chrome/)
   })
 
+  it('gives every hop a timeout signal, so a hung connection cannot stall the import forever', async () => {
+    const fetchImpl = fakeFetch(RICH_HTML)
+    await fetchWebPage('https://example.com/article', {
+      fetchImpl,
+      renderFallback: async () => '',
+      assertPublicUrl: ALLOW_ALL_URLS,
+    })
+
+    const [, init] = fetchImpl.mock.calls[0] ?? []
+    expect(init?.signal).toBeInstanceOf(AbortSignal)
+    expect(init?.signal?.aborted).toBe(false)
+  })
+
   it('escalates to the SPA fallback when the static page is too thin', async () => {
     const fetchImpl = fakeFetch(THIN_HTML)
     const renderFallback = vi.fn(async () => RICH_HTML)
@@ -77,15 +100,11 @@ describe('fetchWebPage', () => {
   })
 
   it('records the final URL after a redirect', async () => {
-    const fetchImpl = vi.fn(async () => {
-      const stream = new ReadableStream<Uint8Array>({
-        start(controller) {
-          controller.enqueue(new TextEncoder().encode(RICH_HTML))
-          controller.close()
-        },
-      })
-      return withUrl(new Response(stream, { status: 200 }), 'https://example.com/final')
-    })
+    const fetchImpl = vi.fn(async (input: string) =>
+      input === 'https://example.com/short-link'
+        ? redirectResponse('https://example.com/final')
+        : htmlResponse(RICH_HTML),
+    )
 
     const result = await fetchWebPage('https://example.com/short-link', {
       fetchImpl,
@@ -94,6 +113,94 @@ describe('fetchWebPage', () => {
     })
 
     expect(result.url).toBe('https://example.com/final')
+    expect(fetchImpl).toHaveBeenCalledTimes(2)
+  })
+
+  it('follows a relative Location header, resolved against the redirecting URL', async () => {
+    const fetchImpl = vi.fn(async (input: string) =>
+      input === 'https://example.com/short-link'
+        ? redirectResponse('/final')
+        : htmlResponse(RICH_HTML),
+    )
+
+    const result = await fetchWebPage('https://example.com/short-link', {
+      fetchImpl,
+      renderFallback: async () => '',
+      assertPublicUrl: ALLOW_ALL_URLS,
+    })
+
+    expect(result.url).toBe('https://example.com/final')
+  })
+
+  it('follows a multi-hop redirect chain, validating every hop', async () => {
+    const fetchImpl = vi.fn(async (input: string) => {
+      if (input === 'https://example.com/a') return redirectResponse('https://example.com/b')
+      if (input === 'https://example.com/b') return redirectResponse('https://example.com/c')
+      return htmlResponse(RICH_HTML)
+    })
+    const assertPublicUrl = vi.fn(async (_url: string) => {})
+
+    const result = await fetchWebPage('https://example.com/a', {
+      fetchImpl,
+      renderFallback: async () => '',
+      assertPublicUrl,
+    })
+
+    expect(result.url).toBe('https://example.com/c')
+    expect(assertPublicUrl.mock.calls.map(([url]) => url)).toEqual([
+      'https://example.com/a',
+      'https://example.com/b',
+      'https://example.com/c',
+    ])
+  })
+
+  it('refuses an intermediate redirect hop that targets a private address, without requesting it', async () => {
+    const fetchImpl = vi.fn(async (input: string) => {
+      if (input === 'https://example.com/start') {
+        return redirectResponse('http://192.168.1.1/internal')
+      }
+      throw new Error('must never request the internal hop, or anything after it')
+    })
+    const assertPublicUrl = vi.fn(async (url: string) => {
+      if (url.includes('192.168')) throw new Error('refusing: private address')
+    })
+
+    await expect(
+      fetchWebPage('https://example.com/start', {
+        fetchImpl,
+        renderFallback: async () => '',
+        assertPublicUrl,
+      }),
+    ).rejects.toThrow(/refusing/)
+    // Only the first hop was ever fetched — the guard ran before the internal hop's own request.
+    expect(fetchImpl).toHaveBeenCalledOnce()
+  })
+
+  it('throws when a redirect response carries no Location header', async () => {
+    const fetchImpl = vi.fn(async () => new Response(null, { status: 302 }))
+
+    await expect(
+      fetchWebPage('https://example.com/broken-redirect', {
+        fetchImpl,
+        renderFallback: async () => '',
+        assertPublicUrl: ALLOW_ALL_URLS,
+      }),
+    ).rejects.toThrow(/Location/)
+  })
+
+  it('gives up after too many redirects rather than looping forever', async () => {
+    const fetchImpl = vi.fn(async (input: string) => {
+      const n = Number(input.split('/').pop())
+      return redirectResponse(`https://example.com/${n + 1}`)
+    })
+
+    await expect(
+      fetchWebPage('https://example.com/0', {
+        fetchImpl,
+        renderFallback: async () => '',
+        assertPublicUrl: ALLOW_ALL_URLS,
+      }),
+    ).rejects.toThrow(/redirected more than/)
   })
 
   it('throws for a non-ok response', async () => {
@@ -144,19 +251,12 @@ describe('fetchWebPage', () => {
     expect(fetchImpl).not.toHaveBeenCalled()
   })
 
-  it('re-checks the final URL after a redirect, refusing one that lands on a private address', async () => {
-    const fetchImpl = vi.fn(async () => {
-      const stream = new ReadableStream<Uint8Array>({
-        start(controller) {
-          controller.enqueue(new TextEncoder().encode(RICH_HTML))
-          controller.close()
-        },
-      })
-      return withUrl(
-        new Response(stream, { status: 200 }),
-        'http://169.254.169.254/latest/meta-data/',
-      )
-    })
+  it('refuses a redirect that lands on a private address, without ever requesting it', async () => {
+    const fetchImpl = vi.fn(async (input: string) =>
+      input === 'https://example.com/redirects-to-internal'
+        ? redirectResponse('http://169.254.169.254/latest/meta-data/')
+        : htmlResponse(RICH_HTML),
+    )
     const assertPublicUrl = vi.fn(async (url: string) => {
       if (url.includes('169.254.169.254')) throw new Error('refusing: private address')
     })
@@ -170,6 +270,7 @@ describe('fetchWebPage', () => {
       }),
     ).rejects.toThrow(/refusing/)
     expect(assertPublicUrl).toHaveBeenCalledTimes(2)
+    expect(fetchImpl).toHaveBeenCalledOnce()
     expect(renderFallback).not.toHaveBeenCalled()
   })
 })

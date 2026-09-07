@@ -142,19 +142,37 @@ describe('fetchYouTubePlaylist', () => {
 </feed>`
     const fetchImpl = vi.fn(async () => new Response(xml, { status: 200 }))
 
-    const videos = await fetchYouTubePlaylist('PLabc123', { fetchImpl })
+    const result = await fetchYouTubePlaylist('PLabc123', { fetchImpl })
 
-    expect(videos).toEqual([
+    expect(result.videos).toEqual([
       { videoId: 'abc12345678', title: 'Lesson 1: Intro' },
       { videoId: 'def98765432', title: 'Lesson 2: Practice & Review' },
     ])
+    expect(result.truncated).toBe(false)
   })
 
-  it('returns an empty list for a playlist with no entries', async () => {
+  it('returns an empty, non-truncated list for a playlist with no entries', async () => {
     const xml = '<feed xmlns="http://www.w3.org/2005/Atom"></feed>'
     const fetchImpl = vi.fn(async () => new Response(xml, { status: 200 }))
 
-    expect(await fetchYouTubePlaylist('PLempty', { fetchImpl })).toEqual([])
+    expect(await fetchYouTubePlaylist('PLempty', { fetchImpl })).toEqual({
+      videos: [],
+      truncated: false,
+    })
+  })
+
+  it('reports truncated when the feed returns its maximum entry count', async () => {
+    const entries = Array.from(
+      { length: 15 },
+      (_, i) => `<entry><yt:videoId>vid${i}</yt:videoId><title>Video ${i}</title></entry>`,
+    ).join('\n')
+    const xml = `<feed xmlns:yt="http://www.youtube.com/xml/schemas/2015" xmlns="http://www.w3.org/2005/Atom">${entries}</feed>`
+    const fetchImpl = vi.fn(async () => new Response(xml, { status: 200 }))
+
+    const result = await fetchYouTubePlaylist('PLfull', { fetchImpl })
+
+    expect(result.videos).toHaveLength(15)
+    expect(result.truncated).toBe(true)
   })
 
   it('throws for a non-ok response', async () => {

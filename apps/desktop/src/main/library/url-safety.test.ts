@@ -70,6 +70,17 @@ describe('assertPublicHttpUrl', () => {
     ['multicast', '[ff02::1]'],
     ['IPv4-mapped loopback', '[::ffff:127.0.0.1]'],
     ['IPv4-mapped private', '[::ffff:192.168.1.1]'],
+    // IPv4-compatible (deprecated, still parsed): a bare IPv4 address in the last 32 bits with
+    // an all-zero 96-bit prefix — not the same form as `::ffff:a.b.c.d` above (no `ffff`).
+    ['IPv4-compatible loopback', '[::127.0.0.1]'],
+    ['IPv4-compatible link-local/cloud-metadata', '[::169.254.169.254]'],
+    ['IPv4-compatible loopback (hex groups)', '[::7f00:1]'],
+    // NAT64's well-known prefix, embedding an IPv4 address in the last 32 bits.
+    ['NAT64-embedded loopback', '[64:ff9b::127.0.0.1]'],
+    ['NAT64-embedded private', '[64:ff9b::192.168.1.1]'],
+    // 6to4: the embedded IPv4 address sits right after the fixed 2002:: prefix.
+    ['6to4-embedded loopback', '[2002:7f00:1::]'],
+    ['6to4-embedded private', '[2002:c0a8:101::]'],
   ])('rejects a literal IPv6 host that is %s (%s)', async (_label, host) => {
     await expect(assertPublicHttpUrl(`http://${host}/`)).rejects.toThrow(UnsafeImportUrlError)
   })
@@ -82,6 +93,11 @@ describe('assertPublicHttpUrl', () => {
     await expect(
       assertPublicHttpUrl('http://[2606:2800:220:1:248:1893:25c8:1946]/'),
     ).resolves.toBeUndefined()
+  })
+
+  it('accepts a 6to4 address whose embedded IPv4 is public', async () => {
+    // 2002:5db8:d800:: encodes the public address 93.184.216.0.
+    await expect(assertPublicHttpUrl('http://[2002:5db8:d800::]/')).resolves.toBeUndefined()
   })
 
   it('rejects a public-looking hostname that resolves to a private address (DNS rebinding)', async () => {

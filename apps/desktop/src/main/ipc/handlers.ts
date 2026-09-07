@@ -603,9 +603,10 @@ export function createHandlers({
     'library.addSourceFromText': async ({ text, title }) =>
       toSourceSummary(await library.addFromText(text, title)),
 
-    'library.addSourceFromUrl': async ({ url }) => ({
-      sources: (await library.addFromUrl(url)).map(toSourceSummary),
-    }),
+    'library.addSourceFromUrl': async ({ url }) => {
+      const { sources, truncated } = await library.addFromUrl(url)
+      return { sources: sources.map(toSourceSummary), truncated }
+    },
 
     'library.retrySource': async ({ id }) => toSourceSummary(await library.retry(id)),
 

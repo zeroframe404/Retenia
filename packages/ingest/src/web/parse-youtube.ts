@@ -65,7 +65,15 @@ export async function defaultFetchThumbnail(
   if (!isAllowedThumbnailUrl(url)) return null
 
   try {
-    const response = await fetchImpl(url, { signal: AbortSignal.timeout(10_000) })
+    // `redirect: 'manual'`, exactly as `parse-web.ts`'s `createDefaultImageFetcher` now does: the
+    // host allowlist above only ever validates the *original* URL, so following a redirect would
+    // let it land anywhere — the allowlist would exist in name only (`security-reviewer` finding
+    // "New-3"). The thumbnail is best-effort already (`catch` below returns `null`, never fails
+    // the import), so refusing a redirect outright costs nothing worse than a missing preview.
+    const response = await fetchImpl(url, {
+      signal: AbortSignal.timeout(10_000),
+      redirect: 'manual',
+    })
     if (!response.ok || response.body === null) return null
 
     // Streamed and capped exactly like `parse-web.ts`'s `createDefaultImageFetcher`: the whole

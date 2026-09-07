@@ -16,6 +16,20 @@ import { isIPv4, isIPv6 } from 'node:net'
  * `10.0.0.5` on the user's own network, or a public-looking host that 302s to a private one —
  * `assertPublicHttpUrl` is called again on every redirect hop by `web-fetch.ts`, not just once
  * on the input URL).
+ *
+ * Accepted residual risk (`security-reviewer` finding "New-2"): this resolves the hostname once,
+ * here, via `dns.lookup`; the actual request is then issued independently by `net.fetch` (in
+ * `web-fetch.ts`) or by Chromium's own navigation stack (in `spa-render.ts`'s hidden
+ * `BrowserWindow`), each of which may resolve the *same* hostname again through a different
+ * resolver (DNS-over-HTTPS, a corporate proxy, a stale cache) and could in principle land on a
+ * different address than the one just checked — a DNS TOCTOU/rebinding window this module does
+ * not close. Closing it fully would mean resolving once and connecting to the pinned IP directly
+ * (with an explicit `Host` header), which neither `net.fetch` nor a `BrowserWindow` navigation
+ * exposes a way to do. Treated as acceptable here because the realistic attacker (a hostile
+ * webpage driving a deep link, or a hostile page fetched as a source) cannot control the
+ * resolution race window with any precision, and the common, high-confidence cases — a literal
+ * private IP, a hostname that resolves privately every time, a redirect straight to one — are
+ * exactly what this module does close.
  */
 
 export class UnsafeImportUrlError extends Error {
@@ -58,23 +72,105 @@ function isPrivateOrReservedIPv4(ip: string): boolean {
   return false
 }
 
+/**
+ * Expands any valid textual IPv6 form (`::` compression, an embedded-IPv4 tail like
+ * `::ffff:127.0.0.1` or `64:ff9b::1.2.3.4`) into its 16 address bytes, or `null` if it isn't
+ * well-formed. A previous version of the range checks below worked off the *first hex group*
+ * as a number, which is only ever exact for prefixes aligned to a 16-bit boundary — `fe80::/10`
+ * and `fc00::/7` happen to be, but this misses e.g. `::127.0.0.1` (`security-reviewer` finding
+ * "New-5": an IPv4-compatible or NAT64/6to4 address encoding a private IPv4 was never checked
+ * at all). Byte-level prefix matching below is exact for any prefix length.
+ */
+function parseIPv6Bytes(ip: string): Uint8Array | null {
+  const withoutZone = ip.split('%')[0] ?? ip
+  const halves = withoutZone.split('::')
+  if (halves.length > 2) return null // more than one "::" is never valid
+
+  // The last group of either half may be a dotted IPv4 literal (`::ffff:127.0.0.1`,
+  // `64:ff9b::1.2.3.4`) — folded into two hex groups before the rest is parsed as plain IPv6.
+  function groupsOf(half: string | undefined): string[] | null {
+    if (half === undefined || half.length === 0) return []
+    const groups = half.split(':')
+    const last = groups.at(-1)
+    if (last?.includes('.')) {
+      const octets = last.split('.')
+      if (octets.length !== 4) return null
+      const bytes = octets.map(Number)
+      if (bytes.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) return null
+      const [a, b, c, d] = bytes as [number, number, number, number]
+      groups.splice(groups.length - 1, 1, ((a << 8) | b).toString(16), ((c << 8) | d).toString(16))
+    }
+    return groups
+  }
+
+  const head = groupsOf(halves[0])
+  const tail = halves.length === 2 ? groupsOf(halves[1]) : []
+  if (head === null || tail === null) return null
+
+  let allGroups: string[]
+  if (halves.length === 2) {
+    const missing = 8 - head.length - tail.length
+    if (missing < 0) return null
+    allGroups = [...head, ...(Array(missing).fill('0') as string[]), ...tail]
+  } else {
+    if (head.length !== 8) return null
+    allGroups = head
+  }
+  if (allGroups.length !== 8 || allGroups.some((g) => g.length === 0)) return null
+
+  const bytes = new Uint8Array(16)
+  for (const [i, group] of allGroups.entries()) {
+    if (!/^[0-9a-fA-F]{1,4}$/.test(group)) return null
+    const value = Number.parseInt(group, 16)
+    bytes[i * 2] = (value >> 8) & 0xff
+    bytes[i * 2 + 1] = value & 0xff
+  }
+  return bytes
+}
+
+/** Whether `bytes`' leading `bitLength` bits equal `prefix`'s. */
+function hasIPv6Prefix(bytes: Uint8Array, prefix: number[], bitLength: number): boolean {
+  const fullBytes = Math.floor(bitLength / 8)
+  for (let i = 0; i < fullBytes; i += 1) {
+    if (bytes[i] !== prefix[i]) return false
+  }
+  const remainingBits = bitLength % 8
+  if (remainingBits === 0) return true
+  const mask = (0xff << (8 - remainingBits)) & 0xff
+  return ((bytes[fullBytes] ?? 0) & mask) === ((prefix[fullBytes] ?? 0) & mask)
+}
+
+function ipv4StringFromLastBytes(bytes: Uint8Array): string {
+  return `${bytes[12]}.${bytes[13]}.${bytes[14]}.${bytes[15]}`
+}
+
 /** IPv6 equivalents: loopback, unspecified, link-local (`fe80::/10`), unique local
- *  (`fc00::/7`, the IPv6 analogue of RFC 1918), multicast, and IPv4-mapped/-compatible
- *  addresses (checked against the IPv4 table above — `::ffff:127.0.0.1` is loopback too). */
+ *  (`fc00::/7`, the IPv6 analogue of RFC 1918), multicast, and every address family that embeds
+ *  an IPv4 address — IPv4-mapped (`::ffff:0:0/96`), IPv4-compatible (`::/96`, deprecated but
+ *  still parsed by every stack), NAT64 (`64:ff9b::/96`) and 6to4 (`2002::/16`) — delegated to
+ *  the IPv4 table above so a private address encoded any of these ways is still refused. */
 function isPrivateOrReservedIPv6(ip: string): boolean {
-  const normalized = ip.toLowerCase()
-  if (normalized === '::1' || normalized === '::') return true
+  const bytes = parseIPv6Bytes(ip)
+  if (bytes === null) return true // Not well-formed — refused, not let through.
 
-  const mappedV4 = /^::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/.exec(normalized)
-  if (mappedV4?.[1] !== undefined) return isPrivateOrReservedIPv4(mappedV4[1])
+  if (bytes.every((b) => b === 0)) return true // ::
+  if (bytes.every((b, i) => b === (i === 15 ? 1 : 0))) return true // ::1
 
-  const firstGroup = normalized.split(':').find((group) => group.length > 0)
-  const value = firstGroup !== undefined ? Number.parseInt(firstGroup, 16) : Number.NaN
-  if (Number.isNaN(value)) return true
-
-  if (value >= 0xfe80 && value <= 0xfebf) return true // link-local, fe80::/10
-  if (value >= 0xfc00 && value <= 0xfdff) return true // unique local, fc00::/7
-  if (value >= 0xff00 && value <= 0xffff) return true // multicast, ff00::/8
+  if (hasIPv6Prefix(bytes, [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff], 96)) {
+    return isPrivateOrReservedIPv4(ipv4StringFromLastBytes(bytes)) // IPv4-mapped
+  }
+  if (hasIPv6Prefix(bytes, new Array(12).fill(0), 96)) {
+    return isPrivateOrReservedIPv4(ipv4StringFromLastBytes(bytes)) // IPv4-compatible
+  }
+  if (hasIPv6Prefix(bytes, [0x00, 0x64, 0xff, 0x9b, 0, 0, 0, 0, 0, 0, 0, 0], 96)) {
+    return isPrivateOrReservedIPv4(ipv4StringFromLastBytes(bytes)) // NAT64
+  }
+  if (bytes[0] === 0x20 && bytes[1] === 0x02) {
+    return isPrivateOrReservedIPv4(`${bytes[2]}.${bytes[3]}.${bytes[4]}.${bytes[5]}`) // 6to4
+  }
+  if (bytes[0] === 0xfe && ((bytes[1] ?? 0) & 0xc0) === 0x80) return true // fe80::/10
+  if (((bytes[0] ?? 0) & 0xfe) === 0xfc) return true // fc00::/7
+  if (bytes[0] === 0xff) return true // ff00::/8 multicast
   return false
 }
 

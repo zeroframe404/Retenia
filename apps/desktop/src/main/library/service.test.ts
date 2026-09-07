@@ -746,8 +746,12 @@ describe('LibraryService', () => {
       })
       const service2 = urlService({ fetchWebPage })
 
-      const [source] = await service2.addFromUrl('https://example.com/article')
+      const {
+        sources: [source],
+        truncated,
+      } = await service2.addFromUrl('https://example.com/article')
 
+      expect(truncated).toBe(false)
       expect(source?.kind).toBe('web')
       expect(source?.title).toBe('Spaced repetition')
       expect(source?.originUri).toBe('https://example.com/article')
@@ -766,7 +770,9 @@ describe('LibraryService', () => {
       })
       const service2 = urlService({ fetchWebPage })
 
-      const [source] = await service2.addFromUrl('https://example.com/no-title')
+      const {
+        sources: [source],
+      } = await service2.addFromUrl('https://example.com/no-title')
       expect(source?.title).toBe('https://example.com/no-title')
     })
 
@@ -784,8 +790,12 @@ describe('LibraryService', () => {
       })
       const service2 = urlService({ fetchYouTubeVideo })
 
-      const [source] = await service2.addFromUrl('https://youtu.be/dQw4w9WgXcQ')
+      const {
+        sources: [source],
+        truncated,
+      } = await service2.addFromUrl('https://youtu.be/dQw4w9WgXcQ')
 
+      expect(truncated).toBe(false)
       expect(source?.kind).toBe('youtube')
       expect(source?.title).toBe('How spaced repetition works')
       expect(source?.originUri).toBe('https://www.youtube.com/watch?v=dQw4w9WgXcQ')
@@ -794,10 +804,13 @@ describe('LibraryService', () => {
     })
 
     it('imports a playlist as one source per video', async () => {
-      const fetchYouTubePlaylist = async () => [
-        { videoId: 'aaaaaaaaaaa', title: 'Lesson 1' },
-        { videoId: 'bbbbbbbbbbb', title: 'Lesson 2' },
-      ]
+      const fetchYouTubePlaylist = async () => ({
+        videos: [
+          { videoId: 'aaaaaaaaaaa', title: 'Lesson 1' },
+          { videoId: 'bbbbbbbbbbb', title: 'Lesson 2' },
+        ],
+        truncated: false,
+      })
       const fetchYouTubeVideo = async (videoId: string) => ({
         url: `https://www.youtube.com/watch?v=${videoId}`,
         videoId,
@@ -811,21 +824,24 @@ describe('LibraryService', () => {
       })
       const service2 = urlService({ fetchYouTubePlaylist, fetchYouTubeVideo })
 
-      const result = await service2.addFromUrl('https://www.youtube.com/playlist?list=PLabc123')
+      const { sources, truncated } = await service2.addFromUrl(
+        'https://www.youtube.com/playlist?list=PLabc123',
+      )
 
-      expect(result).toHaveLength(2)
-      expect(result.map((source) => source.kind)).toEqual(['youtube', 'youtube'])
+      expect(truncated).toBe(false)
+      expect(sources).toHaveLength(2)
+      expect(sources.map((source) => source.kind)).toEqual(['youtube', 'youtube'])
       // No oEmbed title for either video: the playlist entry's own title is the fallback.
-      expect(result.map((source) => source.title)).toEqual(['Lesson 1', 'Lesson 2'])
+      expect(sources.map((source) => source.title)).toEqual(['Lesson 1', 'Lesson 2'])
       const active = await scheduler.listActive()
       expect(active).toHaveLength(2)
     })
 
-    it('stamps playlistId and playlistIndex onto each stored envelope', async () => {
-      const fetchYouTubePlaylist = async () => [
-        { videoId: 'aaaaaaaaaaa', title: 'Lesson 1' },
-        { videoId: 'bbbbbbbbbbb', title: 'Lesson 2' },
-      ]
+    it('surfaces truncated when the playlist feed hit its own entry limit', async () => {
+      const fetchYouTubePlaylist = async () => ({
+        videos: [{ videoId: 'aaaaaaaaaaa', title: 'Lesson 1' }],
+        truncated: true,
+      })
       const fetchYouTubeVideo = async (videoId: string) => ({
         url: `https://www.youtube.com/watch?v=${videoId}`,
         videoId,
@@ -839,10 +855,40 @@ describe('LibraryService', () => {
       })
       const service2 = urlService({ fetchYouTubePlaylist, fetchYouTubeVideo })
 
-      const result = await service2.addFromUrl('https://www.youtube.com/playlist?list=PLabc123')
+      const { truncated } = await service2.addFromUrl(
+        'https://www.youtube.com/playlist?list=PLabc123',
+      )
+
+      expect(truncated).toBe(true)
+    })
+
+    it('stamps playlistId and playlistIndex onto each stored envelope', async () => {
+      const fetchYouTubePlaylist = async () => ({
+        videos: [
+          { videoId: 'aaaaaaaaaaa', title: 'Lesson 1' },
+          { videoId: 'bbbbbbbbbbb', title: 'Lesson 2' },
+        ],
+        truncated: false,
+      })
+      const fetchYouTubeVideo = async (videoId: string) => ({
+        url: `https://www.youtube.com/watch?v=${videoId}`,
+        videoId,
+        fetchedAt: '2026-09-06T00:00:00.000Z',
+        title: null,
+        author: null,
+        thumbnailUrl: null,
+        transcript: null,
+        transcriptLanguage: null,
+        transcriptUnavailableReason: 'no captions',
+      })
+      const service2 = urlService({ fetchYouTubePlaylist, fetchYouTubeVideo })
+
+      const { sources } = await service2.addFromUrl(
+        'https://www.youtube.com/playlist?list=PLabc123',
+      )
 
       const envelopes = await Promise.all(
-        result.map(async (source) => {
+        sources.map(async (source) => {
           const bytes = await blobStore.get(source.blobSha256 as string, 'json')
           return JSON.parse(new TextDecoder().decode(bytes)) as {
             playlistId: string
@@ -870,7 +916,9 @@ describe('LibraryService', () => {
       })
       const service2 = urlService({ fetchYouTubeVideo })
 
-      const [source] = await service2.addFromUrl('https://youtu.be/dQw4w9WgXcQ')
+      const {
+        sources: [source],
+      } = await service2.addFromUrl('https://youtu.be/dQw4w9WgXcQ')
       const bytes = await blobStore.get(source?.blobSha256 as string, 'json')
       const envelope = JSON.parse(new TextDecoder().decode(bytes)) as Record<string, unknown>
       expect(envelope.playlistId).toBeUndefined()
@@ -878,7 +926,9 @@ describe('LibraryService', () => {
     })
 
     it('throws EmptyYouTubePlaylistError for a playlist with no videos', async () => {
-      const service2 = urlService({ fetchYouTubePlaylist: async () => [] })
+      const service2 = urlService({
+        fetchYouTubePlaylist: async () => ({ videos: [], truncated: false }),
+      })
       await expect(
         service2.addFromUrl('https://www.youtube.com/playlist?list=PLempty'),
       ).rejects.toThrow(EmptyYouTubePlaylistError)

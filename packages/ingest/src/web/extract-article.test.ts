@@ -80,4 +80,50 @@ describe('extractArticle', () => {
     expect(result.extractor).toBe('raw')
     expect(result.title).toBe('Loading…')
   })
+
+  it('reads the canonical URL from <link rel="canonical">, resolved to an absolute URL', async () => {
+    const html = `<html><head>
+      <link rel="canonical" href="/articles/spaced-repetition">
+      <title>Thin page</title>
+    </head><body><p>Hi.</p></body></html>`
+    const result = await extractArticle(
+      html,
+      'https://example.com/articles/spaced-repetition?utm_source=x',
+      {
+        tryDefuddle: async () => undefined,
+        tryReadability: () => undefined,
+      },
+    )
+
+    expect(result.canonicalUrl).toBe('https://example.com/articles/spaced-repetition')
+  })
+
+  it('resolves an absolute canonical URL as-is, even on a different host (an AMP mirror)', async () => {
+    const html =
+      '<html><head><link rel="canonical" href="https://original.example/post"></head><body><p>Hi.</p></body></html>'
+    const result = await extractArticle(html, 'https://amp.example/post', {
+      tryDefuddle: async () => undefined,
+      tryReadability: () => undefined,
+    })
+
+    expect(result.canonicalUrl).toBe('https://original.example/post')
+  })
+
+  it('is null when the page has no canonical link', async () => {
+    const html = await readFixture('article.html')
+    const result = await extractArticle(html, ARTICLE_URL)
+
+    expect(result.canonicalUrl).toBeNull()
+  })
+
+  it('is null for a malformed canonical href rather than throwing', async () => {
+    const html =
+      '<html><head><link rel="canonical" href="   "></head><body><p>Hi.</p></body></html>'
+    const result = await extractArticle(html, ARTICLE_URL, {
+      tryDefuddle: async () => undefined,
+      tryReadability: () => undefined,
+    })
+
+    expect(result.canonicalUrl).toBeNull()
+  })
 })

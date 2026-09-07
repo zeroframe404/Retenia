@@ -452,7 +452,13 @@ export const libraryChannels = defineContract({
    */
   'library.addSourceFromUrl': {
     input: z.object({ url: z.url({ protocol: /^https?$/ }).max(2_000) }),
-    output: z.object({ sources: z.array(sourceSummarySchema) }),
+    output: z.object({
+      sources: z.array(sourceSummarySchema),
+      /** True only for a YouTube playlist whose public feed hit its own entry limit — its
+       *  older videos were left out of `sources`, so the renderer warns rather than leaving the
+       *  user to notice a partial import on their own. Always `false` for a single page/video. */
+      truncated: z.boolean(),
+    }),
   },
 
   /**

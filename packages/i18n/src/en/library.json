@@ -116,5 +116,6 @@
   "addFolder": "Add a course folder",
   "courseImported": "Imported {count} lessons as a single source.",
   "courseTruncated": "The folder holds more files than one import can take; the first {count} were used.",
-  "courseEmpty": "That folder has no audio or video in it."
+  "courseEmpty": "That folder has no audio or video in it.",
+  "playlistTruncated": "This playlist has more videos than YouTube's public feed lists; only the most recent ones were imported."
 }

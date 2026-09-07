@@ -97,8 +97,15 @@ export function createDefaultImageFetcher(
     if (url.origin !== origin) return null
 
     try {
+      // `redirect: 'manual'` rather than the default `'follow'`: a same-origin URL that 302s
+      // elsewhere would otherwise be fetched wherever it redirects to — including off-origin, or
+      // to a private/internal address — with nothing here ever re-checking the target, since the
+      // origin check above only ever saw the *original* URL (`security-reviewer` finding
+      // "New-3"). A redirecting image is unusual enough that simply refusing to follow it (same
+      // as `!response.ok` already treats any other failure) costs nothing real.
       const response = await fetchImpl(url.href, {
         signal: AbortSignal.timeout(IMAGE_FETCH_TIMEOUT_MS),
+        redirect: 'manual',
       })
       if (!response.ok || response.body === null) return null
       const contentLength = response.headers.get('content-length')
@@ -276,9 +283,14 @@ async function pushFigure(wc: WalkContext, img: HTMLImageElement, anchor: string
     if (overCap) wc.imageCapHit = true
 
     if (!skip && !overCap) {
+      // Counted here, before the request, not after a successful one: a page with thousands of
+      // same-origin `<img>` tags pointing at 404s or slow endpoints would otherwise issue
+      // unbounded *requests* even though it never produces enough successes to trip the cap
+      // (`security-reviewer` finding "New-4") — each failed attempt still costs up to
+      // `IMAGE_FETCH_TIMEOUT_MS`, so request count needs its own ceiling independent of outcome.
+      wc.imagesFetched += 1
       const fetched = await wc.fetchImage(absolute)
       if (fetched !== null) {
-        wc.imagesFetched += 1
         wc.imageBytesFetched += fetched.bytes.byteLength
         asset = await wc.ctx.putAsset(fetched.bytes, fetched.mime, 'image')
         wc.assets.push(asset)
@@ -454,7 +466,14 @@ export async function parseWebPage(
     meta: {
       warnings,
       origin: {
-        url: envelope.url,
+        // Prefers the page's own `<link rel="canonical">` over the URL actually fetched: the
+        // same article reached via `?utm_source=…`, an AMP mirror, or a share link would
+        // otherwise cite and (on a later re-fetch) resolve to a different URL every time
+        // (`reviewer` finding). `wc.pageUrl` — what image/link resolution and the same-origin
+        // check are based on — deliberately stays the *fetched* URL regardless: a canonical tag
+        // can point at a different domain (the AMP-to-original case), which would be the wrong
+        // base for the page's own relative URLs.
+        url: extracted.canonicalUrl ?? envelope.url,
         fetchedAt: envelope.fetchedAt,
         ...(extracted.author !== null ? { author: extracted.author } : {}),
       },

@@ -1,5 +1,6 @@
 import { toast } from '@retenia/ui'
 import { useState } from 'react'
+import { useT } from '../../i18n/use-t'
 import { SourceDetail } from './source-detail'
 import { SourceList } from './source-list'
 import {
@@ -71,6 +72,7 @@ export interface LibraryPageProps {
 /** The Library screen (sub-phases 6.1 and 6.2): import sources, watch them parse and chunk via
  *  the job tray, open one to see its section tree, its block preview and its chunks. */
 export function LibraryPage({ searchQuery }: LibraryPageProps) {
+  const t = useT('library')
   useLibraryJobEvents()
   const [selectedId, setSelectedId] = useState<string | undefined>()
 
@@ -107,10 +109,18 @@ export function LibraryPage({ searchQuery }: LibraryPageProps) {
       onAddFromUrl={(url) =>
         addFromUrl.mutate(
           { url },
-          // A 404, a size-cap rejection, an SSRF refusal, an empty playlist, a rendering
-          // timeout — all of it used to fail with no feedback at all: the dialog closed and
-          // nothing appeared in the Library, with no way to tell why (`reviewer` finding).
-          { onError: (error) => toast.error(error.message) },
+          {
+            // A 404, a size-cap rejection, an SSRF refusal, an empty playlist, a rendering
+            // timeout — all of it used to fail with no feedback at all: the dialog closed and
+            // nothing appeared in the Library, with no way to tell why (`reviewer` finding).
+            onError: (error) => toast.error(error.message),
+            // A playlist whose public feed hit its own entry limit imports only its most recent
+            // videos with no other sign anything was left out — surfaced here rather than
+            // silently importing a partial collection (`reviewer` finding).
+            onSuccess: (result) => {
+              if (result.truncated) toast.warning(t('playlistTruncated'))
+            },
+          },
         )
       }
     />

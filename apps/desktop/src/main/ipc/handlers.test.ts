@@ -727,7 +727,7 @@ describe('library channels', () => {
   it('adds a pasted URL as one or more new sources', async () => {
     const deps = makeDeps()
     const second = { ...source, id: 'source-2' }
-    deps.library.addFromUrl = vi.fn(async () => [source, second])
+    deps.library.addFromUrl = vi.fn(async () => ({ sources: [source, second], truncated: false }))
     const handlers = createHandlers(deps)
 
     const result = await handlers['library.addSourceFromUrl'](
@@ -736,7 +736,21 @@ describe('library channels', () => {
     )
 
     expect(result.sources.map((s) => s.id)).toEqual([source.id, second.id])
+    expect(result.truncated).toBe(false)
     expect(deps.library.addFromUrl).toHaveBeenCalledExactlyOnceWith('https://example.com/article')
+  })
+
+  it('surfaces truncated when the library reports a partial playlist import', async () => {
+    const deps = makeDeps()
+    deps.library.addFromUrl = vi.fn(async () => ({ sources: [source], truncated: true }))
+    const handlers = createHandlers(deps)
+
+    const result = await handlers['library.addSourceFromUrl'](
+      { url: 'https://www.youtube.com/playlist?list=PLabc123' },
+      fakeEvent,
+    )
+
+    expect(result.truncated).toBe(true)
   })
 
   it('imports every dropped file from its bytes, dropping only the ones that fail', async () => {

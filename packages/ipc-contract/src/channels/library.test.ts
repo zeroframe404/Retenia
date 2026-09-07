@@ -155,9 +155,13 @@ describe('library.addSourceFromUrl', () => {
     expect(input.safeParse({ url: 'not a url' }).success).toBe(false)
   })
 
-  it('outputs an array of sources', () => {
-    const parsed = output.parse({ sources: [] })
-    expect(parsed).toEqual({ sources: [] })
+  it('outputs an array of sources plus a truncated flag', () => {
+    const parsed = output.parse({ sources: [], truncated: false })
+    expect(parsed).toEqual({ sources: [], truncated: false })
+  })
+
+  it('rejects an output missing truncated', () => {
+    expect(output.safeParse({ sources: [] }).success).toBe(false)
   })
 })
 

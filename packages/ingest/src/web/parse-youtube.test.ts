@@ -225,4 +225,22 @@ describe('defaultFetchThumbnail', () => {
     expect(result?.mime).toBe('image/jpeg')
     expect(result?.bytes).toEqual(new Uint8Array([1, 2, 3]))
   })
+
+  it('refuses to follow a redirect even from an allowed host', async () => {
+    const fetchImpl = vi.fn(
+      async (_url: string, _init?: RequestInit) =>
+        new Response(null, {
+          status: 302,
+          headers: { location: 'http://169.254.169.254/latest/meta-data/' },
+        }),
+    )
+
+    const result = await defaultFetchThumbnail(
+      'https://i.ytimg.com/vi/x/hqdefault.jpg',
+      fetchImpl as unknown as typeof fetch,
+    )
+    expect(result).toBeNull()
+    expect(fetchImpl).toHaveBeenCalledOnce()
+    expect(fetchImpl.mock.calls[0]?.[1]).toMatchObject({ redirect: 'manual' })
+  })
 })

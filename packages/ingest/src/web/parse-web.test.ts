@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { createFakeParseContext } from '../../test/fake-parse-context'
 import { parseWebPage } from './parse-web'
 import type { WebImageFetcher, WebPageEnvelope } from './types'
@@ -136,6 +136,45 @@ describe('parseWebPage', () => {
     expect(figure?.html).toContain('&quot;')
   })
 
+  it('never fetches a same-origin 1x1 tracker pixel', async () => {
+    const ctx = createFakeParseContext()
+    const html = `<html><body><article>
+      <p>Intro paragraph long enough to count as real content for extraction purposes here.</p>
+      <img src="https://example.com/pixel.gif" width="1" height="1" alt="">
+    </article></body></html>`
+    const fetchImage: WebImageFetcher = vi.fn(async () => ({
+      bytes: new Uint8Array([1]),
+      mime: 'image/gif',
+    }))
+    const doc = await parseWebPage(await envelopeInput({ html }), ctx, { fetchImage })
+
+    expect(fetchImage).not.toHaveBeenCalled()
+    expect(doc.blocks.filter((b) => b.type === 'figure')).toHaveLength(0)
+  })
+
+  it('caps total image bytes per document even under the 200-image count cap, warning when hit', async () => {
+    const ctx = createFakeParseContext()
+    const html = `<html><body><article>
+      <p>Intro paragraph long enough to count as real content for extraction purposes here.</p>
+      <img src="https://example.com/a.png" alt="a">
+      <img src="https://example.com/b.png" alt="b">
+      <img src="https://example.com/c.png" alt="c">
+    </article></body></html>`
+    // 30 MB each: the first two total 60 MB, already over the 50 MB cap, so the third is
+    // skipped on the byte check well before the 200-image count cap would ever trip.
+    const thirtyMb = 30 * 1024 * 1024
+    let fetchCount = 0
+    const fetchImage: WebImageFetcher = async () => {
+      fetchCount += 1
+      return { bytes: new Uint8Array(thirtyMb), mime: 'image/png' }
+    }
+    const doc = await parseWebPage(await envelopeInput({ html }), ctx, { fetchImage })
+
+    expect(fetchCount).toBe(2)
+    expect(doc.assets).toHaveLength(2)
+    expect(doc.meta.warnings.some((w) => w.includes('more images than'))).toBe(true)
+  })
+
   it('caps the number of images fetched per document, warning when the cap is hit', async () => {
     const ctx = createFakeParseContext()
     const images = Array.from(
@@ -155,6 +194,63 @@ describe('parseWebPage', () => {
 
     expect(fetchCount).toBe(200)
     expect(doc.assets).toHaveLength(200)
+    expect(doc.meta.warnings.some((w) => w.includes('more images than'))).toBe(true)
+  })
+
+  it('prefers the canonical URL for meta.origin.url, while still resolving images against the fetched URL', async () => {
+    const ctx = createFakeParseContext()
+    const html = `<html><head>
+      <link rel="canonical" href="https://example.com/articles/spaced-repetition">
+    </head><body><article>
+      <p>Intro paragraph long enough to count as real content for extraction purposes here.</p>
+      <img src="images/diagram.png" alt="A diagram">
+    </article></body></html>`
+    const fetchedUrl = 'https://example.com/articles/spaced-repetition?utm_source=newsletter'
+    let requestedImageUrl: string | undefined
+    const fetchImage: WebImageFetcher = async (url) => {
+      requestedImageUrl = url
+      return { bytes: new Uint8Array([1, 2, 3]), mime: 'image/png' }
+    }
+
+    const doc = await parseWebPage(await envelopeInput({ html, url: fetchedUrl }), ctx, {
+      fetchImage,
+    })
+
+    expect(doc.meta.origin?.url).toBe('https://example.com/articles/spaced-repetition')
+    // The relative <img> resolves against the URL the page was actually fetched from, not the
+    // (possibly different-host) canonical URL — a canonical tag naming another domain must
+    // never become the base a same-origin image check resolves against.
+    expect(requestedImageUrl).toBe('https://example.com/articles/images/diagram.png')
+  })
+
+  it('falls back to the fetched URL for meta.origin.url when the page has no canonical link', async () => {
+    const ctx = createFakeParseContext()
+    const doc = await parseWebPage(await envelopeInput(), ctx, { fetchImage: fakeFetchImage })
+
+    expect(doc.meta.origin?.url).toBe(PAGE_URL)
+  })
+
+  it('caps the number of image *attempts* even when every fetch fails, not just successes', async () => {
+    const ctx = createFakeParseContext()
+    const images = Array.from(
+      { length: 205 },
+      (_, i) => `<img src="https://example.com/broken-${i}.png" alt="image ${i}">`,
+    ).join('\n')
+    const html = `<html><body><article>
+      <p>Intro paragraph long enough to count as real content for extraction purposes here.</p>
+      ${images}
+    </article></body></html>`
+    let attemptCount = 0
+    // Every fetch fails (a 404, say) — if the cap only counted successes, all 205 would still be
+    // attempted; it must stop at 200 regardless of outcome.
+    const fetchImage: WebImageFetcher = async () => {
+      attemptCount += 1
+      return null
+    }
+    const doc = await parseWebPage(await envelopeInput({ html }), ctx, { fetchImage })
+
+    expect(attemptCount).toBe(200)
+    expect(doc.assets).toHaveLength(0)
     expect(doc.meta.warnings.some((w) => w.includes('more images than'))).toBe(true)
   })
 })

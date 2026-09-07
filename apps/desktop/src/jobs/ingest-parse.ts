@@ -102,12 +102,11 @@ export type IngestParseResult = {
     vision: { provider: string; framesDescribed: number } | null
   }
   /** Where the content came from and when it was fetched (sub-phase 6.5), for `web`/`youtube`
-   *  sources. Absent for every other kind. */
-  origin?: {
-    url: string
-    fetchedAt: string
-    author?: string | null
-  }
+   *  sources. Absent for every other kind. Aliased to `SourceDoc`'s own field rather than
+   *  redeclared, so this can't silently drift out of sync with it the way it once did — this
+   *  type used to omit `videoId`/`playlistId`/`playlistIndex` even though `SourceDoc.meta.origin`
+   *  and `sourceMetaSchema` both already carried them (`reviewer` finding). */
+  origin?: NonNullable<SourceDoc['meta']['origin']>
 }
 
 function isSourceKind(value: unknown): value is SourceKind {

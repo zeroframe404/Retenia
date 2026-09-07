@@ -27,6 +27,12 @@ export interface ExtractedArticle {
   /** BCP-47 when the extractor (or the page's own `lang`/`html[lang]`) reported one. */
   language: string | null
   extractor: 'defuddle' | 'readability' | 'raw'
+  /** The page's own `<link rel="canonical">`, resolved to an absolute URL, when it names one —
+   *  independent of which extractor found the article, since a canonical tag lives in `<head>`
+   *  and none of the three extraction branches look there. `parse-web.ts` prefers this over the
+   *  fetched URL for `meta.origin.url`: the same article reached via `?utm_source=…`, an AMP
+   *  mirror, or a share link otherwise cites and re-fetches under a different URL each time. */
+  canonicalUrl: string | null
   warnings: string[]
 }
 
@@ -44,7 +50,7 @@ function toPlainText(html: string): string {
 async function tryDefuddle(
   html: string,
   url: string,
-): Promise<Omit<ExtractedArticle, 'warnings' | 'extractor'> | undefined> {
+): Promise<Omit<ExtractedArticle, 'warnings' | 'extractor' | 'canonicalUrl'> | undefined> {
   try {
     const result = await Defuddle(html, url, {
       // Defuddle's own extractors (YouTube, Reddit, GitHub…) reach out to third-party APIs by
@@ -73,7 +79,7 @@ async function tryDefuddle(
 function tryReadability(
   html: string,
   url: string,
-): Omit<ExtractedArticle, 'warnings' | 'extractor'> | undefined {
+): Omit<ExtractedArticle, 'warnings' | 'extractor' | 'canonicalUrl'> | undefined {
   let dom: JSDOM
   try {
     dom = new JSDOM(html, { url })
@@ -95,7 +101,10 @@ function tryReadability(
 
 /** The whole `<body>`, when neither extractor could find an article — better than an empty
  *  document, worse than either extractor, hence only ever tried last. */
-function rawBody(html: string, url: string): Omit<ExtractedArticle, 'warnings' | 'extractor'> {
+function rawBody(
+  html: string,
+  url: string,
+): Omit<ExtractedArticle, 'warnings' | 'extractor' | 'canonicalUrl'> {
   try {
     const dom = new JSDOM(html, { url })
     return {
@@ -106,6 +115,23 @@ function rawBody(html: string, url: string): Omit<ExtractedArticle, 'warnings' |
     }
   } catch {
     return { title: null, html: '', author: null, language: null }
+  }
+}
+
+/** The page's `<link rel="canonical">`, if it has one — lives in `<head>`, so independent of
+ *  whichever extractor below finds the article body. A separate, minimal parse rather than
+ *  reusing one of the extractors' own DOMs: Defuddle does not expose one at all, and the
+ *  Readability/raw-body ones are built only on a successful (or last-resort) branch, not
+ *  unconditionally. */
+function readCanonicalUrl(html: string, url: string): string | null {
+  try {
+    const href = new JSDOM(html, { url }).window.document
+      .querySelector('link[rel="canonical"]')
+      ?.getAttribute('href')
+    if (href === null || href === undefined || href.trim().length === 0) return null
+    return new URL(href, url).href
+  } catch {
+    return null
   }
 }
 
@@ -126,18 +152,21 @@ export async function extractArticle(
   const runDefuddle = deps.tryDefuddle ?? tryDefuddle
   const runReadability = deps.tryReadability ?? tryReadability
   const warnings: string[] = []
+  const canonicalUrl = readCanonicalUrl(html, url)
 
   const defuddled = await runDefuddle(html, url)
-  if (defuddled !== undefined) return { ...defuddled, extractor: 'defuddle', warnings }
+  if (defuddled !== undefined) {
+    return { ...defuddled, extractor: 'defuddle', canonicalUrl, warnings }
+  }
 
   const read = runReadability(html, url)
   if (read !== undefined) {
     warnings.push('Defuddle could not extract this page; Readability was used instead')
-    return { ...read, extractor: 'readability', warnings }
+    return { ...read, extractor: 'readability', canonicalUrl, warnings }
   }
 
   warnings.push(
     'Neither Defuddle nor Readability could identify the main content; the whole page was kept',
   )
-  return { ...rawBody(html, url), extractor: 'raw', warnings }
+  return { ...rawBody(html, url), extractor: 'raw', canonicalUrl, warnings }
 }

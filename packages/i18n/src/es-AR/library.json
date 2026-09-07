@@ -116,5 +116,6 @@
   "addFolder": "Agregar una carpeta de curso",
   "courseImported": "Se importaron {count} clases como una sola fuente.",
   "courseTruncated": "La carpeta tiene más archivos de los que se pueden importar de una vez; se tomaron los primeros {count}.",
-  "courseEmpty": "Esa carpeta no tiene audio ni video."
+  "courseEmpty": "Esa carpeta no tiene audio ni video.",
+  "playlistTruncated": "Esta playlist tiene más videos de los que lista el feed público de YouTube; solo se importaron los más recientes."
 }

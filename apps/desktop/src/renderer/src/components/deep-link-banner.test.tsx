@@ -66,6 +66,30 @@ describe('DeepLinkBanner', () => {
     expect(addSourceFromUrl).not.toHaveBeenCalled()
   })
 
+  it('ignores a second import link that arrives while the first is still pending confirmation', async () => {
+    const { addSourceFromUrl, fireDeepLink } = stubApi()
+    render(<DeepLinkBanner />, { wrapper })
+
+    fireDeepLink({ kind: 'import', src: 'https://example.com/benign-article' })
+    expect(await screen.findByTestId('deep-link-import-url')).toHaveTextContent(
+      'https://example.com/benign-article',
+    )
+
+    // A hostile page firing a second link while the user is still looking at the first must not
+    // change what clicking "Import" actually approves.
+    fireDeepLink({ kind: 'import', src: 'http://192.168.1.1/internal' })
+    expect(screen.getByTestId('deep-link-import-url')).toHaveTextContent(
+      'https://example.com/benign-article',
+    )
+
+    fireEvent.click(screen.getByTestId('deep-link-import-accept'))
+    await waitFor(() =>
+      expect(addSourceFromUrl).toHaveBeenCalledExactlyOnceWith({
+        url: 'https://example.com/benign-article',
+      }),
+    )
+  })
+
   it('starts the import only after the user clicks Import', async () => {
     const { addSourceFromUrl, fireDeepLink } = stubApi()
     render(<DeepLinkBanner />, { wrapper })

@@ -44,6 +44,17 @@ const MAX_RENDERED_HTML_CHARS = 10 * 1024 * 1024
  *  small semaphore around window creation caps that without capping ordinary, one-at-a-time use
  *  at all. */
 const MAX_CONCURRENT_RENDERS = 4
+/** A caller looping on a rejected/slow import could otherwise queue an unbounded number of
+ *  pending renders behind the 4 active slots — bounded so that failure mode is a clear rejection
+ *  instead of unbounded memory growth (`security-reviewer` finding "New-7"). */
+const MAX_QUEUED_RENDERS = 50
+
+export class TooManyPendingRendersError extends Error {
+  constructor() {
+    super(`More than ${MAX_QUEUED_RENDERS} imports are already waiting to render`)
+    this.name = 'TooManyPendingRendersError'
+  }
+}
 
 let activeRenders = 0
 const renderQueue: (() => void)[] = []
@@ -53,14 +64,23 @@ async function acquireRenderSlot(): Promise<void> {
     activeRenders += 1
     return
   }
+  if (renderQueue.length >= MAX_QUEUED_RENDERS) throw new TooManyPendingRendersError()
+  // The waiter's own continuation increments `activeRenders` (see `releaseRenderSlot`) rather
+  // than doing it here after the `await` returns: incrementing here would leave a window, between
+  // `resolve()` firing and this line actually running, where `activeRenders` still reads as if
+  // the slot were free — long enough for a second arrival to read it and over-subscribe by one
+  // (`security-reviewer` finding "New-7"). Handing off the slot and the count together in the
+  // same synchronous turn closes that window.
   await new Promise<void>((resolve) => renderQueue.push(resolve))
-  activeRenders += 1
 }
 
 function releaseRenderSlot(): void {
-  activeRenders -= 1
   const next = renderQueue.shift()
-  if (next !== undefined) next()
+  if (next !== undefined) {
+    next() // Hands the slot straight to the waiter; `activeRenders` itself does not change.
+    return
+  }
+  activeRenders -= 1
 }
 
 export interface RenderWithHiddenWindowOptions {
@@ -109,13 +129,22 @@ export async function renderWithHiddenWindow(
   }
 }
 
+let renderCounter = 0
+
 async function renderInAcquiredSlot(
   url: string,
   timeoutMs: number,
   settleMs: number,
   partition: string | undefined,
 ): Promise<string> {
-  const scrapeSession = session.fromPartition(partition ?? SCRAPE_PARTITION)
+  renderCounter += 1
+  // A fresh partition per render, not the one fixed name every call used to share: with up to
+  // `MAX_CONCURRENT_RENDERS` renders in flight at once, a shared session meant one render's
+  // `clearStorageData()` (below) could wipe cookies/localStorage out from under another render
+  // still using the same session — and, worse, a scraped page could read whatever an unrelated,
+  // concurrent import's page had just written (`security-reviewer` finding "New-6"). Still never
+  // `persist:`-prefixed, so still gone the moment nothing references it.
+  const scrapeSession = session.fromPartition(partition ?? `${SCRAPE_PARTITION}-${renderCounter}`)
   // No handler on this session's own defaults to "allow" (Electron's documented behaviour for
   // an un-set `setPermissionRequestHandler`), and this session is never the one
   // `main/security/apply.ts` hardens — so every permission a scraped page could ask for is
@@ -146,6 +175,23 @@ async function renderInAcquiredSlot(
   // hidden window this function does not track.
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
 
+  // Belt-and-suspenders alongside `main/security/apply.ts`'s app-wide `will-navigate` guard:
+  // that hook covers every `WebContents` the app creates today, but nothing pins it to *this*
+  // window's own loaded origin, and the whole reason this scrape happens off-screen is to keep a
+  // hostile page from navigating itself somewhere this function never gets to re-check (a
+  // redirect to a private address, for one) and having its response read back regardless
+  // (`security-reviewer` finding "New-9"). Pinned to `url`'s own origin computed up front —
+  // `web-fetch.ts` already resolved `url` through its own validated redirect chain before ever
+  // calling this function, so *any* navigation away from that origin from here on, redirect
+  // during the initial load included, is exactly what this refuses; nothing here needs to
+  // "learn" the origin reactively from whichever event happens to fire first.
+  const loadedOrigin = new URL(url).origin
+  const blockForeignNavigation = (event: { preventDefault: () => void }, target: string) => {
+    if (new URL(target).origin !== loadedOrigin) event.preventDefault()
+  }
+  window.webContents.on('will-navigate', blockForeignNavigation)
+  window.webContents.on('will-redirect', blockForeignNavigation)
+
   let timer: ReturnType<typeof setTimeout> | undefined
   const timeout = new Promise<never>((_resolve, reject) => {
     timer = setTimeout(() => reject(new SpaRenderTimeoutError(url, timeoutMs)), timeoutMs)
@@ -167,16 +213,25 @@ async function renderInAcquiredSlot(
       })(),
       timeout,
     ])
-    if (typeof html === 'string' && html.length > MAX_RENDERED_HTML_CHARS) {
+    // Not just a length check: a page that redefines `outerHTML`/`slice` to return something
+    // else entirely (an object, `undefined`) had that value cast straight to `string` and handed
+    // to `parse-web.ts` unexamined (`security-reviewer` finding "New-8").
+    if (typeof html !== 'string') {
+      throw new TypeError(`Rendering "${url}" returned ${typeof html}, not a string`)
+    }
+    if (html.length > MAX_RENDERED_HTML_CHARS) {
       throw new RenderedPageTooLargeError(url, MAX_RENDERED_HTML_CHARS)
     }
-    return html as string
+    return html
   } finally {
     if (timer !== undefined) clearTimeout(timer)
-    // Storage this scraped page set (cookies, localStorage) is origin-scoped and already
-    // in-memory-only, but the partition is reused across every import for the app's lifetime —
-    // clearing it here keeps one scrape from being able to read another's leftovers.
-    await scrapeSession.clearStorageData()
+    // Destroyed before the storage clear, not after: if `clearStorageData()` itself rejected,
+    // the old order left the window (a real Chromium renderer process) never destroyed at all —
+    // this order guarantees the window is gone even then (`security-reviewer` finding "New-6").
     if (!window.isDestroyed()) window.destroy()
+    // Belt-and-suspenders now that every render gets its own partition: storage this scraped
+    // page set is already in-memory-only and never shared with another render, but clearing it
+    // still costs nothing and removes any doubt.
+    await scrapeSession.clearStorageData().catch(() => {})
   }
 }
