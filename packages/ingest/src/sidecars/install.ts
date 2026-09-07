@@ -163,6 +163,7 @@ export async function installSidecar(options: InstallOptions): Promise<InstallRe
     destination: directory,
     members: artifact.members,
     platform: nodePlatform,
+    ...(signal === undefined ? {} : { signal }),
   })
 
   // An archive whose globs matched nothing has been verified as *upstream's* bytes and is
