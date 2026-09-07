@@ -1,0 +1,179 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`parseWebPage > turns the article fixture into a SourceDoc sectioned by H2/H3, with the diagram as a blob 1`] = `
+{
+  "assets": [
+    {
+      "blobSha256": "9f64a747e1b97f131fabb6b447296c9b6f0201e79fb3c5356e6c77e89b6a806a",
+      "id": "asset-0",
+      "kind": "image",
+      "mime": "image/png",
+    },
+  ],
+  "blocks": [
+    {
+      "hash": "4da68c4206caeed8cf5065cb8d123eb498da96d28d8d5a830235d1badd4b6ff5",
+      "id": "id-0",
+      "locator": {
+        "anchor": "el-0",
+      },
+      "text": "Retrieval practice beats re-reading. The classic result is worth restating in one line: forcing recall, then getting feedback, is what moves an item from short-term recognition to long-term [recall](https://en.wikipedia.org/wiki/Recall_\\(memory\\)).",
+      "type": "paragraph",
+    },
+    {
+      "hash": "1f6d0594cbae394785b2df6cf850d2cbaaf7dcbf1a865f293cd0a7ca37dd1a0a",
+      "id": "id-3",
+      "locator": {
+        "anchor": "el-2",
+      },
+      "text": "The interval between reviews should grow every time you get the item right. The classic curve is the exponential-ish forgetting curve; a single review's expected stability change is often written as $E=mc^2$, which mangles nothing here because it is the point: an inline formula must survive.",
+      "type": "paragraph",
+    },
+    {
+      "hash": "d1a2ca75aa5285b33ad21dad3f702965244b8950c570469dd69166dfeeaf80bc",
+      "id": "id-4",
+      "locator": {
+        "anchor": "el-3",
+      },
+      "text": "See the note on measured effect sizes[1](#fn:1) for the numbers behind this.",
+      "type": "paragraph",
+    },
+    {
+      "hash": "b39af9fb9e63d2e1e76624b89cf730e360a4fd5678d1abb6c7741d12f38d26ae",
+      "id": "id-6",
+      "locator": {
+        "anchor": "el-5",
+      },
+      "text": "Integrating the forgetting curve over one interval gives the expected retrievability:",
+      "type": "paragraph",
+    },
+    {
+      "hash": "91394f922af3cad2c92e0ea24c3f84372692daff9bcc5a1a950b6a2c13150206",
+      "id": "id-7",
+      "locator": {
+        "anchor": "el-6",
+      },
+      "text": "$$\\int_0^1 x^2\\,dx$$",
+      "type": "equation",
+    },
+    {
+      "hash": "0ab20f606a87fabd155229767d40c7d524e892d7d0c33b273db6b9034d567684",
+      "html": "<pre><code class="language-python" data-lang="python">def next_interval(stability, difficulty):
+    return stability * (1 - difficulty / 10)</code></pre>",
+      "id": "id-8",
+      "locator": {
+        "anchor": "el-7",
+      },
+      "text": "def next_interval(stability, difficulty):
+    return stability * (1 - difficulty / 10)",
+      "type": "code",
+    },
+    {
+      "hash": "5b0dc77c5c4cfad622a0b98c2702da5fb06052ce539e013c843ed14581a86df4",
+      "id": "id-10",
+      "locator": {
+        "anchor": "el-9",
+      },
+      "text": "A diagram of the review cycle:",
+      "type": "paragraph",
+    },
+    {
+      "hash": "6cfac5a6ddaa813b4ebd1d6042d16c6df2c0b4374fc5d7e072225b0fb5da046b",
+      "html": "<img src="https://example.com/articles/images/diagram.png" alt="Review cycle diagram">",
+      "id": "id-11",
+      "locator": {
+        "anchor": "el-10",
+      },
+      "text": "Review cycle diagram",
+      "type": "figure",
+    },
+    {
+      "hash": "232c087401f8db25315903f3626eda03edf66513e6e75c7acded29f6109b64ca",
+      "html": "<table> <tbody><tr><th>Stage</th> <th>Interval</th></tr> <tr><td>Learning</td> <td>1 day</td></tr> <tr><td>Review</td> <td>6 days</td></tr> </tbody></table>",
+      "id": "id-12",
+      "locator": {
+        "anchor": "el-11",
+      },
+      "text": "Stage | Interval
+Learning | 1 day
+Review | 6 days",
+      "type": "table",
+    },
+    {
+      "hash": "64feefa015ec9878da0fd76431beb6efb1e00a574a595d1df26447e71a4374f9",
+      "id": "id-14",
+      "locator": {
+        "anchor": "#footnotes",
+      },
+      "text": "1.  Dunlosky et al. (2013) put retrieval practice and spacing in the "high utility" tier. [↩](#fnref:1 "return to article")",
+      "type": "paragraph",
+    },
+  ],
+  "id": "id-15",
+  "kind": "web",
+  "language": "en",
+  "meta": {
+    "origin": {
+      "author": "Ada Lovelace",
+      "fetchedAt": "2026-09-06T12:00:00.000Z",
+      "url": "https://example.com/articles/spaced-repetition",
+    },
+    "warnings": [],
+  },
+  "sections": [
+    {
+      "blocks": [
+        "id-0",
+      ],
+      "children": [],
+      "id": "id-1",
+      "level": 0,
+      "title": "https://example.com/articles/spaced-repetition",
+    },
+    {
+      "blocks": [
+        "id-3",
+        "id-4",
+      ],
+      "children": [
+        {
+          "blocks": [
+            "id-6",
+            "id-7",
+            "id-8",
+          ],
+          "children": [],
+          "id": "id-5",
+          "level": 3,
+          "title": "A worked derivation",
+        },
+      ],
+      "id": "id-2",
+      "level": 2,
+      "title": "Why spacing works",
+    },
+    {
+      "blocks": [
+        "id-10",
+        "id-11",
+        "id-12",
+      ],
+      "children": [
+        {
+          "blocks": [
+            "id-14",
+          ],
+          "children": [],
+          "id": "id-13",
+          "level": 3,
+          "title": "Sources",
+        },
+      ],
+      "id": "id-9",
+      "level": 2,
+      "title": "What this changes in practice",
+    },
+  ],
+  "title": "Spaced repetition, the short version",
+}
+`;

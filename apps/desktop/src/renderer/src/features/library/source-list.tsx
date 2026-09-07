@@ -11,7 +11,13 @@ import {
   Input,
   Textarea,
 } from '@retenia/ui'
-import { ClipboardPasteIcon, FolderPlusIcon, LibraryBigIcon, PlusIcon } from 'lucide-react'
+import {
+  ClipboardPasteIcon,
+  FolderPlusIcon,
+  LibraryBigIcon,
+  LinkIcon,
+  PlusIcon,
+} from 'lucide-react'
 import { useId, useState } from 'react'
 import { useT } from '../../i18n/use-t'
 import { SourceCard } from './source-card'
@@ -26,6 +32,8 @@ export interface SourceListProps {
   onAddCourseFromFolder: () => void
   onDropFiles: (files: File[]) => void
   onAddFromText: (text: string, title: string) => void
+  /** A web page or YouTube URL (sub-phase 6.5). */
+  onAddFromUrl: (url: string) => void
 }
 
 const IMPORTABLE_ACCEPT = '.pdf,.docx,.epub,.pptx,.md,.markdown,.txt,.png,.jpg,.jpeg,.gif,.webp'
@@ -42,13 +50,17 @@ export function SourceList({
   onAddCourseFromFolder,
   onDropFiles,
   onAddFromText,
+  onAddFromUrl,
 }: SourceListProps) {
   const t = useT('library')
   const titleInputId = useId()
   const textInputId = useId()
+  const urlInputId = useId()
   const [pasteOpen, setPasteOpen] = useState(false)
   const [pasteTitle, setPasteTitle] = useState('')
   const [pasteText, setPasteText] = useState('')
+  const [urlOpen, setUrlOpen] = useState(false)
+  const [urlValue, setUrlValue] = useState('')
 
   function submitPaste() {
     if (pasteText.trim().length === 0 || pasteTitle.trim().length === 0) return
@@ -56,6 +68,14 @@ export function SourceList({
     setPasteOpen(false)
     setPasteTitle('')
     setPasteText('')
+  }
+
+  function submitUrl() {
+    const trimmed = urlValue.trim()
+    if (trimmed.length === 0) return
+    onAddFromUrl(trimmed)
+    setUrlOpen(false)
+    setUrlValue('')
   }
 
   return (
@@ -72,6 +92,10 @@ export function SourceList({
         <Button variant="outline" size="sm" onClick={() => setPasteOpen(true)}>
           <ClipboardPasteIcon aria-hidden="true" />
           {t('pasteText')}
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => setUrlOpen(true)}>
+          <LinkIcon aria-hidden="true" />
+          {t('pasteUrl')}
         </Button>
       </div>
 
@@ -138,6 +162,40 @@ export function SourceList({
               onClick={submitPaste}
               disabled={pasteText.trim().length === 0 || pasteTitle.trim().length === 0}
               data-testid="paste-submit"
+            >
+              {t('pasteSubmit')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={urlOpen} onOpenChange={setUrlOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('pasteUrlDialogTitle')}</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-3">
+            <label htmlFor={urlInputId} className="flex flex-col gap-1 text-sm">
+              <span className="text-text font-medium">{t('pasteUrlLabel')}</span>
+              <Input
+                id={urlInputId}
+                type="url"
+                value={urlValue}
+                onChange={(event) => setUrlValue(event.target.value)}
+                placeholder={t('pasteUrlPlaceholder')}
+                data-testid="paste-url-input"
+              />
+              <span className="text-muted text-xs">{t('pasteUrlHint')}</span>
+            </label>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setUrlOpen(false)}>
+              {t('pasteCancel')}
+            </Button>
+            <Button
+              onClick={submitUrl}
+              disabled={urlValue.trim().length === 0}
+              data-testid="paste-url-submit"
             >
               {t('pasteSubmit')}
             </Button>

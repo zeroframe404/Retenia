@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Spaced repetition, the short version</title>
+  <meta name="author" content="Ada Lovelace" />
+</head>
+<body>
+  <header><nav><a href="/">Home</a> · <a href="/archive">Archive</a></nav></header>
+  <aside class="sidebar"><p>Subscribe to our newsletter!</p></aside>
+  <article>
+    <h1>Spaced repetition, the short version</h1>
+    <p>Retrieval practice beats re-reading. The classic result is worth restating in one line:
+      forcing recall, then getting feedback, is what moves an item from short-term recognition
+      to long-term <a href="https://en.wikipedia.org/wiki/Recall_(memory)">recall</a>.</p>
+
+    <h2>Why spacing works</h2>
+    <p>The interval between reviews should grow every time you get the item right. The classic
+      curve is the exponential-ish forgetting curve; a single review's expected stability
+      change is often written as <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>E</mi><mo>=</mo><mi>m</mi><msup><mi>c</mi><mn>2</mn></msup></mrow><annotation encoding="application/x-tex">E=mc^2</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.0576em;">E</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="katex-base"><span class="katex-strut" style="height:0.8141em;"></span><span class="mord mathnormal">m</span><span class="mord"><span class="mord mathnormal">c</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8141em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="katex-sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span></span></span></span></span></span></span></span>, which mangles nothing here because it is
+      the point: an inline formula must survive.</p>
+    <p>See the note on measured effect sizes<sup id="fnref-1"><a href="#fn-1">1</a></sup> for
+      the numbers behind this.</p>
+
+    <h3>A worked derivation</h3>
+    <p>Integrating the forgetting curve over one interval gives the expected retrievability:</p>
+    <div class="math-block"><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><msubsup><mo>∫</mo><mn>0</mn><mn>1</mn></msubsup><msup><mi>x</mi><mn>2</mn></msup><mtext> </mtext><mi>d</mi><mi>x</mi></mrow><annotation encoding="application/x-tex">\int_0^1 x^2\,dx</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:2.476em;vertical-align:-0.9119em;"></span><span class="mop"><span class="mop op-symbol large-op" style="margin-right:0.4445em;position:relative;top:-0.0011em;">∫</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.564em;"><span style="top:-1.7881em;margin-left:-0.4445em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="katex-sizing reset-size6 size3 mtight"><span class="mord mtight">0</span></span></span><span style="top:-3.8129em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="katex-sizing reset-size6 size3 mtight"><span class="mord mtight">1</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.9119em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord"><span class="mord mathnormal">x</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8641em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="katex-sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord mathnormal">d</span><span class="mord mathnormal">x</span></span></span></span></span></div>
+    <pre><code class="language-python">def next_interval(stability, difficulty):
+    return stability * (1 - difficulty / 10)
+</code></pre>
+
+    <h2>What this changes in practice</h2>
+    <p>A diagram of the review cycle:</p>
+    <p><img src="images/diagram.png" alt="Review cycle diagram" width="480" height="240" /></p>
+    <table>
+      <tr><th>Stage</th><th>Interval</th></tr>
+      <tr><td>Learning</td><td>1 day</td></tr>
+      <tr><td>Review</td><td>6 days</td></tr>
+    </table>
+    <img src="https://track.adservice.example.net/pixel.gif" alt="" width="1" height="1" />
+
+    <h3>Sources</h3>
+    <ol class="footnotes">
+      <li id="fn-1">Dunlosky et al. (2013) put retrieval practice and spacing in the "high
+        utility" tier. <a href="#fnref-1">&#8617;</a></li>
+    </ol>
+  </article>
+  <footer><p>&copy; 2026 Example Press. All rights reserved.</p></footer>
+</body>
+</html>

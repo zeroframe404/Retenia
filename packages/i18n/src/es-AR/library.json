@@ -12,6 +12,11 @@
   "pasteTextPlaceholder": "Pegá o escribí el texto a importar…",
   "pasteSubmit": "Agregar",
   "pasteCancel": "Cancelar",
+  "pasteUrl": "Pegar URL",
+  "pasteUrlDialogTitle": "Pegar URL",
+  "pasteUrlLabel": "URL",
+  "pasteUrlPlaceholder": "https://... o un enlace de YouTube",
+  "pasteUrlHint": "Una página web, o un video o una lista de reproducción de YouTube.",
   "empty": {
     "title": "Tu biblioteca está vacía",
     "description": "Agregá un archivo PDF, DOCX, EPUB, PPTX, Markdown o una imagen, o pegá texto, para empezar."

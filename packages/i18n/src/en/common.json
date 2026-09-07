@@ -2,6 +2,11 @@
   "appTitle": "Retenia",
   "greeting": "Learn it, and never forget it again.",
   "deepLink": {
-    "received": "Deep link received: {link}"
+    "received": "Deep link received: {link}",
+    "confirmImport": "Import this link? {url}",
+    "import": "Import",
+    "discard": "Discard",
+    "importStarted": "Importing {url}…",
+    "importDiscarded": "Import discarded"
   }
 }

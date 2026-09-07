@@ -1,3 +1,4 @@
+import { toast } from '@retenia/ui'
 import { useState } from 'react'
 import { SourceDetail } from './source-detail'
 import { SourceList } from './source-list'
@@ -6,6 +7,7 @@ import {
   useAddSourceFromDialog,
   useAddSourceFromFiles,
   useAddSourceFromText,
+  useAddSourceFromUrl,
   useContextualizationEstimate,
   useCreateCardFromClip,
   useDeleteSource,
@@ -77,6 +79,7 @@ export function LibraryPage({ searchQuery }: LibraryPageProps) {
   const addCourse = useAddCourseFromFolder()
   const addFromFiles = useAddSourceFromFiles()
   const addFromText = useAddSourceFromText()
+  const addFromUrl = useAddSourceFromUrl()
   const retry = useRetrySource()
   const remove = useDeleteSource()
 
@@ -101,6 +104,15 @@ export function LibraryPage({ searchQuery }: LibraryPageProps) {
         void readDroppedFiles(files).then((read) => addFromFiles.mutate({ files: read }))
       }}
       onAddFromText={(text, title) => addFromText.mutate({ text, title })}
+      onAddFromUrl={(url) =>
+        addFromUrl.mutate(
+          { url },
+          // A 404, a size-cap rejection, an SSRF refusal, an empty playlist, a rendering
+          // timeout — all of it used to fail with no feedback at all: the dialog closed and
+          // nothing appeared in the Library, with no way to tell why (`reviewer` finding).
+          { onError: (error) => toast.error(error.message) },
+        )
+      }
     />
   )
 }

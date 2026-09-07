@@ -87,6 +87,7 @@ function unavailableLibraryService(reason: string): LibraryService {
     addCourseFromFolder: fail,
     createCardFromClip: fail,
     addFromText: fail,
+    addFromUrl: fail,
     retry: fail,
     list: fail,
     get: fail,

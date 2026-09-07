@@ -50,6 +50,7 @@ describe('contract', () => {
       'library.addSourceFromDialog',
       'library.addSourceFromFiles',
       'library.addSourceFromText',
+      'library.addSourceFromUrl',
       'library.createCardFromChunk',
       'library.createCardFromClip',
       'library.deleteSource',

@@ -2,6 +2,11 @@
   "appTitle": "Retenia",
   "greeting": "Aprendé y no te olvides más.",
   "deepLink": {
-    "received": "Enlace recibido: {link}"
+    "received": "Enlace recibido: {link}",
+    "confirmImport": "¿Importar este enlace? {url}",
+    "import": "Importar",
+    "discard": "Descartar",
+    "importStarted": "Importando {url}…",
+    "importDiscarded": "Importación descartada"
   }
 }

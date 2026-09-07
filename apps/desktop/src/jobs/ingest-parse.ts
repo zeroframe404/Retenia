@@ -101,6 +101,13 @@ export type IngestParseResult = {
     } | null
     vision: { provider: string; framesDescribed: number } | null
   }
+  /** Where the content came from and when it was fetched (sub-phase 6.5), for `web`/`youtube`
+   *  sources. Absent for every other kind. */
+  origin?: {
+    url: string
+    fetchedAt: string
+    author?: string | null
+  }
 }
 
 function isSourceKind(value: unknown): value is SourceKind {
@@ -239,5 +246,6 @@ async function run(
     needsOcr: doc.meta.needsOcr ?? false,
     ocrPages: doc.meta.ocrPages ?? [],
     warnings: doc.meta.warnings,
+    ...(doc.meta.origin === undefined ? {} : { origin: doc.meta.origin }),
   }
 }

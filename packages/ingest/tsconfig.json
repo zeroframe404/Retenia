@@ -1,7 +1,11 @@
 {
   "extends": "../config/tsconfig.base.json",
   "compilerOptions": {
-    "types": ["node"]
+    "types": ["node"],
+    // `DOM` is needed only for the ambient `HTMLElement`/`Document` types `turndown`, `jsdom`
+    // and `@mozilla/readability`'s own `.d.ts` files reference (sub-phase 6.5) — this package
+    // still runs in Node, never a browser; nothing here relies on a real `window`.
+    "lib": ["ES2023", "DOM"]
   },
   "include": ["src"]
 }

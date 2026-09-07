@@ -18,6 +18,7 @@ const baseArgs = {
   onAddCourseFromFolder: () => {},
   onDropFiles: () => {},
   onAddFromText: () => {},
+  onAddFromUrl: () => {},
 }
 
 function source(overrides: Partial<SourceSummary>): SourceSummary {

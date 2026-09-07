@@ -18,6 +18,12 @@
     "dyslexiaFont": "Dyslexia-friendly font (Atkinson Hyperlegible)",
     "reset": "Reset"
   },
+  "webClipper": {
+    "label": "Web Clipper",
+    "description": "Create a new bookmark in your browser and paste this code into its URL field. Clicking it from any page opens Retenia to import it.",
+    "copy": "Copy",
+    "copied": "Copied!"
+  },
   "scheduler": {
     "label": "Scheduler",
     "cost": "≈ {reviews} reviews/day · {minutes} min/day · {ratio}× the reviews of 90%",

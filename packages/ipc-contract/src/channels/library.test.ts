@@ -133,6 +133,34 @@ describe('library.addSourceFromText', () => {
   })
 })
 
+describe('library.addSourceFromUrl', () => {
+  const { input, output } = contract['library.addSourceFromUrl']
+
+  it('takes an http(s) URL', () => {
+    expect(input.parse({ url: 'https://example.com/article' })).toEqual({
+      url: 'https://example.com/article',
+    })
+    expect(input.safeParse({ url: 'http://example.com/article' }).success).toBe(true)
+  })
+
+  it('rejects a file:// URL — net.fetch would happily serve one', () => {
+    expect(input.safeParse({ url: 'file:///etc/passwd' }).success).toBe(false)
+  })
+
+  it('rejects a javascript: URL', () => {
+    expect(input.safeParse({ url: 'javascript:alert(1)' }).success).toBe(false)
+  })
+
+  it('rejects a non-URL string', () => {
+    expect(input.safeParse({ url: 'not a url' }).success).toBe(false)
+  })
+
+  it('outputs an array of sources', () => {
+    const parsed = output.parse({ sources: [] })
+    expect(parsed).toEqual({ sources: [] })
+  })
+})
+
 describe('library.retrySource and library.deleteSource', () => {
   it.each(['library.retrySource', 'library.deleteSource'] as const)(
     '%s takes a source id',

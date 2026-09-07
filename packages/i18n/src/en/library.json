@@ -12,6 +12,11 @@
   "pasteTextPlaceholder": "Paste or type the text to import…",
   "pasteSubmit": "Add",
   "pasteCancel": "Cancel",
+  "pasteUrl": "Paste URL",
+  "pasteUrlDialogTitle": "Paste URL",
+  "pasteUrlLabel": "URL",
+  "pasteUrlPlaceholder": "https://... or a YouTube link",
+  "pasteUrlHint": "A web page, or a YouTube video or playlist.",
   "empty": {
     "title": "Your library is empty",
     "description": "Add a PDF, DOCX, EPUB, PPTX, Markdown or image file, or paste some text, to get started."

@@ -92,6 +92,17 @@ export function useAddSourceFromText() {
   })
 }
 
+/** A pasted URL (sub-phase 6.5): a web page or a single YouTube video import returns one
+ *  source; a YouTube playlist URL returns one per video. */
+export function useAddSourceFromUrl() {
+  const client = useQueryClient()
+  return useIpcMutation('library.addSourceFromUrl', {
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: LIST_KEY })
+    },
+  })
+}
+
 export function useRetrySource() {
   const client = useQueryClient()
   return useIpcMutation('library.retrySource', {

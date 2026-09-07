@@ -11,9 +11,9 @@ import {
 } from 'lucide-react'
 import { useT } from '../../i18n/use-t'
 
-/** One card per kind — the same set `library/detect-kind.ts` recognises. Audio/video/
- *  YouTube/web have no parser yet (sub-phases 6.4/6.5) so they fall back to the generic icon;
- *  nothing currently creates a source of those kinds. */
+/** One card per kind — the same set `library/detect-kind.ts` recognises. `youtube` and `web`
+ *  (sub-phase 6.5) fall back to the generic icon; a dedicated one is cosmetic polish, not a
+ *  functional gap. */
 const KIND_ICON: Record<SourceKind, typeof FileTextIcon> = {
   pdf: FileTextIcon,
   docx: FileTextIcon,
