@@ -75,6 +75,8 @@ describe('chunking a real source, end to end', () => {
           kind: 'image' as const,
         }),
       },
+      // This book fixture has no scanned page, so this is never actually called.
+      { id: 'unused', recognize: async () => ({ text: '', confidence: 100 }) },
     )
     const result = chunkSourceDoc(doc, { sourceId })
     drafts = {

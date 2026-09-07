@@ -704,6 +704,66 @@ describe('LibraryService', () => {
     expect(calls).toBe(2)
   })
 
+  it('embeds a source once its chunk job succeeds, so it is never left ready with no vectors', async () => {
+    const embedded: string[] = []
+    const withEmbedding = createLibraryService({
+      repos: {
+        sources,
+        chunks,
+        blobs,
+        transaction: <T>(work: (tx: unknown) => Promise<T>) => work({ sources, chunks, blobs }),
+      } as never,
+      blobStore,
+      scheduler,
+      embedSource: async (sourceId) => {
+        embedded.push(sourceId)
+      },
+    })
+
+    const source = await withEmbedding.addFromText('placeholder', 'notes.txt')
+    const { sha256 } = await blobStore.put(
+      new TextEncoder().encode(JSON.stringify(draftsFor(source.id))),
+      'application/json',
+    )
+    await withEmbedding.onJobSettled(chunkJob(source.id, 'succeeded', sha256))
+
+    expect(embedded).toEqual([source.id])
+  })
+
+  it('does not embed when the chunk job failed — there is nothing yet to embed', async () => {
+    const embedded: string[] = []
+    const withEmbedding = createLibraryService({
+      repos: {
+        sources,
+        chunks,
+        blobs,
+        transaction: <T>(work: (tx: unknown) => Promise<T>) => work({ sources, chunks, blobs }),
+      } as never,
+      blobStore,
+      scheduler,
+      embedSource: async (sourceId) => {
+        embedded.push(sourceId)
+      },
+    })
+
+    const source = await withEmbedding.addFromText('placeholder', 'notes.txt')
+    await withEmbedding.onJobSettled(settledJob('ingestChunkSource', source.id, 'failed', null))
+
+    expect(embedded).toEqual([])
+  })
+
+  it('works with no embedSource at all — the callback is optional', async () => {
+    const source = await service.addFromText('placeholder', 'notes.txt')
+    const { sha256 } = await blobStore.put(
+      new TextEncoder().encode(JSON.stringify(draftsFor(source.id))),
+      'application/json',
+    )
+
+    await expect(
+      service.onJobSettled(chunkJob(source.id, 'succeeded', sha256)),
+    ).resolves.toBeUndefined()
+  })
+
   it('imports dropped bytes by name alone, never a path, and rejects an unsupported name', async () => {
     const source = await service.addFromBytes('scan.png', new Uint8Array([0x89, 0x50, 0x4e, 0x47]))
 

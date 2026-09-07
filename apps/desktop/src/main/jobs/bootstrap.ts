@@ -194,7 +194,6 @@ export function bootstrapJobs({
   // `readableRoots[0]`) writes into. Both are pure `node:fs`, so a second instance here
   // needs no coordination with the worker's.
   const blobStore = createFsBlobStore(getBlobsRoot())
-  const library = createLibraryService({ repos: database.repos, blobStore, scheduler })
 
   // The warm model host (sub-phase 6.3). Lazy in both directions: nothing is spawned until
   // the first query, and it unloads again after an idle timeout — a search box the user
@@ -204,6 +203,9 @@ export function bootstrapJobs({
     entryPath: getEmbeddingHostPath(),
     modelsRoot,
   })
+  // Constructed before `library`, which needs its `embedSource` to chain into once a source's
+  // chunk job succeeds (`library/service.ts`'s `onChunkSettled`) — the reindex sweep below is
+  // no longer the only caller.
   const embeddings = createEmbeddingService({
     repos: database.repos,
     sqlite: database.opened.sqlite,
@@ -212,6 +214,12 @@ export function bootstrapJobs({
     host,
     ids: database.ids,
     getSetting: (key) => database.repos.settings.get(key),
+  })
+  const library = createLibraryService({
+    repos: database.repos,
+    blobStore,
+    scheduler,
+    embedSource: embeddings.embedSource,
   })
 
   runner = createJobRunner({
