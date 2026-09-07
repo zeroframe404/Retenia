@@ -16,19 +16,27 @@ import { spawn } from 'node:child_process'
  *    leader, and a signal sent to the negated pid reaches the leader and every descendant in
  *    one call. `detached` is safe to use here despite its name — on POSIX a child never dies
  *    with its parent anyway (it is reparented to init), so the flag only *adds* the group we
- *    need to aim at.
+ *    need to aim at. There, the two calls really are "ask, then insist": `SIGTERM` first, so
+ *    ffmpeg gets the chance to close its output file, then `SIGKILL` once the grace has passed.
  *  - **Windows** has no such grouping, but it does keep the parent/child links, and
  *    `taskkill /T` walks them. So there the child is *not* detached — that would put it in a
  *    new console and is unnecessary — and the tree is torn down by `taskkill /PID n /T /F`.
  *
- * Both paths are "ask, then insist": a signal the process can handle first, so ffmpeg gets the
- * chance to close its output file, then an unconditional kill once the grace has passed.
- * Windows' `taskkill` has no polite mode worth using (`/T` without `/F` only asks windowed
- * processes, and these have no window), so there the grace is spent on `SIGTERM` to the direct
- * child before the tree kill.
+ *    There is no polite phase to spend a grace period on here, and — unlike POSIX — trying to
+ *    fake one is actively counterproductive. `child.kill()` ignores whatever signal it is
+ *    given on Windows (there are no POSIX signals to deliver) and terminates the process
+ *    outright, at once; `taskkill /T` without `/F` only asks *windowed* processes to close,
+ *    and these have none. Calling `child.kill('SIGTERM')` "first" — the shape that works on
+ *    POSIX — would therefore kill the direct child immediately, well inside any grace window,
+ *    so by the time `taskkill /T` ran there would be nothing left for its parent/child walk to
+ *    find the descendants through: the whole point of a *tree* kill lost to a race with itself.
+ *    So `taskkill /PID <pid> /T /F` runs first, while the tree is still alive to walk, and a
+ *    direct `SIGKILL` afterwards is only the backstop for a pid `taskkill` somehow missed (or
+ *    for when `taskkill` cannot even be spawned).
  */
 
-/** How long a sidecar has to exit on its own before it is killed outright. */
+/** How long a sidecar has to exit on its own before it is killed outright, on POSIX — Windows
+ *  has no polite phase to spend this on (see above) and does not consult it. */
 export const KILL_GRACE_MS = 2_000
 
 /** The `child_process.spawn` surface this module needs; injected in tests. */
@@ -97,24 +105,26 @@ export async function killTree(child: Killable, options: KillTreeOptions = {}): 
   if (child.exitCode !== null) return
 
   if (platform === 'win32') {
-    child.kill('SIGTERM')
-    await delay(graceMs)
-    if (child.exitCode !== null) return
+    // No grace to wait out here — see the module doc comment for why a Windows-side
+    // "signal, then wait" phase would race the tree kill it is meant to precede. `taskkill`
+    // runs first, and its own exit (or failure to even start) is awaited — not fired and
+    // forgotten — so the direct `SIGKILL` backstop below only ever runs after the tree walk
+    // has actually had its chance.
     try {
-      // Detached and fully ignored: this is a fire-and-forget teardown, and a `taskkill` that
-      // outlives the turn holding an inherited stdio pipe open is its own kind of leak.
-      const killer = spawnFn('taskkill', taskkillArgs(pid), {
-        windowsHide: true,
-        stdio: 'ignore',
-        detached: true,
+      await new Promise<void>((resolve) => {
+        const killer = spawnFn('taskkill', taskkillArgs(pid), {
+          windowsHide: true,
+          stdio: 'ignore',
+        })
+        killer.on('error', () => resolve())
+        killer.on('exit', () => resolve())
       })
-      killer.unref()
-      killer.on('error', () => {})
     } catch {
-      // `taskkill` is part of Windows, but if it cannot be spawned the direct kill below is
-      // still better than nothing.
+      // `spawnFn` itself threw — "taskkill is not on PATH" — rather than the spawned process
+      // emitting an asynchronous 'error' event. Either way, the direct kill below is what is
+      // left to try.
     }
-    child.kill('SIGKILL')
+    if (child.exitCode === null) child.kill('SIGKILL')
     return
   }
 

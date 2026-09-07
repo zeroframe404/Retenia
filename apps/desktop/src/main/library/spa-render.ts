@@ -1,4 +1,5 @@
 import { BrowserWindow, session } from 'electron'
+import { assertPublicSubresourceUrl } from './url-safety'
 
 /**
  * The SPA fallback for the web importer (`docs/spec/05-ingestion-rag.md` §1: "a hidden
@@ -21,6 +22,13 @@ import { BrowserWindow, session } from 'electron'
  * main window, not silently allowed because it happens to run on a different session
  * (`security-reviewer` finding H2). Reached only through `web-fetch.ts`, which is the one call
  * site responsible for refusing a non-public URL before it ever gets here (`./url-safety`).
+ *
+ * That guard covers the one navigation this function asks for; it says nothing about the
+ * *page's own JavaScript* then reaching for a private address on the side — a `fetch()` or a
+ * WebSocket to `192.168.1.1` or `169.254.169.254`, run with this origin's privileges and no
+ * user-visible window. `will-navigate`/`will-redirect` below only pin where the frame itself
+ * can go; the `scrapeSession.webRequest.onBeforeRequest` handler is what pins every request
+ * the loaded page issues, subresources included, to the same public-address rule.
  */
 
 const DEFAULT_TIMEOUT_MS = 20_000
@@ -153,6 +161,18 @@ async function renderInAcquiredSlot(
   scrapeSession.setPermissionCheckHandler(() => false)
   scrapeSession.setDevicePermissionHandler(() => false)
   scrapeSession.setDisplayMediaRequestHandler(null)
+  // `will-navigate`/`will-redirect` below only pin *navigation* to the loaded origin; nothing
+  // otherwise stops the scraped page's own JavaScript from `fetch()`ing or opening a WebSocket
+  // to a private address on the side — the exact SSRF `./url-safety` exists to close, reached
+  // by a different request path (`security-reviewer` finding H1's sibling). Denying a request
+  // here fails it the way a 404 or a CORS block would from the page's own point of view; it
+  // does not fail the render, so one blocked tracker/ad host does not sink the whole scrape.
+  scrapeSession.webRequest.onBeforeRequest((details, callback) => {
+    assertPublicSubresourceUrl(details.url).then(
+      () => callback({ cancel: false }),
+      () => callback({ cancel: true }),
+    )
+  })
 
   const window = new BrowserWindow({
     show: false,

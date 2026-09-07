@@ -29,7 +29,12 @@ export async function parseImage(
     id: ctx.id(),
     type: 'paragraph' as const,
     text: trimmed,
-    locator: {},
+    // A standalone image is trivially a one-page document — `page: 1` is the least this can
+    // say and still be a locator a citation can point at, rather than `{}`, which pointed at
+    // nothing. Registered in `chunk-source-doc.ts`'s `PAGED_KINDS` so the chunker actually
+    // carries it through (a block-level `page` on a `kind` absent from that map is silently
+    // never read).
+    locator: { page: 1 },
     hash: sha256Hex(trimmed),
   }
   const section = {

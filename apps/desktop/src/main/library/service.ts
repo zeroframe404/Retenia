@@ -29,6 +29,7 @@ import type { ChunkDraftsBlob, IngestChunkResult } from '../../jobs/ingest-chunk
 import type { IngestParseResult } from '../../jobs/ingest-parse'
 import { persistChunkDrafts } from './chunk-store'
 import { detectSource } from './detect-kind'
+import { buildItemLocatorFromChunk } from './item-locator'
 import type { PlaylistVideo } from './youtube-fetch'
 
 /**
@@ -208,6 +209,17 @@ export interface LibraryServiceOptions {
     videos: PlaylistVideo[]
     truncated: boolean
   }>
+  /**
+   * `EmbeddingService.embedSource`, called once a source's chunk job succeeds. Optional and a
+   * plain callback rather than the whole service, for the same reason the fetch seams above
+   * are: this file has no business depending on `./embedding-service`'s own dependencies
+   * (the model host) merely to enqueue a job.
+   *
+   * Without this, a freshly imported source sat "ready" with real chunks and no vectors until
+   * the *next app start*'s reindex sweep found it — the only other place anything ever called
+   * `embedSource` — so hybrid search silently answered from BM25 alone for a whole session.
+   */
+  embedSource?: (sourceId: string) => Promise<void>
 }
 
 /** Thrown by `contextualize` when there is no provider to ask. Its own class so the IPC layer
@@ -308,6 +320,7 @@ export function createLibraryService({
   fetchWebPage: fetchWebPageOverride,
   fetchYouTubeVideo: fetchYouTubeVideoOverride,
   fetchYouTubePlaylist: fetchYouTubePlaylistOverride,
+  embedSource,
 }: LibraryServiceOptions): LibraryService {
   const resolveFetchWebPage = async (url: string) => {
     if (fetchWebPageOverride !== undefined) return fetchWebPageOverride(url)
@@ -819,15 +832,7 @@ export function createLibraryService({
           },
           sourceId: chunk.sourceId,
           annotationId: null,
-          // The provenance that makes the card citable: page or timestamp, and the exact
-          // blocks it covers.
-          locator: {
-            chunkId: chunk.id,
-            ...(locator.page === null ? {} : { page: locator.page }),
-            ...(locator.label === null ? {} : { label: locator.label }),
-            ...(locator.tStartMs === null ? {} : { tStartMs: locator.tStartMs }),
-            blockIds: [...locator.blockIds],
-          },
+          locator: buildItemLocatorFromChunk(chunk.id, locator),
           asOf: null,
           importance: 'normal',
           status: 'active',
@@ -1012,6 +1017,14 @@ export function createLibraryService({
         chunkingVersion: result.chunkingVersion,
       }
       await repos.sources.update(sourceId, { meta })
+      // Chunking done is retrieval not yet done: without this, a freshly imported source (or
+      // one just re-chunked) sat "ready" with real chunks and no vectors until the *next app
+      // start*'s reindex sweep noticed — the only other caller of `embedSource` — so hybrid
+      // search silently answered from BM25 alone for the rest of the session. Left to
+      // propagate to the runner's own `onSettled` handler on failure (`jobs/runner.ts`
+      // already logs and does not crash the queue over it), the same as everything else in
+      // this function: retrying is what the next reindex sweep or a manual re-embed is for.
+      await embedSource?.(sourceId)
       return
     }
 

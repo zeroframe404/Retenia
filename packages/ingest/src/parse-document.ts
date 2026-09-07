@@ -30,7 +30,7 @@ export async function parseDocument(
 ): Promise<SourceDoc> {
   switch (kind) {
     case 'pdf':
-      return parsePdf(input, ctx)
+      return parsePdf(input, ctx, ocr)
     case 'docx':
       return parseDocx(input, ctx)
     case 'epub':

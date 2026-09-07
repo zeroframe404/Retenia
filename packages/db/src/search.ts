@@ -1,8 +1,9 @@
 import type { Database, Statement } from 'better-sqlite3'
 
 /**
- * Typed access to the three index structures the raw migrations create over `chunks`:
- * the FTS5 table `chunks_fts` (migration 0001), the exact vector table `embeddings`
+ * Typed access to the four index structures the raw migrations create over `chunks`:
+ * the FTS5 table `chunks_fts` (migration 0001) and its substring-tokenized twin
+ * `chunks_fts_trigram` (migration 0011), the exact vector table `embeddings`
  * (`FLOAT[768]`, migration 0001) and its int8 companion `embeddings_i8` (migration 0002).
  *
  * These are the primitives; `hybrid-search.ts` composes them into the retrieval pipeline of
@@ -16,6 +17,12 @@ export const EMBEDDING_DIMENSIONS = 768
 
 /** The FTS5 tokenizer of `chunks_fts`: `corazon` matches `corazón`, case-insensitive. */
 export const FTS_TOKENIZER = 'unicode61 remove_diacritics 2'
+
+/** The FTS5 tokenizer of `chunks_fts_trigram` (migration 0011): every overlapping 3-character
+ *  window, diacritics folded the same way `FTS_TOKENIZER` folds them. What a word tokenizer
+ *  cannot do — `corazon` still has to match `corazón` here too, so this is the trigram
+ *  tokenizer's *own* `remove_diacritics` option, not a second application of `unicode61`'s. */
+export const FTS_TRIGRAM_TOKENIZER = 'trigram remove_diacritics 1'
 
 /**
  * `bm25()` weights, one per column of `chunks_fts` in declaration order
@@ -176,12 +183,13 @@ interface FtsRow {
   heading_highlight: string
 }
 
-/** Full-text search over chunk text and heading paths. `query` is raw FTS5 syntax — build
- * it with `ftsQuery()` unless you mean to expose operators. */
-export function searchChunksFts(
+/** Shared by `searchChunksFts` and `searchChunksFtsTrigram` — same columns, same weights, same
+ *  bm25/snippet/highlight shape, over whichever table `MATCH`es its own tokenizer. */
+function queryFts(
   sqlite: Database,
+  table: string,
   query: string,
-  options: FtsSearchOptions = {},
+  options: FtsSearchOptions,
 ): FtsHit[] {
   if (query.trim().length === 0) return []
   if (isImpossibleFilter(options.sourceIds)) return []
@@ -190,11 +198,11 @@ export function searchChunksFts(
   const weights = FTS_COLUMN_WEIGHTS.join(', ')
 
   const sql = `SELECT chunk_id, source_id,
-            bm25(chunks_fts, ${weights}) AS bm25_score,
-            snippet(chunks_fts, ${FTS_TEXT_COLUMN}, '<b>', '</b>', '…', ?) AS snippet,
-            highlight(chunks_fts, ${FTS_HEADING_COLUMN}, '<b>', '</b>') AS heading_highlight
-       FROM chunks_fts
-      WHERE chunks_fts MATCH ?${sourceFilterSql(options.sourceIds)}
+            bm25(${table}, ${weights}) AS bm25_score,
+            snippet(${table}, ${FTS_TEXT_COLUMN}, '<b>', '</b>', '…', ?) AS snippet,
+            highlight(${table}, ${FTS_HEADING_COLUMN}, '<b>', '</b>') AS heading_highlight
+       FROM ${table}
+      WHERE ${table} MATCH ?${sourceFilterSql(options.sourceIds)}
       ORDER BY bm25_score
       LIMIT ?`
 
@@ -213,6 +221,33 @@ export function searchChunksFts(
     snippet: row.snippet,
     headingHighlight: row.heading_highlight,
   }))
+}
+
+/** Full-text search over chunk text and heading paths. `query` is raw FTS5 syntax — build
+ * it with `ftsQuery()` unless you mean to expose operators. */
+export function searchChunksFts(
+  sqlite: Database,
+  query: string,
+  options: FtsSearchOptions = {},
+): FtsHit[] {
+  return queryFts(sqlite, 'chunks_fts', query, options)
+}
+
+/**
+ * The same search, over `chunks_fts_trigram` (migration 0011) instead — substrings rather
+ * than words, so "lula" finds "célula" even though it is not a prefix of any token
+ * `chunks_fts`'s `unicode61` tokenizer produced (`docs/spec/05-ingestion-rag.md` §4: "+
+ * trigram for Spanish"). `query` is still built with `ftsQuery()`: a phrase-quoted term of
+ * three or more characters becomes a substring match under `tokenize = 'trigram'`; shorter
+ * terms simply match nothing; the strengths are complementary; see `hybrid-search.ts`'s
+ * `mergeFtsHits` for how the two branches combine.
+ */
+export function searchChunksFtsTrigram(
+  sqlite: Database,
+  query: string,
+  options: FtsSearchOptions = {},
+): FtsHit[] {
+  return queryFts(sqlite, 'chunks_fts_trigram', query, options)
 }
 
 // --- Vectors -------------------------------------------------------------------------------

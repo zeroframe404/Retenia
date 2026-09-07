@@ -32,6 +32,9 @@ function parseContext() {
   }
 }
 
+// None of this suite's fixtures have a scanned page, so this is never actually called.
+const noopOcr = { id: 'unused', recognize: async () => ({ text: '', confidence: 100 }) }
+
 async function parseFixture(
   file: string,
   fallbackTitle: string,
@@ -40,7 +43,7 @@ async function parseFixture(
   const bytes = new Uint8Array(await readFile(join(FIXTURES, file)))
   const input = { bytes, fallbackTitle }
   return kind === 'pdf'
-    ? parsePdf(input, parseContext())
+    ? parsePdf(input, parseContext(), noopOcr)
     : parseMarkdown(input, parseContext(), { frontmatter: true })
 }
 
@@ -297,6 +300,22 @@ describe('chunkSourceDoc', () => {
     )
     // …but the content hash, which is what dedupe and the embedding cache key on, is the same.
     expect(other.chunks.map((chunk) => chunk.hash)).toEqual(first.chunks.map((chunk) => chunk.hash))
+  })
+
+  it('gives a standalone image source a real locator.page, not an empty one', () => {
+    // `parsers/image.ts` always produces exactly this shape: one preamble block at
+    // `locator: { page: 1 }` — a standalone image is trivially a one-page document. Registered
+    // in `PAGED_KINDS`, it has to actually reach the chunk, not just the block.
+    const doc = makeSourceDoc({
+      kind: 'image',
+      title: 'Diagrama',
+      preamble: [{ text: 'Texto reconocido por OCR', locator: { page: 1 } }],
+    })
+    const result = chunkSourceDoc(doc, { sourceId: 'src-image' })
+
+    expect(result.chunks).toHaveLength(1)
+    expect(result.chunks[0]?.locator.page).toBe(1)
+    expect(result.chunks[0]?.locator.label).toBe('p. 1')
   })
 
   it('anchors each chunk to the page it opens on (PDF)', async () => {

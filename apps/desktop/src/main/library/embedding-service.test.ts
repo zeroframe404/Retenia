@@ -211,6 +211,53 @@ describe('the embedding service', () => {
       expect((await repos.sources.findById(source.id))?.embeddingStatus).toBe('running')
     })
 
+    it('leaves a source marked running, not stuck at ready, when the enqueue itself fails', async () => {
+      // Simulates a source that was already embedded once (`ready`, in the active space),
+      // re-embedded — a re-chunk, a model switch — and this attempt's own `scheduler.enqueue`
+      // then fails (a full disk, a DB write error). The old vectors are already dropped by
+      // this point; if the row were still `ready` afterwards, `sourceIdsNeedingEmbedding`
+      // would never offer it to the next reindex sweep, and it would stay silently unindexed.
+      const source = await newSource()
+      await addChunks(source.id, ['El corazón bombea sangre.'])
+      await repos.sources.update(source.id, { embeddingStatus: 'ready', embeddingModelId: GEMMA })
+
+      vi.mocked(scheduler.enqueue).mockRejectedValueOnce(new Error('disk full'))
+      await expect(service.embedSource(source.id)).rejects.toThrow('disk full')
+
+      const after = await repos.sources.findById(source.id)
+      expect(after?.embeddingStatus).toBe('running')
+      expect(after?.embeddingStatus).not.toBe('ready')
+    })
+
+    it('leaves a source marked running, not stuck at ready, when writing the blob fails', async () => {
+      const source = await newSource()
+      await addChunks(source.id, ['El corazón bombea sangre.'])
+      await repos.sources.update(source.id, { embeddingStatus: 'ready', embeddingModelId: GEMMA })
+
+      const failingBlobStore: BlobStore = {
+        ...blobStore,
+        put: vi.fn(async () => {
+          throw new Error('disk full')
+        }),
+      }
+      const withFailingBlobStore = createEmbeddingService({
+        repos,
+        sqlite: opened.sqlite,
+        blobStore: failingBlobStore,
+        scheduler,
+        host,
+        ids: testIds(clock),
+        getSetting: (async (key: keyof SettingsMap) =>
+          (settings as Record<string, unknown>)[key] ??
+          (await import('@retenia/core')).SETTINGS_DEFAULTS[key]) as never,
+      })
+
+      await expect(withFailingBlobStore.embedSource(source.id)).rejects.toThrow('disk full')
+
+      const after = await repos.sources.findById(source.id)
+      expect(after?.embeddingStatus).toBe('running')
+    })
+
     it('leaves a source with no chunks pending rather than failing it', async () => {
       const source = await newSource()
       await service.embedSource(source.id)

@@ -53,6 +53,7 @@ Packaging note (Windows first): the `.node` binaries of both drivers and `sqlite
 | 8 | `0008_chunk_identity_and_context` | `ccf88f5ee61f` | `chunks.chunk_key` (the chunker's `sha256(source_id, block_ids, text)`, so re-chunking an unchanged source keeps the row and its embeddings), `chunks.chunking_version` (the reindex trigger) and `chunks.is_frontmatter` (a table of contents or bibliography, kept and citable but excluded from path generation); plus a `context` column on `chunks_fts` and its rebuilt triggers, so the contextual-retrieval text is searchable beside the chunk it situates (`05-ingestion-rag.md` §4). |
 | 9 | `0009_source_embedding_state` | `7a4e9b591fed` | `sources.embedding_status`, `sources.embedding_model_id` and `sources.embedding_error`, plus the `sources_embedding` index: where each source stands in the *vector* index, which is a different question from whether it parsed. `embedding_model_id` is the reindex trigger — the startup sweep re-embeds every source whose space is not the active provider's, so switching embedding models can never leave two spaces mixed in one query (`05-ingestion-rag.md` §3). Added with `ALTER TABLE` rather than a table rebuild, which would drop the source soft-delete cascade triggers of migration 0001. |
 | 10 | `0010_source_reading_progress` | `d91ba704c82b` |  |
+| 11 | `0011_chunks_fts_trigram` | `c38da20a7c14` | `chunks_fts_trigram` (FTS5, `trigram remove_diacritics 1`) + sync triggers: an infix index alongside `chunks_fts`, so a search term that is a substring of a word — never a prefix `chunks_fts`'s `unicode61` tokenizer would produce on its own — still finds it (`05-ingestion-rag.md` §4). |
 
 ## Tables
 
@@ -260,6 +261,9 @@ Triggers:
 - `chunks_fts_ad`: AFTER DELETE ON chunks
 - `chunks_fts_ai`: AFTER INSERT ON chunks
 - `chunks_fts_au`: AFTER UPDATE OF source_id, text, heading_path, context, deleted_at ON chunks
+- `chunks_fts_trigram_ad`: AFTER DELETE ON chunks
+- `chunks_fts_trigram_ai`: AFTER INSERT ON chunks
+- `chunks_fts_trigram_au`: AFTER UPDATE OF source_id, text, heading_path, context, deleted_at ON chunks
 
 ### `annotations`
 

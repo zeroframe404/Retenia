@@ -123,9 +123,19 @@ export function createChunkRepository(ctx: RepositoryContext): ChunkRepository {
      * The obvious implementation — soft-delete everything, insert the new set — is what
      * `SourceRepository.replaceUnits` does, and it is wrong here: the vec0 triggers of
      * migrations 0001/0002 drop a chunk's embeddings the moment it is soft-deleted, so
-     * re-parsing an unchanged book would throw away every vector and pay to compute them
-     * again. Matching on `chunk_key` — which the chunker derives from the text itself — means
-     * only the chunks that genuinely changed move.
+     * re-chunking an unchanged book (the same stored `SourceDoc`, cut again after a
+     * `chunking_version` bump — `rechunkStaleSources`) would throw away every vector and pay
+     * to compute them again. Matching on `chunk_key` — which the chunker derives from the
+     * text and the `SourceDoc`'s own block ids — means only the chunks that genuinely changed
+     * move.
+     *
+     * This buys nothing across a genuine **re-parse** (`library.retry`, which re-runs the
+     * format parser itself): `chunk_key` folds in block ids, and every parser mints those
+     * fresh (`ParseContext.id()`, a UUIDv7 per call), so a re-parsed document's chunks get new
+     * keys even where the text is byte-identical, and the old rows are tombstoned rather than
+     * matched. That is only reached on a source whose earlier parse or chunk failed — a
+     * healthy source has nothing to retry — so it costs a full re-embed of a source that had
+     * no usable vectors to preserve anyway.
      */
     replaceBySource: (sourceId, inputs) =>
       ctx.run(async () => {

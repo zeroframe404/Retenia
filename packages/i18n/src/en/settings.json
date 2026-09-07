@@ -24,6 +24,10 @@
     "copy": "Copy",
     "copied": "Copied!"
   },
+  "thirdPartyNotices": {
+    "label": "Third-party notices",
+    "description": "Retenia uses these third-party components as separate processes or unmodified libraries. None of them changes the licence of Retenia's own code."
+  },
   "scheduler": {
     "label": "Scheduler",
     "cost": "≈ {reviews} reviews/day · {minutes} min/day · {ratio}× the reviews of 90%",

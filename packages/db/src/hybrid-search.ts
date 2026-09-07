@@ -13,6 +13,7 @@ import {
   type KnnHit,
   knnChunks,
   searchChunksFts,
+  searchChunksFtsTrigram,
   type VectorPrecision,
 } from './search'
 
@@ -168,6 +169,32 @@ function resolveSourceIds(
   return [...merged]
 }
 
+/**
+ * Folds the trigram branch (`searchChunksFtsTrigram`) into the word branch, so a query that
+ * `chunks_fts`'s `unicode61` tokenizer cannot resolve at all — "lula" is a substring of
+ * "célula", but not a prefix of any token `unicode61` produced from it — is not simply lost
+ * (`docs/spec/05-ingestion-rag.md` §4: "+ trigram for Spanish").
+ *
+ * Deliberately not another RRF pass: the word index's own bm25 ranking is more precise for
+ * anything it actually reaches (real word boundaries beat 3-character windows), so those hits
+ * keep their rank and score exactly as `chunks_fts` returned them. The trigram branch only
+ * ever *adds* — chunks the word index missed outright, appended after it in the trigram's own
+ * rank order — rather than reordering what the word index already found.
+ */
+function mergeFtsHits(
+  word: readonly FtsHit[],
+  trigram: readonly FtsHit[],
+  limit: number,
+): readonly FtsHit[] {
+  if (trigram.length === 0) return word
+  const seen = new Set(word.map((hit) => hit.chunkId))
+  const onlyTrigram = trigram.filter((hit) => !seen.has(hit.chunkId))
+  if (onlyTrigram.length === 0) return word
+  return [...word, ...onlyTrigram]
+    .slice(0, limit)
+    .map((hit, index) => ({ ...hit, rank: index + 1 }))
+}
+
 interface Fused {
   chunkId: string
   score: number
@@ -260,11 +287,19 @@ export function createHybridSearch(deps: HybridSearchDeps): HybridSearch {
       const runVector = options.mode !== 'fts'
 
       const ftsHits = runFts
-        ? searchChunksFts(deps.sqlite, ftsQuery(query, { prefix: options.prefix }), {
-            limit: branchLimit,
-            sourceIds,
-            snippetTokens: options.snippetTokens,
-          })
+        ? mergeFtsHits(
+            searchChunksFts(deps.sqlite, ftsQuery(query, { prefix: options.prefix }), {
+              limit: branchLimit,
+              sourceIds,
+              snippetTokens: options.snippetTokens,
+            }),
+            searchChunksFtsTrigram(deps.sqlite, ftsQuery(query, { prefix: options.prefix }), {
+              limit: branchLimit,
+              sourceIds,
+              snippetTokens: options.snippetTokens,
+            }),
+            branchLimit,
+          )
         : []
 
       const vectorHits =

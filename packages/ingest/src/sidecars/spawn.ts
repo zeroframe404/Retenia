@@ -150,6 +150,20 @@ export async function killAllSidecars(): Promise<void> {
 }
 
 /**
+ * Adds a child spawned outside `runSidecar` to the same registry, so `killAllSidecars` reaps
+ * it too. `./extract.ts`'s `tar` is the one caller: it runs its own binary through its own
+ * spawn (a different environment — the system `tar`, resolved via the real `PATH`, not a
+ * bundled sidecar confined to its own directory — so it cannot just call `runSidecar`), but a
+ * cancelled or shutting-down worker should not leave it running any more than it should
+ * ffmpeg. Returns the matching unregister, to call once the child is reaped — mirroring
+ * `runSidecar`'s own `finally`.
+ */
+export function trackExternalSidecar(child: ChildProcess): () => void {
+  liveChildren.add(child)
+  return () => liveChildren.delete(child)
+}
+
+/**
  * Splits a byte stream into lines, tolerating all three line endings.
  *
  * `\r` alone matters more than it looks: ffmpeg rewrites its progress line in place with a

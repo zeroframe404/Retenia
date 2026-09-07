@@ -116,11 +116,19 @@ describe('hybrid search (BM25 ∪ vector → RRF → reranker)', () => {
       expect((await hybridSearch('de la el')).length).toBeGreaterThan(0)
     })
 
-    it('shows why the vector branch is needed: FTS5 keeps stopwords and ANDs them', async () => {
-      // The tokenizer has no stopword list, so every function word the user types *narrows*
-      // BM25. "de" is absent from the axon sentence, so the whole BM25 branch goes empty —
-      // and the vector branch is what still answers the question.
-      expect(await repos.chunks.search('el axón de la sinapsis', { mode: 'fts' })).toEqual([])
+    it("the trigram branch rescues what the word tokenizer's AND would otherwise empty out", async () => {
+      // The word tokenizer has no stopword list, so every function word the user types
+      // *narrows* BM25 — "de" is absent as a token from the axon sentence, so a word-only
+      // match against `chunks_fts` alone would go empty. `chunks_fts_trigram` (migration
+      // 0011) still finds the chunk: "axón" and "sinapsis" are real substrings there, and a
+      // term too short to trigram at all ("de", "la", "el") simply matches nothing rather
+      // than blocking the rest of the implicit AND — see `mergeFtsHits` in
+      // `hybrid-search.ts`. This is the fts-only branch alone, no vector index involved.
+      expect(
+        (await repos.chunks.search('el axón de la sinapsis', { mode: 'fts' })).map(
+          (hit) => hit.chunk.id,
+        ),
+      ).toEqual([chunkIds[2]])
       expect(
         (await repos.chunks.search('el axón la sinapsis', { mode: 'fts' })).map(
           (hit) => hit.chunk.id,
@@ -146,7 +154,14 @@ describe('hybrid search (BM25 ∪ vector → RRF → reranker)', () => {
 
       const prefix = await repos.chunks.search('mitoc', { mode: 'fts', prefix: true })
       expect(prefix.map((hit) => hit.chunk.id)).toEqual([chunkIds[1]])
-      expect(await repos.chunks.search('mitoc', { mode: 'fts' })).toEqual([])
+
+      // Without `prefix: true`, `chunks_fts`'s word tokenizer alone would not match a bare
+      // "mitoc" against the token "mitocondrias" at all — but `chunks_fts_trigram` (migration
+      // 0011) does, the same way it would for any infix, `prefix` or not: "mitoc" is a
+      // substring of "mitocondrias" regardless of where in the word it starts.
+      expect(
+        (await repos.chunks.search('mitoc', { mode: 'fts' })).map((hit) => hit.chunk.id),
+      ).toEqual([chunkIds[1]])
     })
   })
 
