@@ -13,6 +13,11 @@ import { describe, expect, it } from 'vitest'
 
 const SRC = path.dirname(fileURLToPath(import.meta.url))
 
+/** Repo-relative paths with `/`, so an offender reads the same on Windows and on Linux. */
+function posix(file: string): string {
+  return file.split(/[\\/]/).join('/')
+}
+
 function sourceFiles(options: { tests: boolean }): string[] {
   const found: string[] = []
   for (const entry of readdirSync(SRC, { withFileTypes: true, recursive: true })) {
@@ -37,7 +42,8 @@ function scan(files: readonly string[], pattern: RegExp): string[] {
     const lines = readFileSync(file, 'utf-8').split('\n')
     for (const [index, line] of lines.entries()) {
       if (COMMENT_LINE.test(line)) continue
-      if (pattern.test(line)) hits.push(`${path.relative(SRC, file)}:${index + 1}: ${line.trim()}`)
+      if (pattern.test(line))
+        hits.push(`${posix(path.relative(SRC, file))}:${index + 1}: ${line.trim()}`)
     }
   }
   return hits
@@ -128,7 +134,7 @@ describe('the SDK call site', () => {
         if (!/\b(generateText|streamText)\s*\(/.test(line)) continue
         const window = lines.slice(index, index + 40).join('\n')
         if (!/maxRetries:\s*0/.test(window)) {
-          callSites.push(`${path.relative(SRC, file)}:${index + 1}: ${line.trim()}`)
+          callSites.push(`${posix(path.relative(SRC, file))}:${index + 1}: ${line.trim()}`)
         }
       }
     }

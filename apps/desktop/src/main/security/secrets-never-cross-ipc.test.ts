@@ -26,6 +26,18 @@ const REPO_ROOT = path.resolve(DESKTOP_SRC, '../../..')
 
 const COMMENT_LINE = /^\s*(?:\/\/|\/\*|\*)/
 
+/**
+ * Repo-relative paths with `/`, on every platform.
+ *
+ * `path.relative` emits `\` on Windows, and CI runs this suite on `windows-latest` as well
+ * as `ubuntu-latest` — layers 4 and 5 compare paths, so without this they pass on one runner
+ * and fail on the other. It also keeps an offender's `path:line:` message identical
+ * wherever it was produced, which is the point of reporting one.
+ */
+function posix(file: string): string {
+  return file.split(/[\\/]/).join('/')
+}
+
 function filesUnder(root: string, options: { includeTests: boolean }): string[] {
   const found: string[] = []
   let entries: Dirent[]
@@ -52,7 +64,7 @@ function scan(files: readonly string[], pattern: RegExp): string[] {
     for (const [index, line] of readFileSync(file, 'utf-8').split('\n').entries()) {
       if (COMMENT_LINE.test(line)) continue
       if (pattern.test(line)) {
-        hits.push(`${path.relative(REPO_ROOT, file)}:${index + 1}: ${line.trim()}`)
+        hits.push(`${posix(path.relative(REPO_ROOT, file))}:${index + 1}: ${line.trim()}`)
       }
     }
   }

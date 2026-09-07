@@ -77,7 +77,9 @@ describe('buildCsp (production)', () => {
       for (const [index, line] of readFileSync(file, 'utf-8').split('\n').entries()) {
         if (/^\s*(?:\/\/|\/\*|\*)/.test(line)) continue
         if (/api\.anthropic\.com|generativelanguage|openrouter\.ai|:11434|:1234/.test(line)) {
-          offenders.push(`${path.relative(root, file)}:${index + 1}: ${line.trim()}`)
+          offenders.push(
+            `${path.relative(root, file).split(/[\\/]/).join('/')}:${index + 1}: ${line.trim()}`,
+          )
         }
       }
     }
