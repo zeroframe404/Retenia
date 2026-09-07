@@ -1,6 +1,7 @@
 import { Readability } from '@mozilla/readability'
 import { Defuddle } from 'defuddle/node'
 import { JSDOM } from 'jsdom'
+import { parse as parseHtml } from 'node-html-parser'
 
 /**
  * Pulling the article out of a fetched page (`docs/spec/05-ingestion-rag.md` §1: "Defuddle …
@@ -119,16 +120,16 @@ function rawBody(
 }
 
 /** The page's `<link rel="canonical">`, if it has one — lives in `<head>`, so independent of
- *  whichever extractor below finds the article body. A separate, minimal parse rather than
- *  reusing one of the extractors' own DOMs: Defuddle does not expose one at all, and the
- *  Readability/raw-body ones are built only on a successful (or last-resort) branch, not
- *  unconditionally. */
+ *  whichever extractor below finds the article body. Read with `node-html-parser` (already a
+ *  dependency, via `parsers/epub.ts`/`parsers/docx.ts`) rather than `JSDOM`: this runs
+ *  unconditionally on every call, including the common `defuddle` success path that otherwise
+ *  builds no DOM at all, and a second full `jsdom` parse there was measured to roughly double
+ *  this function's cost — cheap enough locally to go unnoticed, but enough to tip a real-fixture
+ *  test over Vitest's default timeout on a loaded Windows CI runner. */
 function readCanonicalUrl(html: string, url: string): string | null {
   try {
-    const href = new JSDOM(html, { url }).window.document
-      .querySelector('link[rel="canonical"]')
-      ?.getAttribute('href')
-    if (href === null || href === undefined || href.trim().length === 0) return null
+    const href = parseHtml(html).querySelector('link[rel="canonical"]')?.getAttribute('href')
+    if (href === undefined || href.trim().length === 0) return null
     return new URL(href, url).href
   } catch {
     return null
