@@ -48,8 +48,14 @@ export interface ChunkLocatorDraft {
 export interface ChunkDraft {
   /**
    * `sha256(source_id, block_ids, text)` — the chunk's identity, and the acceptance
-   * criterion "chunk ids are stable across runs": re-parsing an unchanged document produces
-   * the same keys, so the store can leave those rows (and their embeddings) alone.
+   * criterion "chunk ids are stable across runs": re-chunking an unchanged, already-persisted
+   * `SourceDoc` produces the same keys, so the store can leave those rows (and their
+   * embeddings) alone.
+   *
+   * That stability does not reach across a genuine re-parse: block ids come from
+   * `ParseContext.id()`, a fresh UUIDv7 per parser call, so re-parsing the same source file
+   * (`library.retry`) mints new block ids and therefore new keys even for byte-identical
+   * text — see `@retenia/db`'s `ChunkRepository.replaceBySource` for what that costs.
    *
    * The row's `id` is still a UUIDv7 like every other row; this is a natural key stored
    * beside it in `chunks.chunk_key`.
