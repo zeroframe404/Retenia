@@ -1,5 +1,10 @@
 import type { YouTubeEnvelope } from '@retenia/ingest/web'
-import { canonicalWatchUrl, normalizeYouTubeTranscript } from '@retenia/ingest/web'
+import { normalizeYouTubeTranscript } from '@retenia/ingest/web/youtube-transcript-normalize'
+// The two narrow entries, not the `web` barrel: this file is reachable from main's own bundle, a
+// separate Rollup output from the job worker's — importing the full barrel here would pull
+// `jsdom`/`defuddle`/`turndown` into a chunk shared across both, which broke the production build
+// outright (see `youtube-url.ts`'s own doc comment).
+import { canonicalWatchUrl } from '@retenia/ingest/web/youtube-url'
 import { net } from 'electron'
 import { XMLParser } from 'fast-xml-parser'
 import { fetchTranscript, type TranscriptResponse } from 'youtube-transcript'

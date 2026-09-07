@@ -464,7 +464,11 @@ export function createLibraryService({
       addBytes(new TextEncoder().encode(text), 'text/plain', 'text', title, null),
 
     addFromUrl: async (url) => {
-      const { parseYouTubeUrl } = await import('@retenia/ingest/web')
+      // The narrower `web/youtube-url` entry, not the `web` barrel: this file is reachable from
+      // main's own bundle, a separate Rollup output from the job worker's — importing the full
+      // barrel here would pull `jsdom`/`defuddle`/`turndown` into a chunk shared across both,
+      // which broke the production build outright (see `youtube-url.ts`'s own doc comment).
+      const { parseYouTubeUrl } = await import('@retenia/ingest/web/youtube-url')
       const youtube = parseYouTubeUrl(url)
 
       const addYouTubeVideo = async (

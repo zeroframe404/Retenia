@@ -153,3 +153,44 @@ describe('packages that resolve files at runtime', () => {
     },
   )
 })
+
+/**
+ * A third way a package can end up bundled instead of external: `externalizeDeps`'s default
+ * strategy only externalizes what it finds in this app's own `package.json` `dependencies` — a
+ * package sitting in `devDependencies` instead (even though `packages/ingest`'s web importer
+ * needs it at runtime, via the dynamically-imported `@retenia/ingest/web` entry) is silently
+ * bundled instead.
+ *
+ * Bundling any of these specific packages does not fail quietly like the ones above (a missing
+ * `.node`/`.wasm` file at first use) — it breaks the *build itself*: Vite's CJS-interop shim
+ * (`__cjs_mod__`, `__filename`/`__dirname` via `import.meta`) that it auto-injects for
+ * bundled CJS-pattern code gets emitted **mid-file** when jsdom-family code is bundled, which is
+ * invalid syntax and fails `electron-vite build` outright with an esbuild parse error. Nothing
+ * short of a real production build reproduces this — typecheck and the unit tests both resolve
+ * these packages directly and never see the bundler's shim at all.
+ */
+const MUST_STAY_EXTERNAL_TO_AVOID_BROKEN_CJS_SHIM = [
+  // The web importer's HTML parsing (`packages/ingest/src/web/extract-article.ts`).
+  'jsdom',
+  '@mozilla/readability',
+  'defuddle',
+  // HTML → Markdown conversion for the same importer.
+  'turndown',
+] as const
+
+describe('packages that break the build if bundled instead of external', () => {
+  const dependencies = Object.keys(
+    (
+      JSON.parse(readFileSync(path.join(desktopRoot, 'package.json'), 'utf-8')) as {
+        dependencies?: Record<string, string>
+      }
+    ).dependencies ?? {},
+  )
+
+  it.each(MUST_STAY_EXTERNAL_TO_AVOID_BROKEN_CJS_SHIM)(
+    'lists %s in the app’s own dependencies, not devDependencies, so it stays external',
+    (pkg) => {
+      expect(dependencies).toContain(pkg)
+    },
+  )
+})

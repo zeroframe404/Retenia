@@ -15,7 +15,9 @@
     "./rerank": "./src/rerank/index.ts",
     "./sidecars": "./src/sidecars/index.ts",
     "./sidecars/env": "./src/sidecars/env.ts",
-    "./web": "./src/web/index.ts"
+    "./web": "./src/web/index.ts",
+    "./web/youtube-url": "./src/web/youtube-url.ts",
+    "./web/youtube-transcript-normalize": "./src/web/youtube-transcript-normalize.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",

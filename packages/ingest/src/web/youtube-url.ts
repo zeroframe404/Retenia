@@ -3,6 +3,15 @@
  * (watch/shorts/playlist)"). Pure string/URL handling — no network, no `youtube-transcript`
  * import — so `main`'s deep-link handler and the "Paste URL" import path can both classify a
  * pasted link the same way before anything is fetched.
+ *
+ * Reachable at its own `@retenia/ingest/web/youtube-url` export, not just through the `web`
+ * barrel: `apps/desktop/src/main/library/service.ts` needs exactly this function to classify a
+ * pasted URL, from the *main* process's own dynamic-import graph — which is a different Electron
+ * entry point (and a different Rollup build target) than the job worker's. Importing the full
+ * `web` barrel there would pull `jsdom`/`defuddle`/`turndown` into a chunk shared between main
+ * and the worker, which is what produced a broken bundle (a `node:module` CJS-interop shim
+ * emitted mid-file) the one time it was tried — the `web` barrel's own doc comment already warns
+ * about this for the worker side; this is the same rule from main's side.
  */
 
 const VIDEO_ID = /^[A-Za-z0-9_-]{11}$/
