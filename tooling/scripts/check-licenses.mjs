@@ -54,7 +54,10 @@ try {
  * is matched exactly: a wildcard is a decision about a family, not a way to be vague.
  */
 function findException(name) {
-  if (exceptions[name]) return exceptions[name]
+  // `Object.hasOwn`, not `exceptions[name]` truthiness: a package named `constructor`,
+  // `toString`, or any other `Object.prototype` member would otherwise resolve through the
+  // prototype chain to a truthy function and silently pass as "excepted".
+  if (Object.hasOwn(exceptions, name)) return exceptions[name]
   for (const [pattern, reason] of Object.entries(exceptions)) {
     if (pattern.endsWith('*') && name.startsWith(pattern.slice(0, -1))) return reason
   }
