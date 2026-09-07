@@ -57,8 +57,19 @@ export interface ContextualizationEstimateOptions {
 
 export interface ContextualizationEstimate {
   chunkCount: number
+  /**
+   * The **display** total: uncached + cache-write + cached.
+   *
+   * Deliberately NOT what `ai_calls.input_tokens` means, which is the *uncached* count
+   * alone — the same word with opposite meanings on the two sides of a package boundary.
+   * Anything populating a cost-log row from this estimate wants `uncachedInputTokens`.
+   */
   inputTokens: number
   cachedInputTokens: number
+  /** Uncached prompt tokens — what `ai_calls.input_tokens` and `BillableUsage` mean. */
+  uncachedInputTokens: number
+  /** Prompt tokens written to the cache; 0 when `promptCaching` is off. */
+  cacheWriteTokens: number
   outputTokens: number
   usd: number
 }
@@ -82,7 +93,15 @@ export function estimateContextualization(
   const calls = chunks.length
 
   if (calls === 0) {
-    return { chunkCount: 0, inputTokens: 0, cachedInputTokens: 0, outputTokens: 0, usd: 0 }
+    return {
+      chunkCount: 0,
+      inputTokens: 0,
+      cachedInputTokens: 0,
+      uncachedInputTokens: 0,
+      cacheWriteTokens: 0,
+      outputTokens: 0,
+      usd: 0,
+    }
   }
 
   // With caching the prefix is written once and read back by every later call; without it,
@@ -109,6 +128,10 @@ export function estimateContextualization(
     chunkCount: calls,
     inputTokens: inputTokens + cachedInputTokens,
     cachedInputTokens,
+    // With caching on, the prefix is a cache *write* and only the chunks are charged as
+    // ordinary input; without it, every call pays for the prefix at the input rate.
+    uncachedInputTokens: caching ? chunkTokens : uncachedPrefixTokens + chunkTokens,
+    cacheWriteTokens: caching ? prefixTokens : 0,
     outputTokens,
     usd,
   }

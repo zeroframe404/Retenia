@@ -21,7 +21,16 @@ export interface SourceChunksProps {
   estimate: ContextualizationEstimateDto | undefined
   excludeFrontmatter: boolean
   onExcludeFrontmatterChange: (value: boolean) => void
-  /** Whether an AI provider for the `cheap` role exists. False until sub-phase 7.1. */
+  /**
+   * Whether an AI provider for the `cheap` role exists. Still false.
+   *
+   * Sub-phase 7.1 wired the provider in *main* — `LibraryService.contextualize` works and no
+   * longer throws — but nothing here can turn it on yet, for two reasons: there is no screen
+   * on which a user can enter an API key (7.5), and the `<Switch>` below has no
+   * `onCheckedChange`, so setting this true would ship a control that looks clickable and
+   * does nothing. Enabling it needs a `library.contextualize` channel and its handler
+   * alongside the settings screen; an honest disabled control beats a live no-op.
+   */
   contextualizationAvailable?: boolean
 }
 

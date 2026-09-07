@@ -1,4 +1,10 @@
 {
   "extends": "../config/tsconfig.base.json",
+  "compilerOptions": {
+    // This package runs in the Electron main process (or a utility process), never a
+    // renderer: it holds API keys and opens outbound connections. `node` types are what
+    // give it `AbortSignal`, `setTimeout` and `console` without pulling in `DOM`.
+    "types": ["node"]
+  },
   "include": ["src"]
 }

@@ -50,7 +50,16 @@ export interface SettingsMap {
   'review.easyDays': EasyDays
   /** §4's "and specific dates": `YYYY-MM-DD` → level, beating that date's weekday. */
   'review.easyDates': EasyDates
+  /** The monthly cap in USD. **0 means no cap**, not "block every call". */
   'ai.budget.monthlyUsd': number
+  /**
+   * Whether reaching the cap refuses further calls, or only warns
+   * (`docs/spec/06-ai-providers.md` §6: "optional blocking"). On by default: a cap nothing
+   * enforces is a number that only looks like a control. A caller with the user's explicit
+   * consent for one call overrides it per call rather than by flipping this.
+   */
+  'ai.budget.hardBlock': boolean
+  /** Profile ids `packages/ai` may route to. Empty means "all of them". */
   'ai.providers.allowlist': string[]
   /**
    * Which embedding space the library is indexed in — a catalog model id
@@ -221,6 +230,7 @@ export const SETTINGS: { readonly [K in SettingsKey]: SettingSpec<SettingsMap[K]
   'review.easyDays': easyDaysSetting,
   'review.easyDates': easyDatesSetting,
   'ai.budget.monthlyUsd': numberIn(0, 100000, 30),
+  'ai.budget.hardBlock': booleanSetting(true),
   'ai.providers.allowlist': stringArray([]),
   // The catalog itself lives in `packages/ingest` (Node-only), which `core` must not import,
   // so these are plain strings validated at the point of use — an unknown id degrades to "no

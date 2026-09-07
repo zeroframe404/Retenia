@@ -121,7 +121,17 @@ export function createAiCallRepository(ctx: RepositoryContext): AiCallRepository
 
     record: base.create,
 
-    findByCustomId: async (customId) => (await base.findWhere(eq(aiCalls.customId, customId)))[0],
+    // Ordered, unlike the raw `findWhere` this used to take the head of. Sub-phase 7.1 is
+    // where a `custom_id` first comes to be shared by more than one row — every attempt of
+    // one logical call carries the caller's idempotency key — and SQLite makes no promise
+    // that index order is insertion order, so "the first attempt" has to be asked for.
+    findByCustomId: async (customId) =>
+      (
+        await base.findWhere(eq(aiCalls.customId, customId), {
+          orderBy: [asc(aiCalls.createdAt), asc(aiCalls.id)],
+          limit: 1,
+        })
+      )[0],
 
     listByBatch: (batchId, options) =>
       base.findWhere(eq(aiCalls.batchId, batchId), {
@@ -157,6 +167,27 @@ export function createAiCallRepository(ctx: RepositoryContext): AiCallRepository
         .orderBy(desc(sql`sum(${aiCalls.costUsd})`))
         .all() as Array<{ provider: string; model: string; costUsd: number }>
       return rows.map((row) => ({ ...row, costUsd: Number(row.costUsd) }))
+    },
+
+    costByPurpose: async (query) => {
+      const rows = ctx.db
+        .select({
+          purpose: aiCalls.purpose,
+          provider: aiCalls.provider,
+          costUsd: sql<number>`sum(${aiCalls.costUsd})`,
+          calls: sql<number>`count(*)`,
+        })
+        .from(aiCalls)
+        .where(costPredicate(query))
+        .groupBy(aiCalls.purpose, aiCalls.provider)
+        .orderBy(desc(sql`sum(${aiCalls.costUsd})`))
+        .all() as Array<{ purpose: string; provider: string; costUsd: number; calls: number }>
+      return rows.map((row) => ({
+        purpose: row.purpose,
+        provider: row.provider,
+        costUsd: Number(row.costUsd ?? 0),
+        calls: Number(row.calls ?? 0),
+      }))
     },
   }
 }

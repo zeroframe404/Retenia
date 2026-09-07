@@ -22,4 +22,13 @@ export interface AiCallRepository extends CrudRepository<AiCall> {
   costByModel(
     query: CostQuery,
   ): Promise<Array<{ provider: string; model: string; costUsd: number }>>
+  /**
+   * Spend split by feature and provider, with a call count — the per-feature breakdown
+   * `docs/spec/06-ai-providers.md` §6 asks the budget screen to show. `costByModel` groups
+   * by provider and model, which answers "which model costs the most" but never "what is
+   * generating paths costing me".
+   */
+  costByPurpose(
+    query: CostQuery,
+  ): Promise<Array<{ purpose: string; provider: string; costUsd: number; calls: number }>>
 }

@@ -581,6 +581,68 @@ describe('LibraryService', () => {
     expect(estimate.outputTokens).toBeGreaterThan(0)
   })
 
+  it('quotes with the rate card the provider layer supplies, not the estimator default', async () => {
+    // Asserted on the injected function, not only on the number. `estimate.pricing.test.ts`
+    // proves the two rate cards agree; it does NOT prove this call site passes one, and the
+    // line would keep compiling and keep returning a plausible price if nobody wired it.
+    let asked = 0
+    const priced = createLibraryService({
+      repos: {
+        sources,
+        chunks,
+        blobs,
+        transaction: <T>(work: (tx: unknown) => Promise<T>) => work({ sources, chunks, blobs }),
+      } as never,
+      blobStore,
+      scheduler,
+      contextualizationPricing: async () => {
+        asked += 1
+        // Deliberately absurd, so the quote cannot coincidentally match the default.
+        return { inputUsdPerMillion: 1000, outputUsdPerMillion: 1000 }
+      },
+    })
+
+    const source = await priced.addFromText('placeholder', 'notes.txt')
+    const { sha256 } = await blobStore.put(
+      new TextEncoder().encode(JSON.stringify(draftsFor(source.id))),
+      'application/json',
+    )
+    await priced.onJobSettled(chunkJob(source.id, 'succeeded', sha256))
+
+    const baseline = await service.estimateContextualization(source.id)
+    const quoted = await priced.estimateContextualization(source.id)
+
+    expect(asked).toBe(1)
+    expect(quoted.usd).toBeGreaterThan(baseline.usd * 100)
+  })
+
+  it('still quotes when no provider is configured', async () => {
+    // The estimate must answer even before a key is stored: `ratesFor` resolves to
+    // undefined, and the estimator falls back to its own default rate card.
+    const unpriced = createLibraryService({
+      repos: {
+        sources,
+        chunks,
+        blobs,
+        transaction: <T>(work: (tx: unknown) => Promise<T>) => work({ sources, chunks, blobs }),
+      } as never,
+      blobStore,
+      scheduler,
+      contextualizationPricing: async () => undefined,
+    })
+
+    const source = await unpriced.addFromText('placeholder', 'notes.txt')
+    const { sha256 } = await blobStore.put(
+      new TextEncoder().encode(JSON.stringify(draftsFor(source.id))),
+      'application/json',
+    )
+    await unpriced.onJobSettled(chunkJob(source.id, 'succeeded', sha256))
+
+    await expect(
+      unpriced.estimateContextualization(source.id).then((e) => e.usd),
+    ).resolves.toBeGreaterThan(0)
+  })
+
   it('marks the source failed when its parse job fails', async () => {
     const source = await service.addFromText('placeholder', 'notes.txt')
     await service.onJobSettled({
