@@ -169,11 +169,17 @@ jobs:
       # `node_modules/electron/dist` — which is what happens when the lockfile key rotates and
       # the first run under the new key fails to extract it — every later run inherits a broken
       # electron, and `_electron.launch()` silently starts a ~460 MB download at test time that
-      # no 30 s test can outlast. Re-running the install script costs seconds when the binary is
-      # already correct (it short-circuits on the version check) and is what guarantees `dist/`
-      # exists no matter how the store got into that state.
+      # no 30 s test can outlast.
+      #
+      # `install.js` is invoked directly rather than through `pnpm rebuild`, because every
+      # rebuild form is a silent no-op here: `pnpm rebuild electron` at the root only considers
+      # the ROOT project's dependencies and electron belongs to apps/desktop, while
+      # `--filter apps/desktop` and `-r` both skip it as already built. All three exit 0 having
+      # done nothing — verified by deleting `dist/version` locally and watching each one leave
+      # it deleted. Calling the script bypasses that bookkeeping. It re-extracts from the zip
+      # the cache step above restored, so it costs seconds rather than a download.
       - name: Ensure the Electron binary is extracted
-        run: pnpm rebuild electron
+        run: pnpm --filter @retenia/desktop exec node node_modules/electron/install.js
 
       - name: Run Playwright E2E (builds first)
         run: pnpm e2e
