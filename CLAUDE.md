@@ -64,6 +64,7 @@ of decisions:
 | File | Covers |
 |---|---|
 | `docs/perf/rag.md` | Retrieval: hybrid query latency and recall at 50k chunks, embedding throughput and batch-size curve for the local model, and what is still unmeasured |
+| `docs/perf/media.md` | Media ingestion: the scene-detection threshold's measured behaviour on screencast fixtures, keyframe/dHash throughput, transcription throughput |
 
 Source of all of them: `docs/research/Retenia_Investigacion_y_Plan_Maestro.pdf`.
 
