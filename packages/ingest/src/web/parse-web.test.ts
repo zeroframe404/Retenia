@@ -175,27 +175,38 @@ describe('parseWebPage', () => {
     expect(doc.meta.warnings.some((w) => w.includes('more images than'))).toBe(true)
   })
 
-  it('caps the number of images fetched per document, warning when the cap is hit', async () => {
-    const ctx = createFakeParseContext()
-    const images = Array.from(
-      { length: 205 },
-      (_, i) => `<img src="https://example.com/img-${i}.png" alt="image ${i}">`,
-    ).join('\n')
-    const html = `<html><body><article>
+  // A 205-image fixture runs the full Defuddle → JSDOM-walk → Turndown pipeline over a much
+  // larger document than the rest of this file, on purpose (it is what actually exercises the
+  // per-document cap) — real CPU-bound work that comfortably clears Vitest's 5s default on a
+  // typical machine (well under 1s locally) but has been observed to occasionally cross it on a
+  // loaded Windows CI runner. A generous explicit timeout, not a behavior change.
+  const IMAGE_STRESS_TEST_TIMEOUT_MS = 20_000
+
+  it(
+    'caps the number of images fetched per document, warning when the cap is hit',
+    async () => {
+      const ctx = createFakeParseContext()
+      const images = Array.from(
+        { length: 205 },
+        (_, i) => `<img src="https://example.com/img-${i}.png" alt="image ${i}">`,
+      ).join('\n')
+      const html = `<html><body><article>
       <p>Intro paragraph long enough to count as real content for extraction purposes here.</p>
       ${images}
     </article></body></html>`
-    let fetchCount = 0
-    const fetchImage: WebImageFetcher = async () => {
-      fetchCount += 1
-      return { bytes: new Uint8Array([1, 2, 3]), mime: 'image/png' }
-    }
-    const doc = await parseWebPage(await envelopeInput({ html }), ctx, { fetchImage })
+      let fetchCount = 0
+      const fetchImage: WebImageFetcher = async () => {
+        fetchCount += 1
+        return { bytes: new Uint8Array([1, 2, 3]), mime: 'image/png' }
+      }
+      const doc = await parseWebPage(await envelopeInput({ html }), ctx, { fetchImage })
 
-    expect(fetchCount).toBe(200)
-    expect(doc.assets).toHaveLength(200)
-    expect(doc.meta.warnings.some((w) => w.includes('more images than'))).toBe(true)
-  })
+      expect(fetchCount).toBe(200)
+      expect(doc.assets).toHaveLength(200)
+      expect(doc.meta.warnings.some((w) => w.includes('more images than'))).toBe(true)
+    },
+    IMAGE_STRESS_TEST_TIMEOUT_MS,
+  )
 
   it('prefers the canonical URL for meta.origin.url, while still resolving images against the fetched URL', async () => {
     const ctx = createFakeParseContext()
@@ -230,27 +241,31 @@ describe('parseWebPage', () => {
     expect(doc.meta.origin?.url).toBe(PAGE_URL)
   })
 
-  it('caps the number of image *attempts* even when every fetch fails, not just successes', async () => {
-    const ctx = createFakeParseContext()
-    const images = Array.from(
-      { length: 205 },
-      (_, i) => `<img src="https://example.com/broken-${i}.png" alt="image ${i}">`,
-    ).join('\n')
-    const html = `<html><body><article>
+  it(
+    'caps the number of image *attempts* even when every fetch fails, not just successes',
+    async () => {
+      const ctx = createFakeParseContext()
+      const images = Array.from(
+        { length: 205 },
+        (_, i) => `<img src="https://example.com/broken-${i}.png" alt="image ${i}">`,
+      ).join('\n')
+      const html = `<html><body><article>
       <p>Intro paragraph long enough to count as real content for extraction purposes here.</p>
       ${images}
     </article></body></html>`
-    let attemptCount = 0
-    // Every fetch fails (a 404, say) — if the cap only counted successes, all 205 would still be
-    // attempted; it must stop at 200 regardless of outcome.
-    const fetchImage: WebImageFetcher = async () => {
-      attemptCount += 1
-      return null
-    }
-    const doc = await parseWebPage(await envelopeInput({ html }), ctx, { fetchImage })
+      let attemptCount = 0
+      // Every fetch fails (a 404, say) — if the cap only counted successes, all 205 would still be
+      // attempted; it must stop at 200 regardless of outcome.
+      const fetchImage: WebImageFetcher = async () => {
+        attemptCount += 1
+        return null
+      }
+      const doc = await parseWebPage(await envelopeInput({ html }), ctx, { fetchImage })
 
-    expect(attemptCount).toBe(200)
-    expect(doc.assets).toHaveLength(0)
-    expect(doc.meta.warnings.some((w) => w.includes('more images than'))).toBe(true)
-  })
+      expect(attemptCount).toBe(200)
+      expect(doc.assets).toHaveLength(0)
+      expect(doc.meta.warnings.some((w) => w.includes('more images than'))).toBe(true)
+    },
+    IMAGE_STRESS_TEST_TIMEOUT_MS,
+  )
 })
