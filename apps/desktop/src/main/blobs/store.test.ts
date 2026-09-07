@@ -1,11 +1,22 @@
 import { createHash } from 'node:crypto'
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { setTimeout as delay } from 'node:timers/promises'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createFsBlobStore } from './store'
 
 let root: string
+
+/**
+ * Temp files left by a failed `put` are only observable once the write stream's pending
+ * `open()` has settled, so give the event loop a few turns before looking. Without this,
+ * a leaked file created a tick after the rejection would slip past the assertion.
+ */
+async function tmpFilesAfterSettling(): Promise<string[]> {
+  await delay(25)
+  return readdirSync(root).filter((name) => name.startsWith('.tmp-'))
+}
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), 'retenia-blobs-'))
@@ -43,7 +54,6 @@ describe('createFsBlobStore', () => {
     expect(second.sha256).toBe(first.sha256)
     // No leftover temp files from either write.
     const shard = join(root, first.sha256.slice(0, 2))
-    const { readdirSync } = await import('node:fs')
     expect(readdirSync(shard)).toEqual([`${first.sha256}.png`])
   })
 
@@ -97,8 +107,57 @@ describe('createFsBlobStore', () => {
 
     await expect(store.put(failing(), 'text/plain')).rejects.toThrow('boom')
 
-    const { readdirSync } = await import('node:fs')
-    const leftovers = readdirSync(root).filter((name) => name.startsWith('.tmp-'))
-    expect(leftovers).toEqual([])
+    expect(await tmpFilesAfterSettling()).toEqual([])
+  })
+
+  // The source throws while the stream's lazy `open()` is still pending — `for await` only
+  // drains microtasks, so no chunk ever reaches the file descriptor however many are
+  // yielded. Cleanup that does not wait for the stream to close removes nothing, and the
+  // open then creates the temp file behind it.
+  it('leaves no temp file behind when the write fails with the open still pending', async () => {
+    const store = createFsBlobStore(root)
+    async function* failing(): AsyncGenerator<Uint8Array> {
+      for (let i = 0; i < 8; i++) {
+        yield new TextEncoder().encode(`chunk ${i} `)
+      }
+      throw new Error('boom')
+    }
+
+    await expect(store.put(failing(), 'text/plain')).rejects.toThrow('boom')
+
+    expect(await tmpFilesAfterSettling()).toEqual([])
+  })
+
+  it('leaves no temp file behind when the write fails before any chunk is yielded', async () => {
+    const store = createFsBlobStore(root)
+    // Not a generator: one that only throws would have no `yield` for Biome's `useYield`.
+    const failing: AsyncIterable<Uint8Array> = {
+      [Symbol.asyncIterator]: () => ({
+        next: () => Promise.reject(new Error('boom')),
+      }),
+    }
+
+    await expect(store.put(failing, 'text/plain')).rejects.toThrow('boom')
+
+    expect(await tmpFilesAfterSettling()).toEqual([])
+  })
+
+  // Cleanup that races the open leaks only when `rm` happens to win, which on an idle
+  // machine it usually does not. Enough concurrent failures to contend for libuv's thread
+  // pool makes at least one leak overwhelmingly likely, so this is the case that actually
+  // holds the fix in place.
+  it('leaves no temp file behind under many concurrent failing writes', async () => {
+    const store = createFsBlobStore(root)
+    async function* failing(): AsyncGenerator<Uint8Array> {
+      yield new TextEncoder().encode('partial')
+      throw new Error('boom')
+    }
+
+    const writes = Array.from({ length: 96 }, () =>
+      expect(store.put(failing(), 'text/plain')).rejects.toThrow('boom'),
+    )
+    await Promise.all(writes)
+
+    expect(await tmpFilesAfterSettling()).toEqual([])
   })
 })
