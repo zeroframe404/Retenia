@@ -20,7 +20,8 @@
       "!**/*.local.json",
       "!**/routeTree.gen.ts",
       "!**/migrations/meta",
-      "!packages/core/test/fixtures"
+      "!packages/core/test/fixtures",
+      "!packages/readers/src/epub/vendor/foliate-js"
     ]
   },
   "formatter": {

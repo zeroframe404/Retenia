@@ -114,6 +114,8 @@ describe('a Spanish query over the fixture book', () => {
       embeddingStatus: 'pending',
       embeddingModelId: null,
       embeddingError: null,
+      lastLocator: null,
+      lastOpenedAt: null,
     })
     sourceId = source.id
 
@@ -283,6 +285,8 @@ describe('a Spanish query over the fixture book', () => {
       embeddingStatus: 'pending',
       embeddingModelId: null,
       embeddingError: null,
+      lastLocator: null,
+      lastOpenedAt: null,
     })
 
     const TOPICS = [

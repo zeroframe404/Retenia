@@ -6,7 +6,7 @@ import type {
   SourceStatus,
   SourceUnit,
 } from '@retenia/core'
-import { and, asc, eq, isNull, ne, or, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, isNotNull, isNull, ne, or, sql } from 'drizzle-orm'
 import type { SQLiteColumn } from 'drizzle-orm/sqlite-core'
 import { chunks, sources, sourceUnits } from '../schema'
 import { type BaseRepository, createBaseRepository, type Row, type TableCodec } from './base'
@@ -44,6 +44,8 @@ const sourceCodec: TableCodec<Source, NewSource, SourcePatch> = {
     embeddingStatus: row.embeddingStatus as EmbeddingStatus,
     embeddingModelId: toTextOrNull(row.embeddingModelId),
     embeddingError: toTextOrNull(row.embeddingError),
+    lastLocator: toJsonObjectOrNull(row.lastLocator),
+    lastOpenedAt: toDateOrNull(row.lastOpenedAt),
     createdAt: toDate(row.createdAt),
     updatedAt: toDate(row.updatedAt),
     deletedAt: toDateOrNull(row.deletedAt),
@@ -67,6 +69,11 @@ const sourceCodec: TableCodec<Source, NewSource, SourcePatch> = {
       embeddingStatus: input.embeddingStatus,
       embeddingModelId: input.embeddingModelId ?? null,
       embeddingError: input.embeddingError ?? null,
+      lastLocator: input.lastLocator ?? null,
+      lastOpenedAt:
+        input.lastOpenedAt === null || input.lastOpenedAt === undefined
+          ? null
+          : input.lastOpenedAt.getTime(),
     }),
   toUpdate: (patch) =>
     defined({
@@ -83,6 +90,9 @@ const sourceCodec: TableCodec<Source, NewSource, SourcePatch> = {
       embeddingStatus: patch.embeddingStatus,
       embeddingModelId: patch.embeddingModelId,
       embeddingError: patch.embeddingError,
+      lastLocator: patch.lastLocator,
+      lastOpenedAt:
+        patch.lastOpenedAt === undefined ? undefined : (patch.lastOpenedAt?.getTime() ?? null),
     }),
 }
 
@@ -249,6 +259,15 @@ export function createSourceRepository(ctx: RepositoryContext): SourceRepository
         .all() as Array<{ id: string }>
       return rows.map((row) => row.id)
     },
+
+    recordProgress: (id, locator, at) =>
+      base.updateColumns(id, { lastLocator: locator, lastOpenedAt: at.getTime() }),
+
+    listRecentlyOpened: (limit) =>
+      base.findWhere(isNotNull(sources.lastOpenedAt), {
+        limit,
+        orderBy: [desc(sources.lastOpenedAt)],
+      }),
 
     findUnit: units.findById,
 

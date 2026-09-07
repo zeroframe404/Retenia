@@ -100,6 +100,13 @@ function unavailableLibraryService(reason: string): LibraryService {
     createCardFromChunk: fail,
     remove: fail,
     onJobSettled: fail,
+    listAnnotations: fail,
+    createAnnotation: fail,
+    updateAnnotation: fail,
+    deleteAnnotation: fail,
+    createCardFromAnnotation: fail,
+    recordProgress: fail,
+    listRecentlyOpened: fail,
   }
 }
 

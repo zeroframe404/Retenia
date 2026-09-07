@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { SplitPane } from './split-pane'
 
 describe('SplitPane', () => {
@@ -61,5 +61,33 @@ describe('SplitPane', () => {
     expect(handle).toHaveClass(sizeClass)
     // The hairline is the pseudo-element, so the 1px rule must not size the element itself.
     expect(handle.className).not.toMatch(/(^|\s)[wh]-px(\s|$)/)
+  })
+
+  it('calls onSizeChange with the settled size after a keyboard resize, for persistence', () => {
+    const onSizeChange = vi.fn()
+    render(
+      <SplitPane
+        aria-label="Resize"
+        start={<div>Start</div>}
+        end={<div>End</div>}
+        defaultSize={50}
+        onSizeChange={onSizeChange}
+      />,
+    )
+    fireEvent.keyDown(screen.getByRole('separator'), { key: 'ArrowRight' })
+    expect(onSizeChange).toHaveBeenCalledWith(52)
+  })
+
+  it('does not call onSizeChange on mount, only after an actual resize', () => {
+    const onSizeChange = vi.fn()
+    render(
+      <SplitPane
+        aria-label="Resize"
+        start={<div>Start</div>}
+        end={<div>End</div>}
+        onSizeChange={onSizeChange}
+      />,
+    )
+    expect(onSizeChange).not.toHaveBeenCalled()
   })
 })

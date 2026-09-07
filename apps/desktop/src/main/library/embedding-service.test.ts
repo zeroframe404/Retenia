@@ -73,6 +73,8 @@ describe('the embedding service', () => {
       embeddingStatus: 'pending',
       embeddingModelId: null,
       embeddingError: null,
+      lastLocator: null,
+      lastOpenedAt: null,
     })
 
   const addChunks = async (sourceId: string, texts: readonly string[]): Promise<Chunk[]> =>

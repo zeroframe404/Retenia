@@ -3,6 +3,9 @@ import { basename, join } from 'node:path'
 import type { TextGenerator } from '@retenia/ai'
 import type {
   AbortSignalLike,
+  Annotation,
+  AnnotationKind,
+  BlobPutResult,
   BlobStore,
   Chunk,
   Job,
@@ -136,6 +139,48 @@ export interface LibraryService {
   remove(id: string): Promise<void>
   /** Wired into `createJobRunner`'s `onSettled`; a no-op for any job that is not one of ours. */
   onJobSettled(job: Job): Promise<void>
+
+  // --- annotations and reading progress (sub-phase 6.6) ---
+
+  /** A source's highlights/notes/regions/clips, oldest first — what the reader restores on
+   *  open. */
+  listAnnotations(sourceId: string): Promise<Annotation[]>
+  /** The selection toolbar's "Resaltar": persists a highlight so it survives a restart and
+   *  can become a card later. */
+  createAnnotation(input: {
+    sourceId: string
+    unitId?: string
+    kind: AnnotationKind
+    anchor: JsonObject
+    quote?: string
+    note?: string
+    color?: string
+  }): Promise<Annotation>
+  /** Editing a highlight's note or color; the anchor itself never changes. */
+  updateAnnotation(input: {
+    id: string
+    note?: string | null
+    color?: string | null
+  }): Promise<Annotation>
+  /** Soft-deletes the annotation. A card already made from it keeps `annotationId` as
+   *  provenance — not a live join. */
+  deleteAnnotation(id: string): Promise<void>
+  /**
+   * The selection toolbar's "Crear tarjeta": a new knowledge item and its first card, made
+   * from a highlight and pointing back at it via `annotationId` — the same shape
+   * `createCardFromChunk`/`createCardFromClip` use, so "ver en la fuente" works identically
+   * whichever way the card was made.
+   */
+  createCardFromAnnotation(input: {
+    annotationId: string
+    front?: string
+    back?: string
+  }): Promise<{ itemId: string; cardId: string }>
+  /** Written on every page turn/section change so the reader (and Home's "Continuar donde
+   *  estaba") can resume exactly where the user left off. */
+  recordProgress(sourceId: string, locator: JsonObject): Promise<void>
+  /** The most recently opened sources, most recent first. */
+  listRecentlyOpened(limit?: number): Promise<Source[]>
 }
 
 export interface LibraryServiceOptions {
@@ -232,6 +277,27 @@ function timeLabel(ms: number): string {
   const seconds = whole % 60
   const mm = hours > 0 ? String(minutes).padStart(2, '0') : String(minutes)
   return `${hours > 0 ? `${hours}:` : ''}${mm}:${String(seconds).padStart(2, '0')}`
+}
+
+/**
+ * The `knowledge_items.locator` a highlight's own card carries — same ad-hoc shape
+ * `createCardFromChunk`/`createCardFromClip` write (a page/label pair or a time range,
+ * `blockIds` always present even when empty), so whatever eventually reads a card's locator
+ * for "ver en la fuente" (`retenia://source/<id>?page=…`/`?cfi=…`) does not need a third case
+ * just for annotations. `anchor` is validated at the IPC boundary
+ * (`annotationAnchorSchema`) — read defensively here anyway, since nothing stops a future
+ * importer from writing a row this service did not validate itself.
+ */
+function annotationLocatorOf(annotation: Annotation): JsonObject {
+  const anchor = annotation.anchor
+  const page = typeof anchor.page === 'number' ? anchor.page : undefined
+  const cfi = typeof anchor.cfi === 'string' ? anchor.cfi : undefined
+  return {
+    annotationId: annotation.id,
+    ...(page === undefined ? {} : { page, label: `p. ${page}` }),
+    ...(cfi === undefined ? {} : { selector: cfi }),
+    blockIds: [],
+  }
 }
 
 export function createLibraryService({
@@ -361,6 +427,36 @@ export function createLibraryService({
     return JSON.parse(new TextDecoder().decode(bytes)) as SourceDoc
   }
 
+  /**
+   * Registers `put`'s row in the SQLite index over the content-addressed store
+   * (`docs/spec/07-architecture.md` §5: `blobs` is that index; `blobStore` is what actually
+   * holds the bytes). `sources.blob_sha256` carries a real foreign key to `blobs.sha256`, so a
+   * `sources` row referencing a blob can never be created before this runs.
+   *
+   * `blobStore.put` already dedupes identical bytes on disk; this dedupes the same sha
+   * against the table, tolerating a second caller racing to register the same one (the
+   * content-addressed store's own dedupe means that race is between two *registrations*, not
+   * two writes).
+   */
+  const ensureBlobRegistered = async (
+    put: BlobPutResult,
+    originalName: string | null,
+  ): Promise<void> => {
+    if ((await repos.blobs.findBySha256(put.sha256)) !== undefined) return
+    try {
+      await repos.blobs.create({
+        sha256: put.sha256,
+        mime: put.mime,
+        bytes: put.bytes,
+        ext: put.ext,
+        originalName,
+        meta: null,
+      })
+    } catch (error) {
+      if ((await repos.blobs.findBySha256(put.sha256)) === undefined) throw error
+    }
+  }
+
   const addBytes = async (
     bytes: Uint8Array,
     mime: string,
@@ -378,6 +474,7 @@ export function createLibraryService({
     originUri: string | null,
     mediaParts: JsonObject[] | undefined,
   ): Promise<Source> => {
+    await ensureBlobRegistered(put, title)
     const source = await repos.sources.create({
       kind,
       title,
@@ -391,6 +488,8 @@ export function createLibraryService({
       embeddingStatus: 'pending',
       embeddingModelId: null,
       embeddingError: null,
+      lastLocator: null,
+      lastOpenedAt: null,
     })
     await enqueueParse(source)
     return source
@@ -766,6 +865,93 @@ export function createLibraryService({
     remove: async (id) => {
       await repos.sources.softDelete(id)
     },
+
+    listAnnotations: (sourceId) => repos.annotations.listBySource(sourceId),
+
+    createAnnotation: ({ sourceId, unitId, kind, anchor, quote, note, color }) =>
+      repos.annotations.create({
+        sourceId,
+        unitId: unitId ?? null,
+        kind,
+        anchor,
+        quote: quote ?? null,
+        note: note ?? null,
+        color: color ?? null,
+        tStart: null,
+        tEnd: null,
+      }),
+
+    updateAnnotation: ({ id, note, color }) =>
+      repos.annotations.update(id, {
+        ...(note === undefined ? {} : { note }),
+        ...(color === undefined ? {} : { color }),
+      }),
+
+    deleteAnnotation: async (id) => {
+      await repos.annotations.softDelete(id)
+    },
+
+    createCardFromAnnotation: async ({ annotationId, front, back }) => {
+      const annotation = await repos.annotations.findById(annotationId)
+      if (annotation === undefined) throw new Error(`No annotation ${annotationId}`)
+      const source = await repos.sources.findById(annotation.sourceId)
+      const text = (back ?? annotation.quote ?? '').trim()
+
+      // One transaction: an item with no card is a row nothing will ever show the user, and a
+      // card with no item cannot be rendered at all (same invariant `createCardFromChunk` and
+      // `createCardFromClip` keep).
+      return repos.transaction(async (tx) => {
+        const item = await tx.knowledgeItems.create({
+          lessonId: null,
+          topicId: null,
+          kind: 'fact',
+          fields: {
+            // The front is the learner's question. A card whose front is a passage and whose
+            // back is the same passage tests nothing (`docs/spec/01-decisions.md` §7), so the
+            // fallback is the source's title rather than the highlighted text itself.
+            front: front ?? source?.title ?? 'Cita',
+            back: text.length > 0 ? text : (annotation.quote ?? ''),
+          },
+          sourceId: annotation.sourceId,
+          annotationId: annotation.id,
+          locator: annotationLocatorOf(annotation),
+          asOf: null,
+          importance: 'normal',
+          status: 'active',
+          createdBy: 'user',
+          tags: [],
+        })
+
+        const card = await tx.cards.create({
+          itemId: item.id,
+          template: 'basic',
+          payload: null,
+          due: new Date(),
+          stability: 0,
+          difficulty: 0,
+          scheduledDays: 0,
+          learningSteps: 0,
+          reps: 0,
+          lapses: 0,
+          state: CARD_STATE.New,
+          lastReview: null,
+          suspended: false,
+          buriedUntil: null,
+          leech: false,
+          importanceOverride: null,
+          importanceOverrideExpiresAt: null,
+          examId: null,
+        })
+
+        return { itemId: item.id, cardId: card.id }
+      })
+    },
+
+    recordProgress: async (sourceId, locator) => {
+      await repos.sources.recordProgress(sourceId, locator, new Date())
+    },
+
+    listRecentlyOpened: (limit) => repos.sources.listRecentlyOpened(limit ?? 10),
 
     onJobSettled: async (job) => {
       if (job.subjectId === null) return

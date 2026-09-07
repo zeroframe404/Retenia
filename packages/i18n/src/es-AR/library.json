@@ -117,5 +117,65 @@
   "courseImported": "Se importaron {count} clases como una sola fuente.",
   "courseTruncated": "La carpeta tiene más archivos de los que se pueden importar de una vez; se tomaron los primeros {count}.",
   "courseEmpty": "Esa carpeta no tiene audio ni video.",
-  "playlistTruncated": "Esta playlist tiene más videos de los que lista el feed público de YouTube; solo se importaron los más recientes."
+  "playlistTruncated": "Esta playlist tiene más videos de los que lista el feed público de YouTube; solo se importaron los más recientes.",
+  "reader": {
+    "tab": "Lector",
+    "notReady": "Esta fuente todavía no se procesó.",
+    "pageOf": "Página {page} de {total}",
+    "pageInputLabel": "Número de página",
+    "zoomIn": "Acercar",
+    "zoomOut": "Alejar",
+    "zoomReset": "Restablecer zoom",
+    "fitWidth": "Ajustar al ancho",
+    "thumbnails": "Miniaturas",
+    "searchPlaceholder": "Buscar en el documento",
+    "searchNext": "Siguiente resultado",
+    "searchPrev": "Resultado anterior",
+    "matchOf": "{index} de {total}",
+    "noMatches": "Sin resultados",
+    "loading": "Cargando…",
+    "loadErrorPdf": "No se pudo abrir el PDF",
+    "loadErrorEpub": "No se pudo abrir el EPUB",
+    "detectQuestions": "Detectar preguntas de examen",
+    "sectionOf": "Sección {index} de {total}",
+    "tableOfContents": "Índice",
+    "selectionToolbar": {
+      "highlight": "Resaltar",
+      "createCard": "Crear tarjeta",
+      "askAi": "Preguntar a la IA",
+      "copyWithCitation": "Copiar con cita"
+    },
+    "panel": {
+      "viewLabel": "Panel del lector",
+      "highlightsTab": "Resaltados",
+      "questionsTab": "Preguntas detectadas",
+      "highlightsEmpty": "Todavía no hay resaltados en esta fuente.",
+      "createCard": "Crear tarjeta",
+      "delete": "Eliminar",
+      "questionsEmpty": "No se detectaron preguntas en esta página.",
+      "convert": "Convertir en ítem",
+      "convertUnavailable": "Seguí leyendo un momento antes de convertir esto en ítem.",
+      "questionKind": {
+        "question-mark": "Pregunta",
+        "exercise-label": "Ejercicio",
+        "numbered-item": "Ítem numerado"
+      }
+    },
+    "composer": {
+      "title": "Crear tarjeta",
+      "frontLabel": "Pregunta",
+      "frontPlaceholder": "¿Qué querés recordar?",
+      "backLabel": "Respuesta",
+      "submit": "Crear tarjeta"
+    },
+    "citationPage": "{title}, p. {page}",
+    "citationSource": "{title}",
+    "cardCreated": "Tarjeta creada. La vas a ver en tu próxima sesión.",
+    "citationCopied": "Cita copiada al portapapeles.",
+    "citationCopyFailed": "No se pudo copiar la cita."
+  },
+  "continueReading": {
+    "title": "Continuar donde estaba",
+    "action": "Continuar"
+  }
 }

@@ -117,5 +117,65 @@
   "courseImported": "Imported {count} lessons as a single source.",
   "courseTruncated": "The folder holds more files than one import can take; the first {count} were used.",
   "courseEmpty": "That folder has no audio or video in it.",
-  "playlistTruncated": "This playlist has more videos than YouTube's public feed lists; only the most recent ones were imported."
+  "playlistTruncated": "This playlist has more videos than YouTube's public feed lists; only the most recent ones were imported.",
+  "reader": {
+    "tab": "Reader",
+    "notReady": "This source has not been processed yet.",
+    "pageOf": "Page {page} of {total}",
+    "pageInputLabel": "Page number",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "zoomReset": "Reset zoom",
+    "fitWidth": "Fit width",
+    "thumbnails": "Thumbnails",
+    "searchPlaceholder": "Search the document",
+    "searchNext": "Next result",
+    "searchPrev": "Previous result",
+    "matchOf": "{index} of {total}",
+    "noMatches": "No results",
+    "loading": "Loading…",
+    "loadErrorPdf": "Could not open the PDF",
+    "loadErrorEpub": "Could not open the EPUB",
+    "detectQuestions": "Detect exam questions",
+    "sectionOf": "Section {index} of {total}",
+    "tableOfContents": "Table of contents",
+    "selectionToolbar": {
+      "highlight": "Highlight",
+      "createCard": "Create card",
+      "askAi": "Ask the AI",
+      "copyWithCitation": "Copy with citation"
+    },
+    "panel": {
+      "viewLabel": "Reader panel",
+      "highlightsTab": "Highlights",
+      "questionsTab": "Detected questions",
+      "highlightsEmpty": "No highlights in this source yet.",
+      "createCard": "Create card",
+      "delete": "Delete",
+      "questionsEmpty": "No questions were detected on this page.",
+      "convert": "Convert to item",
+      "convertUnavailable": "Keep reading for a moment before converting this to an item.",
+      "questionKind": {
+        "question-mark": "Question",
+        "exercise-label": "Exercise",
+        "numbered-item": "Numbered item"
+      }
+    },
+    "composer": {
+      "title": "Create card",
+      "frontLabel": "Question",
+      "frontPlaceholder": "What do you want to remember?",
+      "backLabel": "Answer",
+      "submit": "Create card"
+    },
+    "citationPage": "{title}, p. {page}",
+    "citationSource": "{title}",
+    "cardCreated": "Card created. You will see it in your next session.",
+    "citationCopied": "Citation copied to the clipboard.",
+    "citationCopyFailed": "Could not copy the citation."
+  },
+  "continueReading": {
+    "title": "Continue where you left off",
+    "action": "Continue"
+  }
 }

@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Document/media readers: pdf (EmbedPDF), epub (foliate-js), video (player + overlays), audio (wavesurfer). Real readers land in sub-phase 6.6 and 11.x.",
+  "description": "Document/media readers: pdf (pdfjs-dist), epub (vendored foliate-js), video (player + overlays), audio (wavesurfer).",
   "exports": {
     ".": "./src/index.ts"
   },
@@ -17,7 +17,9 @@
   "dependencies": {
     "@retenia/core": "workspace:*",
     "@retenia/ui": "workspace:*",
+    "@zip.js/zip.js": "2.11.2",
     "lucide-react": "1.39.0",
+    "pdfjs-dist": "6.3.289",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },

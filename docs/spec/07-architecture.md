@@ -465,6 +465,21 @@ lessons as SCORM/xAPI is left for later.
    decide before the commercial layer; the F3 schema is compatible with both.
 9. **Light video:** whether Remotion (free for individuals) is included in v1 or left for V2.
 10. **Telemetry:** opt-in PostHog from the beta, or only Sentry until there are users.
+11. **PDF/EPUB reader:** row 80's `EmbedPDF 2.15 + pdfjs-dist 6 (text in Node) + vendored
+    foliate-js`. **Taken in sub-phase 6.6:** *no EmbedPDF*. `@embedpdf/plugin-loader` is
+    published at 1.5.0 while every other `@embedpdf/*` package is at 2.15.0 — a real version
+    split rather than a patch gap: the loader's public API (`usePdfiumEngine`) is still
+    single-document, while the 2.x plugins it is meant to host all expect the multi-document
+    `EmbedPdfProvider`/`useLoader` shape the loader package never shipped, so the two halves of
+    the same "framework" cannot be wired to each other at all. `packages/readers`'s `PdfReader`
+    is built directly on `pdfjs-dist`'s own `legacy/build/pdf.mjs` — the package row 80 already
+    names for Node-side text extraction — using its own `TextLayer` for real, selectable,
+    highlightable text: the same rendering primitive EmbedPDF would have wrapped, with one
+    fewer dependency and no cross-package version to track. foliate-js is vendored as planned
+    (MIT, `packages/readers/src/epub/vendor/foliate-js`), fetched from its canonical GitHub
+    source rather than the `foliate-js` npm package, which is an unofficial third-party
+    republish (a different maintainer, no matching GitHub release) rather than the real
+    project's own package.
 
 ### 13.5 What to re-verify before fixing prices or depending on it
 

@@ -14,6 +14,8 @@ function describe(link: DeepLink): string {
       return 'review'
     case 'authCallback':
       return 'auth callback'
+    case 'source':
+      return `source: ${link.id}`
   }
 }
 

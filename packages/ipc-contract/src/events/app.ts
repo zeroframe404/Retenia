@@ -25,6 +25,18 @@ export const deepLinkSchema = z.discriminatedUnion('kind', [
   }),
   z.object({ kind: z.literal('review') }),
   z.object({ kind: z.literal('authCallback'), params: z.record(z.string(), z.string()) }),
+  /**
+   * "Ver en la fuente": a card made from a highlight deep-links back to the exact page/CFI it
+   * came from (sub-phase 6.6, `retenia://source/<id>?page=12` or `?cfi=epubcfi(...)`). At most
+   * one of `page`/`cfi` is meaningful for a given source — a PDF answers to `page`, an EPUB to
+   * `cfi` — so both are optional here and the reader ignores whichever does not apply.
+   */
+  z.object({
+    kind: z.literal('source'),
+    id: z.uuid(),
+    page: z.int().positive().optional(),
+    cfi: z.string().min(1).optional(),
+  }),
 ])
 
 export type DeepLink = z.infer<typeof deepLinkSchema>

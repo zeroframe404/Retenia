@@ -40,6 +40,11 @@ export interface Source extends Entity {
   embeddingModelId: string | null
   /** Why the last embedding run failed. */
   embeddingError: string | null
+  /** Where the reader left off: `{ page }` for a PDF, `{ cfi }` for an EPUB. `null` until the
+   *  source has been opened in a reader at least once. */
+  lastLocator: JsonObject | null
+  /** When the reader was last open on this source. `null` alongside `lastLocator`. */
+  lastOpenedAt: Date | null
 }
 
 /** A citable subdivision of a source: a page, a slide, a transcript segment, a keyframe. */
