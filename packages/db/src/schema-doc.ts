@@ -1,6 +1,6 @@
 import { hashMigration, loadMigrations, migrate } from './migrator'
 import { DATABASE_PRAGMAS, IN_MEMORY, openDatabase } from './open-database'
-import { EMBEDDING_DIMENSIONS, FTS_TOKENIZER } from './search'
+import { EMBEDDING_DIMENSIONS, FTS_TOKENIZER, FTS_TRIGRAM_TOKENIZER } from './search'
 
 /**
  * Renders `docs/spec/07a-schema.md` from a freshly migrated in-memory database: every
@@ -264,6 +264,7 @@ export function renderSchemaDoc(): string {
         "`chunks.chunk_key` (the chunker's `sha256(source_id, block_ids, text)`, so re-chunking an unchanged source keeps the row and its embeddings), `chunks.chunking_version` (the reindex trigger) and `chunks.is_frontmatter` (a table of contents or bibliography, kept and citable but excluded from path generation); plus a `context` column on `chunks_fts` and its rebuilt triggers, so the contextual-retrieval text is searchable beside the chunk it situates (`05-ingestion-rag.md` §4).",
       '0009_source_embedding_state':
         "`sources.embedding_status`, `sources.embedding_model_id` and `sources.embedding_error`, plus the `sources_embedding` index: where each source stands in the *vector* index, which is a different question from whether it parsed. `embedding_model_id` is the reindex trigger — the startup sweep re-embeds every source whose space is not the active provider's, so switching embedding models can never leave two spaces mixed in one query (`05-ingestion-rag.md` §3). Added with `ALTER TABLE` rather than a table rebuild, which would drop the source soft-delete cascade triggers of migration 0001.",
+      '0011_chunks_fts_trigram': `\`chunks_fts_trigram\` (FTS5, \`${FTS_TRIGRAM_TOKENIZER}\`) + sync triggers: an infix index alongside \`chunks_fts\`, so a search term that is a substring of a word — never a prefix \`chunks_fts\`'s \`unicode61\` tokenizer would produce on its own — still finds it (\`05-ingestion-rag.md\` §4).`,
     }
     for (const [index, migration] of loadMigrations().entries()) {
       line(
