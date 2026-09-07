@@ -67,14 +67,23 @@ interface SpawnCall {
   options: Record<string, unknown>
 }
 
-/** A stand-in for `child_process.spawn` returning only what the teardown path touches: the
- *  `unref` and the `error` listener that keep a fire-and-forget `taskkill` from holding the
- *  turn open. */
-function recordingSpawn(calls: SpawnCall[]): SpawnLike {
+/** A stand-in for `child_process.spawn` that resolves `killTree`'s own await on `taskkill` by
+ *  firing `'exit'` as soon as a listener is registered for it — `killTree` is awaited, not
+ *  fired-and-forgotten, so a fake that never calls back would hang the test. `onExit`, when
+ *  given, runs first, so a test can simulate the child dying as a side effect of `taskkill`
+ *  actually reaping the tree. */
+function recordingSpawn(calls: SpawnCall[], onExit?: () => void): SpawnLike {
   const fake = (command: string, args: readonly string[], options: Record<string, unknown>) => {
     events.push(`spawn ${command}`)
     calls.push({ command, args: [...args], options })
-    return { unref: () => {}, on: () => {} }
+    return {
+      on: (event: string, listener: () => void) => {
+        if (event === 'exit') {
+          onExit?.()
+          listener()
+        }
+      },
+    }
   }
   return fake as unknown as SpawnLike
 }
@@ -93,7 +102,7 @@ function fakeDelay(onWait?: () => void): (ms: number) => Promise<void> {
 }
 
 describe('killTree on Windows', () => {
-  it('asks the child to stop, waits out the grace, then tears down the whole tree', async () => {
+  it('tears down the whole tree via taskkill first, then kills the child directly as a backstop', async () => {
     const calls: SpawnCall[] = []
     await killTree(fakeChild(4242), {
       platform: 'win32',
@@ -101,12 +110,22 @@ describe('killTree on Windows', () => {
       delay: fakeDelay(),
     })
 
-    expect(events).toEqual([
-      'child.kill(SIGTERM)',
-      `grace ${KILL_GRACE_MS}`,
-      'spawn taskkill',
-      'child.kill(SIGKILL)',
-    ])
+    // `taskkill /T /F` runs — and is awaited — before anything touches the direct child.
+    // Reversing this order is the exact bug it fixes: `child.kill()` on Windows terminates
+    // unconditionally regardless of signal, so a direct kill "first" would leave nothing for
+    // `taskkill /T`'s parent/child walk to find the descendants through.
+    expect(events).toEqual(['spawn taskkill', 'child.kill(SIGKILL)'])
+  })
+
+  it('never spends a grace period — there is no polite phase on this platform', async () => {
+    await killTree(fakeChild(4242), {
+      platform: 'win32',
+      spawnFn: recordingSpawn([]),
+      delay: fakeDelay(),
+    })
+
+    expect(events).not.toContain(`grace ${KILL_GRACE_MS}`)
+    expect(events.some((event) => event.startsWith('grace'))).toBe(false)
   })
 
   it('gives taskkill the pid, the tree flag and the force flag, and nothing else', async () => {
@@ -114,7 +133,6 @@ describe('killTree on Windows', () => {
     await killTree(fakeChild(7331), {
       platform: 'win32',
       spawnFn: recordingSpawn(calls),
-      delay: fakeDelay(),
     })
 
     expect(calls).toHaveLength(1)
@@ -122,46 +140,40 @@ describe('killTree on Windows', () => {
     expect(taskkillArgs(7331)).toEqual(['/PID', '7331', '/T', '/F'])
   })
 
-  it('starts taskkill hidden, detached and with no inherited pipes', async () => {
-    // A console window flashing over the app on every cancel is the visible failure; the
-    // invisible one is a `taskkill` that outlives the turn holding an inherited stdio pipe.
+  it('starts taskkill hidden and with no inherited pipes', async () => {
+    // A console window flashing over the app on every cancel is the visible failure.
     const calls: SpawnCall[] = []
     await killTree(fakeChild(4242), {
       platform: 'win32',
       spawnFn: recordingSpawn(calls),
-      delay: fakeDelay(),
     })
 
     expect(calls[0]?.options).toMatchObject({
       windowsHide: true,
       stdio: 'ignore',
-      detached: true,
     })
   })
 
-  it('leaves a child that exited during the grace alone', async () => {
+  it('does not insist on a child that taskkill already reaped', async () => {
     const calls: SpawnCall[] = []
     const child = fakeChild(4242)
     await killTree(child, {
       platform: 'win32',
-      spawnFn: recordingSpawn(calls),
-      delay: fakeDelay(() => {
+      spawnFn: recordingSpawn(calls, () => {
         child.exitCode = 0
       }),
     })
 
-    expect(calls).toEqual([])
-    expect(events).toEqual(['child.kill(SIGTERM)', `grace ${KILL_GRACE_MS}`])
+    expect(events).toEqual(['spawn taskkill'])
   })
 
   it('still kills the child directly when taskkill cannot be spawned', async () => {
     await killTree(fakeChild(4242), {
       platform: 'win32',
       spawnFn: unspawnable,
-      delay: fakeDelay(),
     })
 
-    expect(events).toEqual(['child.kill(SIGTERM)', `grace ${KILL_GRACE_MS}`, 'child.kill(SIGKILL)'])
+    expect(events).toEqual(['child.kill(SIGKILL)'])
   })
 })
 
