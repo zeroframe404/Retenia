@@ -97,8 +97,16 @@ export async function parseMarkdown(
 
   const blocks: Block[] = []
   const tree = createSectionTree(() => ctx.id(), input.fallbackTitle)
+  // The node's own position among `root.children` — frontmatter and headings included, and
+  // counted whether or not the node became a block — not `blocks.length`. A count of only
+  // emitted blocks drifts from the document the moment anything between two blocks is
+  // skipped, so two nodes at different real positions could end up sharing one anchor. Same
+  // scheme as `docx.ts`'s `elementIndex` and `epub.ts`'s, for the same reason: a document-order
+  // position a future reader can recompute the same way, from the parsed tree's own children.
+  let nodeIndex = -1
 
   for (const node of root.children) {
+    nodeIndex += 1
     if (node.type === 'yaml') {
       try {
         const parsed = parseYaml(node.value)
@@ -127,7 +135,7 @@ export async function parseMarkdown(
         id: ctx.id(),
         type: 'figure',
         text,
-        locator: { anchor: String(blocks.length) },
+        locator: { anchor: String(nodeIndex) },
         hash: sha256Hex(text),
       }
       blocks.push(block)
@@ -145,7 +153,7 @@ export async function parseMarkdown(
       type,
       text,
       ...(html !== undefined ? { html } : {}),
-      locator: { anchor: String(blocks.length) },
+      locator: { anchor: String(nodeIndex) },
       hash: sha256Hex(text),
     }
     blocks.push(block)

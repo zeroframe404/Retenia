@@ -8,7 +8,7 @@ exports[`parseMarkdown > builds a section tree from headings and keeps frontmatt
       "hash": "deb289963fbe86de25c9ae47b344642f9f28a9cf60aed4dfca63a96ade34a8b0",
       "id": "id-1",
       "locator": {
-        "anchor": "0",
+        "anchor": "2",
       },
       "text": "Cells are the basic building blocks of all living things. The cell theory states
 that all organisms are composed of one or more cells.",
@@ -18,7 +18,7 @@ that all organisms are composed of one or more cells.",
       "hash": "94e5147476abba7ebadc3cd14a6b53f703dc8442141870d6b1b615405c0331a2",
       "id": "id-3",
       "locator": {
-        "anchor": "1",
+        "anchor": "4",
       },
       "text": "Every cell has a membrane, cytoplasm, and genetic material.",
       "type": "paragraph",
@@ -30,7 +30,7 @@ that all organisms are composed of one or more cells.",
 - Ribosomes: build proteins",
       "id": "id-4",
       "locator": {
-        "anchor": "2",
+        "anchor": "5",
       },
       "text": "Nucleus: holds the DNA
 Mitochondria: produces energy
@@ -45,7 +45,7 @@ Ribosomes: build proteins",
 | Mitochondria | Produces ATP |",
       "id": "id-5",
       "locator": {
-        "anchor": "3",
+        "anchor": "6",
       },
       "text": "Organelle | Function
 Nucleus | Stores DNA
@@ -56,7 +56,7 @@ Mitochondria | Produces ATP",
       "hash": "fd3e96c73268a910fec6410ef6d4799f48630cdeae0ed023e7f82b937604f397",
       "id": "id-7",
       "locator": {
-        "anchor": "4",
+        "anchor": "8",
       },
       "text": "def is_alive(cell):
     return cell.has_membrane and cell.has_dna",
@@ -66,7 +66,7 @@ Mitochondria | Produces ATP",
       "hash": "222b47c10254f147c7859aaf7074a19a070e6c221764f7fdcc3b124e6b370992",
       "id": "id-9",
       "locator": {
-        "anchor": "5",
+        "anchor": "10",
       },
       "text": "Mitosis produces two identical daughter cells from one parent cell.",
       "type": "paragraph",
