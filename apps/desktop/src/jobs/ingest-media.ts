@@ -129,8 +129,9 @@ export async function runMediaParse(
           ctx.progress(SETUP_BAND + (1 - SETUP_BAND) * fraction, message),
         // Local Tesseract by default (`docs/spec/05-ingestion-rag.md` §1). The `vision` role
         // port of sub-phase 7.x drops into this same seam — a cloud describer is a different
-        // `OcrProvider`, not a different pipeline.
-        ocr: createTesseractOcrProvider(),
+        // `OcrProvider`, not a different pipeline. `cacheDir` keeps its downloaded
+        // traineddata in the model store instead of the job worker's `cwd`.
+        ocr: createTesseractOcrProvider({ cacheDir: join(modelsRoot, 'tesseract') }),
         threads: Math.max(1, Math.min(8, availableParallelism() - 1)),
       },
     )
