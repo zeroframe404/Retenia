@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto'
 import { once } from 'node:events'
-import { createWriteStream } from 'node:fs'
+import { createWriteStream, type WriteStream } from 'node:fs'
 import { mkdir, readFile, rename, rm, stat, unlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { BlobStore } from '@retenia/core'
@@ -33,6 +33,27 @@ async function exists(path: string): Promise<boolean> {
     if (isNotFound(error)) return false
     throw error
   }
+}
+
+/**
+ * Resolves once `ws` has really closed its file descriptor.
+ *
+ * `fs.createWriteStream` opens the file lazily and `ws.destroy()` only *schedules* the
+ * close, so a stream destroyed while its `open()` is still pending goes on to create the
+ * file — and only then closes it. A cleanup `rm` racing that open finds nothing, swallows
+ * the ENOENT and leaves the file behind. Waiting for `'close'` settles the file's
+ * existence first, which is what makes the cleanup deterministic.
+ *
+ * A destroyed stream may emit `'error'` (a failed open, say) before `'close'`; that is
+ * absorbed here, because the failure worth propagating is the one that triggered the
+ * destroy in the first place.
+ */
+function closed(ws: WriteStream): Promise<void> {
+  if (ws.closed) return Promise.resolve()
+  return new Promise((resolve) => {
+    ws.once('error', () => {})
+    ws.once('close', resolve)
+  })
 }
 
 function isNotFound(error: unknown): boolean {
@@ -78,6 +99,9 @@ export function createFsBlobStore(root: string): BlobStore {
             await once(ws, 'finish')
           } catch (error) {
             ws.destroy()
+            // Before falling through to the outer `catch`'s `rm`, so cleanup cannot race the
+            // stream's pending open (see `closed`).
+            await closed(ws)
             throw error
           }
         }
