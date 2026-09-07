@@ -164,6 +164,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # `pnpm install` reuses electron from the pnpm store and skips its postinstall when it
+      # considers the package already built. If that store entry was ever cached WITHOUT
+      # `node_modules/electron/dist` — which is what happens when the lockfile key rotates and
+      # the first run under the new key fails to extract it — every later run inherits a broken
+      # electron, and `_electron.launch()` silently starts a ~460 MB download at test time that
+      # no 30 s test can outlast. Re-running the install script costs seconds when the binary is
+      # already correct (it short-circuits on the version check) and is what guarantees `dist/`
+      # exists no matter how the store got into that state.
+      - name: Ensure the Electron binary is extracted
+        run: pnpm rebuild electron
+
       - name: Run Playwright E2E (builds first)
         run: pnpm e2e
 
