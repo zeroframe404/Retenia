@@ -193,31 +193,24 @@ export interface AssertPublicHttpUrlDeps {
 }
 
 /**
- * Throws `UnsafeImportUrlError` unless `url` is `http(s)` and every address its host resolves
- * to is a public, non-reserved IP. Called on the original URL and again on each redirect hop
- * (`web-fetch.ts`), and before the SPA fallback ever loads a URL in a real `BrowserWindow`
- * (`spa-render.ts` is only ever reached through `web-fetch.ts`, so one call site covers both).
+ * The host-safety half of `assertPublicHttpUrl`, without its scheme gate: throws unless every
+ * address `hostname` resolves to is a public, non-reserved IP.
+ *
+ * Split out so a caller that needs the identical host check against a *different* scheme —
+ * `spa-render.ts`'s `webRequest.onBeforeRequest` guard vets `ws:`/`wss:` subresources a
+ * scraped page can open, which carry exactly this module's SSRF risk but are never `http(s)`
+ * — can reuse it without `assertPublicHttpUrl`'s own scheme error firing for the wrong reason.
+ * `url` is only for the thrown error's message; every check runs against `hostname`.
  */
-export async function assertPublicHttpUrl(
+async function assertPublicHostname(
   url: string,
-  deps: AssertPublicHttpUrlDeps = {},
+  hostname: string,
+  deps: AssertPublicHttpUrlDeps,
 ): Promise<void> {
-  const resolve = deps.resolve ?? ((hostname: string) => lookup(hostname, { all: true }))
-
-  let parsed: URL
-  try {
-    parsed = new URL(url)
-  } catch {
-    throw new UnsafeImportUrlError(url, 'not a valid URL')
-  }
-
-  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-    throw new UnsafeImportUrlError(url, `scheme "${parsed.protocol}" is not http(s)`)
-  }
+  const resolve = deps.resolve ?? ((host: string) => lookup(host, { all: true }))
 
   // Unlike `url.host`, `url.hostname` keeps an IPv6 literal's brackets (`[::1]`, not `::1`) —
   // `net.isIPv6` and the range checks below both need the bracket-free form.
-  const hostname = parsed.hostname
   const literalHost =
     hostname.startsWith('[') && hostname.endsWith(']') ? hostname.slice(1, -1) : hostname
 
@@ -254,4 +247,64 @@ export async function assertPublicHttpUrl(
       )
     }
   }
+}
+
+/**
+ * Throws `UnsafeImportUrlError` unless `url` is `http(s)` and every address its host resolves
+ * to is a public, non-reserved IP. Called on the original URL and again on each redirect hop
+ * (`web-fetch.ts`), and before the SPA fallback ever loads a URL in a real `BrowserWindow`
+ * (`spa-render.ts` is only ever reached through `web-fetch.ts`, so one call site covers both
+ * the initial load and, via `assertPublicSubresourceUrl` below, everything it then fetches).
+ */
+export async function assertPublicHttpUrl(
+  url: string,
+  deps: AssertPublicHttpUrlDeps = {},
+): Promise<void> {
+  let parsed: URL
+  try {
+    parsed = new URL(url)
+  } catch {
+    throw new UnsafeImportUrlError(url, 'not a valid URL')
+  }
+
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new UnsafeImportUrlError(url, `scheme "${parsed.protocol}" is not http(s)`)
+  }
+
+  await assertPublicHostname(url, parsed.hostname, deps)
+}
+
+/** Schemes a request a rendered page issues can plausibly carry to a real network socket —
+ *  the set `assertPublicSubresourceUrl` vets. Everything else (`data:`, `blob:`,
+ *  `about:blank`, `chrome-extension:`, `devtools:`, `filesystem:`…) has no network destination
+ *  for this module to guard and is left alone. */
+const NETWORKED_SUBRESOURCE_SCHEMES = new Set(['http:', 'https:', 'ws:', 'wss:'])
+
+/**
+ * `assertPublicHttpUrl`'s host check, widened to the schemes a page's own JavaScript can use
+ * to reach a socket the app never intended to expose: `ws:`/`wss:` alongside `http(s)`. Used
+ * by `spa-render.ts`'s subresource guard — the hidden `BrowserWindow`'s own navigation is
+ * pinned to its loaded origin by `will-navigate`/`will-redirect`, but nothing stopped a
+ * script running inside it from `fetch()`ing or opening a WebSocket to `192.168.1.1` or
+ * `169.254.169.254` on the side, with that origin's privileges and no user-visible window
+ * (`security-reviewer` finding H1's sibling: the same SSRF, a different request path).
+ *
+ * A scheme outside `NETWORKED_SUBRESOURCE_SCHEMES` is not refused here — it is simply not
+ * this function's concern — so the caller decides what to do with it (`spa-render.ts` lets it
+ * through unchecked, same as Chromium would for an inline `data:` image).
+ */
+export async function assertPublicSubresourceUrl(
+  url: string,
+  deps: AssertPublicHttpUrlDeps = {},
+): Promise<void> {
+  let parsed: URL
+  try {
+    parsed = new URL(url)
+  } catch {
+    throw new UnsafeImportUrlError(url, 'not a valid URL')
+  }
+
+  if (!NETWORKED_SUBRESOURCE_SCHEMES.has(parsed.protocol)) return
+
+  await assertPublicHostname(url, parsed.hostname, deps)
 }

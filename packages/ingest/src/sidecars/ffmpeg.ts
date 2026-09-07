@@ -34,6 +34,21 @@ export const DHASH_BYTES = DHASH_WIDTH * DHASH_HEIGHT
  *  with a busy screen recording can trip the scene filter thousands of times. */
 export const KEYFRAME_HARD_CAP = 400
 
+/** How much of a video's timeline a single keyframe pass is asked to cover, in seconds.
+ *  `-frames:v` truncates *both* mapped outputs at once, and because they are fed by the same
+ *  decode, ffmpeg stops reading the input the moment they fill — for a recording longer than
+ *  this and busy enough to fill `KEYFRAME_HARD_CAP` before reaching the end, that means every
+ *  page after wherever the budget ran out gets zero keyframes, not just fewer of them.
+ *  `planKeyframeSegments` splits a longer recording into windows no wider than this, each
+ *  with its own share of the budget, so activity near the start can no longer crowd out
+ *  everything after it. */
+export const KEYFRAME_SEGMENT_SEC = 600
+
+/** However long a recording runs, never split it into more passes than this — each pass is
+ *  its own `ffmpeg` spawn (and, on the scene strategy, its own decode of that slice), so an
+ *  unbounded segment count would trade the front-loading bug for a slow import instead. */
+export const MAX_KEYFRAME_SEGMENTS = 12
+
 /** Arguments common to every ffmpeg run. `-nostdin` matters more than it looks: without it a
  *  spawned ffmpeg that inherits a terminal can consume the parent's input, and with
  *  `stdio: ['ignore', …]` it can spin on a closed descriptor instead of exiting. */
@@ -101,6 +116,18 @@ export interface KeyframeArgsOptions {
   /** Longest edge of the stored PNG. */
   maxWidth?: number
   frameCap?: number
+  /** Seconds into the file this pass should start reading from — a segment's own offset, for
+   *  a video long enough that `planKeyframeSegments` split it. `0` (the default) reads from
+   *  the start, exactly as every pass did before segmentation existed. Applied as an input
+   *  option (`-ss` before `-i`) for a fast, keyframe-aligned seek: precision to the exact
+   *  frame is not needed here, only that each window starts roughly where it was asked to —
+   *  `runKeyframePass` adds this same offset back onto every `showinfo` timestamp the pass
+   *  reports, since ffmpeg rebases a seeked input's timestamps to start near zero. */
+  startSec?: number
+  /** How much of the file, from `startSec`, this pass should read. `undefined` reads to EOF —
+   *  what every pass did before segmentation, and still what the last (or the only) segment
+   *  asks for, since only `planKeyframeSegments` knows where a video actually ends. */
+  clipDurationSec?: number
 }
 
 /**
@@ -126,6 +153,8 @@ export function keyframeArgs(options: KeyframeArgsOptions): readonly string[] {
     strategy,
     maxWidth = 1280,
     frameCap = KEYFRAME_HARD_CAP,
+    startSec = 0,
+    clipDurationSec,
   } = options
 
   const selector =
@@ -144,6 +173,8 @@ export function keyframeArgs(options: KeyframeArgsOptions): readonly string[] {
     '-loglevel',
     'info',
     ...PROGRESS_ARGS,
+    ...(startSec > 0 ? ['-ss', String(startSec)] : []),
+    ...(clipDurationSec === undefined ? [] : ['-t', String(clipDurationSec)]),
     '-i',
     input,
     '-filter_complex',
@@ -169,6 +200,55 @@ export function keyframeArgs(options: KeyframeArgsOptions): readonly string[] {
     'gray',
     rawPath,
   ]
+}
+
+export interface KeyframeSegment {
+  /** Where this pass should start reading, in seconds from the file's own start. */
+  startSec: number
+  /** How long this pass should read, from `startSec` — `null` reads to EOF, which only the
+   *  last (or the only) segment ever asks for, since only a known total duration lets a
+   *  segment before it know where to stop. */
+  clipDurationSec: number | null
+  /** This segment's share of the overall frame budget. */
+  frameCap: number
+}
+
+/**
+ * Splits a video's duration into windows no single keyframe pass will overrun, each with its
+ * own share of the frame budget.
+ *
+ * This is the fix for the front-loading bug `KEYFRAME_SEGMENT_SEC`'s own comment describes:
+ * `-frames:v` truncates a whole-file pass wherever its budget runs out, which for a long,
+ * cut-heavy recording is always somewhere near the start — the back half of a two-hour
+ * screencast got no keyframes at all, not just fewer of them. A duration ffmpeg never
+ * reported (`durationSec: null`), or one short enough to fit in a single window, gets exactly
+ * the one segment every pass ran before this fix, unchanged — no seek, no offset arithmetic,
+ * nothing to get subtly wrong for what is still the common case.
+ */
+export function planKeyframeSegments(
+  durationSec: number | null,
+  frameCap: number = KEYFRAME_HARD_CAP,
+): readonly KeyframeSegment[] {
+  if (durationSec === null || durationSec <= KEYFRAME_SEGMENT_SEC) {
+    return [{ startSec: 0, clipDurationSec: null, frameCap }]
+  }
+
+  const segmentCount = Math.min(
+    MAX_KEYFRAME_SEGMENTS,
+    Math.ceil(durationSec / KEYFRAME_SEGMENT_SEC),
+  )
+  const segmentSec = durationSec / segmentCount
+  const perSegmentCap = Math.max(1, Math.ceil(frameCap / segmentCount))
+
+  return Array.from({ length: segmentCount }, (_unused, index) => {
+    const startSec = index * segmentSec
+    const isLast = index === segmentCount - 1
+    return {
+      startSec,
+      clipDurationSec: isLast ? durationSec - startSec : segmentSec,
+      frameCap: perSegmentCap,
+    }
+  })
 }
 
 export interface ProbeResult {

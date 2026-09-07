@@ -207,21 +207,11 @@ export function bootstrapJobs({
   // `readableRoots[0]`) writes into. Both are pure `node:fs`, so a second instance here
   // needs no coordination with the worker's.
   const blobStore = createFsBlobStore(getBlobsRoot())
+
+  // Both are needed before `library` below. Built here, once, so the `secrets.*` IPC
+  // handlers and the AI client that reads keys through them share one instance.
   const secrets = createSecretStore(database.repos.settings)
   const ai = createMainAiClient({ repos: database.repos, secrets })
-
-  const library = createLibraryService({
-    repos: database.repos,
-    blobStore,
-    scheduler,
-    // The line that retires `ContextualizationUnavailableError`, three sub-phases after 6.2
-    // left the contextual-retrieval pass waiting for a provider.
-    textGenerator: ai.textGenerator({ role: 'cheap', purpose: 'contextualize' }),
-    // …and the line that stops the quote and the charge drifting apart: the estimator has
-    // been defaulting to Haiku 4.5 *via Batch* while the `cheap` role actually charges
-    // Gemini 3.7 Flash at full price.
-    contextualizationPricing: () => ai.ratesFor('cheap'),
-  })
 
   // The warm model host (sub-phase 6.3). Lazy in both directions: nothing is spawned until
   // the first query, and it unloads again after an idle timeout — a search box the user
@@ -231,6 +221,9 @@ export function bootstrapJobs({
     entryPath: getEmbeddingHostPath(),
     modelsRoot,
   })
+  // Constructed before `library`, which needs its `embedSource` to chain into once a source's
+  // chunk job succeeds (`library/service.ts`'s `onChunkSettled`) — the reindex sweep below is
+  // no longer the only caller.
   const embeddings = createEmbeddingService({
     repos: database.repos,
     sqlite: database.opened.sqlite,
@@ -239,6 +232,19 @@ export function bootstrapJobs({
     host,
     ids: database.ids,
     getSetting: (key) => database.repos.settings.get(key),
+  })
+  const library = createLibraryService({
+    repos: database.repos,
+    blobStore,
+    scheduler,
+    embedSource: embeddings.embedSource,
+    // The line that retires `ContextualizationUnavailableError`, three sub-phases after 6.2
+    // left the contextual-retrieval pass waiting for a provider.
+    textGenerator: ai.textGenerator({ role: 'cheap', purpose: 'contextualize' }),
+    // …and the line that stops the quote and the charge drifting apart: the estimator has
+    // been defaulting to Haiku 4.5 *via Batch* while the `cheap` role actually charges
+    // Gemini 3.7 Flash at full price.
+    contextualizationPricing: () => ai.ratesFor('cheap'),
   })
 
   runner = createJobRunner({

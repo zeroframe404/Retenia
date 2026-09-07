@@ -23,7 +23,13 @@ class FakeBrowserWindow {
   }
 }
 
+type BeforeRequestHandler = (
+  details: { url: string },
+  callback: (response: { cancel: boolean }) => void,
+) => void
+
 function makeFakeSession(partition: string) {
+  let beforeRequestHandler: BeforeRequestHandler | undefined
   return {
     partition,
     setPermissionRequestHandler: vi.fn(),
@@ -31,7 +37,25 @@ function makeFakeSession(partition: string) {
     setDevicePermissionHandler: vi.fn(),
     setDisplayMediaRequestHandler: vi.fn(),
     clearStorageData: vi.fn(async () => {}),
+    webRequest: {
+      onBeforeRequest: vi.fn((handler: BeforeRequestHandler) => {
+        beforeRequestHandler = handler
+      }),
+    },
+    /** Test seam: the handler `spa-render.ts` registered, once a render has started. */
+    getBeforeRequestHandler: (): BeforeRequestHandler => {
+      if (beforeRequestHandler === undefined) throw new Error('onBeforeRequest was never called')
+      return beforeRequestHandler
+    },
   }
+}
+
+/** Runs a captured `onBeforeRequest` handler and resolves with what it decided. */
+function askBeforeRequest(
+  session: ReturnType<typeof makeFakeSession>,
+  url: string,
+): Promise<{ cancel: boolean }> {
+  return new Promise((resolve) => session.getBeforeRequestHandler()({ url }, resolve))
 }
 
 const fromPartition = vi.fn((partition: string) => makeFakeSession(partition))
@@ -380,5 +404,66 @@ describe('renderWithHiddenWindow', () => {
     const [firstPartition] = fromPartition.mock.calls[0] as [string]
     const [secondPartition] = fromPartition.mock.calls[1] as [string]
     expect(firstPartition).not.toBe(secondPartition)
+  })
+
+  describe('the subresource guard', () => {
+    // No mocking of `./url-safety`: every case below is decided by its literal IP alone
+    // (`assertPublicHostname`'s synchronous branch), so the real implementation runs and
+    // never touches DNS — proving the actual guard is wired in, not a stand-in for it.
+
+    it('cancels a request to a private address, over plain http', async () => {
+      await renderWithHiddenWindow('https://example.com/spa', { settleMs: 0 })
+      const scrapeSession = fromPartition.mock.results[0]?.value as ReturnType<
+        typeof makeFakeSession
+      >
+
+      await expect(
+        askBeforeRequest(scrapeSession, 'http://192.168.1.1/pixel.png'),
+      ).resolves.toEqual({ cancel: true })
+    })
+
+    it('cancels a request to the cloud metadata address', async () => {
+      await renderWithHiddenWindow('https://example.com/spa', { settleMs: 0 })
+      const scrapeSession = fromPartition.mock.results[0]?.value as ReturnType<
+        typeof makeFakeSession
+      >
+
+      await expect(
+        askBeforeRequest(scrapeSession, 'http://169.254.169.254/latest/meta-data/'),
+      ).resolves.toEqual({ cancel: true })
+    })
+
+    it('cancels a WebSocket to a private address — not just http(s)', async () => {
+      await renderWithHiddenWindow('https://example.com/spa', { settleMs: 0 })
+      const scrapeSession = fromPartition.mock.results[0]?.value as ReturnType<
+        typeof makeFakeSession
+      >
+
+      await expect(askBeforeRequest(scrapeSession, 'ws://10.0.0.5:8080/')).resolves.toEqual({
+        cancel: true,
+      })
+    })
+
+    it('allows a request to a public address', async () => {
+      await renderWithHiddenWindow('https://example.com/spa', { settleMs: 0 })
+      const scrapeSession = fromPartition.mock.results[0]?.value as ReturnType<
+        typeof makeFakeSession
+      >
+
+      await expect(askBeforeRequest(scrapeSession, 'https://8.8.8.8/api')).resolves.toEqual({
+        cancel: false,
+      })
+    })
+
+    it('leaves a non-networked scheme alone — an inline image has nothing to guard', async () => {
+      await renderWithHiddenWindow('https://example.com/spa', { settleMs: 0 })
+      const scrapeSession = fromPartition.mock.results[0]?.value as ReturnType<
+        typeof makeFakeSession
+      >
+
+      await expect(askBeforeRequest(scrapeSession, 'data:image/png;base64,AAAA')).resolves.toEqual({
+        cancel: false,
+      })
+    })
   })
 })

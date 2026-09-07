@@ -123,13 +123,15 @@ export interface MediaMeta {
 
 export interface SourceDocMeta {
   pageCount?: number
-  /** Set when at least one page/image scored low enough to need OCR (a scanned PDF page) or
-   *  fell under the confidence threshold (an `image` source) — the parse itself never
-   *  escalates to a cloud OCR provider; that is a later, opt-in job (`docs/spec/06-ai-providers.md`). */
+  /** Set when at least one PDF page or the whole image scored under the OCR confidence
+   *  threshold — for a PDF, every scanned page (`< 50` extractable characters) is already run
+   *  through `ocr` during the parse itself; this flags what that pass could not read
+   *  *confidently*, not what merely looked scanned. Escalating to a cloud OCR/VLM provider for
+   *  a flagged page is a later, opt-in job (`docs/spec/06-ai-providers.md`). */
   needsOcr?: boolean
-  /** 1-based page numbers a PDF parse flagged as scanned (`needsOcr` is `ocrPages.length >
-   *  0` for a PDF) — the per-page detail a single boolean can't carry, for whatever later
-   *  step escalates specific pages to OCR. */
+  /** 1-based page numbers a PDF parse OCR'd but could not read confidently (`needsOcr` is
+   *  `ocrPages.length > 0` for a PDF) — the per-page detail a single boolean can't carry, for
+   *  whatever later step escalates specific pages to a stronger OCR/VLM pass. */
   ocrPages?: number[]
   /** The `image` parser's OCR confidence (0–100), when this source is an image. */
   ocrConfidence?: number

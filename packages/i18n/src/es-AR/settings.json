@@ -24,6 +24,10 @@
     "copy": "Copiar",
     "copied": "¡Copiado!"
   },
+  "thirdPartyNotices": {
+    "label": "Avisos de terceros",
+    "description": "Retenia usa estos componentes de terceros como procesos separados o bibliotecas sin modificar. Ninguno cambia la licencia del código propio de Retenia."
+  },
   "scheduler": {
     "label": "Programador",
     "cost": "≈ {reviews} repasos/día · {minutes} min/día · {ratio}× los repasos del 90%",

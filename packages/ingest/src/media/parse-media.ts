@@ -6,11 +6,13 @@ import type { ParseContext } from '../parse-context'
 import {
   createFfmpegProgressParser,
   extractWavArgs,
+  type KeyframeSegment,
   type KeyframeStrategy,
   keyframeArgs,
   type ProbeResult,
   parseProbeJson,
   parseShowinfoTime,
+  planKeyframeSegments,
   probeArgs,
 } from '../sidecars/ffmpeg'
 import { type RunSidecarOptions, runSidecar, type SidecarRunResult } from '../sidecars/spawn'
@@ -137,11 +139,23 @@ function band(name: keyof typeof BANDS, fraction: number): number {
 }
 
 /** Generous by design: a cancel is prompt because the signal reaches the child, so this only
- *  has to catch a genuinely wedged process. Scaled by how slow the model is. */
-function transcribeTimeoutMs(durationSec: number | null, realtimeFactor: number): number {
+ *  has to catch a genuinely wedged process. Scaled by how slow the pass is relative to the
+ *  media's own duration — a low `realtimeFactor` for whisper, well below realtime; a high one
+ *  for a plain ffmpeg decode, which is normally an order of magnitude faster — and floored for
+ *  a duration nothing has measured yet, or short enough that the floor dominates anyway. */
+function mediaPassTimeoutMs(
+  durationSec: number | null,
+  realtimeFactor: number,
+  floorMs = 120_000,
+): number {
   const seconds = durationSec ?? 3_600
-  return Math.max(120_000, (seconds / Math.max(0.25, realtimeFactor)) * 4_000)
+  return Math.max(floorMs, (seconds / Math.max(0.25, realtimeFactor)) * 4_000)
 }
+
+/** ffprobe only reads container metadata — no decode, no transcode — so even a very large or
+ *  long file resolves in a small fraction of this; a fixed ceiling is enough, unlike the
+ *  passes below whose own cost actually scales with the media's duration. */
+const PROBE_TIMEOUT_MS = 60_000
 
 export async function parseMedia(
   input: MediaParseInput,
@@ -216,6 +230,10 @@ export async function parseMedia(
     const wav = join(workDir, `${index}.wav`)
     const wavProgress = createFfmpegProgressParser(probe.durationSec)
     await exec(tools.ffmpeg, 'ffmpeg', extractWavArgs(part.path, wav), {
+      // A plain audio decode-and-resample, no video, no filters — comfortably faster than
+      // realtime on anything this app runs on, so a generous factor still catches a wedged
+      // ffmpeg rather than a merely slow one.
+      timeoutMs: mediaPassTimeoutMs(probe.durationSec, 20),
       onStdoutLine: (line) => {
         const fraction = wavProgress.line(line)
         if (fraction !== undefined) {
@@ -247,7 +265,7 @@ export async function parseMedia(
         outPrefix: prefix,
       }),
       {
-        timeoutMs: transcribeTimeoutMs(probe.durationSec, 4),
+        timeoutMs: mediaPassTimeoutMs(probe.durationSec, 4),
         onStderrLine: (line) => {
           const fraction = parseWhisperProgress(line)
           if (fraction !== undefined) {
@@ -454,6 +472,7 @@ async function probePart(
   }
   let stdout = ''
   await exec(tools.ffprobe, 'ffprobe', probeArgs(part.path), {
+    timeoutMs: PROBE_TIMEOUT_MS,
     onStdoutLine: (line) => {
       stdout += line
     },
@@ -503,10 +522,26 @@ async function collectKeyframes(options: {
     if (!probe.hasVideo) continue
     const offsetSec = timeline[index] ?? 0
 
-    let pass = await runKeyframePass(part, index, 'scene', workDir, tools, exec)
+    let pass = await runKeyframePassOverSegments(
+      part,
+      index,
+      'scene',
+      workDir,
+      tools,
+      exec,
+      probe.durationSec,
+    )
     if (sceneDetectionFailed(pass.times.length, probe.durationSec)) {
       await removePngs(workDir, index)
-      pass = await runKeyframePass(part, index, 'interval', workDir, tools, exec)
+      pass = await runKeyframePassOverSegments(
+        part,
+        index,
+        'interval',
+        workDir,
+        tools,
+        exec,
+        probe.durationSec,
+      )
       strategy = 'interval'
     }
 
@@ -548,7 +583,19 @@ async function removePngs(workDir: string, index: number): Promise<void> {
   }
 }
 
-async function runKeyframePass(
+/**
+ * Runs every window `planKeyframeSegments` planned for this part and concatenates them back
+ * into one chronological pass — the caller (`collectKeyframes`) sees exactly the same shape
+ * `runKeyframePass` alone used to return, just no longer truncated to whatever the first
+ * `KEYFRAME_SEGMENT_SEC` of the file happened to contain.
+ *
+ * Each segment's own `times`/`pngs`/`hashes` are aligned *before* concatenating, not after:
+ * ffmpeg's own timing (`showinfo`), the PNGs a `readdir` finds, and the raw hash bytes can
+ * each fall short by a frame or two right at a pass's own cutoff, and only truncating each
+ * segment to its own shortest of the three keeps two unrelated segments from silently pairing
+ * one segment's timestamp with a different segment's picture.
+ */
+async function runKeyframePassOverSegments(
   part: MediaPartInput,
   index: number,
   strategy: KeyframeStrategy,
@@ -560,8 +607,51 @@ async function runKeyframePass(
     args: readonly string[],
     extra?: Partial<RunSidecarOptions>,
   ) => Promise<SidecarRunResult>,
+  durationSec: number | null,
 ): Promise<{ times: number[]; pngs: string[]; hashes: bigint[] }> {
-  const rawPath = join(workDir, `kf-${index}.raw`)
+  const times: number[] = []
+  const pngs: string[] = []
+  const hashes: bigint[] = []
+
+  for (const [segmentIndex, segment] of planKeyframeSegments(durationSec).entries()) {
+    const pass = await runKeyframePass(
+      part,
+      index,
+      segmentIndex,
+      strategy,
+      workDir,
+      tools,
+      exec,
+      durationSec,
+      segment,
+    )
+    const usable = Math.min(pass.times.length, pass.pngs.length, pass.hashes.length)
+    times.push(...pass.times.slice(0, usable))
+    pngs.push(...pass.pngs.slice(0, usable))
+    hashes.push(...pass.hashes.slice(0, usable))
+  }
+
+  return { times, pngs, hashes }
+}
+
+async function runKeyframePass(
+  part: MediaPartInput,
+  index: number,
+  segmentIndex: number,
+  strategy: KeyframeStrategy,
+  workDir: string,
+  tools: MediaToolchain,
+  exec: (
+    exe: string,
+    tool: string,
+    args: readonly string[],
+    extra?: Partial<RunSidecarOptions>,
+  ) => Promise<SidecarRunResult>,
+  durationSec: number | null,
+  segment: KeyframeSegment,
+): Promise<{ times: number[]; pngs: string[]; hashes: bigint[] }> {
+  const rawPath = join(workDir, `kf-${index}-${segmentIndex}.raw`)
+  const pngPrefix = `kf-${index}-${segmentIndex}-`
   const times: number[] = []
 
   await exec(
@@ -569,20 +659,32 @@ async function runKeyframePass(
     'ffmpeg',
     keyframeArgs({
       input: part.path,
-      pngPattern: join(workDir, `kf-${index}-%04d.png`),
+      pngPattern: join(workDir, `${pngPrefix}%04d.png`),
       rawPath,
       strategy,
+      frameCap: segment.frameCap,
+      startSec: segment.startSec,
+      ...(segment.clipDurationSec === null ? {} : { clipDurationSec: segment.clipDurationSec }),
     }),
     {
+      // Video decode plus the scene filter (or the interval fallback) plus a raw grayscale
+      // dump — heavier than the audio-only extraction, so a lower realtime factor, but still
+      // an order of magnitude faster than whisper on the same hardware. Sized off the whole
+      // part's duration rather than this one window's, which only ever makes the timeout more
+      // generous — a wedged process on a short window is still a wedged process.
+      timeoutMs: mediaPassTimeoutMs(durationSec, 8),
       onStderrLine: (line) => {
         const time = parseShowinfoTime(line)
-        if (time !== undefined) times.push(time)
+        // `showinfo` reports time relative to wherever this window's own `-ss` seeked to
+        // (ffmpeg rebases a seeked input's timestamps to start near zero), so the segment's
+        // own start has to be added back to recover the part's real, absolute time.
+        if (time !== undefined) times.push(time + segment.startSec)
       },
     },
   )
 
   const pngs = (await readdir(workDir))
-    .filter((name) => name.startsWith(`kf-${index}-`) && name.endsWith('.png'))
+    .filter((name) => name.startsWith(pngPrefix) && name.endsWith('.png'))
     .sort()
     .map((name) => join(workDir, name))
 

@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises'
+import { join } from 'node:path'
 import {
   type JobContext,
   type JobDefinition,
@@ -189,12 +190,13 @@ export function createIngestParseJob(
     run: (input, ctx) =>
       input.kind === 'audio' || input.kind === 'video'
         ? runMediaParse({ readableRoots, modelsRoot, sidecars }, input, ctx)
-        : run(readableRoots, input, ctx),
+        : run(readableRoots, modelsRoot, input, ctx),
   }
 }
 
 async function run(
   readableRoots: readonly string[],
+  modelsRoot: string | undefined,
   input: IngestParseInput,
   ctx: JobContext,
 ): Promise<IngestParseResult> {
@@ -226,8 +228,12 @@ async function run(
     },
     // Local Tesseract by default (`docs/spec/05-ingestion-rag.md` §1); a cloud `OcrProvider`
     // (Gemini Flash-Lite, Mistral OCR) is a phase-7 addition behind the same port, not a
-    // change to this job.
-    createTesseractOcrProvider(),
+    // change to this job. `cacheDir` keeps its downloaded traineddata in the model store
+    // instead of the job worker's `cwd`; `modelsRoot` is only absent in a test double, where
+    // there is no stable directory to cache into anyway.
+    createTesseractOcrProvider(
+      modelsRoot === undefined ? {} : { cacheDir: join(modelsRoot, 'tesseract') },
+    ),
   )
   if (ctx.signal.aborted) throw new Error('ingestParseSource was cancelled')
 

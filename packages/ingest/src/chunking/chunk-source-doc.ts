@@ -427,6 +427,10 @@ interface UnitPlan {
 const PAGED_KINDS: Partial<Record<SourceDoc['kind'], SourceUnitKind>> = {
   pdf: 'page',
   pptx: 'slide',
+  // A standalone image (`parsers/image.ts`) always carries exactly one block, at `page: 1` —
+  // a trivial one-page document, but a real one: without this the chunk built from it would
+  // carry no `locator.page` at all, since `buildChunk` only ever copies a unit's ordinal.
+  image: 'page',
 }
 
 function pageLabel(kind: SourceUnitKind, ordinal: number): string {

@@ -1,6 +1,7 @@
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { PDFiumLibrary } from '@hyzyla/pdfium'
+import type { OcrProvider } from '@retenia/core'
 import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs'
 import { detectLanguage } from '../detect-language'
 import { sha256Hex } from '../hash'
@@ -9,13 +10,18 @@ import type { ParseInput } from '../parse-input'
 import { encodeBgraAsPng } from '../png-encoder'
 import { createSectionTree } from '../section-tree'
 import type { Asset, Block, SourceDoc } from '../source-doc'
+import { OCR_CONFIDENCE_THRESHOLD } from './image'
 
 /**
  * PDF (`docs/spec/05-ingestion-rag.md` §1): `pdfjs-dist` for text, position and page count;
- * a page with `< 50` extractable characters is flagged `needsOcr` and rendered to a PNG via
- * `@hyzyla/pdfium` so there is something to show (or later OCR) for it — this parser never
- * runs OCR on a scanned page itself, only detects and flags it (`docs/spec/06-ai-providers.md`
- * covers the opt-in cloud escalation job that would).
+ * a page with `< 50` extractable characters is scanned, and every scanned page is rendered
+ * to a PNG via `@hyzyla/pdfium` and run through `ocr` — the same local-Tesseract-by-default
+ * port `parsers/image.ts` uses, not a placeholder for a later cloud job. `meta.ocrPages` and
+ * `meta.needsOcr` are about what OCR could not resolve *confidently* (`OCR_CONFIDENCE_THRESHOLD`,
+ * the same bar `image.ts` uses): a page OCR read with confidence is no longer "needs OCR",
+ * it is done, and only a low-confidence or handwritten page still asks for a second look
+ * (`docs/spec/06-ai-providers.md`'s opt-in cloud VLM is that second look, still to come in
+ * sub-phase 7.x — this is the "OCR with a VLM" step §1's closing rule already calls for).
  *
  * Reading order is column-naive: lines are sorted top-to-bottom, left-to-right across the
  * full page width. A genuinely multi-column layout would interleave under this rule — no
@@ -136,7 +142,11 @@ async function openPdfium(bytes: Uint8Array): Promise<PdfiumHandle> {
   }
 }
 
-export async function parsePdf(input: ParseInput, ctx: ParseContext): Promise<SourceDoc> {
+export async function parsePdf(
+  input: ParseInput,
+  ctx: ParseContext,
+  ocr: OcrProvider,
+): Promise<SourceDoc> {
   const standardFontDataUrl = `${join(
     dirname(fileURLToPath(import.meta.resolve('pdfjs-dist/package.json'))),
     'standard_fonts',
@@ -171,75 +181,96 @@ export async function parsePdf(input: ParseInput, ctx: ParseContext): Promise<So
     pages.flatMap((p) => p.lines.map((l) => l.height)),
     baseline,
   )
+  const hasScannedPages = pages.some((p) => p.charCount < SCANNED_PAGE_CHAR_THRESHOLD)
 
   const blocks: Block[] = []
+  const assets: Asset[] = []
   const tree = createSectionTree(() => ctx.id(), input.fallbackTitle)
-  const ocrPages: number[] = []
+  const lowConfidencePages: number[] = []
   let title: string | undefined
 
-  for (const { pageNumber, lines, charCount } of pages) {
-    if (charCount < SCANNED_PAGE_CHAR_THRESHOLD) ocrPages.push(pageNumber)
+  // Opened once, up front, so a scanned page's render+OCR can happen inline within the loop
+  // below, in document order — `tree.attach()` always pushes to whatever section is
+  // currently open, so a page's OCR block must attach at the moment its page is reached, not
+  // in a trailing pass after the whole tree has already been built.
+  const pdfium = hasScannedPages ? await openPdfium(new Uint8Array(input.bytes)) : undefined
 
-    let paragraph: Line[] = []
-    const flushParagraph = (): void => {
-      if (paragraph.length === 0) return
-      const text = paragraph.map((l) => l.text).join(' ')
-      const first = paragraph[0] as Line
-      const last = paragraph[paragraph.length - 1] as Line
-      const block: Block = {
-        id: ctx.id(),
-        type: 'paragraph',
-        text,
-        locator: {
-          page: pageNumber,
-          bbox: [
-            Math.min(first.x0, last.x0),
-            last.y,
-            Math.max(first.x1, last.x1) - Math.min(first.x0, last.x0),
-            first.y - last.y + first.height,
-          ],
-        },
-        hash: sha256Hex(text),
+  try {
+    for (const { pageNumber, lines, charCount } of pages) {
+      let paragraph: Line[] = []
+      const flushParagraph = (): void => {
+        if (paragraph.length === 0) return
+        const text = paragraph.map((l) => l.text).join(' ')
+        const first = paragraph[0] as Line
+        const last = paragraph[paragraph.length - 1] as Line
+        const block: Block = {
+          id: ctx.id(),
+          type: 'paragraph',
+          text,
+          locator: {
+            page: pageNumber,
+            bbox: [
+              Math.min(first.x0, last.x0),
+              last.y,
+              Math.max(first.x1, last.x1) - Math.min(first.x0, last.x0),
+              first.y - last.y + first.height,
+            ],
+          },
+          hash: sha256Hex(text),
+        }
+        blocks.push(block)
+        tree.attach(block.id)
+        paragraph = []
       }
-      blocks.push(block)
-      tree.attach(block.id)
-      paragraph = []
-    }
 
-    let previousLine: Line | undefined
-    for (const line of lines) {
-      const level = levels.findIndex((size) => Math.abs(size - line.height) < 0.5)
-      if (level !== -1) {
-        flushParagraph()
-        tree.pushHeading(ctx.id(), line.text, level + 1)
-        if (title === undefined && level === 0) title = line.text
+      let previousLine: Line | undefined
+      for (const line of lines) {
+        const level = levels.findIndex((size) => Math.abs(size - line.height) < 0.5)
+        if (level !== -1) {
+          flushParagraph()
+          tree.pushHeading(ctx.id(), line.text, level + 1)
+          if (title === undefined && level === 0) title = line.text
+          previousLine = line
+          continue
+        }
+
+        // A gap noticeably bigger than the line's own height reads as a paragraph break.
+        const gap = previousLine ? previousLine.y - line.y : 0
+        if (previousLine && gap > line.height * 1.8) flushParagraph()
+        paragraph.push(line)
         previousLine = line
-        continue
       }
+      flushParagraph()
 
-      // A gap noticeably bigger than the line's own height reads as a paragraph break.
-      const gap = previousLine ? previousLine.y - line.y : 0
-      if (previousLine && gap > line.height * 1.8) flushParagraph()
-      paragraph.push(line)
-      previousLine = line
-    }
-    flushParagraph()
-  }
-
-  const assets: Asset[] = []
-  if (ocrPages.length > 0) {
-    const pdfium = await openPdfium(new Uint8Array(input.bytes))
-    try {
-      for (const pageNumber of ocrPages) {
+      if (charCount < SCANNED_PAGE_CHAR_THRESHOLD && pdfium) {
         const rendered = await pdfium.render(pageNumber - 1, 1.5)
         const png = encodeBgraAsPng(rendered.data, rendered.width, rendered.height)
         const asset = await ctx.putAsset(png, 'image/png', 'thumbnail')
         asset.locator = { page: pageNumber }
         assets.push(asset)
+
+        const { text, confidence } = await ocr.recognize(png)
+        if (confidence < OCR_CONFIDENCE_THRESHOLD) lowConfidencePages.push(pageNumber)
+
+        // Unlike a standalone image source (whose one block is the whole document, always
+        // present even when empty), a blank scanned page contributes nothing to chunk — same
+        // rule `flushParagraph` already applies to a page with no text at all.
+        const trimmed = text.trim()
+        if (trimmed.length > 0) {
+          const block: Block = {
+            id: ctx.id(),
+            type: 'paragraph',
+            text: trimmed,
+            locator: { page: pageNumber },
+            hash: sha256Hex(trimmed),
+          }
+          blocks.push(block)
+          tree.attach(block.id)
+        }
       }
-    } finally {
-      await pdfium.close()
     }
+  } finally {
+    await pdfium?.close()
   }
 
   const language = detectLanguage(blocks.map((b) => b.text).join('\n'))
@@ -254,8 +285,8 @@ export async function parsePdf(input: ParseInput, ctx: ParseContext): Promise<So
     assets,
     meta: {
       pageCount: pdf.numPages,
-      needsOcr: ocrPages.length > 0,
-      ...(ocrPages.length > 0 ? { ocrPages } : {}),
+      needsOcr: lowConfidencePages.length > 0,
+      ...(lowConfidencePages.length > 0 ? { ocrPages: lowConfidencePages } : {}),
       warnings: [],
     },
   }

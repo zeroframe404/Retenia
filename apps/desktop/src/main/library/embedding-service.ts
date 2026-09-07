@@ -159,6 +159,17 @@ export function createEmbeddingService(options: EmbeddingServiceOptions): Embedd
       return
     }
 
+    // Marked incomplete *before* anything below can fail, not after everything below already
+    // succeeded. `deleteEmbeddingsForSource`, the blob write and the scheduler call are none
+    // of them transactional with each other, and better-sqlite3 offers no cross-await
+    // transaction here (the blob write is a separate file, the enqueue a separate connection
+    // use) — so the only way a failure between them cannot strand the source at `'ready'`
+    // with vectors already gone is if it was never at `'ready'` for the length of the attempt.
+    // `sourceIdsNeedingEmbedding` picks up anything that is not `'ready'`, so a source stuck
+    // here at `'running'` — the blob write failed, the process died mid-embed, whatever — is
+    // exactly what the next reindex sweep retries, rather than a permanently invisible gap.
+    await setState(source.id, 'running', { modelId: null })
+
     // The old space goes before the new one arrives. A partition holding two models' vectors
     // would answer a KNN query with distances that are not comparable, and the `model_id`
     // filter would only hide that until the day one query forgot it.
@@ -173,7 +184,6 @@ export function createEmbeddingService(options: EmbeddingServiceOptions): Embedd
       'application/json',
     )
 
-    await setState(source.id, 'running', { modelId: null })
     await scheduler.enqueue(
       EMBED_JOB_KIND,
       { sourceId: source.id, textsBlobSha256: sha256, ...active.jobPayload },

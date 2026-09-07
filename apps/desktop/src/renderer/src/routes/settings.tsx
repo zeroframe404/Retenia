@@ -17,6 +17,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react'
 import { z } from 'zod'
 import { SchedulerSettings } from '../features/scheduler/scheduler-settings'
+import { ThirdPartyNoticesSection } from '../features/settings/third-party-notices-section'
 import { useT } from '../i18n/use-t'
 import { useSetDensity, useSetGamificationProfile, useSettings } from '../shell/use-settings'
 
@@ -205,6 +206,8 @@ function SettingsScreen() {
           />
         </div>
       </section>
+
+      <ThirdPartyNoticesSection />
     </div>
   )
 }

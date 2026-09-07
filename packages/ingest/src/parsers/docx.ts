@@ -113,14 +113,23 @@ export async function parseDocx(input: ParseInput, ctx: ParseContext): Promise<S
   const blocks: Block[] = []
   const tree = createSectionTree(() => ctx.id(), input.fallbackTitle)
   let title: string | undefined
+  // The element's own position among the body's top-level children — headings included, and
+  // counted whether or not the element became a block — not `blocks.length`. A count of only
+  // emitted blocks drifts from the document the moment anything between two blocks is skipped
+  // (a heading, an element `blockTypeForTag` does not recognise), so two elements at different
+  // real positions could end up sharing one anchor while a third's never matched its own
+  // position at all. This one is what `elementIndex` means in `epub.ts` for the same reason:
+  // a document-order position a future reader can recompute the same way, from `body > *`.
+  let elementIndex = -1
 
   for (const node of root.childNodes) {
     if (node.nodeType !== NodeType.ELEMENT_NODE) continue
+    elementIndex += 1
     const el = node as HTMLElement
     const tag = el.rawTagName.toLowerCase()
 
     if (tag === 'img') {
-      pushFigure(el)
+      pushFigure(el, elementIndex)
       continue
     }
 
@@ -130,7 +139,7 @@ export async function parseDocx(input: ParseInput, ctx: ParseContext): Promise<S
     if (type === 'paragraph') {
       const figure = soleImage(el)
       if (figure) {
-        pushFigure(figure)
+        pushFigure(figure, elementIndex)
         continue
       }
     }
@@ -149,14 +158,14 @@ export async function parseDocx(input: ParseInput, ctx: ParseContext): Promise<S
       type,
       text,
       ...(html !== undefined ? { html } : {}),
-      locator: { anchor: String(blocks.length) },
+      locator: { anchor: String(elementIndex) },
       hash: sha256Hex(text),
     }
     blocks.push(block)
     tree.attach(block.id)
   }
 
-  function pushFigure(img: HTMLElement): void {
+  function pushFigure(img: HTMLElement, elementIndex: number): void {
     const src = img.getAttribute('src') ?? ''
     const alt = img.getAttribute('alt') ?? ''
     const index = src.startsWith(ASSET_SRC_PREFIX) ? Number(src.slice(ASSET_SRC_PREFIX.length)) : -1
@@ -165,7 +174,7 @@ export async function parseDocx(input: ParseInput, ctx: ParseContext): Promise<S
       id: ctx.id(),
       type: 'figure',
       text: alt,
-      locator: { anchor: String(blocks.length) },
+      locator: { anchor: String(elementIndex) },
       hash: sha256Hex(alt),
     }
     blocks.push(block)
