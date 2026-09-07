@@ -35,6 +35,16 @@ function htmlResponse(html: string): Response {
 
 const RICH_HTML = `<html><body><article>${'word '.repeat(600)}</article></body></html>`
 const THIN_HTML = '<html><body><div id="root"></div></body></html>'
+/** A framework shell whose only "content" is inline JSON state and a bundle reference — the
+ *  case `countWords` used to miscount as a real page, because stripping tags alone leaves the
+ *  `<script>` element's own text (hundreds of whitespace-separated tokens of JSON/JS) behind.
+ *  Pretty-printed rather than compact JSON, so it actually reproduces the failure: a compact
+ *  `JSON.stringify` has no whitespace at all, and `countWords` splits on whitespace. */
+const SCRIPT_HEAVY_SPA_HTML = `<html><body><div id="root"></div><script id="__NEXT_DATA__" type="application/json">${JSON.stringify(
+  { props: { pageProps: Object.fromEntries(Array.from({ length: 600 }, (_, i) => [`k${i}`, i])) } },
+  null,
+  1,
+)}</script></body></html>`
 
 /** Every test here fakes `fetchImpl`, so there is no real network to resolve `example.com`
  *  against — a no-op stand-in for the SSRF guard (`./url-safety`, tested on its own) keeps
@@ -86,6 +96,24 @@ describe('fetchWebPage', () => {
 
   it('escalates to the SPA fallback when the static page is too thin', async () => {
     const fetchImpl = fakeFetch(THIN_HTML)
+    const renderFallback = vi.fn(async () => RICH_HTML)
+
+    const result = await fetchWebPage('https://example.com/spa', {
+      fetchImpl,
+      renderFallback,
+      assertPublicUrl: ALLOW_ALL_URLS,
+    })
+
+    expect(renderFallback).toHaveBeenCalledWith('https://example.com/spa')
+    expect(result.html).toBe(RICH_HTML)
+    expect(result.rendered).toBe(true)
+  })
+
+  it('escalates a script-heavy SPA shell too, not just an empty one', async () => {
+    // The precise regression: an inline `__NEXT_DATA__`/bundle blob alone used to read as
+    // hundreds of "words" once tags were stripped, so this shell never triggered the fallback
+    // it exists for.
+    const fetchImpl = fakeFetch(SCRIPT_HEAVY_SPA_HTML)
     const renderFallback = vi.fn(async () => RICH_HTML)
 
     const result = await fetchWebPage('https://example.com/spa', {

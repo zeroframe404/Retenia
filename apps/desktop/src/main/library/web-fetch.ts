@@ -64,8 +64,20 @@ export interface FetchWebPageResult {
   rendered: boolean
 }
 
+/** `<script>`/`<style>`/`<noscript>` content is never prose — a bundle, a stylesheet, a
+ *  fallback-markup blob — so it has to go *before* `countWords` strips tags, not just the tags
+ *  themselves: a client-rendered page's shell is routinely a bare `<div id="root">` plus an
+ *  inline `__NEXT_DATA__`/webpack bundle that alone runs to thousands of "words" once the tags
+ *  around it are gone, which used to make exactly the SPA shell this threshold exists to catch
+ *  read as a real, populated page. Matches `parse-web.ts`'s own `SKIP_TAGS` for these three —
+ *  the two files agree on what "not text" means for the same reason. */
+const NON_TEXT_ELEMENTS = /<(script|style|noscript)\b[^>]*>[\s\S]*?<\/\1>/gi
+
 function countWords(html: string): number {
-  const text = html.replace(/<[^>]*>/g, ' ').trim()
+  const text = html
+    .replace(NON_TEXT_ELEMENTS, ' ')
+    .replace(/<[^>]*>/g, ' ')
+    .trim()
   return text.length === 0 ? 0 : text.split(/\s+/).length
 }
 
