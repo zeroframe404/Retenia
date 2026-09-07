@@ -6,9 +6,12 @@ import {
   extractWavArgs,
   INTERVAL_SECONDS,
   KEYFRAME_HARD_CAP,
+  KEYFRAME_SEGMENT_SEC,
   keyframeArgs,
+  MAX_KEYFRAME_SEGMENTS,
   parseProbeJson,
   parseShowinfoTime,
+  planKeyframeSegments,
   probeArgs,
   SCENE_THRESHOLD,
   WHISPER_SAMPLE_RATE,
@@ -267,6 +270,106 @@ describe('keyframeArgs', () => {
     // ever split on those to "tidy" it, ffmpeg would read the tail as extra options.
     expect(scene.filter((arg) => arg.includes('split=2'))).toHaveLength(1)
     expect(graphOf(scene).split(';')).toHaveLength(3)
+  })
+
+  it('reads the whole file by default: no -ss, no -t', () => {
+    expect(scene).not.toContain('-ss')
+    expect(scene).not.toContain('-t')
+  })
+
+  it('seeks to startSec as an input option, before -i', () => {
+    const windowed = keyframeArgs({
+      input: '/media/lecture.mp4',
+      pngPattern: '/tmp/kf/kf-%04d.png',
+      rawPath: '/tmp/kf/frames.gray',
+      strategy: 'scene',
+      startSec: 600,
+      clipDurationSec: 300,
+    })
+    expect(hasPair(windowed, '-ss', '600')).toBe(true)
+    expect(hasPair(windowed, '-t', '300')).toBe(true)
+    expect(windowed.indexOf('-ss')).toBeLessThan(windowed.indexOf('-i'))
+    expect(windowed.indexOf('-t')).toBeLessThan(windowed.indexOf('-i'))
+  })
+
+  it('never merges -ss or -t with their value', () => {
+    expectNoFlagCarriesItsValue(
+      keyframeArgs({
+        input: HOSTILE_INPUT,
+        pngPattern: HOSTILE_PNG_PATTERN,
+        rawPath: HOSTILE_RAW,
+        strategy: 'scene',
+        startSec: 60,
+        clipDurationSec: 30,
+      }),
+    )
+  })
+})
+
+describe('planKeyframeSegments', () => {
+  it('never segments a duration ffmpeg could not report', () => {
+    expect(planKeyframeSegments(null)).toEqual([
+      { startSec: 0, clipDurationSec: null, frameCap: KEYFRAME_HARD_CAP },
+    ])
+  })
+
+  it('never segments a video that already fits in one window', () => {
+    expect(KEYFRAME_SEGMENT_SEC).toBe(600)
+    expect(planKeyframeSegments(20)).toEqual([
+      { startSec: 0, clipDurationSec: null, frameCap: KEYFRAME_HARD_CAP },
+    ])
+    // The boundary itself still reads as "fits" — only strictly longer needs a second window.
+    expect(planKeyframeSegments(KEYFRAME_SEGMENT_SEC)).toHaveLength(1)
+  })
+
+  it('splits a longer recording into equal windows, each with its own share of the budget', () => {
+    // Exactly two hours at the 600 s window size is exactly 12 windows — the cap this fixture
+    // is chosen to land on exactly, so the test does not depend on rounding either way.
+    expect(MAX_KEYFRAME_SEGMENTS).toBe(12)
+    const segments = planKeyframeSegments(7_200)
+    expect(segments).toHaveLength(12)
+    expect(segments[0]).toEqual({ startSec: 0, clipDurationSec: 600, frameCap: 34 })
+    expect(segments[1]?.startSec).toBe(600)
+    // Every window's own duration sums back to the whole recording, with nothing left over.
+    const total = segments.reduce((sum, s) => sum + (s.clipDurationSec ?? 0), 0)
+    expect(total).toBe(7_200)
+    // Every frame cap divides the overall budget across the windows, none left idle.
+    expect(segments.every((s) => s.frameCap === 34)).toBe(true)
+  })
+
+  it('never runs more than MAX_KEYFRAME_SEGMENTS passes, however long the recording', () => {
+    // Ten hours at 600 s a window would be 60 windows; capped well below that so an import
+    // never turns into sixty separate ffmpeg spawns.
+    const segments = planKeyframeSegments(36_000)
+    expect(segments).toHaveLength(MAX_KEYFRAME_SEGMENTS)
+    const total = segments.reduce((sum, s) => sum + (s.clipDurationSec ?? 0), 0)
+    expect(total).toBe(36_000)
+  })
+
+  it('spreads a duration that does not divide evenly by KEYFRAME_SEGMENT_SEC just as evenly', () => {
+    // 1400 s asks for ceil(1400 / 600) = 3 windows — the window length is then *recomputed*
+    // from the actual duration (1400 / 3), not left at a fixed 600 s with a short leftover
+    // window at the end, so every window is still the same size and every start is
+    // contiguous with the one before it.
+    const segments = planKeyframeSegments(1_400)
+    expect(segments).toHaveLength(3)
+    for (const [index, segment] of segments.entries()) {
+      expect(segment.clipDurationSec).toBeCloseTo(1_400 / 3)
+      expect(segment.startSec).toBeCloseTo(index * (1_400 / 3))
+    }
+    const total = segments.reduce((sum, s) => sum + (s.clipDurationSec ?? 0), 0)
+    expect(total).toBeCloseTo(1_400)
+  })
+
+  it('divides a custom frame budget across the windows instead of the default cap', () => {
+    const segments = planKeyframeSegments(1_800, 60)
+    expect(segments).toHaveLength(3)
+    expect(segments.every((s) => s.frameCap === 20)).toBe(true)
+  })
+
+  it('never gives a window a zero frame budget, even with far more windows than cap', () => {
+    const segments = planKeyframeSegments(7_200, 5)
+    expect(segments.every((s) => s.frameCap >= 1)).toBe(true)
   })
 })
 
