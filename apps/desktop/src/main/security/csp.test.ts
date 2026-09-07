@@ -1,5 +1,8 @@
+import { readdirSync, readFileSync } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { buildCsp, LOCAL_AI_ORIGINS, PROVIDER_ORIGINS } from './csp'
+import { buildCsp, RENDERER_PROVIDER_ORIGINS } from './csp'
 
 function directive(csp: string, name: string): string {
   const found = csp.split('; ').find((part) => part.startsWith(`${name} `) || part === name)
@@ -37,26 +40,48 @@ describe('buildCsp (production)', () => {
     expect(directive(csp, 'connect-src')).toContain('media:')
   })
 
-  it('allows the local inference servers to be reached', () => {
-    const connectSrc = directive(csp, 'connect-src')
-    for (const origin of LOCAL_AI_ORIGINS) {
-      expect(connectSrc).toContain(origin)
-    }
+  it('lets the renderer reach nothing but itself and its own blobs', () => {
+    // Exact equality, not "does not contain anthropic": a future entry has to be added
+    // deliberately, by someone who then has to say why in this test.
+    expect(directive(csp, 'connect-src')).toBe("connect-src 'self' media:")
   })
 
-  it('allows every provider origin', () => {
+  it('grants the renderer no provider and no local-inference origin', () => {
+    // Every AI call runs in main, where the keys are, and `net.fetch` does not consult a
+    // document policy. Ollama and LM Studio are reached from main and from the embedding
+    // utility process. Granting the process that renders untrusted PDFs and pasted HTML an
+    // egress no feature uses is only an exit.
     const connectSrc = directive(csp, 'connect-src')
-    for (const origin of PROVIDER_ORIGINS) {
-      expect(connectSrc).toContain(origin)
-    }
-    expect(PROVIDER_ORIGINS).toContain('https://api.anthropic.com')
-    expect(PROVIDER_ORIGINS).toContain('https://*.speech.microsoft.com')
+    expect(RENDERER_PROVIDER_ORIGINS).toEqual([])
+    expect(connectSrc).not.toMatch(/https?:\/\//)
+    expect(connectSrc).not.toContain('11434')
+    expect(connectSrc).not.toContain('1234')
   })
 
-  it('takes the provider allowlist from its caller, for settings-driven origins later', () => {
+  it('takes the provider allowlist from its caller, for 11.2 Azure Speech', () => {
+    // The seam survives: sub-phase 11.2 assesses pronunciation from the renderer, because
+    // that is where the microphone stream lives, and will argue for exactly one origin.
     const csp = buildCsp({ providerOrigins: ['https://example.test'] })
     expect(directive(csp, 'connect-src')).toContain('https://example.test')
     expect(directive(csp, 'connect-src')).not.toContain('anthropic')
+  })
+
+  it('names no provider origin anywhere in the renderer bundle', () => {
+    // If this ever fails, that origin genuinely belongs in `connect-src` — and adding it
+    // is then a deliberate decision rather than a leftover.
+    const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../renderer')
+    const offenders: string[] = []
+    for (const entry of readdirSync(root, { withFileTypes: true, recursive: true })) {
+      if (!entry.isFile() || !/\.tsx?$/.test(entry.name)) continue
+      const file = path.join(entry.parentPath, entry.name)
+      for (const [index, line] of readFileSync(file, 'utf-8').split('\n').entries()) {
+        if (/^\s*(?:\/\/|\/\*|\*)/.test(line)) continue
+        if (/api\.anthropic\.com|generativelanguage|openrouter\.ai|:11434|:1234/.test(line)) {
+          offenders.push(`${path.relative(root, file)}:${index + 1}: ${line.trim()}`)
+        }
+      }
+    }
+    expect(offenders).toEqual([])
   })
 
   it.each(['object-src', 'base-uri', 'form-action', 'frame-ancestors'])(

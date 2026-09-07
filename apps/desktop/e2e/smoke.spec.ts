@@ -103,9 +103,11 @@ test('serves a Content-Security-Policy header with the provider allowlist', asyn
   expect(directives).toContain("script-src 'self' 'wasm-unsafe-eval'")
   expect(directives).toContain("object-src 'none'")
 
+  // The renderer reaches itself and its own blobs, and nothing else. Every AI call runs in
+  // main, where the keys live and where `net.fetch` does not consult a document policy, so
+  // the process that renders untrusted PDFs and pasted HTML is granted no outbound origin.
   const connectSrc = directives.find((d) => d.startsWith('connect-src '))
-  expect(connectSrc).toContain('https://api.anthropic.com')
-  expect(connectSrc).toContain('http://127.0.0.1:11434')
+  expect(connectSrc).toBe("connect-src 'self' media:")
 
   // This run is unpackaged, so `app.isPackaged` is false — the strict policy must still
   // be what `app://` serves.
