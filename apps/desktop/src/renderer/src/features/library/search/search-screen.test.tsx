@@ -22,6 +22,7 @@ const SOURCE: SourceSummary = {
   language: 'es',
   error: null,
   meta: null,
+  blobSha256: 'b'.repeat(64),
   embeddingStatus: 'ready',
   embeddingModelId: 'embeddinggemma-300m@768',
   embeddingError: null,

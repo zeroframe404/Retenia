@@ -69,6 +69,42 @@ describe('parseDeepLink', () => {
     expect(parseDeepLink('retenia://somethingElse')).toBeNull()
   })
 
+  const sourceId = '019213cd-0000-7000-8000-000000000002'
+
+  it('parses a source link with a page', () => {
+    expect(parseDeepLink(`retenia://source/${sourceId}?page=12`)).toEqual({
+      kind: 'source',
+      id: sourceId,
+      page: 12,
+    })
+  })
+
+  it('parses a source link with a CFI', () => {
+    const cfi = 'epubcfi(/6/4!/4/2/2)'
+    expect(parseDeepLink(`retenia://source/${sourceId}?cfi=${encodeURIComponent(cfi)}`)).toEqual({
+      kind: 'source',
+      id: sourceId,
+      cfi,
+    })
+  })
+
+  it('parses a bare source link with neither page nor cfi', () => {
+    expect(parseDeepLink(`retenia://source/${sourceId}`)).toEqual({
+      kind: 'source',
+      id: sourceId,
+    })
+  })
+
+  it.each([
+    ['a non-uuid id', 'retenia://source/not-a-uuid'],
+    ['no id at all', 'retenia://source'],
+    ['a zero or negative page', `retenia://source/${sourceId}?page=0`],
+    ['a non-numeric page', `retenia://source/${sourceId}?page=abc`],
+    ['an empty cfi', `retenia://source/${sourceId}?cfi=`],
+  ])('rejects %s', (_label, url) => {
+    expect(parseDeepLink(url)).toBeNull()
+  })
+
   it.each([
     ['a completely different scheme', 'https://retenia.app/review'],
     ['a scheme that merely contains the right one', 'notretenia://review'],

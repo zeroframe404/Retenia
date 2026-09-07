@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { contract } from '../index'
 import {
+  ANNOTATION_KINDS,
+  annotationSchema,
   EMBEDDING_STATUSES,
+  readingLocatorSchema,
+  recentSourceSchema,
   SOURCE_KINDS,
   SOURCE_STATUSES,
   sourceDocSchema,
@@ -29,6 +33,87 @@ describe('source vocabulary', () => {
     expect([...SOURCE_STATUSES]).toEqual(['pending', 'processing', 'ready', 'failed'])
     expect([...EMBEDDING_STATUSES]).toEqual(['pending', 'running', 'ready', 'failed'])
   })
+
+  it('matches ANNOTATION_KINDS in packages/core and the database CHECK', () => {
+    expect([...ANNOTATION_KINDS]).toEqual(['highlight', 'note', 'region', 'clip'])
+  })
+})
+
+describe('annotationSchema', () => {
+  const base = {
+    id: '019213cd-0000-7000-8000-000000000001',
+    sourceId: '019213cd-0000-7000-8000-000000000002',
+    unitId: null,
+    kind: 'highlight' as const,
+    quote: 'texto resaltado',
+    note: null,
+    color: 'yellow',
+    tStart: null,
+    tEnd: null,
+    createdAt: '2026-09-02T00:00:00.000Z',
+    updatedAt: '2026-09-02T00:00:00.000Z',
+  }
+
+  it('accepts a PDF highlight anchor (page + fractional rects)', () => {
+    const result = annotationSchema.safeParse({
+      ...base,
+      anchor: { page: 12, rects: [{ x: 0.1, y: 0.2, width: 0.5, height: 0.05 }] },
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it('accepts an EPUB CFI anchor', () => {
+    const result = annotationSchema.safeParse({
+      ...base,
+      anchor: { cfi: 'epubcfi(/6/4!/4/2/1:0)' },
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it('accepts a clip anchor', () => {
+    const result = annotationSchema.safeParse({
+      ...base,
+      kind: 'clip',
+      anchor: { tStart: 10, tEnd: 20 },
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it('rejects an anchor matching none of the known shapes', () => {
+    const result = annotationSchema.safeParse({ ...base, anchor: { foo: 'bar' } })
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects an unknown kind', () => {
+    const result = annotationSchema.safeParse({
+      ...base,
+      kind: 'bookmark',
+      anchor: { page: 1, rects: [] },
+    })
+    expect(result.success).toBe(false)
+  })
+})
+
+describe('readingLocatorSchema / recentSourceSchema', () => {
+  it('accepts a page locator and a CFI locator', () => {
+    expect(readingLocatorSchema.safeParse({ page: 12 }).success).toBe(true)
+    expect(readingLocatorSchema.safeParse({ cfi: 'epubcfi(/6/4!/4/2)' }).success).toBe(true)
+  })
+
+  it('rejects an empty locator', () => {
+    expect(readingLocatorSchema.safeParse({}).success).toBe(false)
+  })
+
+  it('accepts a well-formed recent source', () => {
+    const result = recentSourceSchema.safeParse({
+      id: '019213cd-0000-7000-8000-000000000001',
+      kind: 'pdf',
+      title: 'Fisiología.pdf',
+      locator: { page: 12 },
+      lastOpenedAt: '2026-09-02T00:00:00.000Z',
+    })
+    expect(result.success).toBe(true)
+  })
 })
 
 const summary = {
@@ -46,6 +131,7 @@ const summary = {
     ocrPages: [],
     warnings: [],
   },
+  blobSha256: 'b'.repeat(64),
   embeddingStatus: 'ready' as const,
   embeddingModelId: 'embeddinggemma-300m@768',
   embeddingError: null,
@@ -60,6 +146,10 @@ describe('sourceSummarySchema', () => {
 
   it('allows a null meta before the source has ever parsed', () => {
     expect(sourceSummarySchema.safeParse({ ...summary, meta: null }).success).toBe(true)
+  })
+
+  it('allows a null blobSha256 before the source has ever ingested', () => {
+    expect(sourceSummarySchema.safeParse({ ...summary, blobSha256: null }).success).toBe(true)
   })
 
   it('rejects an unknown status', () => {

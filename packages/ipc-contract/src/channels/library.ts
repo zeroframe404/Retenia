@@ -136,6 +136,9 @@ export const sourceSummarySchema = z.object({
   language: z.string().nullable(),
   error: z.string().nullable(),
   meta: sourceMetaSchema,
+  /** The source's own file, for `media://blob/<sha256>.<ext>` — what the PDF/EPUB reader
+   *  (sub-phase 6.6) loads. `null` until the source has ingested at least once. */
+  blobSha256: z.string().nullable(),
   embeddingStatus: embeddingStatusSchema,
   /** The space the source's vectors are in, e.g. `embeddinggemma-300m@768`. */
   embeddingModelId: z.string().nullable(),
@@ -339,6 +342,79 @@ export type SearchHit = z.infer<typeof searchHitSchema>
 export const SEARCH_MODES = ['hybrid', 'fts', 'vector'] as const
 export const searchModeSchema = z.enum(SEARCH_MODES)
 export type SearchMode = z.infer<typeof searchModeSchema>
+
+/**
+ * What the user marks on a source (sub-phase 6.6, `packages/db/src/schema/library.ts`'s
+ * `annotations` table): a highlight, a note, an image region or a media clip. Mirrors
+ * `ANNOTATION_KINDS` in `packages/core`'s entities and the database `CHECK`; its own test
+ * asserts the two lists agree.
+ */
+export const ANNOTATION_KINDS = ['highlight', 'note', 'region', 'clip'] as const
+export const annotationKindSchema = z.enum(ANNOTATION_KINDS)
+export type AnnotationKind = z.infer<typeof annotationKindSchema>
+
+/** Rects are fractions (0–1) of the rendered page's width/height, so a highlight anchor is
+ *  resolution-independent — the same anchor draws correctly at any zoom level. */
+const pdfHighlightAnchorSchema = z.object({
+  page: z.int().min(1),
+  rects: z.array(z.object({ x: z.number(), y: z.number(), width: z.number(), height: z.number() })),
+})
+/** An EPUB CFI range (`epubcfi(...)`), resolved back to a DOM `Range` by
+ *  `CFI.toRange` (`packages/readers/src/epub/vendor/foliate-js/epubcfi.js`). */
+const epubHighlightAnchorSchema = z.object({ cfi: z.string().min(1) })
+/** An image occlusion region, in the same 0–1 fractional space as `pdfHighlightAnchorSchema`. */
+const regionAnchorSchema = z.object({
+  x: z.number(),
+  y: z.number(),
+  width: z.number(),
+  height: z.number(),
+})
+/** A media clip's range, in seconds. Kept alongside `annotations.t_start`/`t_end` (the
+ *  queryable columns); the anchor is what a renderer reads back. */
+const clipAnchorSchema = z.object({ tStart: z.number().min(0), tEnd: z.number().min(0) })
+
+export const annotationAnchorSchema = z.union([
+  pdfHighlightAnchorSchema,
+  epubHighlightAnchorSchema,
+  regionAnchorSchema,
+  clipAnchorSchema,
+])
+export type AnnotationAnchor = z.infer<typeof annotationAnchorSchema>
+
+export const annotationSchema = z.object({
+  id: z.uuid(),
+  sourceId: z.uuid(),
+  unitId: z.uuid().nullable(),
+  kind: annotationKindSchema,
+  anchor: annotationAnchorSchema,
+  /** The selected/quoted text, when the anchor covers text. */
+  quote: z.string().nullable(),
+  note: z.string().nullable(),
+  color: z.string().nullable(),
+  tStart: z.number().nullable(),
+  tEnd: z.number().nullable(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+})
+export type AnnotationDto = z.infer<typeof annotationSchema>
+
+/** Where the reader left off: `{ page }` for a PDF, `{ cfi }` for an EPUB. Written by
+ *  `library.recordProgress` on every page turn/section change and read back by
+ *  `library.listRecentlyOpened` (Home's "Continuar donde estaba") and by the reader itself. */
+export const readingLocatorSchema = z.union([
+  z.object({ page: z.int().min(1) }),
+  z.object({ cfi: z.string().min(1) }),
+])
+export type ReadingLocator = z.infer<typeof readingLocatorSchema>
+
+export const recentSourceSchema = z.object({
+  id: z.uuid(),
+  kind: sourceKindSchema,
+  title: z.string(),
+  locator: readingLocatorSchema,
+  lastOpenedAt: z.iso.datetime(),
+})
+export type RecentSource = z.infer<typeof recentSourceSchema>
 
 export const libraryChannels = defineContract({
   'library.listSources': {
@@ -592,5 +668,78 @@ export const libraryChannels = defineContract({
       pendingSources: z.int(),
       rerankerEnabled: z.boolean(),
     }),
+  },
+
+  // --- annotations and reading progress (sub-phase 6.6) ---
+
+  /** A source's highlights/notes/regions/clips, in the order they were made — what the reader
+   *  restores on open and what the "highlights" panel next to it lists. */
+  'library.listAnnotations': {
+    input: z.object({ sourceId: z.uuid() }),
+    output: z.object({ annotations: z.array(annotationSchema) }),
+  },
+
+  /** The selection toolbar's "Resaltar": persists a highlight (or a note/region/clip) so it
+   *  survives a restart and can become a card later. */
+  'library.createAnnotation': {
+    input: z.object({
+      sourceId: z.uuid(),
+      unitId: z.uuid().optional(),
+      kind: annotationKindSchema,
+      anchor: annotationAnchorSchema,
+      /** The selected/quoted text, when the anchor covers text. */
+      quote: z.string().max(20000).optional(),
+      note: z.string().max(20000).optional(),
+      color: z.string().max(32).optional(),
+    }),
+    output: z.object({ annotation: annotationSchema }),
+  },
+
+  /** Editing a highlight's note or color. The anchor itself never changes — moving it is
+   *  deleting and re-creating, which is what a mis-drawn highlight actually needs. */
+  'library.updateAnnotation': {
+    input: z.object({
+      id: z.uuid(),
+      note: z.string().max(20000).nullable().optional(),
+      color: z.string().max(32).nullable().optional(),
+    }),
+    output: z.object({ annotation: annotationSchema }),
+  },
+
+  /** Soft-deletes the annotation. A card already made from it (`knowledgeItems.annotationId`)
+   *  is untouched — provenance, not a live join. */
+  'library.deleteAnnotation': {
+    input: z.object({ id: z.uuid() }),
+    output: z.void(),
+  },
+
+  /**
+   * The selection toolbar's "Crear tarjeta": a new knowledge item and its first card, made
+   * from a highlight and pointing back at it via `annotationId` — the same shape
+   * `createCardFromChunk`/`createCardFromClip` use, so "ver en la fuente" works identically
+   * whichever way the card was made.
+   */
+  'library.createCardFromAnnotation': {
+    input: z.object({
+      annotationId: z.uuid(),
+      /** The question. Defaults to the source's title and the citation. */
+      front: z.string().min(1).max(2000).optional(),
+      /** Overrides the highlight's quote as the answer, for a user who trimmed it. */
+      back: z.string().min(1).max(20000).optional(),
+    }),
+    output: z.object({ itemId: z.uuid(), cardId: z.uuid() }),
+  },
+
+  /** Written on every page turn/section change so the reader (and Home's "Continuar donde
+   *  estaba") can resume exactly where the user left off. */
+  'library.recordProgress': {
+    input: z.object({ sourceId: z.uuid(), locator: readingLocatorSchema }),
+    output: z.void(),
+  },
+
+  /** The most recently opened sources, most recent first — Home's "Continuar donde estaba". */
+  'library.listRecentlyOpened': {
+    input: z.object({ limit: z.int().min(1).max(50).optional() }),
+    output: z.object({ sources: z.array(recentSourceSchema) }),
   },
 })

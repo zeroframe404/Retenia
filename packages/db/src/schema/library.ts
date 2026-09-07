@@ -146,6 +146,16 @@ export const sources = sqliteTable(
     embeddingModelId: text('embedding_model_id'),
     /** Why the last embedding run failed, for the source card. */
     embeddingError: text('embedding_error'),
+    /**
+     * Where the reader left off: `{ page }` for a PDF, `{ cfi }` for an EPUB. Written by
+     * `library.recordProgress` on every page turn/section change (sub-phase 6.6) and read by
+     * Home's "Continuar donde estaba" and by the reader itself to resume a source. `null`
+     * until the source has been opened in a reader at least once.
+     */
+    lastLocator: jsonColumn('last_locator').$type<JsonObject>(),
+    /** When the reader was last open on this source — Home's "recently opened" order. `null`
+     *  alongside `lastLocator`. */
+    lastOpenedAt: timestampColumn('last_opened_at'),
     ...auditColumns(),
   },
   (t) => [
@@ -153,10 +163,13 @@ export const sources = sqliteTable(
     index('sources_blob').on(t.blobSha256),
     /** "Which sources need embedding, and which are in another space?" — one index scan. */
     index('sources_embedding').on(t.embeddingStatus, t.embeddingModelId),
+    /** Home's "Continuar donde estaba": the most recently opened sources, oldest last. */
+    index('sources_last_opened').on(t.lastOpenedAt),
     check('sources_kind', inTextList(t.kind, SOURCE_KINDS)),
     check('sources_status', inTextList(t.status, SOURCE_STATUSES)),
     check('sources_embedding_status', inTextList(t.embeddingStatus, EMBEDDING_STATUSES)),
     check('sources_meta_json', jsonObject(t.meta)),
+    check('sources_last_locator_json', jsonObject(t.lastLocator)),
     ...standardChecks('sources', t),
   ],
 )

@@ -1,4 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { ContinueReadingCard } from '../features/library/continue-reading-card'
 import { TodayCard } from '../features/review'
 import { useT } from '../i18n/use-t'
 
@@ -17,6 +18,7 @@ export function HomeScreen() {
     <div data-testid="screen-home" className="flex flex-col gap-6 p-6 compact:gap-4 compact:p-4">
       <h1 className="font-display text-2xl font-semibold">{t('title')}</h1>
       <TodayCard />
+      <ContinueReadingCard />
     </div>
   )
 }

@@ -35,6 +35,7 @@ const source: SourceSummary = {
     chunkTokenCount: 60,
     chunkingVersion: '1:chars4',
   },
+  blobSha256: 'b'.repeat(64),
   createdAt: '2026-09-02T00:00:00.000Z',
   ingestedAt: '2026-09-02T00:01:00.000Z',
   embeddingStatus: 'ready' as const,

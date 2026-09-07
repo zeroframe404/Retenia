@@ -1,11 +1,13 @@
 import { is } from '@electron-toolkit/utils'
 import type {
+  Annotation,
   BlobStore,
   Card,
   Chunk,
   ChunkSearchHit,
   Forecast,
   ImportanceLevel,
+  JsonObject,
   JsonValue,
   KnowledgeItem,
   OptimizerStatus,
@@ -27,7 +29,16 @@ import type {
   UrgentModeHours,
 } from '@retenia/core'
 import { GRADES, parseSourceLocator, SETTINGS } from '@retenia/core'
-import type { ChunkSummary, Contract, SearchHit, SourceSummary } from '@retenia/ipc-contract'
+import type {
+  AnnotationAnchor,
+  AnnotationDto,
+  ChunkSummary,
+  Contract,
+  ReadingLocator,
+  RecentSource,
+  SearchHit,
+  SourceSummary,
+} from '@retenia/ipc-contract'
 import { app, BrowserWindow, dialog, nativeTheme } from 'electron'
 import type { BackupService } from '../backups/service'
 import { ensureDevMediaSample } from '../dev/media-sample'
@@ -404,11 +415,44 @@ function toSourceSummary(source: Source): SourceSummary {
     language: source.language,
     error: source.error,
     meta: parsedMeta(source.meta),
+    blobSha256: source.blobSha256,
     embeddingStatus: source.embeddingStatus,
     embeddingModelId: source.embeddingModelId,
     embeddingError: source.embeddingError,
     createdAt: source.createdAt.toISOString(),
     ingestedAt: source.ingestedAt?.toISOString() ?? null,
+  }
+}
+
+/** `annotation.anchor` is validated once, at `library.createAnnotation`'s IPC boundary
+ *  (`annotationAnchorSchema`); the cast here just names that already-checked shape rather
+ *  than re-deriving it from a loosely-typed `JsonObject`. */
+function toAnnotationDto(annotation: Annotation): AnnotationDto {
+  return {
+    id: annotation.id,
+    sourceId: annotation.sourceId,
+    unitId: annotation.unitId,
+    kind: annotation.kind,
+    anchor: annotation.anchor as unknown as AnnotationAnchor,
+    quote: annotation.quote,
+    note: annotation.note,
+    color: annotation.color,
+    tStart: annotation.tStart,
+    tEnd: annotation.tEnd,
+    createdAt: annotation.createdAt.toISOString(),
+    updatedAt: annotation.updatedAt.toISOString(),
+  }
+}
+
+/** `source.lastLocator` is non-null by construction here: `library.listRecentlyOpened` only
+ *  ever returns sources `recordProgress` has already written one for. */
+function toRecentSource(source: Source): RecentSource {
+  return {
+    id: source.id,
+    kind: source.kind,
+    title: source.title,
+    locator: source.lastLocator as unknown as ReadingLocator,
+    lastOpenedAt: (source.lastOpenedAt as Date).toISOString(),
   }
 }
 
@@ -674,6 +718,55 @@ export function createHandlers({
       if (!embeddings) unavailable('search', dbUnavailableReason)
       return embeddings.status()
     },
+
+    // --- annotations and reading progress (sub-phase 6.6, docs/spec/05-ingestion-rag.md §6.6) ---
+
+    'library.listAnnotations': async ({ sourceId }) => ({
+      annotations: (await library.listAnnotations(sourceId)).map(toAnnotationDto),
+    }),
+
+    'library.createAnnotation': async ({ sourceId, unitId, kind, anchor, quote, note, color }) => ({
+      annotation: toAnnotationDto(
+        await library.createAnnotation({
+          sourceId,
+          ...(unitId === undefined ? {} : { unitId }),
+          kind,
+          anchor: anchor as unknown as JsonObject,
+          ...(quote === undefined ? {} : { quote }),
+          ...(note === undefined ? {} : { note }),
+          ...(color === undefined ? {} : { color }),
+        }),
+      ),
+    }),
+
+    'library.updateAnnotation': async ({ id, note, color }) => ({
+      annotation: toAnnotationDto(
+        await library.updateAnnotation({
+          id,
+          ...(note === undefined ? {} : { note }),
+          ...(color === undefined ? {} : { color }),
+        }),
+      ),
+    }),
+
+    'library.deleteAnnotation': async ({ id }) => {
+      await library.deleteAnnotation(id)
+    },
+
+    'library.createCardFromAnnotation': ({ annotationId, front, back }) =>
+      library.createCardFromAnnotation({
+        annotationId,
+        ...(front === undefined ? {} : { front }),
+        ...(back === undefined ? {} : { back }),
+      }),
+
+    'library.recordProgress': async ({ sourceId, locator }) => {
+      await library.recordProgress(sourceId, locator as unknown as JsonObject)
+    },
+
+    'library.listRecentlyOpened': async ({ limit }) => ({
+      sources: (await library.listRecentlyOpened(limit)).map(toRecentSource),
+    }),
 
     // --- memory: importance, urgent mode, reschedule (docs/spec/02-memory-system.md §7) ---
 

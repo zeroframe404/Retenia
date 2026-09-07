@@ -2,6 +2,7 @@ import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
+  type Blob,
   type BlobStore,
   type Chunk,
   createJobRegistry,
@@ -200,6 +201,36 @@ function createInMemoryChunkRepository() {
   }
 }
 
+/** Just enough of `BlobRepository` for `ensureBlobRegistered` (`service.ts`) — a `sources`
+ *  row can't be created without one, since `sources.blob_sha256` carries a real foreign key
+ *  to `blobs.sha256` in the real schema. */
+function createInMemoryBlobRepository() {
+  const rows = new Map<string, Blob>()
+  let counter = 0
+
+  return {
+    rows,
+    findBySha256: async (sha256: string) => rows.get(sha256),
+    create: async (input: NewEntity<Blob>): Promise<Blob> => {
+      counter += 1
+      const blob: Blob = {
+        ...input,
+        id: `blob-${counter}`,
+        ext: input.ext ?? null,
+        originalName: input.originalName ?? null,
+        meta: input.meta ?? null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        deletedAt: null,
+        deviceId: 'test-device',
+        version: 1,
+      }
+      rows.set(input.sha256, blob)
+      return blob
+    },
+  }
+}
+
 const registry = createJobRegistry([
   registerJob({
     type: 'ingestParseSource',
@@ -335,6 +366,7 @@ describe('LibraryService', () => {
   let dir: string
   let sources: ReturnType<typeof createInMemorySourceRepository>
   let chunks: ReturnType<typeof createInMemoryChunkRepository>
+  let blobs: ReturnType<typeof createInMemoryBlobRepository>
   let scheduler: JobScheduler
   let blobStore: BlobStore
   let service: LibraryService
@@ -343,6 +375,7 @@ describe('LibraryService', () => {
     dir = realpathSync(mkdtempSync(join(tmpdir(), 'retenia-library-')))
     sources = createInMemorySourceRepository()
     chunks = createInMemoryChunkRepository()
+    blobs = createInMemoryBlobRepository()
     const clock = fakeClock()
     scheduler = createJobScheduler({
       jobs: createInMemoryJobRepository(clock),
@@ -353,12 +386,13 @@ describe('LibraryService', () => {
     })
     blobStore = createFsBlobStore(dir)
     service = createLibraryService({
-      // Only `sources`, `chunks` and `transaction` are exercised; the rest of `Repositories`
-      // is never read.
+      // Only `sources`, `chunks`, `blobs` and `transaction` are exercised; the rest of
+      // `Repositories` is never read.
       repos: {
         sources,
         chunks,
-        transaction: <T>(work: (tx: unknown) => Promise<T>) => work({ sources, chunks }),
+        blobs,
+        transaction: <T>(work: (tx: unknown) => Promise<T>) => work({ sources, chunks, blobs }),
       } as never,
       blobStore,
       scheduler,
@@ -607,7 +641,8 @@ describe('LibraryService', () => {
       repos: {
         sources,
         chunks,
-        transaction: <T>(work: (tx: unknown) => Promise<T>) => work({ sources, chunks }),
+        blobs,
+        transaction: <T>(work: (tx: unknown) => Promise<T>) => work({ sources, chunks, blobs }),
       } as never,
       blobStore,
       scheduler,
@@ -645,7 +680,8 @@ describe('LibraryService', () => {
       repos: {
         sources,
         chunks,
-        transaction: <T>(work: (tx: unknown) => Promise<T>) => work({ sources, chunks }),
+        blobs,
+        transaction: <T>(work: (tx: unknown) => Promise<T>) => work({ sources, chunks, blobs }),
       } as never,
       blobStore,
       scheduler,
@@ -678,6 +714,24 @@ describe('LibraryService', () => {
     await expect(service.addFromBytes('archive.zip', new Uint8Array([1]))).rejects.toThrow(
       /not a supported file type/,
     )
+  })
+
+  it('registers the blob before creating the source that references it', async () => {
+    // `sources.blob_sha256` carries a real foreign key to `blobs.sha256` in the production
+    // schema — a source row could never be inserted without this, even though the in-memory
+    // fakes above would not themselves catch a missing blob row the way SQLite does.
+    const source = await service.addFromBytes('scan.png', new Uint8Array([0x89, 0x50, 0x4e, 0x47]))
+
+    const blob = await blobs.findBySha256(source.blobSha256 as string)
+    expect(blob).toMatchObject({ sha256: source.blobSha256, mime: 'image/png', ext: 'png' })
+  })
+
+  it('does not register the same blob twice when two sources share identical bytes', async () => {
+    const bytes = new TextEncoder().encode('# Same content twice')
+    await service.addFromBytes('a.md', bytes)
+    await service.addFromBytes('b.md', bytes)
+
+    expect(blobs.rows.size).toBe(1)
   })
 
   it('re-enqueues a retry with the same extension', async () => {
@@ -729,7 +783,8 @@ describe('LibraryService', () => {
         repos: {
           sources,
           chunks,
-          transaction: <T>(work: (tx: unknown) => Promise<T>) => work({ sources, chunks }),
+          blobs,
+          transaction: <T>(work: (tx: unknown) => Promise<T>) => work({ sources, chunks, blobs }),
         } as never,
         blobStore,
         scheduler,

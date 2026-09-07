@@ -739,9 +739,15 @@ importers:
       '@retenia/ui':
         specifier: workspace:*
         version: link:../ui
+      '@zip.js/zip.js':
+        specifier: 2.11.2
+        version: 2.11.2
       lucide-react:
         specifier: 1.39.0
         version: 1.39.0(react@19.2.8)
+      pdfjs-dist:
+        specifier: 6.3.289
+        version: 6.3.289
       react:
         specifier: 19.2.8
         version: 19.2.8
@@ -3548,6 +3554,10 @@ packages:
   '@xmldom/xmldom@0.9.12':
     resolution: {integrity: sha512-5AXjrcMClTryPe9LgZrygpB1lj7s0S9E0+W+AHaVKAVyHanafK86iPSvG5xHVSp/jC+VH1UXu0TAEmY279xH7A==}
     engines: {node: '>=14.6'}
+
+  '@zip.js/zip.js@2.11.2':
+    resolution: {integrity: sha512-gvlhhtTzqoGcl3bpFpMieJgFiVGnEgD777JgERXhbU89cCnYc2Srl5gs+kcCoy31hfx+xD4UCDO1MB2+UtqcZA==}
+    engines: {bun: '>=0.7.0', deno: '>=1.0.0', node: '>=18.0.0'}
 
   abbrev@4.0.0:
     resolution: {integrity: sha512-a1wflyaL0tHtJSmLSOVybYhy22vRih4eduhhrkcjgrWGnRfrZtovJ2FRjxuTtkkj47O/baf0R86QU5OuYpz8fA==}
@@ -9140,6 +9150,8 @@ snapshots:
 
   '@xmldom/xmldom@0.9.12':
     optional: true
+
+  '@zip.js/zip.js@2.11.2': {}
 
   abbrev@4.0.0: {}
 

@@ -31,7 +31,16 @@ async function readDroppedFiles(files: File[]) {
   )
 }
 
-function ConnectedSourceDetail({ id, onBack }: { id: string; onBack: () => void }) {
+export function ConnectedSourceDetail({
+  id,
+  onBack,
+  initialReaderLocator,
+}: {
+  id: string
+  onBack: () => void
+  /** Opens straight to the reader tab at this page/CFI — "ver en la fuente" (sub-phase 6.6). */
+  initialReaderLocator?: { page?: number; cfi?: string }
+}) {
   const [excludeFrontmatter, setExcludeFrontmatter] = useState(false)
   const sourceQuery = useSource(id)
   const docQuery = useSourceDoc(id)
@@ -59,6 +68,7 @@ function ConnectedSourceDetail({ id, onBack }: { id: string; onBack: () => void 
           ...(text.length > 0 ? { back: text } : {}),
         })
       }
+      {...(initialReaderLocator === undefined ? {} : { initialReaderLocator })}
     />
   )
 }
@@ -67,14 +77,26 @@ export interface LibraryPageProps {
   /** From the route's `?q=` search param — filters the grid by title, client-side (the
    *  library is small enough that a server-side search is not worth it yet). */
   searchQuery?: string
+  /** Set by a deep link or a card's citation — "ver en la fuente" (sub-phase 6.6): opens
+   *  straight to this source's reader tab, bypassing the grid. Controlled by the route so the
+   *  URL carries it and a refresh does not lose it. */
+  openSourceId?: string
+  initialReaderLocator?: { page?: number; cfi?: string }
+  onCloseSource?: () => void
 }
 
 /** The Library screen (sub-phases 6.1 and 6.2): import sources, watch them parse and chunk via
  *  the job tray, open one to see its section tree, its block preview and its chunks. */
-export function LibraryPage({ searchQuery }: LibraryPageProps) {
+export function LibraryPage({
+  searchQuery,
+  openSourceId,
+  initialReaderLocator,
+  onCloseSource,
+}: LibraryPageProps) {
   const t = useT('library')
   useLibraryJobEvents()
   const [selectedId, setSelectedId] = useState<string | undefined>()
+  const effectiveId = openSourceId ?? selectedId
 
   const sourcesQuery = useSources()
   const addFromDialog = useAddSourceFromDialog()
@@ -85,8 +107,19 @@ export function LibraryPage({ searchQuery }: LibraryPageProps) {
   const retry = useRetrySource()
   const remove = useDeleteSource()
 
-  if (selectedId !== undefined) {
-    return <ConnectedSourceDetail id={selectedId} onBack={() => setSelectedId(undefined)} />
+  if (effectiveId !== undefined) {
+    return (
+      <ConnectedSourceDetail
+        id={effectiveId}
+        onBack={() => {
+          if (openSourceId !== undefined) onCloseSource?.()
+          else setSelectedId(undefined)
+        }}
+        {...(openSourceId !== undefined && initialReaderLocator !== undefined
+          ? { initialReaderLocator }
+          : {})}
+      />
+    )
   }
 
   const query = searchQuery?.trim().toLowerCase()

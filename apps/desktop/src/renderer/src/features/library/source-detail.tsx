@@ -19,6 +19,7 @@ import { ArrowLeftIcon } from 'lucide-react'
 import { useT } from '../../i18n/use-t'
 import { SourceChunks } from './source-chunks'
 import { SourceMedia } from './source-media'
+import { SourceReader } from './source-reader'
 
 export interface SourceDetailProps {
   source: SourceSummary | undefined
@@ -33,6 +34,9 @@ export interface SourceDetailProps {
   onBack: () => void
   /** "Crear tarjeta desde este fragmento", for a selected time range (sub-phase 6.4). */
   onCreateClip?: (clip: { startSec: number; endSec: number; text: string }) => void
+  /** Opens straight to the reader tab, at this page/CFI — "ver en la fuente" from search or a
+   *  card's citation (sub-phase 6.6). Absent opens on the sections tab as before. */
+  initialReaderLocator?: { page?: number; cfi?: string }
 }
 
 function SectionNode({
@@ -89,11 +93,16 @@ export function SourceDetail({
   onExcludeFrontmatterChange,
   onBack,
   onCreateClip,
+  initialReaderLocator,
 }: SourceDetailProps) {
   const t = useT('library')
-  // A recording's first question is "play it", not "show me its section tree", so the media
-  // tab is both present and default for the two kinds that have one.
+  // A recording's first question is "play it", not "show me its section tree"; a document's
+  // is "read it" — and unlike the section tree or the chunks, the reader needs nothing the
+  // ingest-parse job produces (`PdfReader`/`EpubReader` render the source's own file directly),
+  // so it is both present and default the moment the source exists, parsed or not.
   const isMedia = source?.kind === 'audio' || source?.kind === 'video'
+  const isReadable = source?.kind === 'pdf' || source?.kind === 'epub'
+  const defaultTab = isReadable ? 'reader' : isMedia ? 'media' : 'sections'
 
   return (
     <div className="flex h-full flex-col gap-4">
@@ -106,46 +115,60 @@ export function SourceDetail({
 
       {source?.meta?.needsOcr && <Badge variant="incorrect">{t('needsOcr')}</Badge>}
 
-      {doc === undefined ? (
+      {doc !== undefined && doc.meta.warnings.length > 0 && (
+        <div className="border-border rounded-md border p-3">
+          <p className="text-text text-xs font-medium">{t('detail.warnings')}</p>
+          <ul className="text-muted list-inside list-disc text-xs">
+            {doc.meta.warnings.map((warning) => (
+              <li key={warning}>{warning}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {source === undefined ? (
         <p className="text-muted text-sm">{t('detail.notParsedYet')}</p>
       ) : (
-        <>
-          {doc.meta.warnings.length > 0 && (
-            <div className="border-border rounded-md border p-3">
-              <p className="text-text text-xs font-medium">{t('detail.warnings')}</p>
-              <ul className="text-muted list-inside list-disc text-xs">
-                {doc.meta.warnings.map((warning) => (
-                  <li key={warning}>{warning}</li>
-                ))}
-              </ul>
-            </div>
+        <Tabs defaultValue={defaultTab} className="flex min-h-0 flex-1 flex-col gap-3">
+          <TabsList className="self-start">
+            <TabsIndicator />
+            {isReadable && <TabsTab value="reader">{t('reader.tab')}</TabsTab>}
+            {isMedia && <TabsTab value="media">{t('media.tab')}</TabsTab>}
+            <TabsTab value="sections">{t('detail.sections')}</TabsTab>
+            <TabsTab value="chunks">{t('chunks.title')}</TabsTab>
+          </TabsList>
+
+          {isReadable && (
+            <TabsPanel value="reader" className="flex min-h-0 flex-1 flex-col">
+              <SourceReader
+                sourceId={source.id}
+                kind={source.kind as 'pdf' | 'epub'}
+                title={source.title}
+                blobSha256={source.blobSha256}
+                {...(initialReaderLocator === undefined
+                  ? {}
+                  : { initialLocator: initialReaderLocator })}
+              />
+            </TabsPanel>
           )}
 
-          <Tabs
-            defaultValue={isMedia ? 'media' : 'sections'}
-            className="flex min-h-0 flex-1 flex-col gap-3"
-          >
-            <TabsList className="self-start">
-              <TabsIndicator />
-              {isMedia && <TabsTab value="media">{t('media.tab')}</TabsTab>}
-              <TabsTab value="sections">{t('detail.sections')}</TabsTab>
-              <TabsTab value="chunks">{t('chunks.title')}</TabsTab>
-            </TabsList>
+          {isMedia && (
+            <TabsPanel value="media" className="flex min-h-0 flex-1 flex-col">
+              <ScrollArea className="min-h-0 flex-1">
+                <SourceMedia
+                  sourceId={source.id}
+                  kind={source.kind as 'audio' | 'video'}
+                  media={source.meta?.media}
+                  {...(onCreateClip === undefined ? {} : { onCreateClip })}
+                />
+              </ScrollArea>
+            </TabsPanel>
+          )}
 
-            {isMedia && source !== undefined && (
-              <TabsPanel value="media" className="flex min-h-0 flex-1 flex-col">
-                <ScrollArea className="min-h-0 flex-1">
-                  <SourceMedia
-                    sourceId={source.id}
-                    kind={source.kind as 'audio' | 'video'}
-                    media={source.meta?.media}
-                    {...(onCreateClip === undefined ? {} : { onCreateClip })}
-                  />
-                </ScrollArea>
-              </TabsPanel>
-            )}
-
-            <TabsPanel value="sections" className="flex min-h-0 flex-1 flex-col">
+          <TabsPanel value="sections" className="flex min-h-0 flex-1 flex-col">
+            {doc === undefined ? (
+              <p className="text-muted text-sm">{t('detail.notParsedYet')}</p>
+            ) : (
               <ScrollArea className="min-h-0 flex-1">
                 {doc.sections.length === 0 ? (
                   <p className="text-muted text-sm">{t('detail.noSections')}</p>
@@ -157,20 +180,24 @@ export function SourceDetail({
                   </ul>
                 )}
               </ScrollArea>
-            </TabsPanel>
+            )}
+          </TabsPanel>
 
-            <TabsPanel value="chunks" className="flex min-h-0 flex-1 flex-col">
+          <TabsPanel value="chunks" className="flex min-h-0 flex-1 flex-col">
+            {doc === undefined ? (
+              <p className="text-muted text-sm">{t('detail.notParsedYet')}</p>
+            ) : (
               <SourceChunks
                 chunks={chunks}
                 total={chunkTotal}
-                unitCount={source?.meta?.unitCount ?? 0}
+                unitCount={source.meta?.unitCount ?? 0}
                 estimate={estimate}
                 excludeFrontmatter={excludeFrontmatter}
                 onExcludeFrontmatterChange={onExcludeFrontmatterChange}
               />
-            </TabsPanel>
-          </Tabs>
-        </>
+            )}
+          </TabsPanel>
+        </Tabs>
       )}
     </div>
   )

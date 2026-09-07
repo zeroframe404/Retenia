@@ -23,4 +23,24 @@ describe('deepLinkSchema', () => {
   it('accepts a review link', () => {
     expect(deepLinkSchema.safeParse({ kind: 'review' }).success).toBe(true)
   })
+
+  it('accepts a source link with a page, a CFI, or neither', () => {
+    const id = '019213cd-0000-7000-8000-000000000001'
+    expect(deepLinkSchema.safeParse({ kind: 'source', id, page: 12 }).success).toBe(true)
+    expect(
+      deepLinkSchema.safeParse({ kind: 'source', id, cfi: 'epubcfi(/6/4!/4/2)' }).success,
+    ).toBe(true)
+    expect(deepLinkSchema.safeParse({ kind: 'source', id }).success).toBe(true)
+  })
+
+  it('rejects a source link with a non-UUID id or a non-positive page', () => {
+    expect(deepLinkSchema.safeParse({ kind: 'source', id: 'not-a-uuid' }).success).toBe(false)
+    expect(
+      deepLinkSchema.safeParse({
+        kind: 'source',
+        id: '019213cd-0000-7000-8000-000000000001',
+        page: 0,
+      }).success,
+    ).toBe(false)
+  })
 })

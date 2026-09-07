@@ -8,6 +8,9 @@ vi.mock('@tanstack/react-router', () => ({
 vi.mock('../features/review', () => ({
   TodayCard: () => <div data-testid="today-card-stub" />,
 }))
+vi.mock('../features/library/continue-reading-card', () => ({
+  ContinueReadingCard: () => <div data-testid="continue-reading-card-stub" />,
+}))
 
 const { HomeScreen } = await import('./index')
 

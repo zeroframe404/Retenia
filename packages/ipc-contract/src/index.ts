@@ -26,11 +26,16 @@ export { backupSummarySchema } from './channels/backups'
 export type { JobStatus, JobSummary } from './channels/jobs'
 export { JOB_STATUSES, jobStatusSchema, jobSummarySchema } from './channels/jobs'
 export type {
+  AnnotationAnchor,
+  AnnotationDto,
+  AnnotationKind,
   ChunkSummary,
   ContextualizationEstimateDto,
   EmbeddingStatus,
   MediaMetaDto,
   MediaPartDto,
+  ReadingLocator,
+  RecentSource,
   SearchHit,
   SearchMode,
   SectionDto,
@@ -42,12 +47,18 @@ export type {
   SourceUnitSummary,
 } from './channels/library'
 export {
+  ANNOTATION_KINDS,
+  annotationAnchorSchema,
+  annotationKindSchema,
+  annotationSchema,
   chunkSummarySchema,
   contextualizationEstimateSchema,
   EMBEDDING_STATUSES,
   embeddingStatusSchema,
   mediaMetaSchema,
   mediaPartSchema,
+  readingLocatorSchema,
+  recentSourceSchema,
   SEARCH_MODES,
   SOURCE_KINDS,
   SOURCE_STATUSES,

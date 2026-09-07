@@ -77,6 +77,8 @@ function createSeeds(repos: UnitOfWork, clock: TestClock): ContractSeeds {
         embeddingStatus: 'pending',
         embeddingModelId: null,
         embeddingError: null,
+        lastLocator: null,
+        lastOpenedAt: null,
         ...overrides,
       }),
 

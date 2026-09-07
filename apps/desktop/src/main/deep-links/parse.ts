@@ -1,4 +1,5 @@
 import type { DeepLink } from '@retenia/ipc-contract'
+import { z } from 'zod'
 
 export const DEEP_LINK_PROTOCOL = 'retenia'
 
@@ -55,6 +56,34 @@ export function parseDeepLink(rawUrl: string): DeepLink | null {
       return pathname === '/callback'
         ? { kind: 'authCallback', params: Object.fromEntries(url.searchParams) }
         : null
+
+    case 'source': {
+      // `retenia://source/<id>?page=12` or `?cfi=epubcfi(...)` — "ver en la fuente" from a
+      // card made from a highlight (sub-phase 6.6). `pathname` is `/<id>` (the leading slash
+      // `new URL` keeps after the host), so the id is everything after it. A malformed
+      // `page`/`cfi` rejects the whole link rather than silently dropping it, the same
+      // strictness `import`'s `src` gets above.
+      const id = pathname.startsWith('/') ? pathname.slice(1) : ''
+      if (!z.uuid().safeParse(id).success) return null
+
+      const pageParam = url.searchParams.get('page')
+      let page: number | undefined
+      if (pageParam !== null) {
+        const parsed = Number.parseInt(pageParam, 10)
+        if (!Number.isInteger(parsed) || parsed <= 0) return null
+        page = parsed
+      }
+
+      const cfi = url.searchParams.get('cfi')
+      if (cfi !== null && cfi.length === 0) return null
+
+      return {
+        kind: 'source',
+        id,
+        ...(page === undefined ? {} : { page }),
+        ...(cfi === null ? {} : { cfi }),
+      }
+    }
 
     default:
       return null

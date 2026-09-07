@@ -66,6 +66,8 @@ describe('source embedding state (sub-phase 6.3)', () => {
       embeddingStatus: 'pending',
       embeddingModelId: null,
       embeddingError: null,
+      lastLocator: null,
+      lastOpenedAt: null,
     })
 
   /** A source with two chunks, which is what makes it a candidate for the sweep at all. */

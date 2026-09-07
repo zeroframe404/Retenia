@@ -2,6 +2,7 @@ import { MotionConfig, Toaster, useApplyTypography } from '@retenia/ui'
 import { createRootRoute } from '@tanstack/react-router'
 import { HotkeysProvider } from 'react-hotkeys-hook'
 import { DeepLinkBanner } from '../components/deep-link-banner'
+import { SourceDeepLinkListener } from '../components/source-deep-link-listener'
 import { ThemeSync } from '../components/theme-sync'
 import { UpdateStatusLog } from '../components/update-status-log'
 import { useT } from '../i18n/use-t'
@@ -27,6 +28,7 @@ function RootLayout() {
           {t('skipToContent')}
         </a>
         <ThemeSync />
+        <SourceDeepLinkListener />
         <AppShell />
         {/* Global, route-independent widgets — reachable no matter which section is active. */}
         <div className="fixed right-2 bottom-2 z-40">

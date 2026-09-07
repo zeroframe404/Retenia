@@ -52,6 +52,8 @@ describe('chunking a real source, end to end', () => {
       embeddingStatus: 'pending',
       embeddingModelId: null,
       embeddingError: null,
+      lastLocator: null,
+      lastOpenedAt: null,
     })
     sourceId = source.id
 

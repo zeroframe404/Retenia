@@ -17,6 +17,10 @@ export interface SplitPaneProps {
   /** Accessible name for the resize handle (e.g. "Resize source/notes split"). */
   'aria-label': string
   className?: string
+  /** Called after the `start` pane's size settles (drag release, or a keyboard resize) —
+   *  not on every intermediate pointer move. For a caller persisting the split (e.g. the
+   *  reader/notes layout to `localStorage`), so a drag does not thrash storage writes. */
+  onSizeChange?: (size: number) => void
 }
 
 /** Two panes divided by a draggable handle — the PDF reader/notes editor split, the
@@ -30,10 +34,15 @@ export function SplitPane({
   minSize = 15,
   maxSize = 85,
   className,
+  onSizeChange,
   ...props
 }: SplitPaneProps) {
   const [size, setSize] = useState(defaultSize)
   const containerRef = useRef<HTMLDivElement>(null)
+  // Mirrors `size` for `handlePointerUp` to read: that listener is created once per drag
+  // (`startDragging`'s closure) and must see the *last* value `handlePointerMove` set, not
+  // the one in scope when the drag began.
+  const sizeRef = useRef(size)
   const isHorizontal = direction === 'horizontal'
 
   const clamp = useCallback(
@@ -49,7 +58,9 @@ export function SplitPane({
       const percent = isHorizontal
         ? ((event.clientX - rect.left) / rect.width) * 100
         : ((event.clientY - rect.top) / rect.height) * 100
-      setSize(clamp(percent))
+      const next = clamp(percent)
+      sizeRef.current = next
+      setSize(next)
     },
     [isHorizontal, clamp],
   )
@@ -60,21 +71,28 @@ export function SplitPane({
       function handlePointerUp() {
         window.removeEventListener('pointermove', handlePointerMove)
         window.removeEventListener('pointerup', handlePointerUp)
+        onSizeChange?.(sizeRef.current)
       }
       window.addEventListener('pointermove', handlePointerMove)
       window.addEventListener('pointerup', handlePointerUp)
     },
-    [handlePointerMove],
+    [handlePointerMove, onSizeChange],
   )
 
   function handleKeyDown(event: ReactKeyboardEvent) {
     const step = 2
+    let next: number | undefined
     if (event.key === (isHorizontal ? 'ArrowLeft' : 'ArrowUp')) {
       event.preventDefault()
-      setSize((prev) => clamp(prev - step))
+      next = clamp(size - step)
     } else if (event.key === (isHorizontal ? 'ArrowRight' : 'ArrowDown')) {
       event.preventDefault()
-      setSize((prev) => clamp(prev + step))
+      next = clamp(size + step)
+    }
+    if (next !== undefined) {
+      sizeRef.current = next
+      setSize(next)
+      onSizeChange?.(next)
     }
   }
 

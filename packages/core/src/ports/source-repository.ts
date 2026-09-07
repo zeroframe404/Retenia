@@ -1,4 +1,4 @@
-import type { EmbeddingStatus, Source, SourceStatus, SourceUnit } from '../entities'
+import type { EmbeddingStatus, JsonObject, Source, SourceStatus, SourceUnit } from '../entities'
 import type { CrudRepository, ListOptions, NewEntity } from './audit'
 
 /**
@@ -39,6 +39,15 @@ export interface SourceRepository extends CrudRepository<Source> {
    * whose vectors must be dropped rather than queried alongside the new ones.
    */
   sourceIdsNeedingEmbedding(modelId: string): Promise<string[]>
+
+  // --- reading progress (sub-phase 6.6) ---
+
+  /** Where the reader left off (`{ page }` or `{ cfi }`) and when — the reader's own resume
+   *  point and Home's "Continuar donde estaba". */
+  recordProgress(id: string, locator: JsonObject, at: Date): Promise<Source>
+  /** The most recently opened sources, most recent first. Never includes a source that has
+   *  not been opened in a reader (`lastOpenedAt` still `null`). */
+  listRecentlyOpened(limit: number): Promise<Source[]>
 
   // --- source units ---
   findUnit(id: string): Promise<SourceUnit | undefined>

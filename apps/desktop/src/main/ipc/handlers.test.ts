@@ -377,6 +377,13 @@ function makeDeps(overrides: Partial<HandlerDeps> = {}): HandlerDeps {
       createCardFromChunk: vi.fn(async () => ({ itemId: card.itemId, cardId: CARD_ID })),
       remove: vi.fn(),
       onJobSettled: vi.fn(),
+      listAnnotations: vi.fn(async () => []),
+      createAnnotation: vi.fn(),
+      updateAnnotation: vi.fn(),
+      deleteAnnotation: vi.fn(),
+      createCardFromAnnotation: vi.fn(async () => ({ itemId: card.itemId, cardId: CARD_ID })),
+      recordProgress: vi.fn(),
+      listRecentlyOpened: vi.fn(async () => []),
     },
     embeddings: {
       activeModelId: vi.fn(async () => 'embeddinggemma-300m@768'),
@@ -652,6 +659,8 @@ const source = {
   deletedAt: null,
   deviceId: 'device-1',
   version: 1,
+  lastLocator: null,
+  lastOpenedAt: null,
 }
 
 describe('library channels', () => {
@@ -672,6 +681,7 @@ describe('library channels', () => {
           language: 'en',
           error: null,
           meta: source.meta,
+          blobSha256: source.blobSha256,
           embeddingStatus: 'ready',
           embeddingModelId: 'embeddinggemma-300m@768',
           embeddingError: null,
