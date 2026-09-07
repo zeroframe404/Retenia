@@ -364,6 +364,7 @@ function makeDeps(overrides: Partial<HandlerDeps> = {}): HandlerDeps {
       addCourseFromFolder: vi.fn(),
       createCardFromClip: vi.fn(),
       addFromText: vi.fn(),
+      addFromUrl: vi.fn(),
       retry: vi.fn(),
       list: vi.fn(async () => []),
       get: vi.fn(async () => undefined),
@@ -721,6 +722,35 @@ describe('library channels', () => {
 
     expect(result.id).toBe(source.id)
     expect(deps.library.addFromText).toHaveBeenCalledExactlyOnceWith('Cells are alive.', 'Cells.md')
+  })
+
+  it('adds a pasted URL as one or more new sources', async () => {
+    const deps = makeDeps()
+    const second = { ...source, id: 'source-2' }
+    deps.library.addFromUrl = vi.fn(async () => ({ sources: [source, second], truncated: false }))
+    const handlers = createHandlers(deps)
+
+    const result = await handlers['library.addSourceFromUrl'](
+      { url: 'https://example.com/article' },
+      fakeEvent,
+    )
+
+    expect(result.sources.map((s) => s.id)).toEqual([source.id, second.id])
+    expect(result.truncated).toBe(false)
+    expect(deps.library.addFromUrl).toHaveBeenCalledExactlyOnceWith('https://example.com/article')
+  })
+
+  it('surfaces truncated when the library reports a partial playlist import', async () => {
+    const deps = makeDeps()
+    deps.library.addFromUrl = vi.fn(async () => ({ sources: [source], truncated: true }))
+    const handlers = createHandlers(deps)
+
+    const result = await handlers['library.addSourceFromUrl'](
+      { url: 'https://www.youtube.com/playlist?list=PLabc123' },
+      fakeEvent,
+    )
+
+    expect(result.truncated).toBe(true)
   })
 
   it('imports every dropped file from its bytes, dropping only the ones that fail', async () => {

@@ -112,6 +112,19 @@ export const sourceMetaSchema = z
     chunkingVersion: z.string().optional(),
     /** Sub-phase 6.4, for `audio`/`video` sources. */
     media: mediaMetaSchema.optional(),
+    /** Sub-phase 6.5, for `web`/`youtube` sources. */
+    origin: z
+      .object({
+        url: z.string(),
+        fetchedAt: z.string(),
+        author: z.string().nullable().optional(),
+        /** `youtube` sources only. */
+        videoId: z.string().optional(),
+        /** `youtube` sources only, and only when imported from a playlist URL. */
+        playlistId: z.string().optional(),
+        playlistIndex: z.number().optional(),
+      })
+      .optional(),
   })
   .nullable()
 
@@ -205,6 +218,19 @@ export const sourceDocSchema = z.object({
     warnings: z.array(z.string()),
     frontmatter: z.record(z.string(), z.unknown()).optional(),
     media: mediaMetaSchema.optional(),
+    /** Sub-phase 6.5, for `web`/`youtube` sources. */
+    origin: z
+      .object({
+        url: z.string(),
+        fetchedAt: z.string(),
+        author: z.string().nullable().optional(),
+        /** `youtube` sources only. */
+        videoId: z.string().optional(),
+        /** `youtube` sources only, and only when imported from a playlist URL. */
+        playlistId: z.string().optional(),
+        playlistIndex: z.number().optional(),
+      })
+      .optional(),
   }),
 })
 export type SourceDocDto = z.infer<typeof sourceDocSchema>
@@ -410,6 +436,29 @@ export const libraryChannels = defineContract({
       title: z.string().min(1).max(300),
     }),
     output: sourceSummarySchema,
+  },
+
+  /**
+   * A pasted URL (sub-phase 6.5, `docs/spec/05-ingestion-rag.md` §1's "Web" and "YouTube"
+   * rows): main fetches the page (or the video's oEmbed metadata and transcript), stores the
+   * result and queues its parse. The output is always an array — a page or a single video
+   * import returns one source, a YouTube playlist URL returns one per video ("one source per
+   * video in a collection") — so the renderer does not need a second shape for that case.
+   *
+   * `protocol` restricted to http(s), the same restriction `app.deepLink`'s own `import`
+   * variant already applies to `src` (`main/deep-links/parse.ts`'s `isAllowedImportSrc`):
+   * `net.fetch` — what `web-fetch.ts` calls this URL with — also serves `file://`, and this
+   * channel is reachable from the renderer, not only from the pre-validated deep-link path.
+   */
+  'library.addSourceFromUrl': {
+    input: z.object({ url: z.url({ protocol: /^https?$/ }).max(2_000) }),
+    output: z.object({
+      sources: z.array(sourceSummarySchema),
+      /** True only for a YouTube playlist whose public feed hit its own entry limit — its
+       *  older videos were left out of `sources`, so the renderer warns rather than leaving the
+       *  user to notice a partial import on their own. Always `false` for a single page/video. */
+      truncated: z.boolean(),
+    }),
   },
 
   /**

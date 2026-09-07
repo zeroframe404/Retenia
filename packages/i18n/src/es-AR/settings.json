@@ -18,6 +18,12 @@
     "dyslexiaFont": "Fuente para dislexia (Atkinson Hyperlegible)",
     "reset": "Restablecer"
   },
+  "webClipper": {
+    "label": "Web Clipper",
+    "description": "Creá un marcador nuevo en tu navegador y pegá este código en su campo de URL. Al hacer clic en él desde cualquier página, se abre Retenia para importarla.",
+    "copy": "Copiar",
+    "copied": "¡Copiado!"
+  },
   "scheduler": {
     "label": "Programador",
     "cost": "≈ {reviews} repasos/día · {minutes} min/día · {ratio}× los repasos del 90%",

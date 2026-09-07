@@ -1,4 +1,5 @@
 import type { SourceSummary } from '@retenia/ipc-contract'
+import { toast } from '@retenia/ui'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -82,6 +83,7 @@ function stubApi(sources: SourceSummary[]) {
   )
   const deleteSource = vi.fn(async () => ok(undefined))
   const addSourceFromText = vi.fn(async () => ok(SOURCE_READY))
+  const addSourceFromUrl = vi.fn(async () => ok({ sources: [SOURCE_READY] }))
 
   const api = {
     library: {
@@ -91,6 +93,7 @@ function stubApi(sources: SourceSummary[]) {
       retrySource,
       deleteSource,
       addSourceFromText,
+      addSourceFromUrl,
       addSourceFromDialog: vi.fn(async () => ok({ sources: [] })),
       addSourceFromFiles: vi.fn(async () => ok({ sources: [] })),
     },
@@ -181,5 +184,42 @@ describe('LibraryPage', () => {
         title: 'My notes',
       }),
     )
+  })
+
+  it('adds a pasted URL as a new source', async () => {
+    const user = userEvent.setup()
+    const api = stubApi([])
+    render(<LibraryPage />, { wrapper })
+
+    await user.click(await screen.findByText('Pegar URL'))
+    await user.type(screen.getByTestId('paste-url-input'), 'https://example.com/article')
+    await user.click(screen.getByTestId('paste-url-submit'))
+
+    await waitFor(() =>
+      expect(api.library.addSourceFromUrl).toHaveBeenCalledExactlyOnceWith({
+        url: 'https://example.com/article',
+      }),
+    )
+  })
+
+  it('shows an error toast when adding a pasted URL fails, instead of failing silently', async () => {
+    const user = userEvent.setup()
+    const api = stubApi([])
+    api.library.addSourceFromUrl.mockRejectedValueOnce(
+      new Error('Refusing to fetch "http://192.168.1.1/": private address'),
+    )
+    const toastError = vi.spyOn(toast, 'error').mockImplementation(() => '')
+    render(<LibraryPage />, { wrapper })
+
+    await user.click(await screen.findByText('Pegar URL'))
+    await user.type(screen.getByTestId('paste-url-input'), 'http://192.168.1.1/')
+    await user.click(screen.getByTestId('paste-url-submit'))
+
+    await waitFor(() =>
+      expect(toastError).toHaveBeenCalledWith(
+        'Refusing to fetch "http://192.168.1.1/": private address',
+      ),
+    )
+    toastError.mockRestore()
   })
 })

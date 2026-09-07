@@ -14,7 +14,10 @@
     "./prompts": "./src/contextualize/prompt-files.ts",
     "./rerank": "./src/rerank/index.ts",
     "./sidecars": "./src/sidecars/index.ts",
-    "./sidecars/env": "./src/sidecars/env.ts"
+    "./sidecars/env": "./src/sidecars/env.ts",
+    "./web": "./src/web/index.ts",
+    "./web/youtube-url": "./src/web/youtube-url.ts",
+    "./web/youtube-transcript-normalize": "./src/web/youtube-transcript-normalize.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
@@ -24,12 +27,15 @@
   "dependencies": {
     "@huggingface/transformers": "4.2.0",
     "@hyzyla/pdfium": "2.1.13",
+    "@mozilla/readability": "0.6.0",
     "@retenia/ai": "workspace:*",
     "@retenia/core": "workspace:*",
+    "defuddle": "0.19.3",
     "fast-xml-parser": "4.5.7",
     "fflate": "0.8.3",
     "franc-min": "6.2.0",
     "js-tiktoken": "1.0.21",
+    "jsdom": "30.0.1",
     "mammoth": "1.12.2",
     "mdast-util-to-string": "4.0.0",
     "node-html-parser": "6.1.13",
@@ -38,15 +44,19 @@
     "remark-gfm": "4.0.1",
     "remark-parse": "11.0.0",
     "tesseract.js": "7.0.0",
+    "turndown": "7.2.4",
     "unified": "11.0.5",
     "unist-util-visit": "5.1.0",
     "yaml": "2.9.0"
   },
   "devDependencies": {
     "@retenia/config": "workspace:*",
+    "@types/jsdom": "30.0.0",
     "@types/mdast": "4.0.4",
     "@types/node": "24.13.3",
     "@types/pdfkit": "0.17.6",
+    "@types/turndown": "5.0.6",
+    "katex": "0.18.7",
     "pdfkit": "0.20.2",
     "typescript": "7.0.2",
     "vitest": "4.1.11"

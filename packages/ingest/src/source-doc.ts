@@ -139,6 +139,23 @@ export interface SourceDocMeta {
   frontmatter?: Record<string, unknown>
   /** Present for `audio` and `video` sources (sub-phase 6.4). */
   media?: MediaMeta
+  /** Present for `web` and `youtube` sources (sub-phase 6.5): where the content came from and
+   *  when it was fetched, for the citation and for a later re-fetch. */
+  origin?: {
+    url: string
+    fetchedAt: string
+    author?: string | null
+    /** `youtube` sources only: the video id, first-class rather than something a consumer has
+     *  to re-parse out of `url` — what the embedded iframe player (deferred, `parse-youtube.ts`'s
+     *  own header comment) and any future "jump to this video" link would key off of. */
+    videoId?: string
+    /** `youtube` sources only, and only when this video came from a pasted playlist URL: the
+     *  playlist it belongs to and its 0-based position in that playlist at import time
+     *  ("one source per video in a collection", `docs/spec/05-ingestion-rag.md` §1) — otherwise
+     *  nothing records that a group of sources came from the same playlist at all. */
+    playlistId?: string
+    playlistIndex?: number
+  }
 }
 
 /** What every parser in `src/parsers/` returns: one document, fully read into memory,

@@ -14,10 +14,21 @@ import {
   useTypographySettingsStore,
 } from '@retenia/ui'
 import { createFileRoute } from '@tanstack/react-router'
+import { useState } from 'react'
 import { z } from 'zod'
 import { SchedulerSettings } from '../features/scheduler/scheduler-settings'
 import { useT } from '../i18n/use-t'
 import { useSetDensity, useSetGamificationProfile, useSettings } from '../shell/use-settings'
+
+/**
+ * The web clipper stub (sub-phase 6.5, `docs/spec/05-ingestion-rag.md` §1's "Web" row): a
+ * bookmarklet that opens `retenia://import?src=<the page's own URL>`, which the deep-link
+ * handler (`main/deep-links/parse.ts`) and `DeepLinkBanner` already turn into an import. Shown
+ * as code to copy into a hand-made bookmark rather than a draggable `javascript:` link: a
+ * renderer this strict about CSP has no reason to special-case navigating to one of its own.
+ */
+const WEB_CLIPPER_BOOKMARKLET =
+  "javascript:location.href='retenia://import?src='+encodeURIComponent(location.href)"
 
 const settingsSearchSchema = z.object({
   /** Which control gets focus-scrolled on load — a small, typed example of zod-validated
@@ -45,11 +56,34 @@ function SettingsScreen() {
   const setLineHeight = useTypographySettingsStore((s) => s.setLineHeight)
   const setDyslexiaFont = useTypographySettingsStore((s) => s.setDyslexiaFont)
   const resetTypography = useTypographySettingsStore((s) => s.reset)
+  const [copied, setCopied] = useState(false)
 
   return (
     <div data-testid="screen-settings" className="flex flex-col gap-6 p-6">
       <h1 className="font-display text-2xl font-semibold">{t('title')}</h1>
       <p className="text-muted">{t('comingSoon')}</p>
+
+      <section data-testid="settings-web-clipper" className="flex flex-col gap-2">
+        <h2 className="text-sm font-semibold">{t('webClipper.label')}</h2>
+        <p className="text-muted text-sm">{t('webClipper.description')}</p>
+        <div className="border-border bg-surface flex items-center gap-2 rounded-md border p-2">
+          <code className="flex-1 overflow-x-auto text-xs whitespace-nowrap">
+            {WEB_CLIPPER_BOOKMARKLET}
+          </code>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              void navigator.clipboard.writeText(WEB_CLIPPER_BOOKMARKLET).then(() => {
+                setCopied(true)
+                setTimeout(() => setCopied(false), 2000)
+              })
+            }}
+          >
+            {copied ? t('webClipper.copied') : t('webClipper.copy')}
+          </Button>
+        </div>
+      </section>
 
       <SchedulerSettings focused={tab === 'scheduler'} />
 

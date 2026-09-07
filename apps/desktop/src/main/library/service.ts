@@ -21,10 +21,12 @@ import type {
   SourceDoc,
   TokenizerId,
 } from '@retenia/ingest'
+import type { WebPageEnvelope, YouTubeEnvelope } from '@retenia/ingest/web'
 import type { ChunkDraftsBlob, IngestChunkResult } from '../../jobs/ingest-chunk'
 import type { IngestParseResult } from '../../jobs/ingest-parse'
 import { persistChunkDrafts } from './chunk-store'
 import { detectSource } from './detect-kind'
+import type { PlaylistVideo } from './youtube-fetch'
 
 /**
  * The source library: importing a file or pasted text, watching it through
@@ -60,6 +62,17 @@ export interface LibraryService {
     truncated: boolean
   }>
   addFromText(text: string, title: string): Promise<Source>
+  /**
+   * A pasted URL (sub-phase 6.5): fetches the page (or the video's oEmbed metadata and
+   * transcript) in main, stores the result as the source's blob, and queues its parse exactly
+   * like every other kind. `sources` holds more than one entry only for a YouTube playlist URL
+   * — "one source per video in a collection" — a single page or video always returns one.
+   * `truncated` is `true` only for a playlist whose public feed hit its own entry limit
+   * (`fetchYouTubePlaylist`'s `PLAYLIST_FEED_ENTRY_LIMIT`) — a long-standing playlist's older
+   * videos were left out, which the caller should tell the user rather than silently importing a
+   * partial collection.
+   */
+  addFromUrl(url: string): Promise<{ sources: Source[]; truncated: boolean }>
   /** Re-enqueues the same parse for a `failed` (or stuck) source. */
   retry(sourceId: string): Promise<Source>
   list(options?: { statuses?: SourceStatus[] } & ListOptions): Promise<Source[]>
@@ -135,6 +148,21 @@ export interface LibraryServiceOptions {
    * queue worker because API keys live in main's `safeStorage` and nowhere else.
    */
   textGenerator?: TextGenerator
+  /**
+   * Test seams for `addFromUrl` (sub-phase 6.5). The real `net.fetch`/`BrowserWindow`- and
+   * `youtube-transcript`-backed implementations (`./web-fetch`, `./youtube-fetch`) are loaded
+   * lazily when these are absent, for the same reason `contextualize`'s prompt loader is a
+   * dynamic import: this file must not evaluate Electron, or a network/transcript library,
+   * merely because some *other* method on this service was called.
+   */
+  fetchWebPage?: (
+    url: string,
+  ) => Promise<{ url: string; html: string; fetchedAt: string; rendered: boolean }>
+  fetchYouTubeVideo?: (videoId: string) => Promise<YouTubeEnvelope>
+  fetchYouTubePlaylist?: (playlistId: string) => Promise<{
+    videos: PlaylistVideo[]
+    truncated: boolean
+  }>
 }
 
 /** Thrown by `contextualize` when there is no provider to ask. Its own class so the IPC layer
@@ -148,11 +176,39 @@ export class EmptyCourseFolderError extends Error {
   }
 }
 
+/** A pasted YouTube playlist URL whose public feed listed no videos — either a genuinely empty
+ *  playlist, or a private one the feed will not serve. Its own error for the same reason
+ *  `EmptyCourseFolderError` is: "no videos here" rather than a silently successful empty
+ *  import. */
+export class EmptyYouTubePlaylistError extends Error {
+  constructor(readonly playlistId: string) {
+    super(`Playlist "${playlistId}" has no videos, or is private`)
+    this.name = 'EmptyYouTubePlaylistError'
+  }
+}
+
 export class ContextualizationUnavailableError extends Error {
   constructor() {
     super('No AI provider is configured for the "cheap" role yet')
     this.name = 'ContextualizationUnavailableError'
   }
+}
+
+/** A quick, best-effort title from a fetched page's own `<title>`, so a web source's card
+ *  shows something better than the raw URL while its parse is still pending — `parse-web.ts`'s
+ *  own, more careful extraction is what `library.getSourceDoc` shows once it is ready, but
+ *  `sources.title` is set once at import and (like every other kind's) never rewritten after. */
+function titleFromHtml(html: string): string | undefined {
+  const match = /<title[^>]*>([^<]*)<\/title>/i.exec(html)
+  const raw = match?.[1]?.trim()
+  if (!raw) return undefined
+  const decoded = raw
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#0?39;/g, "'")
+  return decoded.length > 0 ? decoded : undefined
 }
 
 /**
@@ -183,7 +239,26 @@ export function createLibraryService({
   blobStore,
   scheduler,
   textGenerator,
+  fetchWebPage: fetchWebPageOverride,
+  fetchYouTubeVideo: fetchYouTubeVideoOverride,
+  fetchYouTubePlaylist: fetchYouTubePlaylistOverride,
 }: LibraryServiceOptions): LibraryService {
+  const resolveFetchWebPage = async (url: string) => {
+    if (fetchWebPageOverride !== undefined) return fetchWebPageOverride(url)
+    const { fetchWebPage } = await import('./web-fetch')
+    return fetchWebPage(url)
+  }
+  const resolveFetchYouTubeVideo = async (videoId: string) => {
+    if (fetchYouTubeVideoOverride !== undefined) return fetchYouTubeVideoOverride(videoId)
+    const { fetchYouTubeVideo } = await import('./youtube-fetch')
+    return fetchYouTubeVideo(videoId)
+  }
+  const resolveFetchYouTubePlaylist = async (playlistId: string) => {
+    if (fetchYouTubePlaylistOverride !== undefined) return fetchYouTubePlaylistOverride(playlistId)
+    const { fetchYouTubePlaylist } = await import('./youtube-fetch')
+    return fetchYouTubePlaylist(playlistId)
+  }
+
   const enqueueParse = (source: Source): Promise<Job> =>
     scheduler.enqueue(
       PARSE_JOB_KIND,
@@ -387,6 +462,63 @@ export function createLibraryService({
 
     addFromText: async (text, title) =>
       addBytes(new TextEncoder().encode(text), 'text/plain', 'text', title, null),
+
+    addFromUrl: async (url) => {
+      // The narrower `web/youtube-url` entry, not the `web` barrel: this file is reachable from
+      // main's own bundle, a separate Rollup output from the job worker's — importing the full
+      // barrel here would pull `jsdom`/`defuddle`/`turndown` into a chunk shared across both,
+      // which broke the production build outright (see `youtube-url.ts`'s own doc comment).
+      const { parseYouTubeUrl } = await import('@retenia/ingest/web/youtube-url')
+      const youtube = parseYouTubeUrl(url)
+
+      const addYouTubeVideo = async (
+        videoId: string,
+        fallbackTitle?: string,
+        playlist?: { playlistId: string; playlistIndex: number },
+      ): Promise<Source> => {
+        const fetched = await resolveFetchYouTubeVideo(videoId)
+        // `fetchYouTubeVideo` knows nothing about playlists — it resolves one video id in
+        // isolation — so the playlist provenance ("one source per video in a collection",
+        // `docs/spec/05-ingestion-rag.md` §1) is stamped on here, the one place that knows
+        // both the video and which playlist entry produced it.
+        const envelope: YouTubeEnvelope =
+          playlist === undefined ? fetched : { ...fetched, ...playlist }
+        const bytes = new TextEncoder().encode(JSON.stringify(envelope))
+        const title = envelope.title ?? fallbackTitle ?? envelope.url
+        return addBytes(bytes, 'application/json', 'youtube', title, envelope.url)
+      }
+
+      if (youtube === null) {
+        const page = await resolveFetchWebPage(url)
+        const envelope: WebPageEnvelope = {
+          url: page.url,
+          fetchedAt: page.fetchedAt,
+          html: page.html,
+          rendered: page.rendered,
+        }
+        const bytes = new TextEncoder().encode(JSON.stringify(envelope))
+        const title = titleFromHtml(page.html) ?? page.url
+        const source = await addBytes(bytes, 'application/json', 'web', title, page.url)
+        return { sources: [source], truncated: false }
+      }
+
+      if (youtube.kind === 'playlist') {
+        const { videos, truncated } = await resolveFetchYouTubePlaylist(youtube.playlistId)
+        if (videos.length === 0) throw new EmptyYouTubePlaylistError(youtube.playlistId)
+        const sources: Source[] = []
+        for (const [playlistIndex, video] of videos.entries()) {
+          sources.push(
+            await addYouTubeVideo(video.videoId, video.title, {
+              playlistId: youtube.playlistId,
+              playlistIndex,
+            }),
+          )
+        }
+        return { sources, truncated }
+      }
+
+      return { sources: [await addYouTubeVideo(youtube.videoId)], truncated: false }
+    },
 
     retry: async (sourceId) => {
       const source = await repos.sources.findById(sourceId)
@@ -656,6 +788,8 @@ export function createLibraryService({
         warnings: result.warnings,
         // Sub-phase 6.4.
         ...(result.media === undefined ? {} : { media: result.media as unknown as JsonObject }),
+        // Sub-phase 6.5.
+        ...(result.origin === undefined ? {} : { origin: result.origin as unknown as JsonObject }),
       }
       // The job's part list supersedes the one written at import — it is the one carrying real
       // durations and timeline offsets — so the import-time copy is dropped rather than left
