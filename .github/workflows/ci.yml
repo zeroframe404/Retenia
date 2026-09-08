@@ -47,6 +47,20 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
+      # The cache below must key on the Electron *version* and nothing else. Keying it on
+      # `hashFiles('**/package.json')` meant any dependency edit anywhere in the workspace
+      # rotated it, even though Electron itself had not moved — and a run that then failed
+      # to fetch the binary saved a broken entry under the new key, which every later run on
+      # that branch hit exactly instead of falling back to the good prefix. The symptom is
+      # brutal and silent: `_electron.launch()` starts a ~460 MB download at test time, no
+      # test can finish inside its 30 s budget, and all 49 fail with
+      # "timeout ... while setting up electronApp" after ~56 minutes.
+      - name: Resolve the Electron version
+        id: electron
+        shell: bash
+        run: |
+          echo "version=$(node -p "require('./apps/desktop/package.json').devDependencies.electron")" >> "$GITHUB_OUTPUT"
+
       - name: Cache Electron
         uses: actions/cache@v4
         with:
@@ -55,7 +69,7 @@ jobs:
           path: |
             ~/.cache/electron
             ~/AppData/Local/electron/Cache
-          key: ${{ runner.os }}-electron-cache-${{ hashFiles('**/package.json') }}
+          key: ${{ runner.os }}-electron-cache-${{ steps.electron.outputs.version }}
           restore-keys: |
             ${{ runner.os }}-electron-cache-
 
@@ -101,6 +115,9 @@ jobs:
   e2e:
     runs-on: windows-latest
     needs: lint-typecheck-test
+    # A full run is ~15 minutes. The ceiling exists so a launch failure — every test
+    # timing out in turn — is reported in minutes rather than after GitHub's 6-hour default.
+    timeout-minutes: 45
 
     steps:
       - uses: actions/checkout@v4
@@ -127,18 +144,42 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
+      # Keyed on the Electron version alone — see the note in `lint-typecheck-test`.
+      - name: Resolve the Electron version
+        id: electron
+        shell: bash
+        run: |
+          echo "version=$(node -p "require('./apps/desktop/package.json').devDependencies.electron")" >> "$GITHUB_OUTPUT"
+
       - name: Cache Electron
         uses: actions/cache@v4
         with:
           path: |
             ~/.cache/electron
             ~/AppData/Local/electron/Cache
-          key: ${{ runner.os }}-electron-cache-${{ hashFiles('**/package.json') }}
+          key: ${{ runner.os }}-electron-cache-${{ steps.electron.outputs.version }}
           restore-keys: |
             ${{ runner.os }}-electron-cache-
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      # `pnpm install` reuses electron from the pnpm store and skips its postinstall when it
+      # considers the package already built. If that store entry was ever cached WITHOUT
+      # `node_modules/electron/dist` — which is what happens when the lockfile key rotates and
+      # the first run under the new key fails to extract it — every later run inherits a broken
+      # electron, and `_electron.launch()` silently starts a ~460 MB download at test time that
+      # no 30 s test can outlast.
+      #
+      # `install.js` is invoked directly rather than through `pnpm rebuild`, because every
+      # rebuild form is a silent no-op here: `pnpm rebuild electron` at the root only considers
+      # the ROOT project's dependencies and electron belongs to apps/desktop, while
+      # `--filter apps/desktop` and `-r` both skip it as already built. All three exit 0 having
+      # done nothing — verified by deleting `dist/version` locally and watching each one leave
+      # it deleted. Calling the script bypasses that bookkeeping. It re-extracts from the zip
+      # the cache step above restored, so it costs seconds rather than a download.
+      - name: Ensure the Electron binary is extracted
+        run: pnpm --filter @retenia/desktop exec node node_modules/electron/install.js
 
       - name: Run Playwright E2E (builds first)
         run: pnpm e2e
@@ -184,13 +225,20 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
+      # Keyed on the Electron version alone — see the note in `lint-typecheck-test`.
+      - name: Resolve the Electron version
+        id: electron
+        shell: bash
+        run: |
+          echo "version=$(node -p "require('./apps/desktop/package.json').devDependencies.electron")" >> "$GITHUB_OUTPUT"
+
       - name: Cache Electron
         uses: actions/cache@v4
         with:
           path: |
             ~/.cache/electron
             ~/AppData/Local/electron/Cache
-          key: ${{ runner.os }}-electron-cache-${{ hashFiles('**/package.json') }}
+          key: ${{ runner.os }}-electron-cache-${{ steps.electron.outputs.version }}
           restore-keys: |
             ${{ runner.os }}-electron-cache-
 

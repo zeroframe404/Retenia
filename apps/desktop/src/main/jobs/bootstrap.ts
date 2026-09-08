@@ -1,9 +1,12 @@
 import { dirname, join } from 'node:path'
+import type { AiClient } from '@retenia/ai'
+import type { SecretStore } from '@retenia/core'
 import { createJobRegistry, createJobScheduler, uuidv7 } from '@retenia/core'
 import { forwardableEnv } from '@retenia/ingest/sidecars/env'
 import type { JobProgressEvent, JobSummary } from '@retenia/ipc-contract'
 import { app } from 'electron'
 import { createJobDefinitions } from '../../jobs/definitions'
+import { createMainAiClient } from '../ai/client'
 import { createFsBlobStore } from '../blobs/store'
 import { type AppDatabase, openAppDatabase } from '../db/open'
 import { createEmbeddingHost, type EmbeddingHost } from '../embeddings/host'
@@ -20,6 +23,7 @@ import {
   getSidecarsRoot,
   getWorkRoot,
 } from '../paths'
+import { createSecretStore } from '../secrets/store'
 import { createJobsFacade, type JobsFacade } from './facade'
 import { createJobPool } from './pool'
 import { nodeProcessLiveness } from './process-liveness'
@@ -49,6 +53,13 @@ export interface JobsSubsystem {
    *  through — `null` when it failed to open, in which case every one of those subsystems
    *  degrades the same way `unavailableFacade` does below. */
   readonly database: AppDatabase | null
+  /** API keys, encrypted with `safeStorage` (sub-phase 3.5). Built here rather than in
+   *  `main/index.ts` so the AI client below and the `secrets.*` handlers share one instance.
+   *  `null` when the database did not open — the store keeps its ciphertext in `settings`. */
+  readonly secrets: SecretStore | null
+  /** The AI gateway (sub-phase 7.1): role routing, cost log and budget. `null` when the
+   *  database did not open, because every one of those three needs it. */
+  readonly ai: AiClient | null
   /** Recovers orphans and starts claiming. No-op when the database did not open. */
   start(): Promise<void>
   stop(): Promise<void>
@@ -125,6 +136,8 @@ export function bootstrapJobs({
       facade: unavailableFacade(reason),
       library: unavailableLibraryService(reason),
       embeddings: null,
+      secrets: null,
+      ai: null,
       database: null,
       start: async () => {},
       stop: async () => {},
@@ -195,6 +208,11 @@ export function bootstrapJobs({
   // needs no coordination with the worker's.
   const blobStore = createFsBlobStore(getBlobsRoot())
 
+  // Both are needed before `library` below. Built here, once, so the `secrets.*` IPC
+  // handlers and the AI client that reads keys through them share one instance.
+  const secrets = createSecretStore(database.repos.settings)
+  const ai = createMainAiClient({ repos: database.repos, secrets })
+
   // The warm model host (sub-phase 6.3). Lazy in both directions: nothing is spawned until
   // the first query, and it unloads again after an idle timeout — a search box the user
   // opened once must not leave 300 MB of weights resident, and a bulk embed in the pool must
@@ -220,6 +238,13 @@ export function bootstrapJobs({
     blobStore,
     scheduler,
     embedSource: embeddings.embedSource,
+    // The line that retires `ContextualizationUnavailableError`, three sub-phases after 6.2
+    // left the contextual-retrieval pass waiting for a provider.
+    textGenerator: ai.textGenerator({ role: 'cheap', purpose: 'contextualize' }),
+    // …and the line that stops the quote and the charge drifting apart: the estimator has
+    // been defaulting to Haiku 4.5 *via Batch* while the `cheap` role actually charges
+    // Gemini 3.7 Flash at full price.
+    contextualizationPricing: () => ai.ratesFor('cheap'),
   })
 
   runner = createJobRunner({
@@ -244,6 +269,8 @@ export function bootstrapJobs({
     facade: createJobsFacade({ scheduler, runner, demoEnabled }),
     library,
     embeddings,
+    secrets,
+    ai,
     database,
     start: async () => {
       await runner.start()

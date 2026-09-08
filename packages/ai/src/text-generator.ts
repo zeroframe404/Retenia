@@ -43,7 +43,16 @@ export interface TextGenerationUsage {
   inputTokens?: number
   outputTokens?: number
   cachedInputTokens?: number
-  /** What the call cost, for §6's per-call counter. */
+  /** Inside `outputTokens`, never added to it. Recorded for the cost tooltip. */
+  reasoningTokens?: number
+  /**
+   * What the call cost, for §6's per-call counter.
+   *
+   * This is the **successful attempt's** cost. A call that fell back after a 429 also paid
+   * for the attempt that failed, and one that failed outright paid for whatever it burned
+   * before failing; `ai_calls` holds all of them, so it — not this field — is authoritative
+   * for what a month cost.
+   */
   usd?: number
 }
 

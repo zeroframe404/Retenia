@@ -26,6 +26,8 @@ describe('estimateContextualization', () => {
       chunkCount: 0,
       inputTokens: 0,
       cachedInputTokens: 0,
+      uncachedInputTokens: 0,
+      cacheWriteTokens: 0,
       outputTokens: 0,
       usd: 0,
     })

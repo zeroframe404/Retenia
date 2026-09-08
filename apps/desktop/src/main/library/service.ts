@@ -1,6 +1,6 @@
 import { createReadStream } from 'node:fs'
 import { basename, join } from 'node:path'
-import type { TextGenerator } from '@retenia/ai'
+import type { PerMillionRates, TextGenerator } from '@retenia/ai'
 import type {
   AbortSignalLike,
   Annotation,
@@ -189,11 +189,21 @@ export interface LibraryServiceOptions {
   blobStore: BlobStore
   scheduler: JobScheduler
   /**
-   * The `cheap` role, for the contextual-retrieval pass. Optional, and absent today: the
-   * provider layer lands in sub-phase 7.1, and the call has to be made *here* rather than in a
-   * queue worker because API keys live in main's `safeStorage` and nowhere else.
+   * The `cheap` role, for the contextual-retrieval pass. Supplied by `bootstrapJobs` since
+   * sub-phase 7.1; still optional because it is `null` when the database did not open. The
+   * call is made *here* rather than in a queue worker because API keys live in main's
+   * `safeStorage` and nowhere else.
    */
   textGenerator?: TextGenerator
+  /**
+   * What the `cheap` role costs right now, for the "índice mejorado" quote.
+   *
+   * A function rather than a value because the rate card depends on the configured role and
+   * on the date, both of which can change while the app is running. Resolving to `undefined`
+   * — which it does when no provider is configured — falls back to the estimator's own
+   * default, so the screen still shows a number.
+   */
+  contextualizationPricing?: () => Promise<PerMillionRates | undefined>
   /**
    * Test seams for `addFromUrl` (sub-phase 6.5). The real `net.fetch`/`BrowserWindow`- and
    * `youtube-transcript`-backed implementations (`./web-fetch`, `./youtube-fetch`) are loaded
@@ -317,6 +327,7 @@ export function createLibraryService({
   blobStore,
   scheduler,
   textGenerator,
+  contextualizationPricing,
   fetchWebPage: fetchWebPageOverride,
   fetchYouTubeVideo: fetchYouTubeVideoOverride,
   fetchYouTubePlaylist: fetchYouTubePlaylistOverride,
@@ -671,9 +682,19 @@ export function createLibraryService({
       const chunks = await repos.chunks.listBySource(id)
       const source = await repos.sources.findById(id)
 
+      const pricing = await contextualizationPricing?.()
+
       return estimate(
         chunks.filter((chunk) => chunk.context === null),
-        { systemPrompt: system, document: await describeChunked(source, chunks) },
+        {
+          systemPrompt: system,
+          document: await describeChunked(source, chunks),
+          ...(pricing === undefined ? {} : { pricing }),
+          // Prompt caching is sub-phase 7.3's. Until it is on, the quote assumes none —
+          // which is exactly the upper bound `estimate.ts` promises, and the safe direction
+          // for a number the user is shown before they commit to spending.
+          promptCaching: false,
+        },
       )
     },
 

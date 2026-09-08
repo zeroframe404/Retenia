@@ -1,21 +1,35 @@
 import { originOf } from './origins'
 
 /**
- * Origins the renderer may open network connections to, beyond its own.
+ * Origins the renderer may open network connections to, beyond its own. **Empty.**
  *
- * A constant for now; sub-phase 7.x replaces the caller's argument with the list read from
- * settings, which is why `buildCsp` takes it as a parameter instead of reaching for this
- * constant itself.
+ * `connect-src` is a *document* policy that Blink enforces on the renderer. Main's
+ * `net.fetch` never consults it — and since sub-phase 7.1 every provider call runs in main,
+ * where the API keys are. Listing provider origins here granted an outbound reach to the
+ * one process that renders untrusted content (PDFs, EPUBs, scraped pages, pasted HTML) and
+ * that no feature has ever used. A capability nothing needs is only an exit.
+ *
+ * `buildCsp` still takes the list as a parameter, because sub-phase 11.2 has a real case
+ * for exactly one entry: the Azure Speech SDK assesses pronunciation from the renderer, so
+ * it can hold the microphone stream. That will be argued then, for that origin.
+ *
+ * `ai.providers.allowlist` is deliberately **not** wired to this. It says which profiles
+ * *main* may call; feeding a main-side egress policy into the renderer's document policy
+ * would mean a user adding a provider silently widened the renderer's reach.
  */
-export const PROVIDER_ORIGINS: readonly string[] = Object.freeze([
-  'https://api.anthropic.com',
-  'https://generativelanguage.googleapis.com',
-  'https://*.speech.microsoft.com',
-  'https://api.elevenlabs.io',
-  'https://openrouter.ai',
-])
+export const RENDERER_PROVIDER_ORIGINS: readonly string[] = Object.freeze([])
 
-/** Local inference servers: Ollama and LM Studio (docs/spec/07-architecture.md §4). */
+/**
+ * Local inference servers: Ollama and LM Studio (docs/spec/07-architecture.md §4).
+ *
+ * Exported for sub-phase 7.4, which reaches them — from **main** and the embedding utility
+ * process (`main/library/embedding-service.ts`, `worker/embedding-host.ts`), never from the
+ * renderer, which is why they are no longer in `connect-src` either.
+ *
+ * A note for 7.4, since the obvious helper is the wrong one: main's own egress check must
+ * reuse `library/url-safety.ts`'s private-range logic **with loopback allowed** — Ollama and
+ * LM Studio *are* loopback. `assertPublicHttpUrl` refuses loopback and would reject both.
+ */
 export const LOCAL_AI_ORIGINS: readonly string[] = Object.freeze([
   'http://127.0.0.1:11434',
   'http://127.0.0.1:1234',
@@ -42,14 +56,14 @@ export interface CspOptions {
  * otherwise strict policy.
  */
 export function buildCsp(options: CspOptions = {}): string {
-  const { devServerUrl, providerOrigins = PROVIDER_ORIGINS } = options
+  const { devServerUrl, providerOrigins = RENDERER_PROVIDER_ORIGINS } = options
 
   const scriptSrc = ["'self'", "'wasm-unsafe-eval'"]
   const styleSrc = ["'self'"]
   // `media:` here (as opposed to `media-src`) is what lets the renderer `fetch()` a blob —
   // for Range probing, or any future in-app processing — rather than only handing its URL
   // to an `<audio>`/`<video>` element.
-  const connectSrc = ["'self'", 'media:', ...LOCAL_AI_ORIGINS, ...providerOrigins]
+  const connectSrc = ["'self'", 'media:', ...providerOrigins]
 
   const devOrigin = devServerUrl ? originOf(devServerUrl) : null
   if (devOrigin) {

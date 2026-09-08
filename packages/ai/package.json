@@ -3,9 +3,11 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "AI SDK providers, routing by role, versioned prompts, pricing, budgets, keys (interface). Real providers land in sub-phase 7.x.",
+  "description": "AI provider profiles, role routing, the versioned pricing table, cost log and monthly budget. Structured outputs (7.2), batch/caching (7.3) and local providers (7.4) land later.",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./providers": "./src/providers/index.ts",
+    "./testing": "./src/testing/index.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
@@ -13,10 +15,15 @@
     "lint": "biome check ."
   },
   "dependencies": {
-    "@retenia/core": "workspace:*"
+    "@ai-sdk/anthropic": "4.0.49",
+    "@ai-sdk/google": "4.0.64",
+    "@retenia/core": "workspace:*",
+    "ai": "7.0.93",
+    "zod": "4.5.4"
   },
   "devDependencies": {
     "@retenia/config": "workspace:*",
+    "@types/node": "24.13.3",
     "typescript": "7.0.2",
     "vitest": "4.1.11"
   }

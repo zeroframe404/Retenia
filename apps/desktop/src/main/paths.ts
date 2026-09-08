@@ -85,13 +85,13 @@ export function getLogsDir(): string {
 /**
  * `resources/dev/sample.ogg`, shipped only for the dev-only media test page.
  *
- * Resolved relative to `__dirname` (`out/main`, wherever electron-vite bundled it), not
+ * Resolved relative to `import.meta.dirname` (`out/main`, wherever electron-vite bundled it), not
  * `app.getAppPath()`: Playwright's `_electron.launch` points straight at
  * `out/main/index.js`, which makes `getAppPath()` resolve to `out/main` itself rather than
  * the package root — there is no `package.json` for it to find on the way there.
  */
 export function getDevMediaSamplePath(): string {
-  return join(__dirname, '../../resources/dev/sample.ogg')
+  return join(import.meta.dirname, '../../resources/dev/sample.ogg')
 }
 
 /** `userData/retenia.db` — the single SQLite file, alongside its `-wal` and `-shm`
@@ -109,19 +109,19 @@ export function getBackupsRoot(): string {
 /**
  * `out/main/job-worker.js`, the entry point `utilityProcess.fork` runs.
  *
- * Resolved from `__dirname` for the same reason as `getDevMediaSamplePath`: electron-vite
+ * Resolved from `import.meta.dirname` for the same reason as `getDevMediaSamplePath`: electron-vite
  * emits both this and `index.js` into `out/main`, so the two sit side by side in a dev run,
  * in a packaged asar, and under Playwright — which launches `out/main/index.js` directly and
  * would defeat any resolution that went through `app.getAppPath()`.
  */
 export function getJobWorkerPath(): string {
-  return join(__dirname, 'job-worker.js')
+  return join(import.meta.dirname, 'job-worker.js')
 }
 
 /** `out/main/embedding-host.js`, the long-lived model host of sub-phase 6.3. Resolved the
  *  same way and for the same reasons as the job worker above. */
 export function getEmbeddingHostPath(): string {
-  return join(__dirname, 'embedding-host.js')
+  return join(import.meta.dirname, 'embedding-host.js')
 }
 
 /**

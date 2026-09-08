@@ -25,7 +25,6 @@ import { initSentryMain } from './observability/sentry'
 import { getBackupsRoot, getBlobsRoot, getDatabasePath, getSettingsPath } from './paths'
 import { APP_SCHEME_PRIVILEGES, handleAppProtocol } from './protocol/app-protocol'
 import { handleMediaProtocol, MEDIA_SCHEME_PRIVILEGES } from './protocol/media-protocol'
-import { createSecretStore } from './secrets/store'
 import { applySecurity } from './security/apply'
 import { buildCsp } from './security/csp'
 import { allowedRendererOrigins } from './security/origins'
@@ -40,7 +39,7 @@ initLogging()
 const settings = new SettingsStore(getSettingsPath())
 initSentryMain(settings.get().telemetryEnabled)
 
-const preloadPath = join(__dirname, '../preload/index.cjs')
+const preloadPath = join(import.meta.dirname, '../preload/index.cjs')
 
 /**
  * A deep link that arrives before the main window can display it (cold start, or the
@@ -119,7 +118,7 @@ if (gotLock) {
   app.whenReady().then(async () => {
     electronApp.setAppUserModelId('app.retenia.desktop')
 
-    handleAppProtocol(join(__dirname, '../renderer'), getAppProtocolCsp)
+    handleAppProtocol(join(import.meta.dirname, '../renderer'), getAppProtocolCsp)
     handleMediaProtocol(getBlobsRoot())
     applySecurity({ allowedOrigins, getCsp })
 
@@ -160,7 +159,9 @@ if (gotLock) {
     const database = jobs.database
     const dbUnavailableReason = 'see the earlier "[jobs] the database did not open" log line'
     const blobStore = createFsBlobStore(getBlobsRoot())
-    const secretStore = database ? createSecretStore(database.repos.settings) : null
+    // Built once, in `bootstrapJobs`, so the `secrets.*` handlers and the AI client that
+    // reads keys through them share one instance rather than two views of the same rows.
+    const secretStore = jobs.secrets
     const backupService = database
       ? createBackupService({
           sqlite: database.opened.sqlite,
