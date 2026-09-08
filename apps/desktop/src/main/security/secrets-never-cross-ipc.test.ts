@@ -258,14 +258,39 @@ describe('layer 3 — the outputs with a JSON hole are a known, visible set', ()
     expect(open.sort()).toEqual([...OPEN_OUTPUTS].sort())
   })
 
-  it('adds no ai.* channel at all — this sub-phase changes no contract', () => {
-    // The strongest form of "keys never cross IPC" is that there is nothing new to cross.
-    expect(Object.keys(contract).filter((name) => name.startsWith('ai.'))).toEqual([])
-    expect(Object.keys(events).filter((name) => name.startsWith('ai.'))).toEqual([])
+  it('exposes exactly the ai.* surface the batch tray needs, and nothing else', () => {
+    // Sub-phase 7.1 asserted there was no `ai.*` surface at all, which was the strongest
+    // available form of "keys never cross IPC". 7.3 has to add two channels and one push so
+    // the tray can show and stop a batch, so the assertion becomes the next-strongest thing:
+    // the surface is enumerated here, and adding to it is a diff somebody reads rather than
+    // one nobody notices. `ai.listBatches` takes no input, `ai.cancelBatch` takes an id, and
+    // every one of the three carries `aiBatchSummarySchema` — a closed object whose fields
+    // are counts, a cost and a status. Layer 1 checks none of them is named like a
+    // credential; layer 3 checks none of them is an open JSON hole.
+    expect(
+      Object.keys(contract)
+        .filter((name) => name.startsWith('ai.'))
+        .sort(),
+    ).toEqual(['ai.cancelBatch', 'ai.listBatches'])
+    expect(Object.keys(events).filter((name) => name.startsWith('ai.'))).toEqual([
+      'ai.batchProgress',
+    ])
+  })
+
+  it('never carries the provider own batch handle across the bridge', () => {
+    // `ai_batches.provider_batch_id` addresses a job on the provider's account and is only
+    // meaningful together with the key that submitted it. The renderer addresses a batch by
+    // our own uuid, so the handle has no reason to cross and does not.
+    const fields = new Set<string>()
+    for (const name of ['ai.listBatches', 'ai.cancelBatch'] as const) {
+      for (const field of collectFields(contract[name].output).names) fields.add(field)
+    }
+    for (const field of collectFields(events['ai.batchProgress']).names) fields.add(field)
+    expect([...fields].filter((field) => /providerBatchId/i.test(field))).toEqual([])
   })
 })
 
-describe('layer 4 — the key is read in exactly the two places that need it', () => {
+describe('layer 4 — the key is read in exactly the places that need it', () => {
   const sources = [
     ...filesUnder(path.join(DESKTOP_SRC, 'main'), { includeTests: false }),
     ...filesUnder(path.join(DESKTOP_SRC, 'jobs'), { includeTests: false }),
@@ -277,22 +302,35 @@ describe('layer 4 — the key is read in exactly the two places that need it', (
     expect(sources.length).toBeGreaterThan(200)
   })
 
-  it('reads a stored key in exactly three places, each of them deliberate', () => {
-    // `handlers.ts` answers `{ hasSecret, preview }` and never a value; `main/ai/client.ts`
-    // adapts the store to the gateway's one-function seam; `packages/ai/src/run.ts` resolves
-    // the key immediately before dispatch and holds it nowhere. A fourth call site should be
-    // a decision somebody makes on purpose, not a diff nobody noticed.
+  it('reads a stored key in exactly five places, each of them deliberate', () => {
+    // `handlers.ts` answers `{ hasSecret, preview }` and never a value. `main/ai/client.ts`
+    // and `main/ai/batch.ts` adapt the store to the one-function seam their runner takes —
+    // two adapters because a batch is submitted and polled outside a completion loop, not
+    // because either holds a key: both forward the call and keep nothing. `run.ts` resolves
+    // the key immediately before a dispatch, `batch/runner.ts` immediately before a submit,
+    // a poll or a cancel, and neither stores it anywhere. A sixth call site should be a
+    // decision somebody makes on purpose, not a diff nobody noticed.
     const callers = scan(sources, /\.getSecret\(/).map((hit) => hit.split(':')[0])
     expect([...new Set(callers)].sort()).toEqual([
+      'apps/desktop/src/main/ai/batch.ts',
       'apps/desktop/src/main/ai/client.ts',
       'apps/desktop/src/main/ipc/handlers.ts',
+      'packages/ai/src/batch/runner.ts',
       'packages/ai/src/run.ts',
     ])
   })
 
-  it('writes the cost log from exactly one place', () => {
+  it('writes the cost log from exactly two places, both of them adapters', () => {
+    // One row per dispatched request is the invariant the monthly budget is summed from, so
+    // who may write one is worth pinning. Both of these are the same three-line adapter —
+    // redact any path out of the message, hand the row to the repository — around the two
+    // loops that dispatch: the synchronous one in `run.ts` and the batch reconciliation in
+    // `batch/runner.ts`. Neither builds a row of its own.
     const writers = scan(sources, /aiCalls\.record\(/).map((hit) => hit.split(':')[0])
-    expect([...new Set(writers)]).toEqual(['apps/desktop/src/main/ai/client.ts'])
+    expect([...new Set(writers)].sort()).toEqual([
+      'apps/desktop/src/main/ai/batch.ts',
+      'apps/desktop/src/main/ai/client.ts',
+    ])
   })
 })
 

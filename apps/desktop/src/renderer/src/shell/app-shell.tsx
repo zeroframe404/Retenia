@@ -9,6 +9,7 @@ import { CommandPalette } from './command-palette'
 import { KeyboardShortcutsSheet } from './keyboard-shortcuts-sheet'
 import { SECTIONS } from './sections'
 import { StickyRegion } from './sticky-outlet'
+import { useAiBatches } from './use-ai-batches'
 import { useDueCount } from './use-due-count'
 import { useOnlineStatus } from './use-online-status'
 import { useProcessingJobs } from './use-processing-jobs'
@@ -35,6 +36,7 @@ export function AppShell() {
 
   const dueCount = useDueCount()
   const { jobs, cancel: cancelJob, retry: retryJob } = useProcessingJobs()
+  const { batches, cancel: cancelBatch } = useAiBatches()
   const xp = useXp()
   const online = useOnlineStatus()
   const settings = useSettings()
@@ -119,13 +121,16 @@ export function AppShell() {
           </Group>
           <ProcessingTray
             jobs={jobs}
+            batches={batches}
+            onCancelBatch={cancelBatch}
+            batchesLabel={t('processingTray.batches')}
             collapsed={trayCollapsed}
             onToggleCollapsed={toggleTrayCollapsed}
             title={t('processingTray.title')}
             emptyState={t('processingTray.emptyState')}
             collapseLabel={t('processingTray.collapse')}
             expandLabel={t('processingTray.expand')}
-            jobCountLabel={t('processingTray.jobCount', { count: jobs.length })}
+            jobCountLabel={t('processingTray.jobCount', { count: jobs.length + batches.length })}
             onCancelJob={cancelJob}
             onRetryJob={retryJob}
             cancelLabel={t('processingTray.cancel')}

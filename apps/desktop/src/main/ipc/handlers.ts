@@ -40,6 +40,7 @@ import type {
   SourceSummary,
 } from '@retenia/ipc-contract'
 import { app, BrowserWindow, dialog, nativeTheme } from 'electron'
+import type { BatchesFacade } from '../ai/batch'
 import type { BackupService } from '../backups/service'
 import { ensureDevMediaSample } from '../dev/media-sample'
 import { collectSystemInfo, exportDiagnostics } from '../diagnostics/export'
@@ -73,6 +74,11 @@ export interface HandlerDeps {
   blobStore: BlobStore
   /** Forwarded to the main-process Sentry client, once telemetry is on. */
   reportRendererError: (error: { name: string; message: string; stack?: string }) => void
+  /**
+   * Submitted Batch API jobs (sub-phase 7.3). `null` when the database did not open, in
+   * which case the two channels report that rather than answering with an empty tray.
+   */
+  batches: BatchesFacade | null
   /** `null` when the database did not open — see `../jobs/bootstrap.ts`. */
   secrets: SecretStore | null
   backups: BackupService | null
@@ -461,6 +467,7 @@ export function createHandlers({
   settings,
   updater,
   jobs,
+  batches,
   library,
   embeddings,
   blobStore,
@@ -551,6 +558,19 @@ export function createHandlers({
     'jobs.retry': ({ id }) => jobs.retry(id),
 
     'jobs.enqueueDemo': (input) => jobs.enqueueDemo(input),
+
+    // --- AI batches: the Batch API's tray surface (sub-phase 7.3) ---
+
+    'ai.listBatches': async () => ({
+      batches: batches === null ? [] : await batches.list(),
+    }),
+
+    'ai.cancelBatch': async ({ id }) => {
+      if (batches === null) {
+        throw new Error(`The AI batch queue is unavailable: ${dbUnavailableReason}`)
+      }
+      return await batches.cancel(id)
+    },
 
     // --- library: import, watch, read back a parse (sub-phase 6.1) ---
 

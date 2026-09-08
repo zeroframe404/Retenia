@@ -32,7 +32,8 @@
       "sleep": "Test job",
       "hashFile": "Hashing a file",
       "fsrsOptimize": "Optimising the memory model"
-    }
+    },
+    "batches": "AI batches"
   },
   "commandPalette": {
     "placeholder": "Type a command or search…",
@@ -69,5 +70,24 @@
     "title": "We couldn't find that page",
     "body": "The route you tried to reach does not exist.",
     "backHome": "Back to Today"
+  },
+  "aiBatches": {
+    "label": "Batch {{done}}/{{total}} {{what}}",
+    "costEstimate": "~USD {{usd}}",
+    "cost": "USD {{usd}}",
+    "purpose": {
+      "expand_lesson": "lessons",
+      "item_bank": "items",
+      "contextualize": "chunks",
+      "grade_long_text": "gradings"
+    },
+    "status": {
+      "submitting": "submitting",
+      "submitted": "waiting",
+      "in_progress": "running",
+      "completed": "finished",
+      "failed": "with errors",
+      "cancelled": "cancelled"
+    }
   }
 }

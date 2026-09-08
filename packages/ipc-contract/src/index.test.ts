@@ -21,6 +21,8 @@ describe('contract', () => {
 
   it('declares the channels the app implements', () => {
     expect([...channelNames].sort()).toEqual([
+      'ai.cancelBatch',
+      'ai.listBatches',
       'app.checkForUpdates',
       'app.devMediaSampleUrl',
       'app.exportDiagnostics',
@@ -98,6 +100,7 @@ describe('contract', () => {
       'stats.trueRetention',
     ])
     expect([...eventNames].sort()).toEqual([
+      'ai.batchProgress',
       'app.deepLink',
       'app.themeChanged',
       'app.updateStatus',

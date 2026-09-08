@@ -1,4 +1,5 @@
 export type { ActivityStatsRepository } from './activity-stats-repository'
+export type { AiBatchRepository } from './ai-batch-repository'
 export type { AiCallRepository, CostQuery } from './ai-call-repository'
 export type {
   AbortSignalLike,

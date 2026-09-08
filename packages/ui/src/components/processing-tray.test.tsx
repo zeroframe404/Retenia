@@ -156,3 +156,94 @@ describe('ProcessingTray', () => {
     })
   })
 })
+
+describe('ProcessingTray batches', () => {
+  function renderWithBatches(overrides: Partial<ProcessingTrayProps> = {}) {
+    return render(
+      <ProcessingTray
+        jobs={[]}
+        batches={[
+          {
+            id: 'b1',
+            label: 'Lote 12/40 lecciones',
+            detail: '~USD 1.10 · esperando',
+            progress: 30,
+          },
+          {
+            id: 'b2',
+            label: 'Lote 35/40 lecciones',
+            detail: 'USD 1.04 · terminado',
+            failed: true,
+            error: '5 de 40 pedidos fallaron',
+          },
+        ]}
+        batchesLabel="Lotes de IA"
+        collapsed={false}
+        onToggleCollapsed={() => {}}
+        title="Processing"
+        emptyState="No background jobs"
+        collapseLabel="Collapse"
+        expandLabel="Expand"
+        cancelLabel="Cancel"
+        {...overrides}
+      />,
+    )
+  }
+
+  it('renders the sub-phase row: what is being generated, how far, and what it costs', () => {
+    renderWithBatches()
+    expect(screen.getByText('Lote 12/40 lecciones')).toBeInTheDocument()
+    expect(screen.getByText('~USD 1.10 · esperando')).toBeInTheDocument()
+  })
+
+  it('counts batches in the badge alongside jobs', () => {
+    // Somebody watching the tray is waiting on both; a badge that counted only the fast half
+    // would read "0" through the hour a batch takes.
+    renderWithBatches({
+      jobs: [{ id: '1', label: 'Ingesting a PDF', progress: 50 }],
+      jobCountLabel: '3 jobs running',
+    })
+    expect(screen.getByTestId('processing-tray-count')).toHaveTextContent('3')
+  })
+
+  it('does not show the empty state while a batch is in flight', () => {
+    renderWithBatches()
+    expect(screen.queryByText('No background jobs')).not.toBeInTheDocument()
+  })
+
+  it('offers cancel per batch and never retry — resubmitting is the caller decision', () => {
+    const onCancelBatch = vi.fn()
+    renderWithBatches({ onCancelBatch })
+
+    expect(screen.getByTestId('processing-batch-cancel-b1')).toHaveAccessibleName('Cancel')
+    expect(screen.queryByTestId('processing-batch-retry-b1')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByTestId('processing-batch-cancel-b1'))
+    expect(onCancelBatch).toHaveBeenCalledExactlyOnceWith('b1')
+  })
+
+  it('replaces the bar with the failure, untruncated on hover', () => {
+    renderWithBatches()
+    const error = screen.getByTestId('processing-batch-error-b2')
+    expect(error).toHaveTextContent('5 de 40 pedidos fallaron')
+    expect(error).toHaveAttribute('title', '5 de 40 pedidos fallaron')
+    // One bar, for the one batch still running.
+    expect(screen.getAllByRole('progressbar')).toHaveLength(1)
+  })
+
+  it('shows nothing extra when no batches are passed at all', () => {
+    render(
+      <ProcessingTray
+        jobs={[]}
+        collapsed={false}
+        onToggleCollapsed={() => {}}
+        title="Processing"
+        emptyState="No background jobs"
+        collapseLabel="Collapse"
+        expandLabel="Expand"
+      />,
+    )
+    expect(screen.queryByTestId('processing-tray-batches')).not.toBeInTheDocument()
+    expect(screen.getByText('No background jobs')).toBeInTheDocument()
+  })
+})

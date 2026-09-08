@@ -399,7 +399,16 @@ async function settle(deps: RunDeps, input: SettleInput): Promise<number> {
   let costUsd = 0
   let rates: AiCallMeta['rates']
   try {
-    const breakdown = computeCostUsd(deps.pricing, { modelKey: key, usage, at: input.at })
+    const breakdown = computeCostUsd(deps.pricing, {
+      modelKey: key,
+      usage,
+      at: input.at,
+      // The tier the request asked for, so a 1 h write is billed at 2x rather than at the
+      // 5 m tier's 1.25x. Without it the two are indistinguishable here and the cheaper of
+      // the two is always assumed — which under-reports precisely the tier a generation run
+      // uses (`caching/with-cache.ts`).
+      ...(input.request.cache === undefined ? {} : { cacheTtl: input.request.cache.ttl }),
+    })
     costUsd = breakdown.usd
     rates = {
       input: breakdown.rates.input,
@@ -422,6 +431,7 @@ async function settle(deps: RunDeps, input: SettleInput): Promise<number> {
     ...(input.rejected ? { outputRejected: true } : {}),
     ...(rates === undefined ? {} : { rates }),
     ...(usage.cacheWriteTokens > 0 ? { cacheWriteTokens: usage.cacheWriteTokens } : {}),
+    ...(input.request.cache === undefined ? {} : { cacheTtl: input.request.cache.ttl }),
     ...(outcome.requestId === undefined ? {} : { requestId: outcome.requestId }),
     ...(outcome.kind === 'ok'
       ? { finishReason: outcome.finishReason }

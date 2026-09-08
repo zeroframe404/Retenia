@@ -84,6 +84,27 @@ export function isAiError(value: unknown): value is AiError {
   return value instanceof AiError
 }
 
+/**
+ * Whatever was thrown, as an `AiError` with a code somebody chose.
+ *
+ * For the boundaries that catch rather than classify — a batch adapter's `fetch`, the
+ * detached loop in the sequential fallback — where the alternative is either losing the
+ * message or letting an `unknown` reach a field typed as an error. `fallback` is required
+ * because there is no code that is right for every caller, and a default here would be a
+ * silent decision made in the wrong place.
+ *
+ * An `AiError` passes through unchanged: it already has the code its thrower meant.
+ */
+export function asAiError(
+  error: unknown,
+  fallback: AiErrorCode,
+  context: AiErrorContext = {},
+): AiError {
+  if (isAiError(error)) return error
+  const message = error instanceof Error ? error.message : String(error)
+  return new AiError(fallback, message, context, { cause: error })
+}
+
 /** What `ai_calls.error` is capped at. Long enough for a provider's own message. */
 export const MAX_ERROR_CHARS = 500
 

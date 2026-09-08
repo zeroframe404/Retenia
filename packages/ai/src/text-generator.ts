@@ -1,4 +1,5 @@
 import type { AbortSignalLike } from '@retenia/core'
+import type { PromptCacheDirective } from './caching/directive'
 
 /**
  * One text (or JSON) completion, as everything above the provider layer sees it.
@@ -49,6 +50,25 @@ export interface TextGenerationRequest {
    * cache or the Batch API keys on it, so a resumed run does not pay twice.
    */
   idempotencyKey?: string
+  /**
+   * The stable head of the user message: sources, wrapped in `<user_content>`, sent as their
+   * own text part *before* `prompt` (sub-phase 7.3).
+   *
+   * It is a separate field rather than a prefix the caller concatenates, because a cache
+   * breakpoint has to sit between the two: the whole point is that this half is re-read from
+   * the provider's cache while `prompt` is paid for in full. A transport that cannot express
+   * a breakpoint simply concatenates it, which is also the right shape for a provider that
+   * caches a repeated prefix implicitly.
+   *
+   * Untrusted, like `prompt` and unlike `system` — see `caching/with-cache.ts`.
+   */
+  cachePrefix?: string
+  /**
+   * Where the cache breakpoints go. Built by `withCache`, which is also what decides whether
+   * there should be any: below a provider's minimum a breakpoint is silently ignored and
+   * silently billed, so this is absent rather than optimistic.
+   */
+  cache?: PromptCacheDirective
   signal?: AbortSignalLike
 }
 

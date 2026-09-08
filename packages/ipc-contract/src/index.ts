@@ -1,4 +1,5 @@
 import type { ContractApi } from './api-types'
+import { aiChannels } from './channels/ai'
 import { appChannels } from './channels/app'
 import { backupsChannels } from './channels/backups'
 import { jobsChannels } from './channels/jobs'
@@ -9,6 +10,7 @@ import { secretsChannels } from './channels/secrets'
 import { sessionChannels } from './channels/session'
 import { settingsChannels } from './channels/settings'
 import { statsChannels } from './channels/stats'
+import { aiEvents } from './events/ai'
 import { appEvents } from './events/app'
 import { jobsEvents } from './events/jobs'
 import { settingsEvents } from './events/settings'
@@ -19,6 +21,12 @@ export type {
   ContractApi,
   DomainOf,
 } from './api-types'
+export type { AiBatchStatus, AiBatchSummary } from './channels/ai'
+export {
+  AI_BATCH_STATUSES,
+  aiBatchStatusSchema,
+  aiBatchSummarySchema,
+} from './channels/ai'
 export type { Settings, ThemePreference, UpdateChannel } from './channels/app'
 export { settingsSchema, themePreferenceSchema, updateChannelSchema } from './channels/app'
 export type { BackupSummary } from './channels/backups'
@@ -152,6 +160,8 @@ export type {
 export { defineContract, defineEvents } from './define'
 export type { IpcError, IpcErrorCode, IpcResult } from './envelope'
 export { ipcErrorCodes, ipcErrorSchema, ipcFail, ipcOk } from './envelope'
+export type { AiBatchEvent } from './events/ai'
+export { aiBatchSchema } from './events/ai'
 export type { DeepLink, UpdateStatus } from './events/app'
 export { updateStatusSchema } from './events/app'
 export type { JobProgressEvent } from './events/jobs'
@@ -162,6 +172,7 @@ export { jobProgressSchema } from './events/jobs'
  * `domain.action` keys are what main registers, preload generates and the renderer calls.
  */
 export const contract = {
+  ...aiChannels,
   ...appChannels,
   ...jobsChannels,
   ...libraryChannels,
@@ -176,6 +187,7 @@ export const contract = {
 
 /** Every push channel main can send to the renderer (`webContents.send`). */
 export const events = {
+  ...aiEvents,
   ...appEvents,
   ...jobsEvents,
   ...settingsEvents,

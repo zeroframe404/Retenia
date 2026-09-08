@@ -5,10 +5,12 @@ import type { AuditValues, OutboxOperation, OutboxWriter, RepositoryContext } fr
 /**
  * Tables whose writes are mirrored into `outbox` for a future sync layer.
  *
- * `outbox` itself is absent so the writer cannot feed itself; `jobs`, `ai_calls` and
- * `ai_results` are absent because they are device-local bookkeeping — a job queued on this
- * machine means nothing on another, and the cost log follows the device that spent the money
- * (`docs/spec/07-architecture.md` §6).
+ * `outbox` itself is absent so the writer cannot feed itself; `jobs`, `ai_calls`,
+ * `ai_results` and `ai_batches` are absent because they are device-local bookkeeping — a job
+ * queued on this machine means nothing on another, and the cost log follows the device that
+ * spent the money (`docs/spec/07-architecture.md` §6). `ai_batches` is the sharpest case of
+ * that: it holds a provider's own job id against one account's key, and a second device could
+ * neither poll it nor cancel it.
  *
  * `ai_results` is the interesting one of the three, because a shared cache would genuinely
  * save money: a second device that had the answer to `contextualize-9f2c…` would not have to

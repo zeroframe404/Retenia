@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "AI provider profiles, role routing, the versioned pricing table, cost log and monthly budget; structured outputs with the validation/repair loop, the versioned prompt registry and the idempotent result cache. Batch/caching (7.3) and local providers (7.4) land later.",
+  "description": "AI provider profiles, role routing, the versioned pricing table, cost log and monthly budget; structured outputs with the validation/repair loop, the versioned prompt registry and the idempotent result cache; the Batch API runner, prompt-caching breakpoints and the pre-submission cost estimator. Local providers (7.4) land later.",
   "exports": {
     ".": "./src/index.ts",
     "./prompts": "./src/prompts/index.ts",

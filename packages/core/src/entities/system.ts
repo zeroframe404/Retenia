@@ -1,5 +1,5 @@
 import type { Entity, JsonObject, JsonValue } from './_common'
-import type { AiCallStatus, JobStatus, OutboxOp } from './enums'
+import type { AiBatchStatus, AiCallStatus, JobStatus, OutboxOp } from './enums'
 
 /** The job queue, the AI cost log, settings and the (v1-empty) sync outbox. */
 
@@ -73,6 +73,49 @@ export interface AiResult extends Entity {
   costUsd: number
   hits: number
   lastHitAt: Date | null
+  meta: JsonObject | null
+}
+
+/**
+ * One submitted Batch API job (`docs/spec/06-ai-providers.md` §2: -50 % on everything, up to
+ * 100,000 requests, most finish inside an hour, maximum 24 h).
+ *
+ * The durable half of a batch, and deliberately not the whole of it: the **requests are not
+ * stored**. Forty expanded lessons are megabytes of prompt, and keeping them would put the
+ * largest rows in the database behind the one feature whose entire purpose is to be cheap.
+ * Everything needed to poll the job, reconcile its answers into `ai_results` and report it in
+ * the tray is here; retrying a failed id needs the request, which only the process that
+ * submitted it holds — and a caller's own re-run covers that case for free, because every id
+ * that did succeed is already in the answer store.
+ */
+export interface AiBatch extends Entity {
+  /** The profile id, as `ai_calls.provider` records it. */
+  provider: string
+  model: string
+  role: string
+  /** The feature tag every reconciled `ai_calls` row inherits. */
+  purpose: string
+  /** The `ai_results.stage` every reconciled answer is stored under. */
+  stage: string
+  status: AiBatchStatus
+  /** The provider's own id for the job — what polling and cancelling address. */
+  providerBatchId: string | null
+  requestCount: number
+  succeededCount: number
+  failedCount: number
+  /** What the estimator quoted before submission, so the two can be compared afterwards. */
+  costEstimateUsd: number
+  /** What the reconciled `ai_calls` rows actually came to. */
+  costUsd: number
+  /** Poll attempts so far: the input to the backoff, and what bounds a stuck job. */
+  attempts: number
+  submittedAt: Date | null
+  /** Not polled again before this instant — the `jobs` table's `run_after`, for a batch. */
+  nextPollAt: Date | null
+  completedAt: Date | null
+  promptVersion: string | null
+  schemaVersion: string | null
+  error: string | null
   meta: JsonObject | null
 }
 

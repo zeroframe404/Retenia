@@ -18,4 +18,4 @@ export type {
   Section,
 } from './paths'
 export type { Attempt, LessonSession, ReviewLog, ReviewSession } from './sessions'
-export type { AiCall, AiResult, Job, OutboxEntry, Setting } from './system'
+export type { AiBatch, AiCall, AiResult, Job, OutboxEntry, Setting } from './system'

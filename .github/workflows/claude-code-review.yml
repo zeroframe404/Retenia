@@ -31,6 +31,55 @@ jobs:
         with:
           fetch-depth: 1
 
+      # Workaround for a bug in anthropics/claude-code-action@v1 (SHA 0d0e0876).
+      #
+      # The action installs Claude Code and reports success, but `plugin_marketplaces`
+      # then spawns the binary from a hardcoded `~/.local/bin/claude` that the current
+      # installer no longer creates, so the run dies before it reads a single line of the
+      # diff:
+      #
+      #   ● claude command at /home/runner/.local/bin/claude missing or broken
+      #     (/home/runner/.local/bin does not exist)
+      #   ✔ Claude Code successfully installed!
+      #   ##[error]Failed to add marketplace 'https://github.com/anthropics/claude-code.git':
+      #     ENOENT: no such file or directory, posix_spawn '/home/runner/.local/bin/claude'
+      #
+      # It is not a flake and not a version drift: the same action SHA and the same Claude
+      # Code build (2.1.265) passed on PR #52 and fail here, across four attempts and a
+      # fresh `pull_request` event. So this step puts a working binary where the action
+      # looks, using the same official installer the action itself uses, and gets out of
+      # the way — the action still installs and runs Claude Code as it always did.
+      #
+      # `.github/workflows/claude.yml` needs none of this: it passes no
+      # `plugin_marketplaces`, so it never spawns the CLI by path.
+      #
+      # Delete this step once the action resolves the CLI path itself.
+      - name: Work around the action's CLI path (see comment)
+        run: |
+          set -euo pipefail
+          curl -fsSL https://claude.ai/install.sh | bash
+          mkdir -p "$HOME/.local/bin"
+          if [ ! -x "$HOME/.local/bin/claude" ]; then
+            # Wherever the installer actually put it. `command -v` first, because it is the
+            # answer that stays right when the installer changes its mind again.
+            found="$(command -v claude || true)"
+            for candidate in \
+              "$HOME/.claude/local/claude" \
+              "$HOME/.local/share/claude/claude" \
+              "$HOME/.bun/bin/claude" \
+              "$HOME/.npm-global/bin/claude"; do
+              [ -n "$found" ] && break
+              [ -x "$candidate" ] && found="$candidate"
+            done
+            if [ -z "$found" ]; then
+              echo "::error::Claude Code installed but no binary was found to link into ~/.local/bin"
+              exit 1
+            fi
+            ln -sf "$found" "$HOME/.local/bin/claude"
+          fi
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/claude" --version
+
       - name: Run Claude Code Review
         id: claude-review
         uses: anthropics/claude-code-action@v1

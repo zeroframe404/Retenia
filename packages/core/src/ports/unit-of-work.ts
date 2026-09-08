@@ -1,4 +1,5 @@
 import type { ActivityStatsRepository } from './activity-stats-repository'
+import type { AiBatchRepository } from './ai-batch-repository'
 import type { AiCallRepository } from './ai-call-repository'
 import type { AiResultRepository } from './ai-result-repository'
 import type { AnnotationRepository } from './annotation-repository'
@@ -26,6 +27,8 @@ import type { StatsRepository } from './stats-repository'
 export interface Repositories {
   /** Derived, disposable: the rolling per-type median behind §10's "personal median". */
   activityStats: ActivityStatsRepository
+  /** Submitted Batch API jobs, so polling survives a restart (sub-phase 7.3). */
+  aiBatches: AiBatchRepository
   aiCalls: AiCallRepository
   aiResults: AiResultRepository
   annotations: AnnotationRepository

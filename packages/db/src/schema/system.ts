@@ -37,6 +37,16 @@ export type JobStatus = (typeof JOB_STATUSES)[number]
 export const AI_CALL_STATUSES = ['ok', 'error'] as const
 export type AiCallStatus = (typeof AI_CALL_STATUSES)[number]
 
+export const AI_BATCH_STATUSES = [
+  'submitting',
+  'submitted',
+  'in_progress',
+  'completed',
+  'failed',
+  'cancelled',
+] as const
+export type AiBatchStatus = (typeof AI_BATCH_STATUSES)[number]
+
 export const OUTBOX_OPS = ['insert', 'update', 'delete'] as const
 export type OutboxOp = (typeof OUTBOX_OPS)[number]
 
@@ -208,6 +218,81 @@ export const aiResults = sqliteTable(
     check('ai_results_hits_nonnegative', atLeast(t.hits, 0)),
     check('ai_results_meta_json', jsonObject(t.meta)),
     ...standardChecks('ai_results', t),
+  ],
+)
+
+/**
+ * One submitted Batch API job (`docs/spec/06-ai-providers.md` §2: the Batch API is -50 % on
+ * everything, takes up to 100,000 requests, "most finish in under 1 h", maximum 24 h).
+ *
+ * The third table in this family, and the one that makes the other two survive a restart.
+ * `ai_calls` is the cost log (one row per dispatched request, batched or not), `ai_results`
+ * is the answer store keyed by `custom_id`, and this is the **job**: what was sent, to whom,
+ * what it was quoted at, and where the polling had got to when the app was last closed.
+ * Without it, killing the app mid-batch abandons an hour of work that has already been paid
+ * for — the provider finishes the job and charges for it, and nothing here ever collects it.
+ *
+ * What is deliberately **not** here is the requests themselves. Forty expanded lessons are
+ * megabytes of prompt, and storing them would put the largest rows in the database behind the
+ * one feature whose whole purpose is to be cheap. Everything needed to poll, reconcile and
+ * report is a column; retrying a failed id needs the request, which only the process that
+ * submitted it holds — and a caller's own re-run covers that for free, because every id that
+ * did succeed is already answered from `ai_results`.
+ *
+ * `provider_batch_id` is null exactly while `status` is `submitting`: the row is written
+ * before the provider is called, so a crash in that window is visible rather than silent.
+ * `next_poll_at` and `attempts` are this table's `run_after` and `attempts` — the same
+ * durable-backoff shape the `jobs` table uses, for a queue whose worker lives upstream.
+ */
+export const aiBatches = sqliteTable(
+  'ai_batches',
+  {
+    id: idColumn(),
+    /** The profile id, as `ai_calls.provider` records it. */
+    provider: text('provider').notNull(),
+    model: text('model').notNull(),
+    /** `smart`, `cheap`… the role the batch was routed through. */
+    role: text('role').notNull(),
+    /** The feature tag every reconciled `ai_calls` row inherits. */
+    purpose: text('purpose').notNull(),
+    /** The `ai_results.stage` every reconciled answer is stored under. */
+    stage: text('stage').notNull(),
+    status: text('status', { enum: AI_BATCH_STATUSES }).notNull().default('submitting'),
+    /** The provider's own id for the job — what polling and cancelling address. */
+    providerBatchId: text('provider_batch_id'),
+    requestCount: integer('request_count').notNull().default(0),
+    succeededCount: integer('succeeded_count').notNull().default(0),
+    failedCount: integer('failed_count').notNull().default(0),
+    /** What the estimator quoted before submission, so the two can be compared afterwards. */
+    costEstimateUsd: real('cost_estimate_usd').notNull().default(0),
+    /** What the reconciled `ai_calls` rows actually came to. */
+    costUsd: real('cost_usd').notNull().default(0),
+    attempts: integer('attempts').notNull().default(0),
+    submittedAt: timestampColumn('submitted_at'),
+    /** Not polled again before this instant: the `jobs` table's `run_after`, for a batch. */
+    nextPollAt: timestampColumn('next_poll_at'),
+    completedAt: timestampColumn('completed_at'),
+    promptVersion: text('prompt_version'),
+    schemaVersion: text('schema_version'),
+    error: text('error'),
+    meta: jsonColumn('meta').$type<JsonObject>(),
+    ...auditColumns(),
+  },
+  (t) => [
+    // The two reads that exist: "what is still running?" at startup and in the tray, and
+    // "what has run?" in the usage dashboard.
+    index('ai_batches_active').on(t.status, t.nextPollAt),
+    index('ai_batches_created').on(t.createdAt),
+    index('ai_batches_provider_batch_id').on(t.providerBatchId),
+    check('ai_batches_status', inTextList(t.status, AI_BATCH_STATUSES)),
+    check('ai_batches_request_count_nonnegative', atLeast(t.requestCount, 0)),
+    check('ai_batches_succeeded_nonnegative', atLeast(t.succeededCount, 0)),
+    check('ai_batches_failed_nonnegative', atLeast(t.failedCount, 0)),
+    check('ai_batches_cost_estimate_nonnegative', atLeast(t.costEstimateUsd, 0)),
+    check('ai_batches_cost_nonnegative', atLeast(t.costUsd, 0)),
+    check('ai_batches_attempts_nonnegative', atLeast(t.attempts, 0)),
+    check('ai_batches_meta_json', jsonObject(t.meta)),
+    ...standardChecks('ai_batches', t),
   ],
 )
 
