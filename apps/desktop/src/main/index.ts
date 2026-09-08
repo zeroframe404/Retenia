@@ -39,7 +39,7 @@ initLogging()
 const settings = new SettingsStore(getSettingsPath())
 initSentryMain(settings.get().telemetryEnabled)
 
-const preloadPath = join(__dirname, '../preload/index.cjs')
+const preloadPath = join(import.meta.dirname, '../preload/index.cjs')
 
 /**
  * A deep link that arrives before the main window can display it (cold start, or the
@@ -118,7 +118,7 @@ if (gotLock) {
   app.whenReady().then(async () => {
     electronApp.setAppUserModelId('app.retenia.desktop')
 
-    handleAppProtocol(join(__dirname, '../renderer'), getAppProtocolCsp)
+    handleAppProtocol(join(import.meta.dirname, '../renderer'), getAppProtocolCsp)
     handleMediaProtocol(getBlobsRoot())
     applySecurity({ allowedOrigins, getCsp })
 
