@@ -96,6 +96,7 @@ export { MermaidView } from './components/mermaid-view'
 export type { PageHeaderProps } from './components/page-header'
 export { PageHeader } from './components/page-header'
 export type {
+  ProcessingBatch,
   ProcessingJob,
   ProcessingJobStatus,
   ProcessingTrayProps,

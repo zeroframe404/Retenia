@@ -1,3 +1,4 @@
+import type { Instructions, ModelMessage, SystemModelMessage, TextPart } from 'ai'
 import { generateText, jsonSchema, NoObjectGeneratedError, Output, streamText } from 'ai'
 import type {
   FinishReason,
@@ -55,6 +56,63 @@ function outputFor(
 }
 
 /**
+ * The prompt half of the call, with the cache breakpoints expressed — or folded away.
+ *
+ * Three shapes, and which one is taken is a property of the *target*, not of the caller:
+ *
+ * 1. **No prefix and no directive** — `instructions` and `prompt` as plain strings, exactly
+ *    what every 7.1 and 7.2 caller sends. Unchanged so that adding this parameter cannot
+ *    alter a request that does not use it.
+ * 2. **A prefix but no breakpoints** — Gemini's implicit cache (`docs/spec/06-ai-providers.md`
+ *    §2), or an Anthropic prefix that `withCache` judged too short to mark. The prefix is
+ *    concatenated ahead of the task, because a stable head is what implicit caching matches
+ *    on and what a human reader expects; nothing is claimed about a discount.
+ * 3. **A directive** — the prefix becomes its own text part of the user message and the
+ *    breakpoints become `cacheControl` provider options. `instructions` becomes a
+ *    `SystemModelMessage` for the same reason: a string cannot carry provider options.
+ *
+ * The trust boundary is unchanged in all three. `cachePrefix` is user content and travels in
+ * the user message; only `system` is ever `instructions`.
+ */
+function promptFor(
+  target: InvokeTarget,
+  request: TextGenerationRequest,
+): { instructions?: Instructions; prompt: string | ModelMessage[] } {
+  const prefix = request.cachePrefix ?? ''
+  const directive = request.cache
+
+  // A breakpoint only exists on a provider that has one. `caps` cannot answer this: it
+  // describes structured output, and 7.4's `openai-compatible` kind reaches endpoints that
+  // have JSON grammars and no cache control at all.
+  const explicit = directive !== undefined && target.profile.kind === 'anthropic'
+
+  if (!explicit) {
+    const prompt = prefix === '' ? request.prompt : `${prefix}\n\n${request.prompt}`
+    return { ...(request.system === undefined ? {} : { instructions: request.system }), prompt }
+  }
+
+  const cacheControl = { type: 'ephemeral', ttl: directive.ttl } as const
+  const marked = { providerOptions: { anthropic: { cacheControl } } } as const
+
+  const content: TextPart[] = []
+  if (prefix !== '') {
+    content.push({ type: 'text', text: prefix, ...(directive.prefix ? marked : {}) })
+  }
+  content.push({ type: 'text', text: request.prompt })
+
+  return {
+    ...(request.system === undefined
+      ? {}
+      : {
+          instructions: [
+            { role: 'system', content: request.system, ...(directive.system ? marked : {}) },
+          ] satisfies SystemModelMessage[],
+        }),
+    prompt: [{ role: 'user', content }],
+  }
+}
+
+/**
  * The only `generateText`/`streamText` call site in the codebase.
  *
  * `bindModel` is the test seam: `sdk-invoker.test.ts` passes
@@ -85,8 +143,7 @@ export function createSdkInvoker(options: { bindModel?: BindModel } = {}): Provi
       // is untrusted, and rewriting the payload here would change the bytes behind
       // `idempotencyKey = hash(stage, input_ids, prompt_version)` so a resumed run would
       // pay for the same work twice.
-      ...(request.system === undefined ? {} : { instructions: request.system }),
-      prompt: request.prompt,
+      ...promptFor(target, request),
       temperature: request.temperature,
       ...(request.maxOutputTokens === undefined
         ? {}

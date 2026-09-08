@@ -32,7 +32,8 @@
       "sleep": "Trabajo de prueba",
       "hashFile": "Calculando el hash de un archivo",
       "fsrsOptimize": "Optimizando el modelo de memoria"
-    }
+    },
+    "batches": "Lotes de IA"
   },
   "commandPalette": {
     "placeholder": "Escribí un comando o buscá…",
@@ -69,5 +70,24 @@
     "title": "No encontramos esta página",
     "body": "La ruta a la que intentaste ir no existe.",
     "backHome": "Volver a Hoy"
+  },
+  "aiBatches": {
+    "label": "Lote {{done}}/{{total}} {{what}}",
+    "costEstimate": "~USD {{usd}}",
+    "cost": "USD {{usd}}",
+    "purpose": {
+      "expand_lesson": "lecciones",
+      "item_bank": "ítems",
+      "contextualize": "fragmentos",
+      "grade_long_text": "correcciones"
+    },
+    "status": {
+      "submitting": "enviando",
+      "submitted": "esperando",
+      "in_progress": "en curso",
+      "completed": "terminado",
+      "failed": "con errores",
+      "cancelled": "cancelado"
+    }
   }
 }

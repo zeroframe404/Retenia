@@ -1,6 +1,7 @@
 import type { JsonObject, JsonValue } from '@retenia/core'
 import { z } from 'zod'
 import type { AiErrorCode } from './errors'
+import type { CacheTtl } from './pricing/types'
 
 /**
  * `ai_calls.meta` — and the schema that makes its rule enforceable.
@@ -39,6 +40,23 @@ export const aiCallMetaSchema = z.strictObject({
   /** `ai_calls` has no cache-write column; the count still has to survive for the tooltip. */
   cacheWriteTokens: z.int().nonnegative().optional(),
   /**
+   * Which cache tier the call wrote to, `5m` or `1h` (sub-phase 7.3).
+   *
+   * Recorded because the two are billed at 1.25x and 2x and the tokens alone cannot tell
+   * them apart: without it, a 1 h write and a 5 m write of the same prefix produce identical
+   * rows with different charges, and the pricing snapshot beside them stops explaining the
+   * number.
+   */
+  cacheTtl: short.optional(),
+  /**
+   * The call went through the provider's Batch API, so `rates` were halved (§2's -50 %).
+   *
+   * A flag rather than an inference from `batch_id`: a sequential fallback batch has a
+   * `batch_id` too and is charged at full price, and the difference is exactly what somebody
+   * comparing two runs of the same generation needs to see.
+   */
+  batch: z.boolean().optional(),
+  /**
    * Tokens were probably spent but no usage came back, so 7.5's dashboard can say "plus an
    * unknown amount from 3 timed-out calls" rather than presenting them as free.
    */
@@ -67,6 +85,8 @@ export interface AiCallMeta {
   pricingRevision?: string
   rates?: { input: number; output: number; cacheRead: number | null }
   cacheWriteTokens?: number
+  cacheTtl?: CacheTtl
+  batch?: boolean
   costUnknown?: boolean
   repair?: number
   outputRejected?: boolean

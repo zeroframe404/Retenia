@@ -392,6 +392,7 @@ describe('domain vocabulary parity', () => {
     ['REVIEW_CONTEXTS', core.REVIEW_CONTEXTS, schema.REVIEW_CONTEXTS],
     ['JOB_STATUSES', core.JOB_STATUSES, schema.JOB_STATUSES],
     ['AI_CALL_STATUSES', core.AI_CALL_STATUSES, schema.AI_CALL_STATUSES],
+    ['AI_BATCH_STATUSES', core.AI_BATCH_STATUSES, schema.AI_BATCH_STATUSES],
     ['OUTBOX_OPS', core.OUTBOX_OPS, schema.OUTBOX_OPS],
     ['XP_REASONS', core.XP_REASONS, schema.XP_REASONS],
   ]
@@ -407,9 +408,10 @@ describe('domain vocabulary parity', () => {
 describe('outbox allowlist covers the syncable tables', () => {
   it('names every audited table except the device-local ones', async () => {
     const { SYNCABLE_TABLES } = await import('./outbox-writer')
-    // `outbox` would recurse; `jobs`, `ai_calls` and `ai_results` describe what this machine
-    // did, and the last of them holds raw model output that local-first says stays here.
-    const deviceLocal = new Set(['outbox', 'jobs', 'ai_calls', 'ai_results'])
+    // `outbox` would recurse; `jobs`, `ai_calls`, `ai_results` and `ai_batches` describe what
+    // this machine did — `ai_results` holds raw model output that local-first says stays here,
+    // and `ai_batches` a provider job id only this device's key can poll.
+    const deviceLocal = new Set(['outbox', 'jobs', 'ai_calls', 'ai_results', 'ai_batches'])
     const audited = Object.values(schema)
       .filter((value) => is(value, Table))
       .map((table) => getTableName(table))

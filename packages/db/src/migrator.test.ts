@@ -21,6 +21,7 @@ const EXPECTED_TABLES = [
   'achievements',
   'activities',
   'activity_stats',
+  'ai_batches',
   'ai_calls',
   'ai_results',
   'annotations',
@@ -96,6 +97,7 @@ describe('loadMigrations()', () => {
       '0010_source_reading_progress',
       '0011_chunks_fts_trigram',
       '0012_ai_results',
+      '0013_ai_batches',
     ])
     for (const migration of migrations) expect(migration.sql.length).toBeGreaterThan(0)
   })
@@ -143,6 +145,7 @@ describe('migrate()', () => {
       '0010_source_reading_progress',
       '0011_chunks_fts_trigram',
       '0012_ai_results',
+      '0013_ai_batches',
     ])
     expect(result.alreadyApplied).toEqual([])
     expect(listTables(opened)).toEqual([...EXPECTED_TABLES])
@@ -168,6 +171,7 @@ describe('migrate()', () => {
       '0010_source_reading_progress',
       '0011_chunks_fts_trigram',
       '0012_ai_results',
+      '0013_ai_batches',
     ])
     expect(listTables(opened)).toEqual([...EXPECTED_TABLES])
     expect(opened.sqlite.prepare('SELECT count(*) AS n FROM importance_levels').get()).toEqual({
@@ -197,7 +201,7 @@ describe('migrate()', () => {
 
   it('accepts the raw handle and the Drizzle instance as targets too', () => {
     opened = openDatabase(IN_MEMORY)
-    expect(migrate(opened.sqlite).applied).toHaveLength(13)
+    expect(migrate(opened.sqlite).applied).toHaveLength(14)
     expect(migrate(opened.db).applied).toHaveLength(0)
   })
 

@@ -10,6 +10,7 @@ import { createUuidV7Generator, systemClock } from '@retenia/core'
 import type { VectorIndex } from '../hybrid-search'
 import type { OpenedDatabase } from '../open-database'
 import { createActivityStatsRepository } from './activity-stats'
+import { createAiBatchRepository } from './ai-batches'
 import { createAiCallRepository } from './ai-calls'
 import { createAiResultRepository } from './ai-results'
 import { createAnnotationRepository } from './annotations'
@@ -96,6 +97,7 @@ export function createRepositories(opened: OpenedDatabase, options: RepositoryOp
 
   const repositories: Repositories = {
     activityStats: createActivityStatsRepository(ctx),
+    aiBatches: createAiBatchRepository(ctx),
     aiCalls: createAiCallRepository(ctx),
     aiResults: createAiResultRepository(ctx),
     annotations: createAnnotationRepository(ctx),

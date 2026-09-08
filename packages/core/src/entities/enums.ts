@@ -220,6 +220,24 @@ export type JobStatus = (typeof JOB_STATUSES)[number]
 export const AI_CALL_STATUSES = ['ok', 'error'] as const
 export type AiCallStatus = (typeof AI_CALL_STATUSES)[number]
 
+/**
+ * Where a submitted Batch API job stands (`docs/spec/06-ai-providers.md` §2).
+ *
+ * `submitting` is the window between writing the row and the provider confirming it: the row
+ * is written first on purpose, so a crash cannot leave a job running upstream that this app
+ * has no record of. Recovery retires anything still in it, because there is no id to poll and
+ * no way to know whether the provider accepted the work.
+ */
+export const AI_BATCH_STATUSES = [
+  'submitting',
+  'submitted',
+  'in_progress',
+  'completed',
+  'failed',
+  'cancelled',
+] as const
+export type AiBatchStatus = (typeof AI_BATCH_STATUSES)[number]
+
 export const OUTBOX_OPS = ['insert', 'update', 'delete'] as const
 export type OutboxOp = (typeof OUTBOX_OPS)[number]
 

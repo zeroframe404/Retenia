@@ -55,6 +55,7 @@ Packaging note (Windows first): the `.node` binaries of both drivers and `sqlite
 | 10 | `0010_source_reading_progress` | `d91ba704c82b` |  |
 | 11 | `0011_chunks_fts_trigram` | `c38da20a7c14` | `chunks_fts_trigram` (FTS5, `trigram remove_diacritics 1`) + sync triggers: an infix index alongside `chunks_fts`, so a search term that is a substring of a word — never a prefix `chunks_fts`'s `unicode61` tokenizer would produce on its own — still finds it (`05-ingestion-rag.md` §4). |
 | 12 | `0012_ai_results` | `7f3cd5043ce2` |  |
+| 13 | `0013_ai_batches` | `d9871534bf66` |  |
 
 ## Tables
 
@@ -90,6 +91,7 @@ Packaging note (Windows first): the `.node` binaries of both drivers and `sqlite
 | `jobs` | Infrastructure | 23 | 1 | 4 | 9 |
 | `ai_calls` | Infrastructure | 25 | 1 | 4 | 12 |
 | `ai_results` | Infrastructure | 17 | 0 | 2 | 8 |
+| `ai_batches` | Infrastructure | 26 | 0 | 3 | 11 |
 | `settings` | Infrastructure | 8 | 0 | 1 | 5 |
 | `outbox` | Infrastructure | 14 | 0 | 2 | 7 |
 | `xp_events` | Gamification | 13 | 0 | 2 | 7 |
@@ -1145,7 +1147,7 @@ Checks:
 
 ## Infrastructure
 
-Job queue, AI cost log and result cache, settings and the (v1-empty) sync outbox (`src/schema/system.ts`).
+Job queue, AI cost log, result cache and batch jobs, settings and the (v1-empty) sync outbox (`src/schema/system.ts`).
 
 ### `jobs`
 
@@ -1283,6 +1285,57 @@ Checks:
 - `ai_results_id_uuidv7`: `length(id) = 36 AND substr(id, 15, 1) = '7'`
 - `ai_results_version_positive`: `version >= 1`
 - `ai_results_updated_after_created`: `updated_at >= created_at`
+
+### `ai_batches`
+
+| Column | Type | Null | Default | Key |
+|---|---|---|---|---|
+| `id` | text | no |  | PK |
+| `provider` | text | no |  |  |
+| `model` | text | no |  |  |
+| `role` | text | no |  |  |
+| `purpose` | text | no |  |  |
+| `stage` | text | no |  |  |
+| `status` | text | no | `'submitting'` |  |
+| `provider_batch_id` | text | yes |  |  |
+| `request_count` | integer | no | `0` |  |
+| `succeeded_count` | integer | no | `0` |  |
+| `failed_count` | integer | no | `0` |  |
+| `cost_estimate_usd` | real | no | `0` |  |
+| `cost_usd` | real | no | `0` |  |
+| `attempts` | integer | no | `0` |  |
+| `submitted_at` | integer | yes |  |  |
+| `next_poll_at` | integer | yes |  |  |
+| `completed_at` | integer | yes |  |  |
+| `prompt_version` | text | yes |  |  |
+| `schema_version` | text | yes |  |  |
+| `error` | text | yes |  |  |
+| `meta` | text | yes |  |  |
+| `created_at` | integer | no |  |  |
+| `updated_at` | integer | no |  |  |
+| `deleted_at` | integer | yes |  |  |
+| `device_id` | text | no |  |  |
+| `version` | integer | no | `1` |  |
+
+Indexes:
+
+- `ai_batches_provider_batch_id` (`provider_batch_id`)
+- `ai_batches_created` (`created_at`)
+- `ai_batches_active` (`status`, `next_poll_at`)
+
+Checks:
+
+- `ai_batches_status`: `status IN ('submitting', 'submitted', 'in_progress', 'completed', 'failed', 'cancelled')`
+- `ai_batches_request_count_nonnegative`: `request_count >= 0`
+- `ai_batches_succeeded_nonnegative`: `succeeded_count >= 0`
+- `ai_batches_failed_nonnegative`: `failed_count >= 0`
+- `ai_batches_cost_estimate_nonnegative`: `cost_estimate_usd >= 0`
+- `ai_batches_cost_nonnegative`: `cost_usd >= 0`
+- `ai_batches_attempts_nonnegative`: `attempts >= 0`
+- `ai_batches_meta_json`: `meta IS NULL OR (json_valid(meta) AND json_type(meta) = 'object')`
+- `ai_batches_id_uuidv7`: `length(id) = 36 AND substr(id, 15, 1) = '7'`
+- `ai_batches_version_positive`: `version >= 1`
+- `ai_batches_updated_after_created`: `updated_at >= created_at`
 
 ### `settings`
 

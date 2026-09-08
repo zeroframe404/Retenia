@@ -56,6 +56,22 @@ const jobSummary = {
   finishedAt: null,
 }
 
+const batchSummary = {
+  id: '019213cd-0000-7000-8000-000000000002',
+  provider: 'anthropic',
+  model: 'claude-sonnet-5',
+  purpose: 'expand_lesson',
+  status: 'in_progress' as const,
+  requestCount: 38,
+  succeededCount: 12,
+  failedCount: 0,
+  costEstimateUsd: 1.1,
+  costUsd: 0.34,
+  submittedAt: '2026-09-08T12:00:00.000Z',
+  completedAt: null,
+  error: null,
+}
+
 function makeSettingsRepo(): HandlerDeps['settingsRepo'] {
   const store = new Map<string, unknown>()
   return {
@@ -357,6 +373,10 @@ function makeDeps(overrides: Partial<HandlerDeps> = {}): HandlerDeps {
       cancel: vi.fn(async (id: string) => ({ ...jobSummary, id, status: 'cancelled' as const })),
       retry: vi.fn(async (id: string) => ({ ...jobSummary, id, status: 'queued' as const })),
       enqueueDemo: vi.fn(async () => ({ job: jobSummary, subject: '/resources/dev/sample.ogg' })),
+    },
+    batches: {
+      list: vi.fn(async () => []),
+      cancel: vi.fn(async (id: string) => ({ ...batchSummary, id, status: 'cancelled' as const })),
     },
     library: {
       addFromFile: vi.fn(),

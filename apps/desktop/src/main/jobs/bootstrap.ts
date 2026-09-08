@@ -1,11 +1,12 @@
 import { dirname, join } from 'node:path'
-import type { AiClient } from '@retenia/ai'
+import type { AiClient, BatchRunner } from '@retenia/ai'
 import type { SecretStore } from '@retenia/core'
 import { createJobRegistry, createJobScheduler, uuidv7 } from '@retenia/core'
 import { forwardableEnv } from '@retenia/ingest/sidecars/env'
-import type { JobProgressEvent, JobSummary } from '@retenia/ipc-contract'
+import type { AiBatchEvent, JobProgressEvent, JobSummary } from '@retenia/ipc-contract'
 import { app } from 'electron'
 import { createJobDefinitions } from '../../jobs/definitions'
+import { type BatchesFacade, createBatchesFacade, createMainBatchRunner } from '../ai/batch'
 import { createMainAiClient } from '../ai/client'
 import { createFsBlobStore } from '../blobs/store'
 import { type AppDatabase, openAppDatabase } from '../db/open'
@@ -60,6 +61,13 @@ export interface JobsSubsystem {
   /** The AI gateway (sub-phase 7.1): role routing, cost log and budget. `null` when the
    *  database did not open, because every one of those three needs it. */
   readonly ai: AiClient | null
+  /** The Batch API (sub-phase 7.3): submission, durable polling, reconciliation into
+   *  `ai_results`. `null` when the database did not open — a batch that cannot be recorded
+   *  cannot be resumed, and submitting one that nothing will ever collect is worse than
+   *  refusing. */
+  readonly batches: BatchRunner | null
+  /** What the `ai.*` IPC channels call. `null` for the same reason `batches` is. */
+  readonly batchesFacade: BatchesFacade | null
   /** Recovers orphans and starts claiming. No-op when the database did not open. */
   start(): Promise<void>
   stop(): Promise<void>
@@ -68,6 +76,8 @@ export interface JobsSubsystem {
 export interface BootstrapJobsOptions {
   deviceId: string
   emit: (event: JobProgressEvent) => void
+  /** Pushes `ai.batchProgress`; the tray's batch rows are driven by it. */
+  emitBatch: (event: AiBatchEvent) => void
   /** Whether `jobs.enqueueDemo` will queue anything. False in a packaged build. */
   demoEnabled: boolean
 }
@@ -124,6 +134,7 @@ function unavailableLibraryService(reason: string): LibraryService {
 export function bootstrapJobs({
   deviceId,
   emit,
+  emitBatch,
   demoEnabled,
 }: BootstrapJobsOptions): JobsSubsystem {
   let database: AppDatabase
@@ -138,6 +149,8 @@ export function bootstrapJobs({
       embeddings: null,
       secrets: null,
       ai: null,
+      batches: null,
+      batchesFacade: null,
       database: null,
       start: async () => {},
       stop: async () => {},
@@ -212,6 +225,14 @@ export function bootstrapJobs({
   // handlers and the AI client that reads keys through them share one instance.
   const secrets = createSecretStore(database.repos.settings)
   const ai = createMainAiClient({ repos: database.repos, secrets })
+  // The Batch API's own runner (sub-phase 7.3). It shares the client's repositories and key
+  // store rather than opening its own: one cost log, one answer store, one budget.
+  const batches = createMainBatchRunner({
+    repos: database.repos,
+    secrets,
+    ai,
+    emit: emitBatch,
+  })
 
   // The warm model host (sub-phase 6.3). Lazy in both directions: nothing is spawned until
   // the first query, and it unloads again after an idle timeout — a search box the user
@@ -271,9 +292,26 @@ export function bootstrapJobs({
     embeddings,
     secrets,
     ai,
+    batches,
+    batchesFacade: createBatchesFacade(batches),
     database,
     start: async () => {
       await runner.start()
+
+      // Sub-phase 7.3's acceptance criterion, in one call: whatever the previous run left in
+      // flight is picked up where it left off. Queued rather than awaited — a provider that
+      // is slow to answer must not hold up the rest of startup, and a failure here costs the
+      // resumption of one batch, never the app.
+      batches
+        .resume()
+        .then((resumed) => {
+          if (resumed.length > 0) {
+            log.info(`[ai] resumed polling ${resumed.length} batch(es) left by the last run`)
+          }
+        })
+        .catch((error: unknown) => {
+          log.error('[ai] could not resume the batches left in flight:', error)
+        })
       // The reindex sweep of sub-phase 6.2: a build whose chunking rules or tokenizer changed
       // leaves every source's chunks cut at the wrong boundaries, and nothing else would ever
       // notice. Queued, not awaited — it is minutes of CPU on a large library, and startup
@@ -305,6 +343,7 @@ export function bootstrapJobs({
         })
     },
     stop: async () => {
+      batches.stop()
       await runner.stop()
       await host.stop()
       database.close()

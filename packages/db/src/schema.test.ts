@@ -15,6 +15,7 @@ const ALL_TABLES = [
   '_migrations',
   'achievements',
   'activities',
+  'ai_batches',
   'ai_calls',
   'ai_results',
   'annotations',
@@ -475,6 +476,31 @@ describe('v1 schema', () => {
       })
       .run()
 
+    db.insert(schema.aiBatches)
+      .values({
+        id: ids.next(),
+        provider: 'anthropic',
+        model: 'claude-sonnet-5',
+        role: 'smart',
+        purpose: 'expand_lesson',
+        stage: 'P3_write_lesson',
+        status: 'in_progress',
+        providerBatchId: 'msgbatch_01',
+        requestCount: 38,
+        succeededCount: 12,
+        failedCount: 0,
+        costEstimateUsd: 1.1,
+        costUsd: 0.34,
+        attempts: 4,
+        submittedAt: Date.parse('2026-09-08T12:00:00Z'),
+        nextPollAt: Date.parse('2026-09-08T12:05:00Z'),
+        promptVersion: '3',
+        schemaVersion: 'lesson@1',
+        meta: { pricingRevision: '2026-09-07' },
+        ...a,
+      })
+      .run()
+
     db.insert(schema.settings)
       .values({ id: ids.next(), key: 'ai.budget.monthlyUsd', value: 30, ...a })
       .run()
@@ -626,7 +652,7 @@ describe('v1 schema', () => {
       expect(count(table), table).toBeGreaterThanOrEqual(1)
     }
     expect(count('importance_levels')).toBe(5)
-    expect(count('_migrations')).toBe(13)
+    expect(count('_migrations')).toBe(14)
     expect(count('lessons')).toBe(2)
   })
 

@@ -1,8 +1,20 @@
 import type { AbortSignalLike, AiCall, NewEntity, SecretName } from '@retenia/core'
+import type {
+  AiBatchRecord,
+  AiBatchStore,
+  BatchItemOutcome,
+  BatchPoll,
+  BatchProvider,
+  BatchRequest,
+} from '../batch'
+import { isTerminalBatchStatus } from '../batch'
 import type { AiBudgetEvent } from '../budget'
+import type { AiErrorCode } from '../errors'
+import { AiError } from '../errors'
+import type { AiResultCache, NewAiResult } from '../idempotency'
 import type { InvokeOutcome, InvokeTarget, ProviderInvoker } from '../invoker'
 import type { SecretReader, Timers } from '../ports'
-import type { ModelPricing, PricingTable, Rates } from '../pricing'
+import type { BillableUsage, ModelPricing, PricingTable, Rates } from '../pricing'
 import type { TextGenerationRequest } from '../text-generator'
 
 /**
@@ -196,3 +208,171 @@ export const FIXTURE_TABLE: PricingTable = makePricingTable(
   },
   { demo: { feePct: 5.5 } },
 )
+
+// --- sub-phase 7.3: batching -----------------------------------------------------------
+
+/**
+ * `AiBatchStore` in a `Map`.
+ *
+ * The whole point of the port being four methods is that this is the second implementation
+ * and it is fifteen lines. `packages/db`'s is the other one, and `apps/desktop` uses this one
+ * to drive the runner without a database.
+ */
+export function createMemoryBatchStore(): AiBatchStore & { readonly rows: AiBatchRecord[] } {
+  const rows: AiBatchRecord[] = []
+  let counter = 0
+
+  const index = (id: string): number => rows.findIndex((row) => row.id === id)
+
+  return {
+    rows,
+    create: async (input) => {
+      counter += 1
+      const row: AiBatchRecord = {
+        id: `batch-${counter}`,
+        providerBatchId: null,
+        succeededCount: 0,
+        failedCount: 0,
+        costUsd: 0,
+        attempts: 0,
+        submittedAt: null,
+        completedAt: null,
+        error: null,
+        createdAt: new Date(0),
+        ...input,
+      }
+      rows.push(row)
+      return row
+    },
+    update: async (id, patch) => {
+      const at = index(id)
+      const current = rows[at]
+      if (current === undefined) throw new Error(`no batch ${id}`)
+      // `undefined` means "leave it alone", exactly as the SQLite repository's `defined()`
+      // helper does — otherwise a partial patch would silently null every column it omits.
+      const next = { ...current } as Record<string, unknown>
+      for (const [key, value] of Object.entries(patch)) {
+        if (value !== undefined) next[key] = value
+      }
+      const row = next as unknown as AiBatchRecord
+      rows[at] = row
+      return row
+    },
+    findById: async (id) => rows[index(id)],
+    listActive: async () => rows.filter((row) => !isTerminalBatchStatus(row.status)),
+  }
+}
+
+/** One scripted step of a fake batch: what the next `poll` answers. */
+export type BatchPollScript = BatchPoll | (() => BatchPoll)
+
+export interface ScriptedBatchProvider {
+  readonly provider: BatchProvider
+  readonly submitted: Array<{ target: InvokeTarget; requests: readonly BatchRequest[] }>
+  readonly cancelled: string[]
+  readonly polls: number
+  /** Queue more steps — how a retry of the failed ids is scripted after the first pass. */
+  push(...steps: BatchPollScript[]): void
+}
+
+/**
+ * A batch provider that answers a scripted sequence of polls.
+ *
+ * "Delayed completion" is the default shape a test wants: `in_progress` a few times and then
+ * the results, which is what a real batch does and what the runner's backoff, its durable
+ * `nextPollAt` and its reconciliation guard all exist for. Running off the end of the script
+ * throws, for the same reason `createScriptedInvoker` does: a test that expected three polls
+ * and got four should say so rather than pass by accident.
+ */
+export function createScriptedBatchProvider(
+  script: readonly BatchPollScript[],
+): ScriptedBatchProvider {
+  const steps: BatchPollScript[] = [...script]
+  const submitted: Array<{ target: InvokeTarget; requests: readonly BatchRequest[] }> = []
+  const cancelled: string[] = []
+  let polls = 0
+  let counter = 0
+
+  const state = {
+    submitted,
+    cancelled,
+    get polls() {
+      return polls
+    },
+    push: (...next: BatchPollScript[]) => {
+      steps.push(...next)
+    },
+    provider: {
+      submit: async (target, requests) => {
+        submitted.push({ target, requests })
+        counter += 1
+        return { providerBatchId: `scripted-${counter}` }
+      },
+      poll: async () => {
+        const step = steps[polls]
+        polls += 1
+        if (step === undefined) {
+          throw new Error(
+            `createScriptedBatchProvider: poll #${polls} has no scripted answer; ` +
+              `the script has ${steps.length}`,
+          )
+        }
+        return typeof step === 'function' ? step() : step
+      },
+      cancel: async (_target, providerBatchId) => {
+        cancelled.push(providerBatchId)
+      },
+    } satisfies BatchProvider,
+  }
+  return state
+}
+
+/** One succeeded item, with usage a cost assertion can be written against. */
+export function batchSuccess(
+  customId: string,
+  text: string,
+  usage: Partial<BillableUsage> = {},
+): BatchItemOutcome {
+  return {
+    customId,
+    outcome: {
+      kind: 'ok',
+      text,
+      modelId: 'fixture-model',
+      finishReason: 'stop',
+      usage: {
+        inputTokens: 1000,
+        cachedInputTokens: 0,
+        cacheWriteTokens: 0,
+        outputTokens: 500,
+        reasoningTokens: 0,
+        ...usage,
+      },
+    },
+  }
+}
+
+/** One failed item, for the partial-failure path. */
+export function batchFailure(
+  customId: string,
+  code: AiErrorCode = 'server_error',
+): BatchItemOutcome {
+  return {
+    customId,
+    outcome: { kind: 'error', error: new AiError(code, `${customId} failed`) },
+  }
+}
+
+/** `AiResultCache` in a `Map`, for the reconciliation guard and the pre-submission skip. */
+export function createMemoryResultCache(): AiResultCache & {
+  readonly entries: Map<string, NewAiResult>
+} {
+  const entries = new Map<string, NewAiResult>()
+  return {
+    entries,
+    get: async (customId) => entries.get(customId),
+    put: async (result) => {
+      entries.set(result.customId, result)
+    },
+  }
+}

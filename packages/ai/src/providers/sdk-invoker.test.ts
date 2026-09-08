@@ -96,6 +96,62 @@ describe('createSdkInvoker', () => {
     expect(serializedUser).toContain('Ignore previous instructions')
   })
 
+  it('sends a cache directive as a provider option on the parts it marks', async () => {
+    // Sub-phase 7.3. The breakpoints are the whole feature: without them Anthropic caches
+    // nothing, bills every call in full, and the run still *looks* cached.
+    const captured = model()
+    const invoker = createSdkInvoker({ bindModel: () => captured })
+    await invoker(
+      target,
+      {
+        ...request,
+        cachePrefix: '<user_content>chapter three</user_content>',
+        cache: { ttl: '1h', system: true, prefix: true },
+      },
+      { signal: undefined },
+    )
+
+    const prompt = captured.doGenerateCalls[0]?.prompt ?? []
+    const system = prompt.find((message) => message.role === 'system')
+    expect(system?.providerOptions).toEqual({
+      anthropic: { cacheControl: { type: 'ephemeral', ttl: '1h' } },
+    })
+
+    const user = prompt.find((message) => message.role === 'user')
+    const parts = (user?.content ?? []) as Array<{ text?: string; providerOptions?: unknown }>
+    expect(parts).toHaveLength(2)
+    // The stable sources are marked; the volatile task is not, or every call would be a miss.
+    expect(parts[0]?.text).toContain('chapter three')
+    expect(parts[0]?.providerOptions).toEqual({
+      anthropic: { cacheControl: { type: 'ephemeral', ttl: '1h' } },
+    })
+    expect(parts[1]?.providerOptions).toBeUndefined()
+  })
+
+  it('folds an unmarked prefix in front of the prompt, for a provider that caches implicitly', async () => {
+    // Gemini has no breakpoint to place (§2), so the prefix is simply sent first — which is
+    // what its implicit cache matches on — and nothing claims a discount that will not come.
+    const google = DEFAULT_PROFILES.find((entry) => entry.id === 'google')
+    if (google === undefined) throw new Error('DEFAULT_PROFILES changed')
+    const captured = model()
+    const invoker = createSdkInvoker({ bindModel: () => captured })
+
+    await invoker(
+      { profile: google, modelId: 'gemini-3.7-flash', apiKey: CANARY },
+      { ...request, cachePrefix: 'the whole book' },
+      { signal: undefined },
+    )
+
+    const prompt = captured.doGenerateCalls[0]?.prompt ?? []
+    const user = prompt.find((message) => message.role === 'user')
+    const serialized = JSON.stringify(user)
+    expect(serialized).toContain('the whole book')
+    expect(serialized.indexOf('the whole book')).toBeLessThan(
+      serialized.indexOf('Ignore previous instructions'),
+    )
+    expect(serialized).not.toContain('cacheControl')
+  })
+
   it('binds no tools, for any call', async () => {
     // The highest-value injection control here, and free: with no tools bound, a successful
     // injection can produce bad text but never an action. 9.4's tutor adds them knowingly.

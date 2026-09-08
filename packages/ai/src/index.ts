@@ -8,14 +8,81 @@
  */
 
 export { isAborted, toAbortSignal } from './abort'
+export type {
+  AiBatchPatch,
+  AiBatchRecord,
+  AiBatchStatus,
+  AiBatchStore,
+  BatchCallOptions,
+  BatchEstimate,
+  BatchEstimateOptions,
+  BatchItemOutcome,
+  BatchPoll,
+  BatchProvider,
+  BatchRequest,
+  BatchRunner,
+  BatchRunnerDeps,
+  BatchSubmission,
+  Dispatch,
+  DispatchPolicyInput,
+  NewAiBatch,
+  ProviderBatchStatus,
+  RunJobOptions,
+  RunJobOutcome,
+  RunJobResult,
+  Split,
+  SubmitBatchOptions,
+} from './batch'
+export {
+  AI_BATCH_STATUSES,
+  BATCH_MIN_REQUESTS,
+  chooseDispatch,
+  createBatchRunner,
+  createSequentialBatchProvider,
+  DEFAULT_OUTPUT_TOKENS_PER_REQUEST,
+  estimateBatch,
+  isTerminalBatchStatus,
+  MAX_BATCH_REQUESTS,
+  MAX_BATCH_RETRIES,
+  MAX_POLL_FAILURES,
+  POLL_BASE_MS,
+  POLL_JITTER,
+  POLL_MAX_MS,
+  pollDelayMs,
+  SYNCHRONOUS_HEAD,
+  splitSynchronousHead,
+  TERMINAL_BATCH_STATUSES,
+} from './batch'
 export type { AiBudgetEvent } from './budget'
 export { budgetState, crossedThresholds, monthKey, startOfMonth, WARNING_THRESHOLD } from './budget'
+export type {
+  CacheBreakpoint,
+  CacheDecision,
+  CachePlan,
+  PromptCacheDirective,
+  WithCacheOptions,
+} from './caching'
+export {
+  cacheMinimumTokens,
+  cacheTtlFor,
+  DEFAULT_CACHE_TTL,
+  PATH_GENERATION_CACHE_TTL,
+  supportsExplicitCache,
+  withCache,
+} from './caching'
 export type { AiClient, AiClientOptions } from './client'
 export { createAiClient } from './client'
 export type { AiCallMeta } from './cost-log'
 export { aiCallMetaSchema, META_STRING_MAX, sanitizeMeta } from './cost-log'
 export type { AiErrorCode, AiErrorContext } from './errors'
-export { AI_ERROR_CODES, AiError, isAiError, MAX_ERROR_CHARS, redactKey } from './errors'
+export {
+  AI_ERROR_CODES,
+  AiError,
+  asAiError,
+  isAiError,
+  MAX_ERROR_CHARS,
+  redactKey,
+} from './errors'
 export type { AiResultCache, CachedAiResult, IdempotencyInput, NewAiResult } from './idempotency'
 export { customId, MAX_CUSTOM_ID_CHARS } from './idempotency'
 export type {
@@ -105,3 +172,5 @@ export type {
   TextGenerationUsage,
   TextGenerator,
 } from './text-generator'
+export type { TokenCounter } from './tokens'
+export { approximateTokens, TOKEN_ESTIMATE_TOLERANCE } from './tokens'

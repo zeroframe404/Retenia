@@ -147,6 +147,7 @@ if (gotLock) {
     const jobs = bootstrapJobs({
       deviceId: settings.deviceId,
       emit: (event) => broadcast('jobs.progress', event),
+      emitBatch: (event) => broadcast('ai.batchProgress', event),
       // Same gate as `app.devMediaSampleUrl`: nothing in the shipped product enqueues from
       // the renderer, so the demo channel refuses outside a dev run or the e2e suite.
       demoEnabled: is.dev || process.env.RETENIA_E2E === '1',
@@ -264,6 +265,7 @@ if (gotLock) {
       settings,
       updater,
       jobs: jobs.facade,
+      batches: jobs.batchesFacade,
       library: jobs.library,
       embeddings: jobs.embeddings,
       blobStore,
