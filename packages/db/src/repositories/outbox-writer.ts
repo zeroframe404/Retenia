@@ -5,10 +5,19 @@ import type { AuditValues, OutboxOperation, OutboxWriter, RepositoryContext } fr
 /**
  * Tables whose writes are mirrored into `outbox` for a future sync layer.
  *
- * `outbox` itself is absent so the writer cannot feed itself; `jobs` and `ai_calls` are
- * absent because they are device-local bookkeeping — a job queued on this machine means
- * nothing on another, and the cost log follows the device that spent the money
+ * `outbox` itself is absent so the writer cannot feed itself; `jobs`, `ai_calls` and
+ * `ai_results` are absent because they are device-local bookkeeping — a job queued on this
+ * machine means nothing on another, and the cost log follows the device that spent the money
  * (`docs/spec/07-architecture.md` §6).
+ *
+ * `ai_results` is the interesting one of the three, because a shared cache would genuinely
+ * save money: a second device that had the answer to `contextualize-9f2c…` would not have to
+ * buy it again. It is still excluded, for two reasons that outrank the saving. It is the only
+ * table that holds raw model output verbatim, and shipping that to a future server is a
+ * decision to take deliberately with a privacy review rather than by default
+ * (`docs/spec/01-decisions.md` §7: local-first, "your data on your PC"). And it is by
+ * construction reproducible — every row can be bought again for a known price — so losing it
+ * costs money and never data, which is exactly the trade a cache is supposed to make.
  */
 export const SYNCABLE_TABLES: ReadonlySet<string> = new Set([
   'achievements',

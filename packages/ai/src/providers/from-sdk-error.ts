@@ -1,4 +1,4 @@
-import { APICallError, LoadAPIKeyError } from 'ai'
+import { APICallError, LoadAPIKeyError, NoObjectGeneratedError } from 'ai'
 import type { AiErrorCode, AiErrorContext } from '../errors'
 import { AiError, redactKey } from '../errors'
 
@@ -20,6 +20,14 @@ import { AiError, redactKey } from '../errors'
 export function fromSdkError(error: unknown, context: AiErrorContext, apiKey: string): AiError {
   if (isAbort(error)) {
     return new AiError('aborted', 'the caller cancelled the request', context)
+  }
+
+  if (NoObjectGeneratedError.isInstance(error)) {
+    // The model answered and the answer does not fit the schema. `sdk-invoker.ts` normally
+    // catches this earlier and hands the text to the repair loop; reaching here means there
+    // was no text to hand over, and the code has to say "bad output" rather than "bad
+    // network" so that `classify` moves to the next model instead of asking this one again.
+    return new AiError('output_invalid', 'the model produced no value matching the schema', context)
   }
 
   if (LoadAPIKeyError.isInstance(error)) {

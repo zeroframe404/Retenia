@@ -6,11 +6,9 @@ import type { SecretName } from '@retenia/core'
  * The spec's profile also carries `baseURL`, `pricing` and `caps`. Here pricing lives in
  * its own versioned table (`./pricing`) keyed by `${kind}:${modelId}`, because a price is a
  * fact about a model on a date and a profile is a fact about an account — they change for
- * different reasons and on different schedules. `baseURL` and `caps` arrive with the
- * sub-phases that can use them: 7.4's `openai-compatible` kind is what makes a base URL
- * mandatory (and brings its SSRF check with it), and every `caps` flag is either
- * unreachable today (`pdf`/`image`/`audio`/`video` — `TextGenerationRequest` carries no
- * media part) or 7.2's (`jsonStrict`).
+ * different reasons and on different schedules. `baseURL` arrives with 7.4's
+ * `openai-compatible` kind, which is what makes a base URL mandatory (and brings its SSRF
+ * check with it); `caps` arrives here, with the one flag 7.2 can act on.
  */
 
 /**
@@ -21,6 +19,29 @@ import type { SecretName } from '@retenia/core'
  */
 export const PROVIDER_KINDS = ['anthropic', 'google'] as const
 export type ProviderKind = (typeof PROVIDER_KINDS)[number]
+
+/**
+ * What the transport can do, as far as this layer needs to know
+ * (`docs/spec/06-ai-providers.md` §6, "Support").
+ *
+ * Only `jsonStrict` for now: the media flags the spec lists (`pdf`, `image`, `audio`,
+ * `video`) are unreachable until a request shape carries a media part, and declaring a
+ * capability nothing can exercise is a claim no test can hold to account.
+ */
+export interface ProviderCaps {
+  /**
+   * The provider constrains generation to a JSON Schema server-side — Anthropic's
+   * `output_config.format = json_schema`, Gemini's `responseJsonSchema`, OpenAI's
+   * `strict: true` — rather than merely being asked for JSON in the prompt.
+   *
+   * `runStructured` reads exactly this to choose between handing the schema to the
+   * provider and falling back to JSON mode plus a zod parse. It is a property of the
+   * *account and endpoint*, not of the model id, which is why it lives on the profile:
+   * 7.4's `openai-compatible` kind reaches DeepSeek, Kimi and Qwen, which have JSON mode
+   * and no grammar, through the same code path.
+   */
+  readonly jsonStrict: boolean
+}
 
 export interface ProviderProfile {
   /**
@@ -37,6 +58,7 @@ export interface ProviderProfile {
    */
   readonly keyRef: SecretName
   readonly models: readonly string[]
+  readonly caps: ProviderCaps
 }
 
 /**
@@ -50,6 +72,8 @@ export const DEFAULT_PROFILES: readonly ProviderProfile[] = Object.freeze([
     id: 'anthropic',
     kind: 'anthropic',
     keyRef: 'anthropic',
+    // §6: `output_config.format = json_schema`, a compiled grammar with a 24 h cache.
+    caps: Object.freeze({ jsonStrict: true }),
     models: Object.freeze([
       'claude-sonnet-5',
       'claude-haiku-4-5',
@@ -61,6 +85,8 @@ export const DEFAULT_PROFILES: readonly ProviderProfile[] = Object.freeze([
     id: 'google',
     kind: 'google',
     keyRef: 'google',
+    // §6: `responseJsonSchema`, over a broad subset of JSON Schema.
+    caps: Object.freeze({ jsonStrict: true }),
     models: Object.freeze(['gemini-3.7-flash', 'gemini-3.5-flash-lite']),
   }),
 ] as const satisfies readonly ProviderProfile[])

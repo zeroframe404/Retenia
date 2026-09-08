@@ -52,6 +52,30 @@ export interface AiCall extends Entity {
   meta: JsonObject | null
 }
 
+/**
+ * One cached AI answer, keyed by `custom_id` (`docs/spec/04-path-generation.md` §7:
+ * *"if a result exists, it is not repeated"*).
+ *
+ * Not to be confused with `AiCall`, which is the cost log: that has one row per dispatched
+ * attempt including the failures, this has at most one row per unit of work and holds the
+ * answer that was accepted. `output` is the completion verbatim — a hit re-parses and
+ * re-validates it exactly as a fresh answer would be.
+ */
+export interface AiResult extends Entity {
+  customId: string
+  stage: string
+  provider: string
+  model: string
+  promptVersion: string | null
+  schemaVersion: string | null
+  output: string
+  /** What the original call cost, so the UI can report what the cache saved. */
+  costUsd: number
+  hits: number
+  lastHitAt: Date | null
+  meta: JsonObject | null
+}
+
 /** A key/value setting. Never a secret: API keys live in Electron's `safeStorage`. */
 export interface Setting extends Entity {
   key: string

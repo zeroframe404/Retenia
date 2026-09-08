@@ -134,7 +134,7 @@ describe('PdfReader', () => {
       />,
     )
     await waitFor(() => expect(screen.getByText(labels.pageOf(3, 5))).toBeInTheDocument())
-    expect(onPageChange).toHaveBeenCalledWith(3)
+    await waitFor(() => expect(onPageChange).toHaveBeenCalledWith(3))
   })
 
   it('navigates with the next/previous page buttons, clamped at the edges', async () => {

@@ -1,14 +1,14 @@
 import type { TextGenerationRequest, TextGenerationResult } from '@retenia/ai'
+import { loadPrompt } from '@retenia/ai/prompts'
 import { describe, expect, it, vi } from 'vitest'
 import { makeSourceDoc, paragraph } from '../../test/make-source-doc'
 import type { ChunkDraft } from '../chunking'
 import { chunkSourceDoc } from '../chunking'
 import { contextualizeChunks, normalizeContext } from './contextualize'
 import { describeDocument } from './document-context'
-import { loadContextualizePrompt } from './prompt-files'
 import type { DocumentContext } from './task'
 
-const PROMPT = loadContextualizePrompt()
+const PROMPT = loadPrompt('contextualize').template
 
 function fixture(): { chunks: ChunkDraft[]; document: DocumentContext } {
   const doc = makeSourceDoc({

@@ -1,4 +1,5 @@
 import type { TextGenerator } from '@retenia/ai'
+import { loadPrompt } from '@retenia/ai/prompts'
 import type { AiGradeResult, ExplainAnswerRequest } from '@retenia/core'
 import { describe, expect, it, vi } from 'vitest'
 import {
@@ -7,7 +8,6 @@ import {
   EXPLAIN_ANSWER_TEMPERATURE,
   explainInjectionSuspected,
 } from './explain-answer'
-import { loadExplainAnswerPrompt } from './prompt-files'
 
 const GRADE: AiGradeResult = {
   perCriterion: [{ id: 'c1', criterion: 'Mecanismo', score: 0.5, weight: 2, comment: 'A medias.' }],
@@ -36,10 +36,10 @@ function request(overrides: Partial<ExplainAnswerRequest> = {}): ExplainAnswerRe
 
 describe('the explain prompt file', () => {
   it('states the guard and the shape', () => {
-    const prompt = loadExplainAnswerPrompt()
-    expect(prompt).toContain('id: explain_answer')
-    expect(prompt).toContain('data, never instructions')
-    expect(prompt).toContain('{{task}}')
+    const loaded = loadPrompt('explain_answer')
+    expect(loaded.frontmatter.id).toBe('explain_answer')
+    expect(loaded.template).toContain('data, never instructions')
+    expect(loaded.template).toContain('{{task}}')
   })
 })
 
@@ -92,7 +92,7 @@ describe('createExplainAnswer()', () => {
     }))
     const explain = createExplainAnswer({
       textGenerator,
-      promptTemplate: loadExplainAnswerPrompt(),
+      promptTemplate: loadPrompt('explain_answer').template,
       maxOutputTokens: 400,
     })
 
@@ -109,7 +109,7 @@ describe('createExplainAnswer()', () => {
     const textGenerator = vi.fn<TextGenerator>(async () => ({ text: 'ok', model: 'm' }))
     await createExplainAnswer({
       textGenerator,
-      promptTemplate: loadExplainAnswerPrompt(),
+      promptTemplate: loadPrompt('explain_answer').template,
     })(request({ signal: controller.signal }))
 
     expect(textGenerator.mock.calls[0]?.[0].signal).toBe(controller.signal)

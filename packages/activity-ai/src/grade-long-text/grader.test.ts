@@ -1,11 +1,11 @@
 import type { TextGenerator } from '@retenia/ai'
+import { loadPrompt } from '@retenia/ai/prompts'
 import type { AiGradeInput } from '@retenia/core'
 import { describe, expect, it, vi } from 'vitest'
-import { loadGradeLongTextPrompt } from '../prompt-files'
 import { createAiLongTextGrader, GRADE_LONG_TEXT_TEMPERATURE, ratingForScore } from './grader'
 import type { GradeLongTextOutput } from './output'
 
-const PROMPT = loadGradeLongTextPrompt()
+const PROMPT = loadPrompt('grade_long_text').template
 
 const ANSWER =
   'Con repasos distribuidos aparece la recuperación activa, y por eso supera al estudio masivo.'

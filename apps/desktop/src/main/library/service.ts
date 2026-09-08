@@ -393,22 +393,23 @@ export function createLibraryService({
   }
 
   /**
-   * The prompt file, read once.
+   * The prompt file, read once, out of sub-phase 7.2's versioned registry.
    *
-   * `loadContextualizePrompt` is a synchronous `readFileSync`, and both callers below run on
-   * main's own thread in response to an IPC call — clicking between two large sources should
-   * not put file I/O on the UI thread once per click, let alone once per chunk.
+   * `loadPrompt` is a synchronous `readFileSync`, and both callers below run on main's own
+   * thread in response to an IPC call — clicking between two large sources should not put
+   * file I/O on the UI thread once per click, let alone once per chunk. (The registry caches
+   * too; this keeps the dynamic `import()` out of the hot path as well.)
    */
   let prompt: { template: string; system: string; version: string } | undefined
   const contextualizePrompt = async (): Promise<NonNullable<typeof prompt>> => {
     if (prompt !== undefined) return prompt
     const { systemFromTemplate } = await import('@retenia/ingest/contextualize')
-    const { loadContextualizePrompt, readPromptVersion } = await import('@retenia/ingest/prompts')
-    const template = loadContextualizePrompt()
+    const { loadPrompt } = await import('@retenia/ai/prompts')
+    const loaded = loadPrompt('contextualize')
     prompt = {
-      template,
-      system: systemFromTemplate(template),
-      version: readPromptVersion(template),
+      template: loaded.template,
+      system: systemFromTemplate(loaded.template),
+      version: loaded.promptVersion,
     }
     return prompt
   }

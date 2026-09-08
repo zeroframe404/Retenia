@@ -1,5 +1,6 @@
 import type { ActivityStatsRepository } from './activity-stats-repository'
 import type { AiCallRepository } from './ai-call-repository'
+import type { AiResultRepository } from './ai-result-repository'
 import type { AnnotationRepository } from './annotation-repository'
 import type { AttemptRepository } from './attempt-repository'
 import type { BlobRepository } from './blob-repository'
@@ -26,6 +27,7 @@ export interface Repositories {
   /** Derived, disposable: the rolling per-type median behind §10's "personal median". */
   activityStats: ActivityStatsRepository
   aiCalls: AiCallRepository
+  aiResults: AiResultRepository
   annotations: AnnotationRepository
   attempts: AttemptRepository
   blobs: BlobRepository

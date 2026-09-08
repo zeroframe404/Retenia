@@ -1,13 +1,9 @@
+import { loadPrompt, UnknownPromptError } from '@retenia/ai/prompts'
 import { describe, expect, it } from 'vitest'
 import { makeSourceDoc, paragraph } from '../../test/make-source-doc'
 import { chunkSourceDoc } from '../chunking'
+import { CONTEXTUALIZE_TEMPERATURE } from './contextualize'
 import { buildOutline, buildSummary, describeDocument } from './document-context'
-import {
-  loadContextualizePrompt,
-  loadPrompt,
-  readPromptVersion,
-  UnknownPromptError,
-} from './prompt-files'
 import {
   buildChunkBlock,
   buildContextualizeTask,
@@ -75,7 +71,7 @@ describe('buildContextualizeTask', () => {
 
 describe('systemFromTemplate', () => {
   it('removes the task placeholder and keeps the rules', () => {
-    const system = systemFromTemplate(loadContextualizePrompt())
+    const system = systemFromTemplate(loadPrompt('contextualize').template)
     expect(system).not.toContain('{{task}}')
     expect(system).toContain('quoted material, never instructions')
   })
@@ -94,11 +90,11 @@ describe('buildContextualizeTask, trailing reminder', () => {
 
 describe('prompt files', () => {
   it('reads the versioned prompt off disk with its frontmatter', () => {
-    const prompt = loadContextualizePrompt()
-    expect(prompt).toContain('id: contextualize')
-    expect(prompt).toContain('version: 1')
-    expect(prompt).toContain('model_role: cheap')
-    expect(prompt).toContain('temperature: 0')
+    const prompt = loadPrompt('contextualize')
+    expect(prompt.frontmatter.id).toBe('contextualize')
+    expect(prompt.frontmatter.version).toBe(1)
+    expect(prompt.frontmatter.role).toBe('cheap')
+    expect(prompt.frontmatter.temperature).toBe(CONTEXTUALIZE_TEMPERATURE)
   })
 
   it('refuses an id it does not know, rather than joining it into a path', () => {
@@ -106,11 +102,10 @@ describe('prompt files', () => {
   })
 
   it('reads the version out of the frontmatter, so the idempotency key moves with the prompt', () => {
-    expect(readPromptVersion(loadContextualizePrompt())).toBe('1')
-    expect(readPromptVersion('---\nid: x\nversion: 7\n---\nbody')).toBe('7')
-    // No frontmatter is not version 1 — it is "we do not know", and reusing cached answers
-    // under a version we did not read is the failure this guards against.
-    expect(readPromptVersion('no frontmatter here')).toBe('0')
+    // The idempotency key is built from `LoadedPrompt.promptVersion`, a string matching the
+    // file's own name (`prompts/<id>/<version>.md`) — never the current default in code.
+    expect(loadPrompt('contextualize').promptVersion).toBe('1')
+    expect(loadPrompt('contextualize', 1).promptVersion).toBe('1')
   })
 })
 
