@@ -1,6 +1,6 @@
 import { AiError, DEFAULT_PROFILES, ZERO_USAGE } from '@retenia/ai'
 import { createScriptedInvoker } from '@retenia/ai/testing'
-import type { AiCall, NewEntity, SettingsMap } from '@retenia/core'
+import type { AiCall, AiResult, NewEntity, SettingsMap } from '@retenia/core'
 import { describe, expect, it, vi } from 'vitest'
 
 // `vi.mock` here is the repo's usual reason for it: making the `electron` specifier
@@ -45,6 +45,10 @@ function harness(
             return call as unknown as AiCall
           },
           sumCost: async () => 0,
+        },
+        aiResults: {
+          findByCustomId: async () => undefined,
+          put: async (input: NewEntity<AiResult>) => input as unknown as AiResult,
         },
         settings: {
           get: async <K extends keyof SettingsMap>(key: K) => settings[key],

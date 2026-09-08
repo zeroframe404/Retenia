@@ -149,6 +149,69 @@ export const aiCalls = sqliteTable(
 )
 
 /**
+ * The idempotent result cache (`docs/spec/04-path-generation.md` §7): *"every call has
+ * `custom_id = hash(stage, input_ids, prompt_version)`; if a result exists, it is not
+ * repeated (key with the Batch API and for resuming after closing the app)"*.
+ *
+ * Distinct from `ai_calls`, which they are easy to confuse. `ai_calls` is the **cost log**:
+ * one row per dispatched attempt, including the ones that failed, the ones that were retried
+ * and the ones whose output was thrown away, and it is what a monthly total is summed from.
+ * This is the **answer store**: at most one row per unit of work, holding the completion that
+ * was accepted. Keeping them apart is what lets the log stay append-only and honest while the
+ * cache stays small and replaceable — and it is why a cache hit writes no `ai_calls` row: no
+ * call was made, and inflating "calls this month" with calls that never happened would make
+ * the one number the budget depends on wrong.
+ *
+ * `output` holds the raw completion **text**, not a parsed value, and deliberately carries no
+ * `json_valid` CHECK: it is the one shape a prose call and a structured one have in common,
+ * and a hit re-runs the same sanitizer and the same zod parse the original did. A cached
+ * answer is never trusted further than a fresh one.
+ *
+ * Nothing here is user content in the sense the renderer cares about — it is model output
+ * generated from the user's own sources — but it is content, which is why it lives in its own
+ * table with its own retention rather than in `ai_calls.meta`, whose rule is "never the
+ * content itself".
+ */
+export const aiResults = sqliteTable(
+  'ai_results',
+  {
+    id: idColumn(),
+    /** `sha256(stage, inputIds, promptVersion, schemaVersion)`, per `@retenia/ai`'s `customId`. */
+    customId: text('custom_id').notNull(),
+    /** `contextualize`, `P1_extract_chunk`, `grade_long_text`… the unit of work's name. */
+    stage: text('stage').notNull(),
+    provider: text('provider').notNull(),
+    model: text('model').notNull(),
+    promptVersion: text('prompt_version'),
+    schemaVersion: text('schema_version'),
+    /** The accepted completion, verbatim. */
+    output: text('output').notNull(),
+    /** What it cost the first time, so the UI can say what the cache saved. */
+    costUsd: real('cost_usd').notNull().default(0),
+    /** How many times it has been served since. Never a correctness input; a diagnostic. */
+    hits: integer('hits').notNull().default(0),
+    lastHitAt: timestampColumn('last_hit_at'),
+    meta: jsonColumn('meta').$type<JsonObject>(),
+    ...auditColumns(),
+  },
+  (t) => [
+    // The lookup, and the uniqueness that makes "if a result exists, it is not repeated"
+    // true rather than aspirational. Partial on `deleted_at` like every other live-unique
+    // index here, so a soft-deleted entry does not block the row that replaces it.
+    uniqueIndex('ai_results_custom_id_live').on(t.customId).where(notDeleted(t)),
+    // "What is this cache full of, and what can be dropped?" — the two questions housekeeping
+    // and 7.5's usage dashboard ask.
+    index('ai_results_stage').on(t.stage, t.createdAt),
+    check('ai_results_custom_id_nonempty', sql`length(${t.customId}) > 0`),
+    check('ai_results_stage_nonempty', sql`length(${t.stage}) > 0`),
+    check('ai_results_cost_nonnegative', atLeast(t.costUsd, 0)),
+    check('ai_results_hits_nonnegative', atLeast(t.hits, 0)),
+    check('ai_results_meta_json', jsonObject(t.meta)),
+    ...standardChecks('ai_results', t),
+  ],
+)
+
+/**
  * Key/value settings (`key` → JSON `value`). Secrets never live here: API keys and tokens
  * go through Electron's `safeStorage` in the main process (CLAUDE.md). Feature flags,
  * provider roles, budgets, scheduler options and UI preferences do.

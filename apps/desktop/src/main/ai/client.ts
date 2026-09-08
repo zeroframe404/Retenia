@@ -1,7 +1,12 @@
 import type { AiBudgetEvent, AiClient, ProviderInvoker, ProviderProfile } from '@retenia/ai'
 import { createAiClient, DEFAULT_PROFILES, DEFAULT_ROLES } from '@retenia/ai'
 import { createSdkInvoker } from '@retenia/ai/providers'
-import type { AiCallRepository, SecretStore, SettingsRepository } from '@retenia/core'
+import type {
+  AiCallRepository,
+  AiResultRepository,
+  SecretStore,
+  SettingsRepository,
+} from '@retenia/core'
 import { redactPaths } from '../jobs/redact'
 import { log } from '../logging/log'
 
@@ -25,6 +30,7 @@ import { log } from '../logging/log'
  */
 export interface MainAiClientRepositories {
   aiCalls: Pick<AiCallRepository, 'record' | 'sumCost'>
+  aiResults: Pick<AiResultRepository, 'findByCustomId' | 'put'>
   settings: Pick<SettingsRepository, 'get'>
 }
 
@@ -79,6 +85,40 @@ export function createMainAiClient({ repos, secrets, invoker }: MainAiClientOpti
         // was removed upstream, by `redactKey`, where the plaintext was still in scope.
         error: call.error === null ? null : redactPaths(call.error),
       })
+    },
+
+    // `docs/spec/04-path-generation.md` §7's "if a result exists, it is not repeated",
+    // wired. The adapter is this thin because the port was designed for it: `findByCustomId`
+    // counts its own hit, and `put` replaces rather than inserts so a forced regeneration
+    // does not leave the answer it was asked to discard sitting in front of the new one.
+    resultCache: {
+      get: async (customId) => {
+        const row = await repos.aiResults.findByCustomId(customId)
+        return row === undefined
+          ? undefined
+          : {
+              customId: row.customId,
+              output: row.output,
+              model: row.model,
+              provider: row.provider,
+              costUsd: row.costUsd,
+            }
+      },
+      put: async (result) => {
+        await repos.aiResults.put({
+          customId: result.customId,
+          stage: result.stage,
+          provider: result.provider,
+          model: result.model,
+          promptVersion: result.promptVersion ?? null,
+          schemaVersion: result.schemaVersion ?? null,
+          output: result.output,
+          costUsd: result.costUsd,
+          hits: 0,
+          lastHitAt: null,
+          meta: null,
+        })
+      },
     },
 
     spentSinceUsd: (from) => repos.aiCalls.sumCost({ from }),

@@ -54,6 +54,7 @@ Packaging note (Windows first): the `.node` binaries of both drivers and `sqlite
 | 9 | `0009_source_embedding_state` | `7a4e9b591fed` | `sources.embedding_status`, `sources.embedding_model_id` and `sources.embedding_error`, plus the `sources_embedding` index: where each source stands in the *vector* index, which is a different question from whether it parsed. `embedding_model_id` is the reindex trigger — the startup sweep re-embeds every source whose space is not the active provider's, so switching embedding models can never leave two spaces mixed in one query (`05-ingestion-rag.md` §3). Added with `ALTER TABLE` rather than a table rebuild, which would drop the source soft-delete cascade triggers of migration 0001. |
 | 10 | `0010_source_reading_progress` | `d91ba704c82b` |  |
 | 11 | `0011_chunks_fts_trigram` | `c38da20a7c14` | `chunks_fts_trigram` (FTS5, `trigram remove_diacritics 1`) + sync triggers: an infix index alongside `chunks_fts`, so a search term that is a substring of a word — never a prefix `chunks_fts`'s `unicode61` tokenizer would produce on its own — still finds it (`05-ingestion-rag.md` §4). |
+| 12 | `0012_ai_results` | `7f3cd5043ce2` |  |
 
 ## Tables
 
@@ -88,6 +89,7 @@ Packaging note (Windows first): the `.node` binaries of both drivers and `sqlite
 | `activity_stats` | Sessions, attempts and review log | 10 | 0 | 1 | 6 |
 | `jobs` | Infrastructure | 23 | 1 | 4 | 9 |
 | `ai_calls` | Infrastructure | 25 | 1 | 4 | 12 |
+| `ai_results` | Infrastructure | 17 | 0 | 2 | 8 |
 | `settings` | Infrastructure | 8 | 0 | 1 | 5 |
 | `outbox` | Infrastructure | 14 | 0 | 2 | 7 |
 | `xp_events` | Gamification | 13 | 0 | 2 | 7 |
@@ -1143,7 +1145,7 @@ Checks:
 
 ## Infrastructure
 
-Job queue, AI cost log, settings and the (v1-empty) sync outbox (`src/schema/system.ts`).
+Job queue, AI cost log and result cache, settings and the (v1-empty) sync outbox (`src/schema/system.ts`).
 
 ### `jobs`
 
@@ -1243,6 +1245,44 @@ Checks:
 - `ai_calls_id_uuidv7`: `length(id) = 36 AND substr(id, 15, 1) = '7'`
 - `ai_calls_version_positive`: `version >= 1`
 - `ai_calls_updated_after_created`: `updated_at >= created_at`
+
+### `ai_results`
+
+| Column | Type | Null | Default | Key |
+|---|---|---|---|---|
+| `id` | text | no |  | PK |
+| `custom_id` | text | no |  |  |
+| `stage` | text | no |  |  |
+| `provider` | text | no |  |  |
+| `model` | text | no |  |  |
+| `prompt_version` | text | yes |  |  |
+| `schema_version` | text | yes |  |  |
+| `output` | text | no |  |  |
+| `cost_usd` | real | no | `0` |  |
+| `hits` | integer | no | `0` |  |
+| `last_hit_at` | integer | yes |  |  |
+| `meta` | text | yes |  |  |
+| `created_at` | integer | no |  |  |
+| `updated_at` | integer | no |  |  |
+| `deleted_at` | integer | yes |  |  |
+| `device_id` | text | no |  |  |
+| `version` | integer | no | `1` |  |
+
+Indexes:
+
+- `ai_results_stage` (`stage`, `created_at`)
+- `ai_results_custom_id_live` UNIQUE (`custom_id`) WHERE `deleted_at IS NULL`
+
+Checks:
+
+- `ai_results_custom_id_nonempty`: `length(custom_id) > 0`
+- `ai_results_stage_nonempty`: `length(stage) > 0`
+- `ai_results_cost_nonnegative`: `cost_usd >= 0`
+- `ai_results_hits_nonnegative`: `hits >= 0`
+- `ai_results_meta_json`: `meta IS NULL OR (json_valid(meta) AND json_type(meta) = 'object')`
+- `ai_results_id_uuidv7`: `length(id) = 36 AND substr(id, 15, 1) = '7'`
+- `ai_results_version_positive`: `version >= 1`
+- `ai_results_updated_after_created`: `updated_at >= created_at`
 
 ### `settings`
 

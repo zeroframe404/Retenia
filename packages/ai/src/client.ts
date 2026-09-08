@@ -1,5 +1,6 @@
 import type { AiCall, Clock, NewEntity, SecretName } from '@retenia/core'
 import type { AiBudgetEvent } from './budget'
+import type { AiResultCache } from './idempotency'
 import type { ProviderInvoker } from './invoker'
 import type { Random, Timers } from './ports'
 import { realTimers } from './ports'
@@ -11,6 +12,12 @@ import type { AiRegistry } from './roles'
 import { DEFAULT_ROLES, resolveTargets } from './roles'
 import type { AiBinding } from './run'
 import { runOnce } from './run'
+import type {
+  StructuredArrayRequest,
+  StructuredObjectRequest,
+  StructuredResult,
+} from './structured'
+import { runStructured } from './structured'
 import type { TextGenerator } from './text-generator'
 
 export interface AiClientOptions {
@@ -41,6 +48,15 @@ export interface AiClientOptions {
   monthlyBudgetUsd(): Promise<number>
   /** `settings.get('ai.budget.hardBlock')`. Only consulted once the cap is reached. */
   hardBlockEnabled?: () => Promise<boolean>
+  /**
+   * `ai_results`, so a request carrying an `idempotencyKey` is answered from the table the
+   * second time it is asked (`docs/spec/04-path-generation.md` §7).
+   *
+   * Optional because the cache is an optimisation and never a correctness requirement: a
+   * client wired without one calls the provider every time, which is what a test wants and
+   * what a first run does anyway.
+   */
+  resultCache?: AiResultCache
   clock: Clock
   timers?: Timers
   random?: Random
@@ -56,6 +72,12 @@ export interface AiClientOptions {
   logger?: { warn(message: string): void; error(message: string, error?: unknown): void }
 }
 
+/** What `AiClient.structured` hands a caller: `runStructured` with the deps already bound. */
+export interface StructuredGenerator {
+  <T>(request: StructuredObjectRequest<T>): Promise<StructuredResult<T>>
+  <T>(request: StructuredArrayRequest<T>): Promise<StructuredResult<T[]>>
+}
+
 export interface AiClient {
   /**
    * The seam four packages already inject and already fake with `vi.fn<TextGenerator>()`.
@@ -63,6 +85,15 @@ export interface AiClient {
    * anywhere downstream.
    */
   textGenerator(binding: AiBinding): TextGenerator
+  /**
+   * The same call, with a schema on the other end: provider-native JSON Schema where the
+   * profile has it, a sanitizer, a zod parse, and up to two repair turns before the next
+   * model in the role gets a look (sub-phase 7.2).
+   *
+   * Separate from `textGenerator` rather than an option on it, because the two return
+   * different things and `TextGenerator` is a type four packages already inject and fake.
+   */
+  structured(binding: AiBinding): StructuredGenerator
   /**
    * What the model this role would use costs right now, for `estimateContextualization`.
    *
@@ -102,6 +133,7 @@ export function createAiClient(options: AiClientOptions): AiClient {
     // 7.5 exposes the toggle; a caller with the user's explicit consent for one call sets
     // `allowOverBudget` on its binding instead.
     hardBlockEnabled: options.hardBlockEnabled ?? (async () => true),
+    ...(options.resultCache === undefined ? {} : { resultCache: options.resultCache }),
     clock: options.clock,
     timers: options.timers ?? realTimers,
     random: options.random ?? Math.random,
@@ -111,6 +143,12 @@ export function createAiClient(options: AiClientOptions): AiClient {
 
   return {
     textGenerator: (binding) => (request) => runOnce(deps, binding, request),
+
+    // The overloads live on `runStructured`; this forwards them with the deps already
+    // bound, and the cast is the one-line price of saying that in TypeScript — an
+    // implementation signature cannot itself be overloaded.
+    structured: ((binding: AiBinding) => (request: StructuredObjectRequest<unknown>) =>
+      runStructured(deps, binding, request)) as unknown as AiClient['structured'],
 
     ratesFor: async (role) => {
       try {

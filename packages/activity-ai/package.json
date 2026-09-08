@@ -5,8 +5,7 @@
   "type": "module",
   "description": "AI graders for the activity engine: the versioned P10 rubric prompt, its structured output, the injection guard and the offline fallback. Pure outside ./prompts.",
   "exports": {
-    ".": "./src/index.ts",
-    "./prompts": "./src/prompt-files.ts"
+    ".": "./src/index.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",

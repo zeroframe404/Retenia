@@ -16,6 +16,7 @@ const ALL_TABLES = [
   'achievements',
   'activities',
   'ai_calls',
+  'ai_results',
   'annotations',
   'attempts',
   'blobs',
@@ -457,6 +458,23 @@ describe('v1 schema', () => {
       })
       .run()
 
+    db.insert(schema.aiResults)
+      .values({
+        id: ids.next(),
+        customId: 'grade_long_text-9f2c4a1b7e6d5c3a2f1e0d9c8b7a6f5e',
+        stage: 'grade_long_text',
+        provider: 'anthropic',
+        model: 'claude-sonnet-5',
+        promptVersion: '1',
+        schemaVersion: 'grade_long_text@1',
+        output: '{"score":0.8}',
+        costUsd: 0.0012,
+        hits: 0,
+        meta: { finishReason: 'stop' },
+        ...a,
+      })
+      .run()
+
     db.insert(schema.settings)
       .values({ id: ids.next(), key: 'ai.budget.monthlyUsd', value: 30, ...a })
       .run()
@@ -608,7 +626,7 @@ describe('v1 schema', () => {
       expect(count(table), table).toBeGreaterThanOrEqual(1)
     }
     expect(count('importance_levels')).toBe(5)
-    expect(count('_migrations')).toBe(12)
+    expect(count('_migrations')).toBe(13)
     expect(count('lessons')).toBe(2)
   })
 

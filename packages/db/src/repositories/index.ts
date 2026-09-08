@@ -11,6 +11,7 @@ import type { VectorIndex } from '../hybrid-search'
 import type { OpenedDatabase } from '../open-database'
 import { createActivityStatsRepository } from './activity-stats'
 import { createAiCallRepository } from './ai-calls'
+import { createAiResultRepository } from './ai-results'
 import { createAnnotationRepository } from './annotations'
 import { createAttemptRepository } from './attempts'
 import { createBlobRepository } from './blobs'
@@ -96,6 +97,7 @@ export function createRepositories(opened: OpenedDatabase, options: RepositoryOp
   const repositories: Repositories = {
     activityStats: createActivityStatsRepository(ctx),
     aiCalls: createAiCallRepository(ctx),
+    aiResults: createAiResultRepository(ctx),
     annotations: createAnnotationRepository(ctx),
     attempts: createAttemptRepository(ctx),
     blobs: createBlobRepository(ctx),

@@ -25,6 +25,7 @@ export {
   normalizeForInjectionScan,
   weightedCriterionScore,
 } from './ai-grader'
+export type { AiResultRepository } from './ai-result-repository'
 export type { AnnotationRepository } from './annotation-repository'
 export type { AttemptRepository } from './attempt-repository'
 export type {

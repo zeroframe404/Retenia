@@ -27,10 +27,23 @@ export interface TextGenerationRequest {
    * json_schema`, `strict: true`). Providers that cannot enforce it fall back to asking for
    * JSON in the prompt; the caller validates either way (§8: "the AI proposes, the code
    * validates").
+   *
+   * When `structuredMode` is `'array'` this is the schema of one **element**, not of the
+   * array — that is the shape `Output.array` takes, and the shape that makes streaming a
+   * validated element at a time possible.
    */
   jsonSchema?: unknown
   /** Names the schema for providers that require one. */
   schemaName?: string
+  /**
+   * How `jsonSchema` is bound to the call: `Output.object` over the whole value, or
+   * `Output.array` over elements of it.
+   *
+   * Absent means "no structured output": the schema, if any, is advice in the prompt and
+   * nothing more. That is the state every 7.1 caller is in, and it stays the default so that
+   * adding a `jsonSchema` to a request cannot change how it is dispatched by accident.
+   */
+  structuredMode?: 'object' | 'array'
   /**
    * §7's idempotency key: `hash(stage, input_ids, prompt_version)`. A provider with a call
    * cache or the Batch API keys on it, so a resumed run does not pay twice.

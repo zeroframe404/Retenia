@@ -407,8 +407,9 @@ describe('domain vocabulary parity', () => {
 describe('outbox allowlist covers the syncable tables', () => {
   it('names every audited table except the device-local ones', async () => {
     const { SYNCABLE_TABLES } = await import('./outbox-writer')
-    // `outbox` would recurse; `jobs` and `ai_calls` describe what this machine did.
-    const deviceLocal = new Set(['outbox', 'jobs', 'ai_calls'])
+    // `outbox` would recurse; `jobs`, `ai_calls` and `ai_results` describe what this machine
+    // did, and the last of them holds raw model output that local-first says stays here.
+    const deviceLocal = new Set(['outbox', 'jobs', 'ai_calls', 'ai_results'])
     const audited = Object.values(schema)
       .filter((value) => is(value, Table))
       .map((table) => getTableName(table))

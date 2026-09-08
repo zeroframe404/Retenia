@@ -1,3 +1,4 @@
+import { loadPrompt } from '@retenia/ai/prompts'
 import { describe, expect, it } from 'vitest'
 import { countTokensByChars } from '../chunking'
 import {
@@ -5,10 +6,9 @@ import {
   DEFAULT_CONTEXTUALIZATION_PRICING,
   estimateContextualization,
 } from './estimate'
-import { loadContextualizePrompt } from './prompt-files'
 import { systemFromTemplate } from './task'
 
-const SYSTEM = systemFromTemplate(loadContextualizePrompt())
+const SYSTEM = systemFromTemplate(loadPrompt('contextualize').template)
 const DOCUMENT = {
   title: 'Memoria y repaso',
   kind: 'pdf',

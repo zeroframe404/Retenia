@@ -16,6 +16,8 @@ export type { AiCallMeta } from './cost-log'
 export { aiCallMetaSchema, META_STRING_MAX, sanitizeMeta } from './cost-log'
 export type { AiErrorCode, AiErrorContext } from './errors'
 export { AI_ERROR_CODES, AiError, isAiError, MAX_ERROR_CHARS, redactKey } from './errors'
+export type { AiResultCache, CachedAiResult, IdempotencyInput, NewAiResult } from './idempotency'
+export { customId, MAX_CUSTOM_ID_CHARS } from './idempotency'
 export type {
   FinishReason,
   InvokeOptions,
@@ -52,7 +54,7 @@ export {
   toPerMillionRates,
   ZERO_USAGE,
 } from './pricing'
-export type { ProviderKind, ProviderProfile } from './profiles'
+export type { ProviderCaps, ProviderKind, ProviderProfile } from './profiles'
 export { DEFAULT_PROFILES, PROVIDER_KINDS } from './profiles'
 export type { ProviderPort, ProviderRole } from './provider-port'
 export type { Verdict } from './retry'
@@ -65,8 +67,38 @@ export {
 } from './retry'
 export type { AiRegistry, ModelRef, RoleConfig, RoleMap, RoleTarget } from './roles'
 export { DEFAULT_ROLES, resolveTargets } from './roles'
-export type { AiBinding, RunDeps } from './run'
-export { runOnce } from './run'
+export type { AiAttempt, AiBinding, AiReview, RunDeps, RunOptions } from './run'
+export { DEFAULT_REPAIR_BUDGET, runOnce } from './run'
+export type {
+  JsonSchemaNode,
+  SanitizeLimits,
+  StructuredArrayRequest,
+  StructuredObjectRequest,
+  StructuredRequestBase,
+  StructuredResult,
+  WrappedUserContent,
+} from './structured'
+export {
+  buildRepairPrompt,
+  DEFAULT_MAX_CONTINUATIONS,
+  DEFAULT_SANITIZE_LIMITS,
+  describeIssues,
+  extractJsonText,
+  MAX_COMPLETION_CHARS,
+  MAX_QUOTED_OUTPUT_CHARS,
+  MAX_REPORTED_ISSUES,
+  parseJsonCompletion,
+  relaxJsonSchema,
+  runStructured,
+  SchemaNotRepresentableError,
+  sanitizeOutput,
+  sanitizeString,
+  tolerantArray,
+  toStrictJsonSchema,
+  USER_CONTENT_INSTRUCTIONS,
+  USER_CONTENT_TAG,
+  wrapUserContent,
+} from './structured'
 export type {
   TextGenerationRequest,
   TextGenerationResult,

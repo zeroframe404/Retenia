@@ -8,8 +8,10 @@
  * `@retenia/core`'s ports and both driven by a `TextGenerator` that sub-phase 7.2 implements.
  * Generation (P1–P9, P11) arrives with phase 8.
  *
- * Everything exported here is pure: the prompt *files* are read through the separate
- * `@retenia/activity-ai/prompts` entry point, so nothing in a renderer bundle needs `node:fs`.
+ * Everything exported here is pure. The prompt *files* live in the versioned registry of
+ * sub-phase 7.2 — `@retenia/ai/prompts`, `prompts/grade_long_text/1.md` — so nothing in a
+ * renderer bundle needs `node:fs`, and a manifest can snapshot every prompt version from one
+ * place rather than from a loader per package.
  */
 
 export type { ExplainAnswerOptions } from './explain-answer'

@@ -86,8 +86,9 @@ const TABLE_GROUPS: readonly { title: string; blurb: string; tables: readonly st
   {
     title: 'Infrastructure',
     blurb:
-      'Job queue, AI cost log, settings and the (v1-empty) sync outbox (`src/schema/system.ts`).',
-    tables: ['jobs', 'ai_calls', 'settings', 'outbox'],
+      'Job queue, AI cost log and result cache, settings and the (v1-empty) sync outbox ' +
+      '(`src/schema/system.ts`).',
+    tables: ['jobs', 'ai_calls', 'ai_results', 'settings', 'outbox'],
   },
   {
     title: 'Gamification',

@@ -9,10 +9,6 @@
 
 /**
  * Why a call failed, in the vocabulary `classify` and `ai_calls.meta.code` share.
- *
- * `AiOutputInvalid` from the sub-phase brief is deliberately absent: nothing in 7.1
- * validates a schema against a completion, so the code would have no producer. It arrives
- * with the validation/repair loop in 7.2.
  */
 export const AI_ERROR_CODES = [
   /** No profile is configured for this role, or no key is stored for the one it names. */
@@ -32,6 +28,15 @@ export const AI_ERROR_CODES = [
   /** A routing or pricing-table bug. Never answered with a cost of zero. */
   'model_not_priced',
   'aborted',
+  /**
+   * The brief's `AiOutputInvalid`: the completion was not JSON, or was JSON the schema
+   * rejects, and the repair loop of `runStructured` could not fix it within its budget.
+   *
+   * It is a *provider* failure rather than a caller one — the request was well formed and
+   * the model answered badly — so `classify` sends it to the next model, which is a
+   * different model and may well parse where this one did not.
+   */
+  'output_invalid',
   /** Every target in the role failed; carries the last one as `cause`. */
   'all_targets_failed',
 ] as const

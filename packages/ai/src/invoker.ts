@@ -12,6 +12,23 @@ export interface InvokeTarget {
 
 export interface InvokeOptions {
   readonly signal: AbortSignal | undefined
+  /**
+   * Called with each element of an `Output.array` completion as the provider streams it
+   * (`docs/spec/06-ai-providers.md` §6: "`Output.array` with `elementStream` — each item
+   * arrives complete and validated").
+   *
+   * Present only when the caller is in array mode and wants the items durable before the
+   * call ends. It is what makes a run cut off by `maxOutputTokens` — or by a crash, or by
+   * the user closing the app — keep the items it already paid for: §6 is explicit that a
+   * long output must be persisted per item rather than as one giant JSON. An adapter that
+   * cannot stream simply never calls it, and the caller falls back to parsing the whole
+   * completion, which is a slower path and not a broken one.
+   *
+   * The element is **raw**: the SDK has checked it against the JSON Schema, nothing has
+   * checked it against the zod schema or the sanitizer yet. `runStructured` does both
+   * before it reaches a caller.
+   */
+  readonly onElement?: (element: unknown) => void
 }
 
 export type FinishReason = 'stop' | 'length' | 'content-filter' | 'tool-calls' | 'error' | 'other'

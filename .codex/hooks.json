@@ -1,0 +1,39 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Edit|Write|NotebookEdit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash 'C:\\Users\\deadf\\OneDrive\\Desktop\\Sistema de conocimiento pisanista\\Retenia\\.codex\\hooks\\guard.sh'",
+            "timeout": 600
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash 'C:\\Users\\deadf\\OneDrive\\Desktop\\Sistema de conocimiento pisanista\\Retenia\\.codex\\hooks\\format.sh'",
+            "timeout": 600
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash 'C:\\Users\\deadf\\OneDrive\\Desktop\\Sistema de conocimiento pisanista\\Retenia\\.codex\\hooks\\verify.sh'",
+            "timeout": 600
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -43,6 +43,18 @@ export const aiCallMetaSchema = z.strictObject({
    * unknown amount from 3 timed-out calls" rather than presenting them as free.
    */
   costUnknown: z.boolean().optional(),
+  /**
+   * 1-based repair turn (`runStructured`'s validation loop), absent on a first attempt.
+   *
+   * The number nobody wants to be guessing at later: a prompt whose rows are mostly
+   * `repair: 1` is a prompt whose schema and wording disagree, and that is visible in the
+   * cost log or it is visible nowhere.
+   */
+  repair: z.int().positive().optional(),
+  /** The output was rejected by the schema and this target was given up on. */
+  outputRejected: z.boolean().optional(),
+  /** `runStructured`'s array mode continued a completion cut off by `maxOutputTokens`. */
+  continuation: z.int().positive().optional(),
 })
 
 export interface AiCallMeta {
@@ -56,6 +68,9 @@ export interface AiCallMeta {
   rates?: { input: number; output: number; cacheRead: number | null }
   cacheWriteTokens?: number
   costUnknown?: boolean
+  repair?: number
+  outputRejected?: boolean
+  continuation?: number
 }
 
 /**
