@@ -15,7 +15,33 @@ Retenia is a local-first desktop learning & memory app (Electron + React + TypeS
 - `pnpm run schema:check` — Claude strict-mode dry run of the activity JSON Schemas against the fixtures
 - `pnpm run models:manifest` — regenerate the pinned revisions and SHA-256s of the local ONNX models
 - `pnpm e2e` — Playwright end-to-end tests (Electron, via `_electron`)
+- `pnpm ci:local` — the whole GitHub Actions PR gate, locally (see below); `--list` shows the steps
+- `pnpm hooks:install` — (re)point git at `.githooks/` — `pnpm install` already does this
 - `pnpm storybook` — component catalog
+
+## Local CI gate — mandatory before any branch or push
+
+`pnpm ci:local` (`tooling/scripts/ci-local.mjs`) runs the same steps as
+`.github/workflows/ci.yml`, in the same order, with the same commands, under `CI=true`:
+install with a frozen lockfile → licenses → i18n parity → contrast → lint → typecheck → activity
+schema check → tests → tests with coverage (thresholds) → Playwright E2E (builds the desktop app
+first). When the workflow changes, the step list in that script changes with it.
+
+- **Always** run `pnpm ci:local` and get it fully green **before creating a branch for a change and
+  before every `git push`**. Fix whatever fails; never narrow, reorder or skip steps to get to green.
+- `.githooks/pre-push` (enabled by `pnpm install` through `core.hooksPath`) re-runs it on every push
+  and aborts the push if anything fails. Never bypass it: no `git push --no-verify`, no
+  `SKIP_CI_LOCAL`, no changes to `core.hooksPath` — `guard.sh` denies all three. `SKIP_CI_LOCAL=1`
+  exists for humans only.
+- While iterating, `pnpm ci:local --only lint,typecheck,test` or `--skip e2e` is fine; the full,
+  option-less run is what has to pass before the push. `--no-cache` forces a from-scratch run
+  (Turborepo cache bypassed) when in doubt.
+- The two test steps run under a concurrency budget sized for the machine (`tuning()` in that
+  script), because uncapped they oversubscribe a developer box badly enough that tests fail on
+  their timeouts while passing in ~1s alone. A failure there is a real failure, not contention.
+  `--no-tune` restores the uncapped defaults; exporting `TURBO_CONCURRENCY` or
+  `VITEST_MAX_WORKERS` by hand overrides the budget.
+- The PR template's "Tests run" checklist is what `pnpm ci:local` covers; paste its summary there.
 
 ## Monorepo map
 

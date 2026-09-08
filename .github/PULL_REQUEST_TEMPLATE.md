@@ -10,6 +10,7 @@
 
 <!-- What manual or automated tests verify this change? List commands or test descriptions. -->
 
+- [ ] `pnpm ci:local` is green (the same steps as CI, run locally — covers everything below)
 - [ ] `pnpm lint` passes
 - [ ] `pnpm typecheck` passes
 - [ ] `pnpm test` passes

@@ -86,6 +86,10 @@ rm_recursive_force() {
 
 reason=""
 
+# git config keys are case-insensitive (`core.hookspath` is `core.hooksPath`), and none of the
+# patterns below gets safer by being case-sensitive.
+shopt -s nocasematch
+
 case "$tool_name" in
   Edit | Write | NotebookEdit | MultiEdit)
     if migration_is_committed "$file_path"; then
@@ -104,6 +108,15 @@ case "$tool_name" in
         reason="git push --force is blocked by repo policy (docs/spec/00-conventions.md). Use --force-with-lease, or ask the user to run it manually."
       elif [[ "$command_str" =~ git[[:space:]]+reset[[:space:]]+([^\;\&\|]*[[:space:]])?--hard ]]; then
         reason="git reset --hard is blocked by repo policy (discards uncommitted work). Ask the user to run it manually if truly needed."
+      # The pre-push hook (.githooks/pre-push) is the local CI gate: it runs the same steps as
+      # .github/workflows/ci.yml before anything is pushed. The three ways around it are for
+      # humans only — Claude fixes the failing step instead.
+      elif [[ "$command_str" =~ git[[:space:]]+push[^\;\&\|]*--no-verify ]]; then
+        reason="git push --no-verify is blocked by repo policy: the pre-push hook is the local CI gate (pnpm ci:local). Fix the failing step instead of skipping it."
+      elif [[ "$command_str" =~ SKIP_CI_LOCAL ]]; then
+        reason="SKIP_CI_LOCAL is a human-only escape hatch for the pre-push CI gate; Claude never sets it. Fix the failing step instead."
+      elif [[ "$command_str" =~ core\.hooksPath= ]] || { [[ "$command_str" =~ git[[:space:]]+config[^\;\&\|]*core\.hooksPath ]] && ! [[ "$command_str" =~ --get ]]; }; then
+        reason="Changing core.hooksPath is blocked by repo policy: it would disable the pre-push CI gate (.githooks/pre-push). Use pnpm hooks:install to (re)enable it."
       elif [[ "$command_str" =~ (^|[^[:alnum:]_./-])(sed[[:space:]]+-i|tee|(\>\>?))[^\;\&\|]*migrations/ ]]; then
         # Blanket, unlike the Edit/Write branch above: picking the target path out of an
         # arbitrary shell command is guesswork, so the shell has no business writing there at

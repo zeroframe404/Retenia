@@ -1,0 +1,43 @@
+#!/bin/sh
+# pre-push — the local CI gate.
+#
+# Installed by `pnpm install` (root `prepare` → tooling/scripts/install-hooks.mjs sets
+# `git config core.hooksPath .githooks`); `pnpm hooks:install` does the same by hand.
+#
+# Runs tooling/scripts/ci-local.mjs — the same steps as .github/workflows/ci.yml, same commands,
+# same order, CI=true — before any commit leaves this machine, and aborts the push when anything
+# fails. Deleting a remote branch pushes nothing to test and is let through.
+#
+# Escape hatch, for humans only — Claude never uses it (CLAUDE.md; .claude/hooks/guard.sh denies
+# it, along with `git push --no-verify` and changes to core.hooksPath):
+#   SKIP_CI_LOCAL=1 git push
+set -u
+
+zero=0000000000000000000000000000000000000000
+pushes_something=0
+# stdin: one "<local ref> <local sha> <remote ref> <remote sha>" line per ref being pushed.
+while read -r _local_ref local_sha _remote_ref _remote_sha; do
+  [ "$local_sha" = "$zero" ] && continue
+  pushes_something=1
+done
+[ "$pushes_something" -eq 1 ] || exit 0
+
+if [ "${SKIP_CI_LOCAL:-}" = "1" ]; then
+  echo "pre-push: SKIP_CI_LOCAL=1 is set, skipping the local CI gate" >&2
+  exit 0
+fi
+
+root="$(git rev-parse --show-toplevel)" || exit 1
+cd "$root" || exit 1
+
+if ! command -v node >/dev/null 2>&1; then
+  echo "pre-push: node is not on PATH, cannot run the local CI gate (tooling/scripts/ci-local.mjs)" >&2
+  exit 1
+fi
+
+echo "pre-push: running the CI gate locally (the same steps as .github/workflows/ci.yml)…" >&2
+if ! node tooling/scripts/ci-local.mjs; then
+  echo "" >&2
+  echo "pre-push: the local CI gate failed — push aborted. Fix the failure, then push again." >&2
+  exit 1
+fi
