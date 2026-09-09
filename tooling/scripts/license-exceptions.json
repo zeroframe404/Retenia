@@ -1,23 +1,33 @@
 {
   "description": "License exceptions for Retenia dependencies. Add entries to \"exceptions\" as \"<package-name>\": \"<reason; link to the decision if applicable>\" (a trailing \"*\" covers a family of platform-specific packages that share one license decision) for packages whose license is acceptable but does not fit the allowlist in check-licenses.mjs.",
   "exceptions": {
+    "@anthropic-ai/claude-agent-sdk*": "Proprietary (Anthropic's own commercial CLI terms, https://code.claude.com/docs/en/legal-and-compliance) — an *optional* dependency of promptfoo (tooling/evals, sub-phase 7.5) for a redteam/agentic feature our promptfooconfig.yaml never invokes; we only drive `promptfoo eval` with a custom provider. It is confined to `tooling/evals`'s devDependencies, never a dependency of `apps/desktop`, so electron-builder never packages it — no end user's install ever contains it. Flagged for a second look rather than silently allowed: it is the one exception here that is not open source. One entry for the package and its per-platform binary (`@anthropic-ai/claude-agent-sdk-win32-x64`), the same reasoning `@img/sharp-*` already uses for a platform-split family.",
     "@csstools/color-helpers": "MIT-0 (MIT with the attribution clause removed) — strictly more permissive than MIT; transitive dep of Tailwind 4/lightningcss.",
     "@csstools/css-syntax-patches-for-csstree": "MIT-0 (MIT with the attribution clause removed) — strictly more permissive than MIT; transitive dep of Tailwind 4/lightningcss.",
     "@img/sharp-*": "LGPL-3.0-or-later (with Apache-2.0 and MIT parts, depending on the variant) — libvips, shipped as an unmodified prebuilt shared library that sharp loads dynamically, which is the arrangement LGPL §4 exists for; we neither modify it nor link it statically. One entry for the whole `@img/sharp-*` family because it is one decision and the packages differ only by platform: Linux and macOS split the library out into `@img/sharp-libvips-<platform>`, Windows bundles it inside `@img/sharp-win32-<arch>`, and which of them is installed depends on the machine running this check. It all arrives as a transitive dependency of @huggingface/transformers (packages/ingest, sub-phase 6.3), whose image pipelines Retenia never uses — we embed and rerank text only — so it is dead weight in the installer rather than a component of the app.",
+    "binaryextensions": "Artistic-2.0 — OSI-approved; transitive dep of promptfoo (tooling/evals, sub-phase 7.5) via istextorbinary, dev-only.",
     "caniuse-lite": "CC-BY-4.0 — attribution-only browser support data, not code; transitive dep of browserslist (Vite/PostCSS toolchain).",
     "chownr": "BlueOak-1.0.0 — OSI-approved permissive license; transitive dep of electron-builder (dev-only, not shipped in the app).",
     "duck": "BSD (the bundled LICENSE file is the plain two-clause BSD text, i.e. BSD-2-Clause, just not spelled as that exact SPDX id in package.json) — transitive dep of mammoth's parser-combinator library (lop), sub-phase 6.1.",
+    "editions": "Artistic-2.0 — OSI-approved; transitive dep of promptfoo (tooling/evals, sub-phase 7.5) via istextorbinary, dev-only.",
     "glob": "BlueOak-1.0.0 — OSI-approved permissive license; transitive dep of electron-builder and, at a newer version, of @storybook/react-vite (both dev-only, not shipped in the app).",
     "isexe": "BlueOak-1.0.0 — OSI-approved permissive license; transitive dep of electron-builder (dev-only, not shipped in the app).",
+    "istextorbinary": "Artistic-2.0 — OSI-approved; transitive dep of promptfoo (tooling/evals, sub-phase 7.5), dev-only.",
+    "jackspeak": "BlueOak-1.0.0 — OSI-approved permissive license; transitive dep of promptfoo (tooling/evals, sub-phase 7.5), dev-only.",
     "khroma": "MIT — the LICENSE file in the package says MIT, but package.json omits the \"license\" field so it reads as unknown; transitive dep of mermaid.",
     "lru-cache": "BlueOak-1.0.0 — OSI-approved permissive license; common transitive dep across the toolchain.",
     "minimatch": "BlueOak-1.0.0 — OSI-approved permissive license; transitive dep of electron-builder (dev-only, not shipped in the app).",
     "minipass": "BlueOak-1.0.0 — OSI-approved permissive license; transitive dep of electron-builder (dev-only, not shipped in the app).",
+    "package-json-from-dist": "BlueOak-1.0.0 — OSI-approved permissive license; transitive dep of promptfoo (tooling/evals, sub-phase 7.5), dev-only.",
     "pako": "(MIT AND Zlib) — both permissive, OSI-approved licenses; transitive dep of mammoth (via jszip) and, at an older version, of pdfkit (via fontkit, dev-only fixture-generation dependency), sub-phase 6.1.",
     "path-scurry": "BlueOak-1.0.0 — OSI-approved permissive license; transitive dep of @storybook/react-vite (dev-only, not shipped in the app).",
     "sax": "BlueOak-1.0.0 — OSI-approved permissive license; transitive dep of electron-builder (dev-only, not shipped in the app).",
+    "sylvester": "MIT (the bundled LICENSE.txt is plain MIT text) — package.json omits the \"license\" field, the same gap khroma/duck already have; transitive dep of promptfoo (tooling/evals, sub-phase 7.5) via natural/apparatus, dev-only.",
     "tar": "BlueOak-1.0.0 — OSI-approved permissive license; transitive dep of electron-builder (dev-only, not shipped in the app).",
+    "textextensions": "Artistic-2.0 — OSI-approved; transitive dep of promptfoo (tooling/evals, sub-phase 7.5) via istextorbinary, dev-only.",
     "truncate-utf8-bytes": "WTFPL — public-domain-equivalent, no conditions; transitive dep of electron-builder (dev-only, not shipped in the app).",
+    "url-template": "BSD-3-Clause (the bundled LICENSE file is the plain three-clause BSD text) — package.json just says \"BSD\", the same gap duck already has; transitive dep of promptfoo (tooling/evals, sub-phase 7.5) via googleapis, dev-only.",
+    "version-range": "Artistic-2.0 — OSI-approved; transitive dep of promptfoo (tooling/evals, sub-phase 7.5) via istextorbinary, dev-only.",
     "yallist": "BlueOak-1.0.0 — OSI-approved permissive license; transitive dep of electron-builder (dev-only, not shipped in the app)."
   }
 }

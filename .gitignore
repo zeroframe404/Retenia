@@ -66,3 +66,8 @@ Thumbs.db
 *.log
 npm-debug.log*
 pnpm-debug.log*
+
+# pnpm evals (tooling/evals): the spend ledger and promptfoo's raw JSON are per-run
+# scratch state, not the deliverable — that is docs/evals/<date>.md, which is committed.
+tooling/evals/.spend-ledger.json
+tooling/evals/.last-results.json

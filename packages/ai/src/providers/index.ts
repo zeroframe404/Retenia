@@ -28,5 +28,7 @@ export type {
   LocalDiscovery,
 } from './local-discovery'
 export { discoverLocalProvider } from './local-discovery'
+export type { ProbeOptions, ProbeResult } from './probe'
+export { probeProvider } from './probe'
 export { createSdkInvoker } from './sdk-invoker'
 export { toBillableUsage } from './usage'

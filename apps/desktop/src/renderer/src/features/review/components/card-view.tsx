@@ -1,4 +1,11 @@
-import { IconButton, MarkdownView, Tooltip, TooltipContent, TooltipTrigger } from '@retenia/ui'
+import {
+  AiUnavailableNotice,
+  IconButton,
+  MarkdownView,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@retenia/ui'
 import { Volume2Icon } from 'lucide-react'
 import type { KeyboardEvent } from 'react'
 import { useEffect, useRef, useState } from 'react'
@@ -39,7 +46,9 @@ function AudioButton() {
       >
         <Volume2Icon />
       </TooltipTrigger>
-      <TooltipContent>{t('screen.explainComingSoon')}</TooltipContent>
+      <TooltipContent>
+        <AiUnavailableNotice reason={t('screen.explainComingSoon')} />
+      </TooltipContent>
     </Tooltip>
   )
 }

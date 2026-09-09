@@ -22,7 +22,17 @@ describe('contract', () => {
   it('declares the channels the app implements', () => {
     expect([...channelNames].sort()).toEqual([
       'ai.cancelBatch',
+      'ai.exportUsageCsv',
+      'ai.getPricingOverlay',
+      'ai.getRoles',
+      'ai.getUsageSummary',
       'ai.listBatches',
+      'ai.listProviderCards',
+      'ai.listRecentCalls',
+      'ai.probeProvider',
+      'ai.restorePricing',
+      'ai.setPricingOverlay',
+      'ai.setRoles',
       'app.checkForUpdates',
       'app.devMediaSampleUrl',
       'app.exportDiagnostics',
@@ -101,6 +111,7 @@ describe('contract', () => {
     ])
     expect([...eventNames].sort()).toEqual([
       'ai.batchProgress',
+      'ai.budgetAlert',
       'app.deepLink',
       'app.themeChanged',
       'app.updateStatus',

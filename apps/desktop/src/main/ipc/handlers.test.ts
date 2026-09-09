@@ -443,6 +443,8 @@ function makeDeps(overrides: Partial<HandlerDeps> = {}): HandlerDeps {
       runIntegrityCheck: vi.fn(() => 'ok' as const),
     },
     settingsRepo: makeSettingsRepo(),
+    refreshAiPricing: vi.fn(async () => {}),
+    aiCalls: null,
     memory: makeMemory(),
     syncedFolderWarning: false,
     restoreFromBackup: vi.fn(async () => true),

@@ -5,6 +5,13 @@ export type {
   CostRequest,
 } from './cost'
 export { COST_DECIMALS, computeCostUsd, ZERO_USAGE } from './cost'
+export type { PricingOverlay, PricingOverlayEntry } from './overlay'
+export {
+  mergePricingOverlay,
+  pricingOverlayEntrySchema,
+  pricingOverlaySchema,
+  unknownOverlayKeys,
+} from './overlay'
 export type { PerMillionRates } from './per-million'
 export { toPerMillionRates } from './per-million'
 export {

@@ -39,6 +39,16 @@ allowBuilds:
   onnxruntime-node: false
   protobufjs: false
   sharp: false
+  # promptfoo (tooling/evals, sub-phase 7.5) pulls both in transitively. Neither costs us a
+  # feature we use:
+  #   - @swc/core's postinstall only selects among its per-platform optional dependencies
+  #     (@swc/core-win32-x64-msvc etc.), which ship prebuilt N-API binaries — the same
+  #     "check, not a build" shape as better-sqlite3/sharp above.
+  #   - @playwright/browser-chromium's install script downloads a full Chromium (hundreds of
+  #     megabytes) for promptfoo's browser-based providers, which our promptfooconfig.yaml
+  #     never uses — we only ever route through the custom `role-provider.mjs`.
+  '@swc/core': false
+  '@playwright/browser-chromium': false
 # The FSRS optimizer binding (apps/desktop) ships native N-API prebuilds for every platform
 # we target *and* a wasm32-wasi build exposing the same API. npm refuses the WASI package on
 # a cpu mismatch; only this pulls it, and it is what keeps the optimizer working on a

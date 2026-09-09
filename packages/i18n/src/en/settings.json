@@ -82,5 +82,57 @@
       "5": "Fri",
       "6": "Sat"
     }
+  },
+  "ai": {
+    "title": "Artificial intelligence",
+    "unavailable": "No AI provider is configured yet. Add a key below to use AI features.",
+    "providers": {
+      "configured": "Configured",
+      "notConfigured": "Not configured",
+      "apiKeyLabel": "API key",
+      "showKey": "Show key",
+      "hideKey": "Hide key",
+      "saveKey": "Save key",
+      "probe": "Test connection",
+      "probing": "Testing…",
+      "probeOk": "Connected — {count} model(s) available",
+      "probeFailed": "Could not connect",
+      "placeholderDescription": "Not wired up for generation yet — this only stores the key for when it is."
+    },
+    "roles": {
+      "label": "Role assignment",
+      "default": "Choose a model…"
+    },
+    "budget": {
+      "label": "Monthly budget",
+      "monthlyCap": "Monthly cap (USD)",
+      "spentThisMonth": "spent this month",
+      "hardBlock": "Block calls once the cap is reached",
+      "alert": "The monthly AI budget is {threshold}% spent ({spent})."
+    },
+    "allowlist": {
+      "label": "Privacy allow-list",
+      "description": "Only checked providers may be used. Uncheck a provider you never want a call routed to."
+    },
+    "pricing": {
+      "label": "Prices",
+      "revision": "Shipped table revision: {revision}",
+      "restore": "Restore defaults",
+      "model": "Model",
+      "input": "Input (USD/1M)",
+      "output": "Output (USD/1M)"
+    },
+    "usage": {
+      "label": "Usage this month",
+      "total": "Total: {total}",
+      "byPurpose": "Cost by purpose",
+      "byProvider": "Cost by provider",
+      "exportCsv": "Export CSV",
+      "provider": "Provider",
+      "model": "Model",
+      "purpose": "Purpose",
+      "status": "Status",
+      "cost": "Cost"
+    }
   }
 }

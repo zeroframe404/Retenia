@@ -1,5 +1,6 @@
 import type { ContractApi } from './api-types'
 import { aiChannels } from './channels/ai'
+import { aiSettingsChannels } from './channels/ai-settings'
 import { appChannels } from './channels/app'
 import { backupsChannels } from './channels/backups'
 import { jobsChannels } from './channels/jobs'
@@ -11,6 +12,7 @@ import { sessionChannels } from './channels/session'
 import { settingsChannels } from './channels/settings'
 import { statsChannels } from './channels/stats'
 import { aiEvents } from './events/ai'
+import { aiSettingsEvents } from './events/ai-settings'
 import { appEvents } from './events/app'
 import { jobsEvents } from './events/jobs'
 import { settingsEvents } from './events/settings'
@@ -27,6 +29,31 @@ export {
   aiBatchStatusSchema,
   aiBatchSummarySchema,
 } from './channels/ai'
+export type {
+  AiCallStatusDto,
+  PricingOverlayEntryDto,
+  PricingRowDto,
+  ProviderCardDto,
+  ProviderKindDto,
+  ProviderRoleDto,
+  RoleAssignmentDto,
+  UsageCallRowDto,
+  UsageSummaryDto,
+} from './channels/ai-settings'
+export {
+  AI_CALL_STATUS_VALUES,
+  aiCallStatusSchema,
+  PROVIDER_KIND_VALUES,
+  PROVIDER_ROLE_VALUES,
+  pricingOverlayEntrySchema,
+  pricingRowSchema,
+  providerCardSchema,
+  providerKindSchema,
+  providerRoleSchema,
+  roleAssignmentSchema,
+  usageCallRowSchema,
+  usageSummarySchema,
+} from './channels/ai-settings'
 export type { Settings, ThemePreference, UpdateChannel } from './channels/app'
 export { settingsSchema, themePreferenceSchema, updateChannelSchema } from './channels/app'
 export type { BackupSummary } from './channels/backups'
@@ -162,6 +189,7 @@ export type { IpcError, IpcErrorCode, IpcResult } from './envelope'
 export { ipcErrorCodes, ipcErrorSchema, ipcFail, ipcOk } from './envelope'
 export type { AiBatchEvent } from './events/ai'
 export { aiBatchSchema } from './events/ai'
+export { aiSettingsEvents } from './events/ai-settings'
 export type { DeepLink, UpdateStatus } from './events/app'
 export { updateStatusSchema } from './events/app'
 export type { JobProgressEvent } from './events/jobs'
@@ -173,6 +201,7 @@ export { jobProgressSchema } from './events/jobs'
  */
 export const contract = {
   ...aiChannels,
+  ...aiSettingsChannels,
   ...appChannels,
   ...jobsChannels,
   ...libraryChannels,
@@ -188,6 +217,7 @@ export const contract = {
 /** Every push channel main can send to the renderer (`webContents.send`). */
 export const events = {
   ...aiEvents,
+  ...aiSettingsEvents,
   ...appEvents,
   ...jobsEvents,
   ...settingsEvents,

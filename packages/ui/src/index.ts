@@ -5,6 +5,8 @@
 export { MotionConfig } from 'motion/react'
 export type { AppShellPlaceholderProps } from './app-shell-placeholder'
 export { AppShellPlaceholder } from './app-shell-placeholder'
+export type { AiUnavailableNoticeProps } from './components/ai-unavailable-notice'
+export { AiUnavailableNotice } from './components/ai-unavailable-notice'
 export type { BadgeProps } from './components/badge'
 export { Badge, badgeVariants } from './components/badge'
 export type { ButtonProps, IconButtonProps } from './components/button'
@@ -112,6 +114,8 @@ export {
   ProgressValue,
 } from './components/progress'
 export { ScrollArea } from './components/scroll-area'
+export type { SecretInputProps } from './components/secret-input'
+export { SecretInput } from './components/secret-input'
 export type {
   SegmentedControlOption,
   SegmentedControlProps,

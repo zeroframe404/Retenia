@@ -1,0 +1,19 @@
+{
+  "name": "@retenia/evals",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The AI layer's quality evals (docs/spec/06-ai-providers.md §6): promptfoo-driven checks for the smart/cheap roles, run with pnpm evals — real API spend, skipped in CI.",
+  "scripts": {
+    "test": "vitest run",
+    "lint": "biome check ."
+  },
+  "dependencies": {
+    "@retenia/ai": "workspace:*"
+  },
+  "devDependencies": {
+    "@retenia/config": "workspace:*",
+    "promptfoo": "0.122.2",
+    "vitest": "4.1.11"
+  }
+}

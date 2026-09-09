@@ -1,0 +1,102 @@
+{
+  "item-01": {
+    "question": "Cual es la derivada de x^2?",
+    "answer": "2x",
+    "grade": "correct"
+  },
+  "item-02": {
+    "question": "Cual es la derivada de x^2?",
+    "answer": "x",
+    "grade": "incorrect"
+  },
+  "item-03": {
+    "question": "Cual es la capital de Francia?",
+    "answer": "Paris",
+    "grade": "correct"
+  },
+  "item-04": {
+    "question": "Cual es la capital de Francia?",
+    "answer": "Lyon",
+    "grade": "incorrect"
+  },
+  "item-05": {
+    "question": "Que gas respiran las plantas para hacer fotosintesis?",
+    "answer": "Dioxido de carbono",
+    "grade": "correct"
+  },
+  "item-06": {
+    "question": "Que gas respiran las plantas para hacer fotosintesis?",
+    "answer": "Oxigeno",
+    "grade": "incorrect"
+  },
+  "item-07": {
+    "question": "Cuanto es 12 por 12?",
+    "answer": "144",
+    "grade": "correct"
+  },
+  "item-08": {
+    "question": "Cuanto es 12 por 12?",
+    "answer": "132",
+    "grade": "incorrect"
+  },
+  "item-09": {
+    "question": "Quien escribio Cien anos de soledad?",
+    "answer": "Gabriel Garcia Marquez",
+    "grade": "correct"
+  },
+  "item-10": {
+    "question": "Quien escribio Cien anos de soledad?",
+    "answer": "Mario Vargas Llosa",
+    "grade": "incorrect"
+  },
+  "item-11": {
+    "question": "Cual es el organo que bombea la sangre?",
+    "answer": "El corazon",
+    "grade": "correct"
+  },
+  "item-12": {
+    "question": "Cual es el organo que bombea la sangre?",
+    "answer": "El higado",
+    "grade": "incorrect"
+  },
+  "item-13": {
+    "question": "En que anio comenzo la Segunda Guerra Mundial?",
+    "answer": "1939",
+    "grade": "correct"
+  },
+  "item-14": {
+    "question": "En que anio comenzo la Segunda Guerra Mundial?",
+    "answer": "1945",
+    "grade": "incorrect"
+  },
+  "item-15": {
+    "question": "Cual es la formula quimica del agua?",
+    "answer": "H2O",
+    "grade": "correct"
+  },
+  "item-16": {
+    "question": "Cual es la formula quimica del agua?",
+    "answer": "CO2",
+    "grade": "incorrect"
+  },
+  "item-17": {
+    "question": "Cuantos lados tiene un hexagono?",
+    "answer": "Seis",
+    "grade": "correct"
+  },
+  "item-18": {
+    "question": "Cuantos lados tiene un hexagono?",
+    "answer": "Cinco",
+    "grade": "incorrect"
+  },
+  "item-19": {
+    "question": "Cual es el planeta mas cercano al sol?",
+    "answer": "Mercurio",
+    "grade": "correct"
+  },
+  "item-20": {
+    "question": "Cual es el planeta mas cercano al sol?",
+    "answer": "Venus",
+    "grade": "incorrect"
+  }
+}

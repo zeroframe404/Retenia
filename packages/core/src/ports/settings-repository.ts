@@ -83,6 +83,26 @@ export interface SettingsMap {
    */
   'ai.providers.local.preferRoles': string[]
   /**
+   * Per-role model assignment from the settings screen, keyed by role name as a plain
+   * string (same reasoning as `ai.providers.local.preferRoles`: `packages/core` cannot
+   * import `@retenia/ai`'s `ProviderRole`/`RoleMap`). An absent or empty entry for a role
+   * means "keep `DEFAULT_ROLES`", never "unset that role" — a user who never opens the
+   * role editor keeps working exactly as before this setting existed.
+   */
+  'ai.roles': Record<string, RoleAssignmentValue>
+  /**
+   * User-edited overrides on top of the shipped `pricing.json`, keyed by
+   * `${kind}:${modelId}`. Empty means "use the shipped table as-is"; this is what
+   * "Restaurar" clears back to (`docs/spec/08-ux.md` §2: "Precios" editor).
+   */
+  'ai.pricing.overlay': Record<string, PricingOverlayEntryValue>
+  /**
+   * The last budget threshold (0/80/100) the user was already alerted about, and which
+   * month that alert was for — so `onBudgetEvent` fires once per threshold per month
+   * instead of on every call after the cap is crossed.
+   */
+  'ai.budget.lastAlertedThreshold': BudgetAlertLatch
+  /**
    * Which embedding space the library is indexed in — a catalog model id
    * (`embeddinggemma-300m`, `bge-m3`) or `ollama` for a local server
    * (`docs/spec/05-ingestion-rag.md` §3).
@@ -117,6 +137,32 @@ export interface SettingsMap {
   /** Whether repository mutations enqueue `outbox` rows. Off in v1 — there is nothing to
    *  sync to yet (`docs/spec/07-architecture.md` §6). */
   'sync.outboxEnabled': boolean
+}
+
+/** One role's primary + fallback profile/model choices, as stored under `ai.roles`. */
+export interface RoleAssignmentValue {
+  primary: { profileId: string; modelId: string } | null
+  fallbacks: Array<{ profileId: string; modelId: string }>
+}
+
+/** One model's rate overrides, as stored under `ai.pricing.overlay`. `null` fields fall
+ *  back to the shipped table's rate for that field — only the edited ones are set. */
+export interface PricingOverlayEntryValue {
+  input: number | null
+  output: number | null
+  cacheRead: number | null
+  cacheWrite5m: number | null
+  cacheWrite1h: number | null
+  batchDiscount: number | null
+  /** ISO day (`YYYY-MM-DD`) the override was entered. */
+  asOf: string
+}
+
+/** `threshold: 0` means "no alert issued yet this month". */
+export interface BudgetAlertLatch {
+  /** `YYYY-MM`, or `''` before the first alert ever fires. */
+  period: string
+  threshold: 0 | 80 | 100
 }
 
 export type SettingsKey = keyof SettingsMap
@@ -214,6 +260,90 @@ function isStudyDateKey(key: string): boolean {
   return Number.isFinite(at) && new Date(at).toISOString().slice(0, 10) === key
 }
 
+function isProfileModelPair(value: unknown): value is { profileId: string; modelId: string } {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as Record<string, unknown>).profileId === 'string' &&
+    typeof (value as Record<string, unknown>).modelId === 'string'
+  )
+}
+
+function isRoleAssignmentValue(value: unknown): value is RoleAssignmentValue {
+  if (typeof value !== 'object' || value === null) return false
+  const { primary, fallbacks } = value as Record<string, unknown>
+  const primaryOk = primary === null || isProfileModelPair(primary)
+  const fallbacksOk = Array.isArray(fallbacks) && fallbacks.every(isProfileModelPair)
+  return primaryOk && fallbacksOk
+}
+
+/** `key → RoleAssignmentValue`, dropping any entry that doesn't parse rather than
+ *  rejecting the whole map — one corrupted role should not reset every role's assignment. */
+const roleAssignmentsSetting: SettingSpec<Record<string, RoleAssignmentValue>> = {
+  defaultValue: Object.freeze({}),
+  decode: (raw) => {
+    if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return undefined
+    const kept: Record<string, RoleAssignmentValue> = {}
+    for (const [role, value] of Object.entries(raw)) {
+      if (isRoleAssignmentValue(value)) kept[role] = value
+    }
+    return kept
+  },
+  encode: (value) => value as unknown as JsonValue,
+}
+
+function isNullableNumber(value: unknown): value is number | null {
+  return value === null || (typeof value === 'number' && Number.isFinite(value))
+}
+
+function isPricingOverlayEntryValue(value: unknown): value is PricingOverlayEntryValue {
+  if (typeof value !== 'object' || value === null) return false
+  const entry = value as Record<string, unknown>
+  return (
+    isNullableNumber(entry.input) &&
+    isNullableNumber(entry.output) &&
+    isNullableNumber(entry.cacheRead) &&
+    isNullableNumber(entry.cacheWrite5m) &&
+    isNullableNumber(entry.cacheWrite1h) &&
+    isNullableNumber(entry.batchDiscount) &&
+    typeof entry.asOf === 'string'
+  )
+}
+
+/** `modelKey → PricingOverlayEntryValue`. Same drop-bad-entries reasoning as
+ *  `roleAssignmentsSetting`. */
+const pricingOverlaySetting: SettingSpec<Record<string, PricingOverlayEntryValue>> = {
+  defaultValue: Object.freeze({}),
+  decode: (raw) => {
+    if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return undefined
+    const kept: Record<string, PricingOverlayEntryValue> = {}
+    for (const [modelKey, value] of Object.entries(raw)) {
+      if (isPricingOverlayEntryValue(value)) kept[modelKey] = value
+    }
+    return kept
+  },
+  encode: (value) => value as unknown as JsonValue,
+}
+
+const BUDGET_THRESHOLDS = [0, 80, 100] as const
+
+function isBudgetAlertLatch(value: unknown): value is BudgetAlertLatch {
+  if (typeof value !== 'object' || value === null) return false
+  const { period, threshold } = value as Record<string, unknown>
+  return (
+    typeof period === 'string' &&
+    (period === '' || /^\d{4}-\d{2}$/.test(period)) &&
+    typeof threshold === 'number' &&
+    (BUDGET_THRESHOLDS as readonly number[]).includes(threshold)
+  )
+}
+
+const budgetAlertLatchSetting: SettingSpec<BudgetAlertLatch> = {
+  defaultValue: Object.freeze({ period: '', threshold: 0 }),
+  decode: (raw) => (isBudgetAlertLatch(raw) ? raw : undefined),
+  encode: (value) => ({ ...value }),
+}
+
 const easyDaysSetting: SettingSpec<EasyDays> = {
   defaultValue: Object.freeze({}),
   // The weekday keys are numbers in `EasyDays` and strings in JSON; the cast is that gap,
@@ -256,6 +386,9 @@ export const SETTINGS: { readonly [K in SettingsKey]: SettingSpec<SettingsMap[K]
   'ai.providers.local.baseUrl': stringSetting('http://127.0.0.1:11434'),
   'ai.providers.local.model': stringSetting(''),
   'ai.providers.local.preferRoles': stringArray([]),
+  'ai.roles': roleAssignmentsSetting,
+  'ai.pricing.overlay': pricingOverlaySetting,
+  'ai.budget.lastAlertedThreshold': budgetAlertLatchSetting,
   // The catalog itself lives in `packages/ingest` (Node-only), which `core` must not import,
   // so these are plain strings validated at the point of use — an unknown id degrades to "no
   // embedding provider is configured", which is exactly how a missing model already behaves.

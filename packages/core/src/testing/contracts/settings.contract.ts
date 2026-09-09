@@ -36,6 +36,81 @@ export function settingsContract(harness: RepositoryContractHarness): void {
       ])
     })
 
+    it('falls back to empty defaults for the AI settings-screen keys', async () => {
+      expect(await ctx.repos.settings.get('ai.roles')).toEqual({})
+      expect(await ctx.repos.settings.get('ai.pricing.overlay')).toEqual({})
+      expect(await ctx.repos.settings.get('ai.budget.lastAlertedThreshold')).toEqual({
+        period: '',
+        threshold: 0,
+      })
+    })
+
+    it('round-trips a role assignment, dropping entries that fail to parse', async () => {
+      await ctx.repos.settings.set('ai.roles', {
+        smart: {
+          primary: { profileId: 'anthropic', modelId: 'claude-sonnet-5' },
+          fallbacks: [{ profileId: 'google', modelId: 'gemini-3.7-flash' }],
+        },
+      })
+      expect(await ctx.repos.settings.get('ai.roles')).toEqual({
+        smart: {
+          primary: { profileId: 'anthropic', modelId: 'claude-sonnet-5' },
+          fallbacks: [{ profileId: 'google', modelId: 'gemini-3.7-flash' }],
+        },
+      })
+
+      await ctx.repos.settings.setRaw('ai.roles', { cheap: { primary: 'not-an-object' } })
+      expect(await ctx.repos.settings.get('ai.roles')).toEqual({})
+    })
+
+    it('round-trips a pricing overlay entry, dropping entries that fail to parse', async () => {
+      await ctx.repos.settings.set('ai.pricing.overlay', {
+        'anthropic:claude-sonnet-5': {
+          input: 3,
+          output: 12,
+          cacheRead: null,
+          cacheWrite5m: null,
+          cacheWrite1h: null,
+          batchDiscount: null,
+          asOf: '2026-09-08',
+        },
+      })
+      expect(await ctx.repos.settings.get('ai.pricing.overlay')).toEqual({
+        'anthropic:claude-sonnet-5': {
+          input: 3,
+          output: 12,
+          cacheRead: null,
+          cacheWrite5m: null,
+          cacheWrite1h: null,
+          batchDiscount: null,
+          asOf: '2026-09-08',
+        },
+      })
+
+      await ctx.repos.settings.setRaw('ai.pricing.overlay', { bad: { input: 'nope' } })
+      expect(await ctx.repos.settings.get('ai.pricing.overlay')).toEqual({})
+    })
+
+    it('rejects an out-of-range budget-alert threshold', async () => {
+      await ctx.repos.settings.set('ai.budget.lastAlertedThreshold', {
+        period: '2026-09',
+        threshold: 80,
+      })
+      expect(await ctx.repos.settings.get('ai.budget.lastAlertedThreshold')).toEqual({
+        period: '2026-09',
+        threshold: 80,
+      })
+
+      await ctx.repos.settings.setRaw('ai.budget.lastAlertedThreshold', {
+        period: '2026-09',
+        threshold: 50,
+      })
+      expect(await ctx.repos.settings.get('ai.budget.lastAlertedThreshold')).toEqual({
+        period: '',
+        threshold: 0,
+      })
+    })
+
     it('updates the same live row rather than inserting a second one', async () => {
       await ctx.repos.settings.set('review.dayStartHour', 5)
       await ctx.repos.settings.set('review.dayStartHour', 7)

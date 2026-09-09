@@ -105,7 +105,13 @@ export type {
 export { GLOBAL_SCHEDULER_SCOPE } from './scheduler-profile-repository'
 export type { SecretName, SecretStore } from './secret-store'
 export { SECRET_NAMES } from './secret-store'
-export type { SettingsMap, SettingsRepository } from './settings-repository'
+export type {
+  BudgetAlertLatch,
+  PricingOverlayEntryValue,
+  RoleAssignmentValue,
+  SettingsMap,
+  SettingsRepository,
+} from './settings-repository'
 export { SETTINGS, SETTINGS_DEFAULTS, type SettingsKey } from './settings-repository'
 export type { SourceRepository } from './source-repository'
 export type {

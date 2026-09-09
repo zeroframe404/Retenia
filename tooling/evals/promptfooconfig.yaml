@@ -1,0 +1,27 @@
+description: >
+  Retenia's quality evals (docs/spec/06-ai-providers.md §6): theory-quality, grading
+  agreement against a hand-labelled set, and tone, for the "smart" and "cheap" roles. Run
+  with `pnpm evals` from the repo root — real API spend, so it is not part of CI.
+
+providers:
+  - id: file://./providers/role-provider.mjs
+    label: smart
+    config:
+      role: smart
+  - id: file://./providers/role-provider.mjs
+    label: cheap
+    config:
+      role: cheap
+
+tests:
+  - file://./datasets/theory-quality.es.json
+  - file://./datasets/grading-agreement.es.json
+  - file://./datasets/tone.es.json
+
+defaultTest:
+  options:
+    # No cache: this run's own spend-cap ledger has to see every dispatched call, and a
+    # cached hit from a prior run would silently under-report the total.
+    provider:
+      config:
+        temperature: 0

@@ -82,5 +82,57 @@
       "5": "Vie",
       "6": "Sáb"
     }
+  },
+  "ai": {
+    "title": "Inteligencia artificial",
+    "unavailable": "Todavía no hay ningún proveedor de IA configurado. Agregá una clave abajo para usar las funciones de IA.",
+    "providers": {
+      "configured": "Configurado",
+      "notConfigured": "Sin configurar",
+      "apiKeyLabel": "Clave de API",
+      "showKey": "Mostrar clave",
+      "hideKey": "Ocultar clave",
+      "saveKey": "Guardar clave",
+      "probe": "Probar conexión",
+      "probing": "Probando…",
+      "probeOk": "Conectado — {count} modelo(s) disponible(s)",
+      "probeFailed": "No se pudo conectar",
+      "placeholderDescription": "Todavía no está conectado a la generación — esto solo guarda la clave para cuando lo esté."
+    },
+    "roles": {
+      "label": "Asignación de roles",
+      "default": "Elegir un modelo…"
+    },
+    "budget": {
+      "label": "Presupuesto mensual",
+      "monthlyCap": "Tope mensual (USD)",
+      "spentThisMonth": "gastado este mes",
+      "hardBlock": "Bloquear llamadas al llegar al tope",
+      "alert": "El presupuesto mensual de IA lleva el {threshold}% gastado ({spent})."
+    },
+    "allowlist": {
+      "label": "Lista de privacidad",
+      "description": "Solo los proveedores marcados pueden usarse. Desmarcá uno al que nunca quieras enviar una llamada."
+    },
+    "pricing": {
+      "label": "Precios",
+      "revision": "Revisión de la tabla de precios: {revision}",
+      "restore": "Restaurar",
+      "model": "Modelo",
+      "input": "Entrada (USD/1M)",
+      "output": "Salida (USD/1M)"
+    },
+    "usage": {
+      "label": "Uso este mes",
+      "total": "Total: {total}",
+      "byPurpose": "Costo por propósito",
+      "byProvider": "Costo por proveedor",
+      "exportCsv": "Exportar CSV",
+      "provider": "Proveedor",
+      "model": "Modelo",
+      "purpose": "Propósito",
+      "status": "Estado",
+      "cost": "Costo"
+    }
   }
 }

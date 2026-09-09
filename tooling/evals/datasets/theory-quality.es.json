@@ -1,0 +1,222 @@
+[
+  {
+    "vars": {
+      "prompt": "Explica en espanol, en no mas de 120 palabras, que es la practica de recuperacion espaciada y por que mejora el aprendizaje a largo plazo."
+    },
+    "assert": [
+      {
+        "type": "llm-rubric",
+        "value": "La respuesta esta en espanol, es correcta pedagogicamente, no excede 150 palabras y explica el porque del efecto (no solo lo nombra)."
+      }
+    ]
+  },
+  {
+    "vars": {
+      "prompt": "Explica en espanol, en no mas de 120 palabras, que es la curva del olvido de Ebbinghaus y por que mejora el aprendizaje a largo plazo."
+    },
+    "assert": [
+      {
+        "type": "llm-rubric",
+        "value": "La respuesta esta en espanol, es correcta pedagogicamente, no excede 150 palabras y explica el porque del efecto (no solo lo nombra)."
+      }
+    ]
+  },
+  {
+    "vars": {
+      "prompt": "Explica en espanol, en no mas de 120 palabras, que es el efecto de generacion y por que mejora el aprendizaje a largo plazo."
+    },
+    "assert": [
+      {
+        "type": "llm-rubric",
+        "value": "La respuesta esta en espanol, es correcta pedagogicamente, no excede 150 palabras y explica el porque del efecto (no solo lo nombra)."
+      }
+    ]
+  },
+  {
+    "vars": {
+      "prompt": "Explica en espanol, en no mas de 120 palabras, que es la codificacion elaborativa y por que mejora el aprendizaje a largo plazo."
+    },
+    "assert": [
+      {
+        "type": "llm-rubric",
+        "value": "La respuesta esta en espanol, es correcta pedagogicamente, no excede 150 palabras y explica el porque del efecto (no solo lo nombra)."
+      }
+    ]
+  },
+  {
+    "vars": {
+      "prompt": "Explica en espanol, en no mas de 120 palabras, que es el efecto de testing y por que mejora el aprendizaje a largo plazo."
+    },
+    "assert": [
+      {
+        "type": "llm-rubric",
+        "value": "La respuesta esta en espanol, es correcta pedagogicamente, no excede 150 palabras y explica el porque del efecto (no solo lo nombra)."
+      }
+    ]
+  },
+  {
+    "vars": {
+      "prompt": "Explica en espanol, en no mas de 120 palabras, que es la carga cognitiva en el aprendizaje y por que mejora el aprendizaje a largo plazo."
+    },
+    "assert": [
+      {
+        "type": "llm-rubric",
+        "value": "La respuesta esta en espanol, es correcta pedagogicamente, no excede 150 palabras y explica el porque del efecto (no solo lo nombra)."
+      }
+    ]
+  },
+  {
+    "vars": {
+      "prompt": "Explica en espanol, en no mas de 120 palabras, que es el aprendizaje intercalado y por que mejora el aprendizaje a largo plazo."
+    },
+    "assert": [
+      {
+        "type": "llm-rubric",
+        "value": "La respuesta esta en espanol, es correcta pedagogicamente, no excede 150 palabras y explica el porque del efecto (no solo lo nombra)."
+      }
+    ]
+  },
+  {
+    "vars": {
+      "prompt": "Explica en espanol, en no mas de 120 palabras, que es la metacognicion y por que mejora el aprendizaje a largo plazo."
+    },
+    "assert": [
+      {
+        "type": "llm-rubric",
+        "value": "La respuesta esta en espanol, es correcta pedagogicamente, no excede 150 palabras y explica el porque del efecto (no solo lo nombra)."
+      }
+    ]
+  },
+  {
+    "vars": {
+      "prompt": "Explica en espanol, en no mas de 120 palabras, que es el efecto de dispersion (spacing effect) y por que mejora el aprendizaje a largo plazo."
+    },
+    "assert": [
+      {
+        "type": "llm-rubric",
+        "value": "La respuesta esta en espanol, es correcta pedagogicamente, no excede 150 palabras y explica el porque del efecto (no solo lo nombra)."
+      }
+    ]
+  },
+  {
+    "vars": {
+      "prompt": "Explica en espanol, en no mas de 120 palabras, que es la consolidacion de la memoria durante el sueno y por que mejora el aprendizaje a largo plazo."
+    },
+    "assert": [
+      {
+        "type": "llm-rubric",
+        "value": "La respuesta esta en espanol, es correcta pedagogicamente, no excede 150 palabras y explica el porque del efecto (no solo lo nombra)."
+      }
+    ]
+  },
+  {
+    "vars": {
+      "prompt": "Explica en espanol, en no mas de 120 palabras, que es el efecto de contexto en la memoria y por que mejora el aprendizaje a largo plazo."
+    },
+    "assert": [
+      {
+        "type": "llm-rubric",
+        "value": "La respuesta esta en espanol, es correcta pedagogicamente, no excede 150 palabras y explica el porque del efecto (no solo lo nombra)."
+      }
+    ]
+  },
+  {
+    "vars": {
+      "prompt": "Explica en espanol, en no mas de 120 palabras, que es el sobreaprendizaje y por que mejora el aprendizaje a largo plazo."
+    },
+    "assert": [
+      {
+        "type": "llm-rubric",
+        "value": "La respuesta esta en espanol, es correcta pedagogicamente, no excede 150 palabras y explica el porque del efecto (no solo lo nombra)."
+      }
+    ]
+  },
+  {
+    "vars": {
+      "prompt": "Explica en espanol, en no mas de 120 palabras, que es la fluidez ilusoria y por que mejora el aprendizaje a largo plazo."
+    },
+    "assert": [
+      {
+        "type": "llm-rubric",
+        "value": "La respuesta esta en espanol, es correcta pedagogicamente, no excede 150 palabras y explica el porque del efecto (no solo lo nombra)."
+      }
+    ]
+  },
+  {
+    "vars": {
+      "prompt": "Explica en espanol, en no mas de 120 palabras, que es la practica deliberada y por que mejora el aprendizaje a largo plazo."
+    },
+    "assert": [
+      {
+        "type": "llm-rubric",
+        "value": "La respuesta esta en espanol, es correcta pedagogicamente, no excede 150 palabras y explica el porque del efecto (no solo lo nombra)."
+      }
+    ]
+  },
+  {
+    "vars": {
+      "prompt": "Explica en espanol, en no mas de 120 palabras, que es los efectos de primacia y recencia y por que mejora el aprendizaje a largo plazo."
+    },
+    "assert": [
+      {
+        "type": "llm-rubric",
+        "value": "La respuesta esta en espanol, es correcta pedagogicamente, no excede 150 palabras y explica el porque del efecto (no solo lo nombra)."
+      }
+    ]
+  },
+  {
+    "vars": {
+      "prompt": "Explica en espanol, en no mas de 120 palabras, que es la retroalimentacion inmediata y por que mejora el aprendizaje a largo plazo."
+    },
+    "assert": [
+      {
+        "type": "llm-rubric",
+        "value": "La respuesta esta en espanol, es correcta pedagogicamente, no excede 150 palabras y explica el porque del efecto (no solo lo nombra)."
+      }
+    ]
+  },
+  {
+    "vars": {
+      "prompt": "Explica en espanol, en no mas de 120 palabras, que es el aprendizaje multimodal y por que mejora el aprendizaje a largo plazo."
+    },
+    "assert": [
+      {
+        "type": "llm-rubric",
+        "value": "La respuesta esta en espanol, es correcta pedagogicamente, no excede 150 palabras y explica el porque del efecto (no solo lo nombra)."
+      }
+    ]
+  },
+  {
+    "vars": {
+      "prompt": "Explica en espanol, en no mas de 120 palabras, que es la motivacion intrinseca en el estudio y por que mejora el aprendizaje a largo plazo."
+    },
+    "assert": [
+      {
+        "type": "llm-rubric",
+        "value": "La respuesta esta en espanol, es correcta pedagogicamente, no excede 150 palabras y explica el porque del efecto (no solo lo nombra)."
+      }
+    ]
+  },
+  {
+    "vars": {
+      "prompt": "Explica en espanol, en no mas de 120 palabras, que es la interferencia proactiva y retroactiva y por que mejora el aprendizaje a largo plazo."
+    },
+    "assert": [
+      {
+        "type": "llm-rubric",
+        "value": "La respuesta esta en espanol, es correcta pedagogicamente, no excede 150 palabras y explica el porque del efecto (no solo lo nombra)."
+      }
+    ]
+  },
+  {
+    "vars": {
+      "prompt": "Explica en espanol, en no mas de 120 palabras, que es el algoritmo FSRS de repeticion espaciada y por que mejora el aprendizaje a largo plazo."
+    },
+    "assert": [
+      {
+        "type": "llm-rubric",
+        "value": "La respuesta esta en espanol, es correcta pedagogicamente, no excede 150 palabras y explica el porque del efecto (no solo lo nombra)."
+      }
+    ]
+  }
+]
