@@ -64,9 +64,12 @@ const EXECUTABLE_ELEMENTS = ['script', 'iframe', 'object', 'embed'] as const
  * Matches an opening tag through its closing one, and also an unclosed opener.
  *
  * Case-insensitive, tolerant of attributes and of whitespace inside the tag, because the
- * point is to remove the construct rather than to parse HTML: anything left behind that
- * still *looks* like one of these tags is escaped below, so a partial match degrades to
- * visible text rather than to live markup.
+ * point is to remove the construct rather than to parse HTML. A single pass over this
+ * pattern can be defeated by a nested opener — stripping the well-formed inner
+ * `<script>a</script>` out of `<scri<script>a</script>pt src=…>` leaves the outer
+ * fragments `<scri` and `pt src=…>` to concatenate into a *new*, live `<script src=…>` —
+ * which is exactly why `sanitizeString` below re-runs this pattern (and the other two)
+ * until a pass produces no further change, rather than once.
  */
 const ELEMENTS = EXECUTABLE_ELEMENTS.join('|')
 const EXECUTABLE_PATTERN = new RegExp(
@@ -81,11 +84,26 @@ const DANGEROUS_URL = /\b(?:javascript|vbscript)\s*:|data\s*:\s*text\/html/gi
 /** `onclick=`, `onerror=` … an attribute that survived its element being stripped. */
 const EVENT_HANDLER_ATTRIBUTE = /\son[a-z]{3,20}\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi
 
+/**
+ * Every pass only removes or shortens text (`DANGEROUS_URL`'s replacement, `blocked:`, is
+ * shorter than any string the pattern matches), so the string's length is a strictly
+ * decreasing — or, once clean, constant — quantity across iterations, and this many passes
+ * is far more than any realistic nesting depth needs to reach a fixed point. It is a
+ * safety ceiling against a pathological input looping forever, not a number expected to be
+ * hit in practice.
+ */
+const MAX_SANITIZE_PASSES = 50
+
 export function sanitizeString(value: string, limits: SanitizeLimits): string {
-  const stripped = value
-    .replace(EXECUTABLE_PATTERN, '')
-    .replace(EVENT_HANDLER_ATTRIBUTE, '')
-    .replace(DANGEROUS_URL, 'blocked:')
+  let stripped = value
+  for (let pass = 0; pass < MAX_SANITIZE_PASSES; pass += 1) {
+    const next = stripped
+      .replace(EXECUTABLE_PATTERN, '')
+      .replace(EVENT_HANDLER_ATTRIBUTE, '')
+      .replace(DANGEROUS_URL, 'blocked:')
+    if (next === stripped) break
+    stripped = next
+  }
   return stripped.length <= limits.maxStringChars
     ? stripped
     : `${stripped.slice(0, limits.maxStringChars - 1)}…`
