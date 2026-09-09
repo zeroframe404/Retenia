@@ -3,6 +3,8 @@ import type {
   Card,
   Chunk,
   EmbeddingProvider,
+  Extraction,
+  GenerationRun,
   IdGenerator,
   KnowledgeItem,
   LearningPath,
@@ -49,6 +51,8 @@ export interface ContractSeeds {
   module(overrides?: Partial<NewEntity<Module>>): Promise<Module>
   lesson(overrides?: Partial<NewEntity<Lesson>>): Promise<Lesson>
   activity(overrides?: Partial<NewEntity<Activity>>): Promise<Activity>
+  generationRun(overrides?: Partial<NewEntity<GenerationRun>>): Promise<GenerationRun>
+  extraction(overrides?: Partial<NewEntity<Extraction>>): Promise<Extraction>
 }
 
 /** What an adapter can and cannot do, so a suite skips rather than fails on a capability

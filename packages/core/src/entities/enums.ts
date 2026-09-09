@@ -101,6 +101,26 @@ export const ACTIVITY_STATUSES = ['ready', 'pending_media', 'needs_review', 'rej
 export type ActivityStatus = (typeof ACTIVITY_STATUSES)[number]
 
 /**
+ * Where a "Generate with AI" run stands (`docs/spec/04-path-generation.md` §3, sub-phase
+ * 8.1). The status is the stage. `blocked_budget` is a pause, not an end — the run's own
+ * cost cap (or the monthly one) stopped it before the next paid call — and it resumes on
+ * "continue anyway". Terminal: `completed`, `failed`, `cancelled`.
+ */
+export const GENERATION_RUN_STATUSES = [
+  'queued',
+  'extracting',
+  'consolidating',
+  'synthesizing',
+  'sequencing',
+  'persisting',
+  'completed',
+  'failed',
+  'cancelled',
+  'blocked_budget',
+] as const
+export type GenerationRunStatus = (typeof GENERATION_RUN_STATUSES)[number]
+
+/**
  * How much help an activity type gives the learner — `docs/spec/03-activities.md` §5's
  * "progression per skill": *"1st exposure → recognition (`mcq` / `true_false` /
  * `cloze_dropdown`); medium stability → assisted production (`cloze_wordbank`,

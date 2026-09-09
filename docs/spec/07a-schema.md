@@ -56,6 +56,7 @@ Packaging note (Windows first): the `.node` binaries of both drivers and `sqlite
 | 11 | `0011_chunks_fts_trigram` | `c38da20a7c14` | `chunks_fts_trigram` (FTS5, `trigram remove_diacritics 1`) + sync triggers: an infix index alongside `chunks_fts`, so a search term that is a substring of a word — never a prefix `chunks_fts`'s `unicode61` tokenizer would produce on its own — still finds it (`05-ingestion-rag.md` §4). |
 | 12 | `0012_ai_results` | `7f3cd5043ce2` |  |
 | 13 | `0013_ai_batches` | `d9871534bf66` |  |
+| 14 | `0014_generation_runs_and_extractions` | `517d10f33f7d` | `generation_runs` (the "Generate with AI" run ledger: config and its hash, status = stage, progress, estimate, cost and token totals, manifest, warnings) and `extractions` (the validated P1 output per chunk, live-unique on `custom_id`, so a re-run over the same book makes no P1 call). The draft itself is an unfrozen `path_versions` row (`04-path-generation.md` §3 stages 3–5, §7). |
 
 ## Tables
 
@@ -75,6 +76,8 @@ Packaging note (Windows first): the `.node` binaries of both drivers and `sqlite
 | `modules` | Learning paths | 14 | 1 | 1 | 8 |
 | `lessons` | Learning paths | 24 | 2 | 3 | 16 |
 | `activities` | Learning paths | 20 | 1 | 3 | 14 |
+| `generation_runs` | Path generation | 22 | 2 | 2 | 14 |
+| `extractions` | Path generation | 22 | 3 | 4 | 11 |
 | `exams` | Exams and item bank | 17 | 1 | 2 | 12 |
 | `item_bank` | Exams and item bank | 14 | 3 | 3 | 6 |
 | `exam_items` | Exams and item bank | 14 | 3 | 2 | 7 |
@@ -588,6 +591,107 @@ Checks:
 - `activities_id_uuidv7`: `length(id) = 36 AND substr(id, 15, 1) = '7'`
 - `activities_version_positive`: `version >= 1`
 - `activities_updated_after_created`: `updated_at >= created_at`
+
+## Path generation
+
+The "Generate with AI" run ledger and the validated P1 extraction per chunk (`src/schema/generation.ts`). The draft a run produces is an unfrozen `path_versions` row, not a table of its own.
+
+### `generation_runs`
+
+| Column | Type | Null | Default | Key |
+|---|---|---|---|---|
+| `id` | text | no |  | PK |
+| `path_id` | text | no |  | → `paths.id` |
+| `path_version_id` | text | yes |  | → `path_versions.id` |
+| `status` | text | no | `'queued'` |  |
+| `config` | text | no |  |  |
+| `config_hash` | text | no |  |  |
+| `progress` | text | yes |  |  |
+| `estimate` | text | yes |  |  |
+| `cost_usd` | real | no | `0` |  |
+| `input_tokens` | integer | no | `0` |  |
+| `output_tokens` | integer | no | `0` |  |
+| `cached_tokens` | integer | no | `0` |  |
+| `manifest` | text | yes |  |  |
+| `warnings` | text | no | `'[]'` |  |
+| `error` | text | yes |  |  |
+| `started_at` | integer | yes |  |  |
+| `finished_at` | integer | yes |  |  |
+| `created_at` | integer | no |  |  |
+| `updated_at` | integer | no |  |  |
+| `deleted_at` | integer | yes |  |  |
+| `device_id` | text | no |  |  |
+| `version` | integer | no | `1` |  |
+
+Indexes:
+
+- `generation_runs_status` (`status`, `created_at`)
+- `generation_runs_path` (`path_id`, `created_at`)
+
+Checks:
+
+- `generation_runs_status`: `status IN ('queued', 'extracting', 'consolidating', 'synthesizing', 'sequencing', 'persisting', 'completed', 'failed', 'cancelled', 'blocked_budget')`
+- `generation_runs_config_json`: `json_valid(config) AND json_type(config) = 'object'`
+- `generation_runs_config_hash_sha256`: `length(config_hash) = 64`
+- `generation_runs_progress_json`: `progress IS NULL OR (json_valid(progress) AND json_type(progress) = 'object')`
+- `generation_runs_estimate_json`: `estimate IS NULL OR (json_valid(estimate) AND json_type(estimate) = 'object')`
+- `generation_runs_manifest_json`: `manifest IS NULL OR (json_valid(manifest) AND json_type(manifest) = 'object')`
+- `generation_runs_warnings_json`: `json_valid(warnings) AND json_type(warnings) = 'array'`
+- `generation_runs_cost_nonnegative`: `cost_usd >= 0`
+- `generation_runs_input_tokens_nonnegative`: `input_tokens >= 0`
+- `generation_runs_output_tokens_nonnegative`: `output_tokens >= 0`
+- `generation_runs_cached_tokens_nonnegative`: `cached_tokens >= 0`
+- `generation_runs_id_uuidv7`: `length(id) = 36 AND substr(id, 15, 1) = '7'`
+- `generation_runs_version_positive`: `version >= 1`
+- `generation_runs_updated_after_created`: `updated_at >= created_at`
+
+### `extractions`
+
+| Column | Type | Null | Default | Key |
+|---|---|---|---|---|
+| `id` | text | no |  | PK |
+| `run_id` | text | no |  | → `generation_runs.id` |
+| `source_id` | text | no |  | → `sources.id` |
+| `chunk_id` | text | no |  | → `chunks.id` |
+| `chunk_key` | text | yes |  |  |
+| `chunk_hash` | text | no |  |  |
+| `custom_id` | text | no |  |  |
+| `prompt_version` | text | no |  |  |
+| `schema_version` | text | no |  |  |
+| `provider` | text | yes |  |  |
+| `model` | text | no |  |  |
+| `output` | text | no |  |  |
+| `concept_count` | integer | no | `0` |  |
+| `input_tokens` | integer | no | `0` |  |
+| `output_tokens` | integer | no | `0` |  |
+| `cached_tokens` | integer | no | `0` |  |
+| `cost_usd` | real | no | `0` |  |
+| `created_at` | integer | no |  |  |
+| `updated_at` | integer | no |  |  |
+| `deleted_at` | integer | yes |  |  |
+| `device_id` | text | no |  |  |
+| `version` | integer | no | `1` |  |
+
+Indexes:
+
+- `extractions_run` (`run_id`)
+- `extractions_source` (`source_id`)
+- `extractions_chunk` (`chunk_id`)
+- `extractions_custom_id_live` UNIQUE (`custom_id`) WHERE `deleted_at IS NULL`
+
+Checks:
+
+- `extractions_custom_id_nonempty`: `length(custom_id) > 0`
+- `extractions_chunk_hash_sha256`: `length(chunk_hash) = 64`
+- `extractions_output_json`: `json_valid(output) AND json_type(output) = 'object'`
+- `extractions_concept_count_nonnegative`: `concept_count >= 0`
+- `extractions_input_tokens_nonnegative`: `input_tokens >= 0`
+- `extractions_output_tokens_nonnegative`: `output_tokens >= 0`
+- `extractions_cached_tokens_nonnegative`: `cached_tokens >= 0`
+- `extractions_cost_nonnegative`: `cost_usd >= 0`
+- `extractions_id_uuidv7`: `length(id) = 36 AND substr(id, 15, 1) = '7'`
+- `extractions_version_positive`: `version >= 1`
+- `extractions_updated_after_created`: `updated_at >= created_at`
 
 ## Exams and item bank
 

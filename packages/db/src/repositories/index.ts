@@ -20,7 +20,9 @@ import { createCardRepository } from './cards'
 import { createChunkRepository } from './chunks'
 import { auditValues, type RepositoryContext } from './context'
 import { createExamRepository, createItemBankRepository } from './exams'
+import { createExtractionRepository } from './extractions'
 import { createGamificationRepository } from './gamification'
+import { createGenerationRunRepository } from './generation-runs'
 import { createImportanceLevelRepository } from './importance-levels'
 import { createJobRepository } from './jobs'
 import { createKnowledgeItemRepository } from './knowledge-items'
@@ -106,7 +108,9 @@ export function createRepositories(opened: OpenedDatabase, options: RepositoryOp
     cards: createCardRepository(ctx),
     chunks: createChunkRepository(ctx),
     exams: createExamRepository(ctx),
+    extractions: createExtractionRepository(ctx),
     gamification: createGamificationRepository(ctx),
+    generationRuns: createGenerationRunRepository(ctx),
     importanceLevels: createImportanceLevelRepository(ctx),
     itemBank: createItemBankRepository(ctx),
     jobs: createJobRepository(ctx),

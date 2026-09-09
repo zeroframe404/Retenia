@@ -179,10 +179,12 @@ export {
   SchemaNotRepresentableError,
   sanitizeOutput,
   sanitizeString,
+  structuredRequestFor,
   tolerantArray,
   toStrictJsonSchema,
   USER_CONTENT_INSTRUCTIONS,
   USER_CONTENT_TAG,
+  validateStructuredCompletion,
   wrapUserContent,
 } from './structured'
 export type {

@@ -4,6 +4,8 @@ import { auditContract } from './audit.contract'
 import { blobsContract } from './blobs.contract'
 import { cardsContract } from './cards.contract'
 import { chunksContract } from './chunks.contract'
+import { extractionsContract } from './extractions.contract'
+import { generationRunsContract } from './generation-runs.contract'
 import { importanceLevelsContract } from './importance-levels.contract'
 import { jobsContract } from './jobs.contract'
 import { outboxContract } from './outbox.contract'
@@ -36,6 +38,8 @@ export function runRepositoryContracts(harness: RepositoryContractHarness): void
     settingsContract(harness)
     jobsContract(harness)
     blobsContract(harness)
+    generationRunsContract(harness)
+    extractionsContract(harness)
   })
 }
 
@@ -43,6 +47,8 @@ export { auditContract } from './audit.contract'
 export { blobsContract } from './blobs.contract'
 export { cardsContract } from './cards.contract'
 export { chunksContract } from './chunks.contract'
+export { extractionsContract } from './extractions.contract'
+export { generationRunsContract } from './generation-runs.contract'
 export { importanceLevelsContract } from './importance-levels.contract'
 export { jobsContract } from './jobs.contract'
 export { outboxContract } from './outbox.contract'

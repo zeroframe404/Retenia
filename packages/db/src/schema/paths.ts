@@ -125,8 +125,10 @@ export const paths = sqliteTable(
   ],
 )
 
-/** One frozen `PathSpec` (docs/spec/04-path-generation.md §7): ids and order never change
- * once `frozen_at` is set; a regeneration is a new row with `number + 1`. */
+/** One `PathSpec` (docs/spec/04-path-generation.md §7). A row whose `frozen_at` is still
+ * NULL is the editable draft a generation run produced (sub-phase 8.1) — `spec` holds the
+ * `PathDraft.v1` — and the preview of 8.2 edits it in place; once `frozen_at` is set, ids and
+ * order never change and a regeneration is a new row with `number + 1`. */
 export const pathVersions = sqliteTable(
   'path_versions',
   {

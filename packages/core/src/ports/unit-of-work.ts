@@ -8,7 +8,9 @@ import type { BlobRepository } from './blob-repository'
 import type { CardRepository } from './card-repository'
 import type { ChunkRepository } from './chunk-repository'
 import type { ExamRepository } from './exam-repository'
+import type { ExtractionRepository } from './extraction-repository'
 import type { GamificationRepository } from './gamification-repository'
+import type { GenerationRunRepository } from './generation-run-repository'
 import type { ImportanceLevelRepository } from './importance-level-repository'
 import type { ItemBankRepository } from './item-bank-repository'
 import type { JobRepository } from './job-repository'
@@ -37,7 +39,11 @@ export interface Repositories {
   cards: CardRepository
   chunks: ChunkRepository
   exams: ExamRepository
+  /** The validated P1 extraction per chunk, keyed by custom id (sub-phase 8.1). */
+  extractions: ExtractionRepository
   gamification: GamificationRepository
+  /** The ledger of "Generate with AI" runs (sub-phase 8.1). */
+  generationRuns: GenerationRunRepository
   importanceLevels: ImportanceLevelRepository
   itemBank: ItemBankRepository
   jobs: JobRepository

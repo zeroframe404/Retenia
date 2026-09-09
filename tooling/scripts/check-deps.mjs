@@ -4,6 +4,8 @@
  * Enforce the monorepo's dependency-boundary rules (docs/spec/07-architecture.md §3):
  * `core` imports nothing internal; `db`/`ai`/`importers` import `core`; `ingest` adds `ai`
  * on top of `core` for the contextual-retrieval pass's `TextGenerator` port (sub-phase 6.2);
+ * `pathgen` (sub-phase 8.1) is `core` + `ai` too: it consumes chunks through core ports and
+ * calls models through `ai`, never `ingest` (ONNX/transformers) and never `db`;
  * `ui`/`activities`/`editor`/`readers` import `core` and `ui`; `apps/desktop` imports
  * everything. `ipc-contract`, `i18n` and `config` are leaves: no internal deps.
  * The activity engine (docs/spec/03-activities.md §8): `activity-schema` imports `core`,
@@ -27,6 +29,7 @@ const ALLOWED = {
   db: ['core'],
   ai: ['core'],
   ingest: ['core', 'ai'],
+  pathgen: ['core', 'ai'],
   importers: ['core'],
   ui: ['core'],
   activities: ['core', 'ui', 'activity-schema', 'activity-graders'],

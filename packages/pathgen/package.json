@@ -1,0 +1,29 @@
+{
+  "name": "@retenia/pathgen",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Learning-path generation, stages 3–5 of docs/spec/04-path-generation.md §3: P1 extraction per chunk through the batch runner, concept consolidation, P2 knowledge-graph and outline synthesis (skeleton first), deterministic sequencing, the generation manifest and the cost estimator. Pure orchestration over ports — the main process wires it, and it never reads a file or a database itself.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./node": "./src/node.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "lint": "biome check ."
+  },
+  "dependencies": {
+    "@retenia/ai": "workspace:*",
+    "@retenia/core": "workspace:*",
+    "zod": "4.5.4"
+  },
+  "devDependencies": {
+    "@retenia/config": "workspace:*",
+    "@types/node": "24.13.3",
+    "@vitest/coverage-v8": "4.1.11",
+    "typescript": "7.0.2",
+    "vitest": "4.1.11"
+  }
+}

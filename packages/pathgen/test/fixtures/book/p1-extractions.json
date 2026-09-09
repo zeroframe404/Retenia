@@ -1,0 +1,2239 @@
+{
+  "bk:prefacio": {
+    "concepts": [],
+    "claims": [],
+    "objectives": [],
+    "prerequisites_mentioned": [],
+    "figures": [],
+    "exercises": [],
+    "is_frontmatter_like": true
+  },
+  "bk:ch01:s01": {
+    "concepts": [
+      {
+        "canonical": "memoria",
+        "aliases": [],
+        "definition": "la capacidad de codificar, almacenar y recuperar información",
+        "kind": "concept",
+        "importance": 0.9,
+        "difficulty": 2
+      },
+      {
+        "canonical": "codificación",
+        "aliases": [],
+        "definition": "el proceso por el que una experiencia se convierte en una huella de memoria",
+        "kind": "procedure",
+        "importance": 0.6,
+        "difficulty": 3
+      }
+    ],
+    "claims": [
+      {
+        "text": "Memoria es la capacidad de codificar, almacenar y recuperar información.",
+        "block_ids": [
+          "p0-ghost",
+          "p5-b1"
+        ]
+      },
+      {
+        "text": "Codificación es el proceso por el que una experiencia se convierte en una huella de memoria.",
+        "block_ids": [
+          "p5-b2"
+        ]
+      }
+    ],
+    "objectives": [
+      {
+        "text": "Explicar qué es memoria",
+        "bloom": "understand"
+      }
+    ],
+    "prerequisites_mentioned": [],
+    "figures": [
+      {
+        "label": "Figura 1.1",
+        "description": "Esquema de memoria"
+      }
+    ],
+    "exercises": [],
+    "is_frontmatter_like": false
+  },
+  "bk:ch01:s02": {
+    "concepts": [
+      {
+        "canonical": "memoria sensorial",
+        "aliases": [],
+        "definition": "el registro breve de la información que llega por los sentidos",
+        "kind": "procedure",
+        "importance": 0.9,
+        "difficulty": 3
+      },
+      {
+        "canonical": "memoria a largo plazo",
+        "aliases": [],
+        "definition": "el almacén de capacidad ilimitada que conserva la información durante años",
+        "kind": "fact",
+        "importance": 0.3,
+        "difficulty": 4
+      }
+    ],
+    "claims": [
+      {
+        "text": "Memoria sensorial es el registro breve de la información que llega por los sentidos.",
+        "block_ids": [
+          "p0-ghost",
+          "p6-b1"
+        ]
+      },
+      {
+        "text": "Memoria a largo plazo es el almacén de capacidad ilimitada que conserva la información durante años.",
+        "block_ids": [
+          "p6-b2"
+        ]
+      }
+    ],
+    "objectives": [
+      {
+        "text": "Explicar qué es memoria sensorial",
+        "bloom": "understand"
+      }
+    ],
+    "prerequisites_mentioned": [
+      "memoria"
+    ],
+    "figures": [
+      {
+        "label": "Figura 1.2",
+        "description": "Esquema de memoria sensorial"
+      }
+    ],
+    "exercises": [
+      {
+        "text": "Explique qué es memoria a largo plazo",
+        "kind": "question"
+      }
+    ],
+    "is_frontmatter_like": false
+  },
+  "bk:ch01:s03": {
+    "concepts": [
+      {
+        "canonical": "recuerdo libre",
+        "aliases": [],
+        "definition": "la prueba en la que se reproduce el material sin pistas",
+        "kind": "fact",
+        "importance": 0.9,
+        "difficulty": 4
+      },
+      {
+        "canonical": "reconocimiento",
+        "aliases": [],
+        "definition": "la prueba en la que se identifica el material entre alternativas",
+        "kind": "principle",
+        "importance": 0.6,
+        "difficulty": 5
+      }
+    ],
+    "claims": [
+      {
+        "text": "Recuerdo libre es la prueba en la que se reproduce el material sin pistas.",
+        "block_ids": [
+          "p0-ghost",
+          "p7-b1"
+        ]
+      },
+      {
+        "text": "Reconocimiento es la prueba en la que se identifica el material entre alternativas.",
+        "block_ids": [
+          "p7-b2"
+        ]
+      }
+    ],
+    "objectives": [
+      {
+        "text": "Explicar qué es recuerdo libre",
+        "bloom": "understand"
+      }
+    ],
+    "prerequisites_mentioned": [
+      "memoria sensorial"
+    ],
+    "figures": [
+      {
+        "label": "Figura 1.3",
+        "description": "Esquema de recuerdo libre"
+      }
+    ],
+    "exercises": [],
+    "is_frontmatter_like": false
+  },
+  "bk:ch02:s01": {
+    "concepts": [
+      {
+        "canonical": "memoria de trabajo",
+        "aliases": [
+          "memoria operativa"
+        ],
+        "definition": "el sistema de capacidad limitada que mantiene y manipula información activa",
+        "kind": "principle",
+        "importance": 0.9,
+        "difficulty": 5
+      },
+      {
+        "canonical": "límite de siete elementos",
+        "aliases": [],
+        "definition": "la observación de que la memoria de trabajo retiene unos siete elementos",
+        "kind": "example",
+        "importance": 0.6,
+        "difficulty": 2
+      }
+    ],
+    "claims": [
+      {
+        "text": "Memoria de trabajo (también llamada memoria operativa) es el sistema de capacidad limitada que mantiene y manipula información activa.",
+        "block_ids": [
+          "p0-ghost",
+          "p8-b1"
+        ]
+      },
+      {
+        "text": "Límite de siete elementos es la observación de que la memoria de trabajo retiene unos siete elementos.",
+        "block_ids": [
+          "p8-b2"
+        ]
+      }
+    ],
+    "objectives": [
+      {
+        "text": "Explicar qué es memoria de trabajo",
+        "bloom": "understand"
+      }
+    ],
+    "prerequisites_mentioned": [
+      "recuerdo libre"
+    ],
+    "figures": [
+      {
+        "label": "Figura 2.1",
+        "description": "Esquema de memoria de trabajo"
+      }
+    ],
+    "exercises": [],
+    "is_frontmatter_like": false
+  },
+  "bk:ch02:s02": {
+    "concepts": [
+      {
+        "canonical": "bucle fonológico",
+        "aliases": [],
+        "definition": "el componente que mantiene información verbal mediante repetición subvocal",
+        "kind": "example",
+        "importance": 0.9,
+        "difficulty": 2
+      },
+      {
+        "canonical": "agenda visoespacial",
+        "aliases": [],
+        "definition": "el componente que mantiene información visual y espacial",
+        "kind": "misconception",
+        "importance": 0.6,
+        "difficulty": 3
+      }
+    ],
+    "claims": [
+      {
+        "text": "Bucle fonológico es el componente que mantiene información verbal mediante repetición subvocal.",
+        "block_ids": [
+          "p0-ghost",
+          "p9-b1"
+        ]
+      },
+      {
+        "text": "Agenda visoespacial es el componente que mantiene información visual y espacial.",
+        "block_ids": [
+          "p9-b2"
+        ]
+      }
+    ],
+    "objectives": [
+      {
+        "text": "Explicar qué es bucle fonológico",
+        "bloom": "understand"
+      }
+    ],
+    "prerequisites_mentioned": [
+      "memoria de trabajo"
+    ],
+    "figures": [
+      {
+        "label": "Figura 2.2",
+        "description": "Esquema de bucle fonológico"
+      }
+    ],
+    "exercises": [
+      {
+        "text": "Explique qué es agenda visoespacial",
+        "kind": "question"
+      }
+    ],
+    "is_frontmatter_like": false
+  },
+  "bk:ch02:s03": {
+    "concepts": [
+      {
+        "canonical": "ejecutivo central",
+        "aliases": [],
+        "definition": "el componente que dirige la atención y coordina los subsistemas",
+        "kind": "misconception",
+        "importance": 0.9,
+        "difficulty": 3
+      },
+      {
+        "canonical": "agrupamiento",
+        "aliases": [
+          "chunking"
+        ],
+        "definition": "la estrategia de unir elementos en unidades mayores para retener más",
+        "kind": "concept",
+        "importance": 0.6,
+        "difficulty": 4
+      }
+    ],
+    "claims": [
+      {
+        "text": "Ejecutivo central es el componente que dirige la atención y coordina los subsistemas.",
+        "block_ids": [
+          "p0-ghost",
+          "p10-b1"
+        ]
+      },
+      {
+        "text": "Agrupamiento (también llamada chunking) es la estrategia de unir elementos en unidades mayores para retener más.",
+        "block_ids": [
+          "p10-b2"
+        ]
+      }
+    ],
+    "objectives": [
+      {
+        "text": "Explicar qué es ejecutivo central",
+        "bloom": "understand"
+      }
+    ],
+    "prerequisites_mentioned": [
+      "bucle fonológico"
+    ],
+    "figures": [
+      {
+        "label": "Figura 2.3",
+        "description": "Esquema de ejecutivo central"
+      }
+    ],
+    "exercises": [],
+    "is_frontmatter_like": false
+  },
+  "bk:ch03:s01": {
+    "concepts": [
+      {
+        "canonical": "curva del olvido",
+        "aliases": [],
+        "definition": "el descenso rápido y luego lento de la retención con el tiempo",
+        "kind": "concept",
+        "importance": 0.9,
+        "difficulty": 4
+      },
+      {
+        "canonical": "tasa de decaimiento",
+        "aliases": [],
+        "definition": "la velocidad con la que se pierde la retención",
+        "kind": "procedure",
+        "importance": 0.3,
+        "difficulty": 5
+      }
+    ],
+    "claims": [
+      {
+        "text": "Curva del olvido es el descenso rápido y luego lento de la retención con el tiempo.",
+        "block_ids": [
+          "p0-ghost",
+          "p11-b1"
+        ]
+      },
+      {
+        "text": "Tasa de decaimiento es la velocidad con la que se pierde la retención.",
+        "block_ids": [
+          "p11-b2"
+        ]
+      }
+    ],
+    "objectives": [
+      {
+        "text": "Explicar qué es curva del olvido",
+        "bloom": "understand"
+      }
+    ],
+    "prerequisites_mentioned": [
+      "ejecutivo central"
+    ],
+    "figures": [
+      {
+        "label": "Figura 3.1",
+        "description": "Esquema de curva del olvido"
+      }
+    ],
+    "exercises": [],
+    "is_frontmatter_like": false
+  },
+  "bk:ch03:s02": {
+    "concepts": [
+      {
+        "canonical": "interferencia proactiva",
+        "aliases": [],
+        "definition": "el efecto por el que lo aprendido antes dificulta aprender lo nuevo",
+        "kind": "procedure",
+        "importance": 0.9,
+        "difficulty": 5
+      },
+      {
+        "canonical": "interferencia retroactiva",
+        "aliases": [],
+        "definition": "el efecto por el que lo aprendido después dificulta recordar lo anterior",
+        "kind": "fact",
+        "importance": 0.6,
+        "difficulty": 2
+      }
+    ],
+    "claims": [
+      {
+        "text": "Interferencia proactiva es el efecto por el que lo aprendido antes dificulta aprender lo nuevo.",
+        "block_ids": [
+          "p0-ghost",
+          "p12-b1"
+        ]
+      },
+      {
+        "text": "Interferencia retroactiva es el efecto por el que lo aprendido después dificulta recordar lo anterior.",
+        "block_ids": [
+          "p12-b2"
+        ]
+      }
+    ],
+    "objectives": [
+      {
+        "text": "Explicar qué es interferencia proactiva",
+        "bloom": "understand"
+      }
+    ],
+    "prerequisites_mentioned": [
+      "curva del olvido"
+    ],
+    "figures": [
+      {
+        "label": "Figura 3.2",
+        "description": "Esquema de interferencia proactiva"
+      }
+    ],
+    "exercises": [
+      {
+        "text": "Explique qué es interferencia retroactiva",
+        "kind": "question"
+      }
+    ],
+    "is_frontmatter_like": false
+  },
+  "bk:ch03:s03": {
+    "concepts": [
+      {
+        "canonical": "fallo de recuperación",
+        "aliases": [],
+        "definition": "la incapacidad de acceder a una huella que sigue almacenada",
+        "kind": "fact",
+        "importance": 0.9,
+        "difficulty": 2
+      },
+      {
+        "canonical": "punta de la lengua",
+        "aliases": [],
+        "definition": "la sensación de saber una palabra sin poder producirla",
+        "kind": "principle",
+        "importance": 0.6,
+        "difficulty": 1
+      }
+    ],
+    "claims": [
+      {
+        "text": "Fallo de recuperación es la incapacidad de acceder a una huella que sigue almacenada.",
+        "block_ids": [
+          "p0-ghost",
+          "p13-b1"
+        ]
+      },
+      {
+        "text": "Punta de la lengua es la sensación de saber una palabra sin poder producirla.",
+        "block_ids": [
+          "p13-b2"
+        ]
+      }
+    ],
+    "objectives": [
+      {
+        "text": "Explicar qué es fallo de recuperación",
+        "bloom": "understand"
+      }
+    ],
+    "prerequisites_mentioned": [
+      "interferencia proactiva"
+    ],
+    "figures": [
+      {
+        "label": "Figura 3.3",
+        "description": "Esquema de fallo de recuperación"
+      }
+    ],
+    "exercises": [],
+    "is_frontmatter_like": false
+  },
+  "bk:ch04:s01": {
+    "concepts": [
+      {
+        "canonical": "consolidación sináptica",
+        "aliases": [],
+        "definition": "el fortalecimiento de las conexiones entre neuronas en las horas posteriores al aprendizaje",
+        "kind": "principle",
+        "importance": 0.9,
+        "difficulty": 3
+      },
+      {
+        "canonical": "potenciación a largo plazo",
+        "aliases": [],
+        "definition": "el aumento duradero de la eficacia sináptica tras estimulación repetida",
+        "kind": "example",
+        "importance": 0.6,
+        "difficulty": 5
+      }
+    ],
+    "claims": [
+      {
+        "text": "Consolidación sináptica es el fortalecimiento de las conexiones entre neuronas en las horas posteriores al aprendizaje.",
+        "block_ids": [
+          "p0-ghost",
+          "p14-b1"
+        ]
+      },
+      {
+        "text": "Potenciación a largo plazo es el aumento duradero de la eficacia sináptica tras estimulación repetida.",
+        "block_ids": [
+          "p14-b2"
+        ]
+      }
+    ],
+    "objectives": [
+      {
+        "text": "Explicar qué es consolidación sináptica",
+        "bloom": "understand"
+      }
+    ],
+    "prerequisites_mentioned": [
+      "fallo de recuperación"
+    ],
+    "figures": [
+      {
+        "label": "Figura 4.1",
+        "description": "Esquema de consolidación sináptica"
+      }
+    ],
+    "exercises": [],
+    "is_frontmatter_like": false
+  },
+  "bk:ch04:s02": {
+    "concepts": [
+      {
+        "canonical": "consolidación de sistemas",
+        "aliases": [],
+        "definition": "el fortalecimiento de las conexiones entre neuronas en las horas posteriores al aprendizaje",
+        "kind": "example",
+        "importance": 0.9,
+        "difficulty": 4
+      },
+      {
+        "canonical": "hipocampo",
+        "aliases": [],
+        "definition": "la estructura que registra los episodios y los transfiere a la corteza",
+        "kind": "misconception",
+        "importance": 0.6,
+        "difficulty": 5
+      }
+    ],
+    "claims": [
+      {
+        "text": "Consolidación de sistemas es el fortalecimiento de las conexiones entre neuronas en las horas posteriores al aprendizaje.",
+        "block_ids": [
+          "p0-ghost",
+          "p15-b1"
+        ]
+      },
+      {
+        "text": "Hipocampo es la estructura que registra los episodios y los transfiere a la corteza.",
+        "block_ids": [
+          "p15-b2"
+        ]
+      }
+    ],
+    "objectives": [
+      {
+        "text": "Explicar qué es consolidación de sistemas",
+        "bloom": "understand"
+      }
+    ],
+    "prerequisites_mentioned": [
+      "consolidación sináptica"
+    ],
+    "figures": [
+      {
+        "label": "Figura 4.2",
+        "description": "Esquema de consolidación de sistemas"
+      }
+    ],
+    "exercises": [
+      {
+        "text": "Explique qué es hipocampo",
+        "kind": "question"
+      }
+    ],
+    "is_frontmatter_like": false
+  },
+  "bk:ch04:s03": {
+    "concepts": [
+      {
+        "canonical": "sueño y memoria",
+        "aliases": [],
+        "definition": "el papel del sueño en la consolidación de lo aprendido",
+        "kind": "misconception",
+        "importance": 0.9,
+        "difficulty": 5
+      },
+      {
+        "canonical": "reactivación",
+        "aliases": [],
+        "definition": "la repetición espontánea de patrones de actividad durante el sueño",
+        "kind": "concept",
+        "importance": 0.6,
+        "difficulty": 2
+      }
+    ],
+    "claims": [
+      {
+        "text": "Sueño y memoria es el papel del sueño en la consolidación de lo aprendido.",
+        "block_ids": [
+          "p0-ghost",
+          "p16-b1"
+        ]
+      },
+      {
+        "text": "Reactivación es la repetición espontánea de patrones de actividad durante el sueño.",
+        "block_ids": [
+          "p16-b2"
+        ]
+      }
+    ],
+    "objectives": [
+      {
+        "text": "Explicar qué es sueño y memoria",
+        "bloom": "understand"
+      }
+    ],
+    "prerequisites_mentioned": [
+      "consolidación de sistemas"
+    ],
+    "figures": [
+      {
+        "label": "Figura 4.3",
+        "description": "Esquema de sueño y memoria"
+      }
+    ],
+    "exercises": [],
+    "is_frontmatter_like": false
+  },
+  "bk:ch05:s01": {
+    "concepts": [
+      {
+        "canonical": "repaso espaciado",
+        "aliases": [
+          "práctica espaciada"
+        ],
+        "definition": "la práctica distribuida en el tiempo, que mejora la retención",
+        "kind": "concept",
+        "importance": 0.9,
+        "difficulty": 2
+      },
+      {
+        "canonical": "efecto de espaciado",
+        "aliases": [],
+        "definition": "la ventaja de las sesiones separadas sobre las sesiones juntas",
+        "kind": "procedure",
+        "importance": 0.6,
+        "difficulty": 3
+      }
+    ],
+    "claims": [
+      {
+        "text": "Repaso espaciado (también llamada práctica espaciada) es la práctica distribuida en el tiempo, que mejora la retención.",
+        "block_ids": [
+          "p0-ghost",
+          "p17-b1"
+        ]
+      },
+      {
+        "text": "Efecto de espaciado es la ventaja de las sesiones separadas sobre las sesiones juntas.",
+        "block_ids": [
+          "p17-b2"
+        ]
+      }
+    ],
+    "objectives": [
+      {
+        "text": "Explicar qué es repaso espaciado",
+        "bloom": "understand"
+      }
+    ],
+    "prerequisites_mentioned": [
+      "sueño y memoria"
+    ],
+    "figures": [
+      {
+        "label": "Figura 5.1",
+        "description": "Esquema de repaso espaciado"
+      }
+    ],
+    "exercises": [],
+    "is_frontmatter_like": false
+  },
+  "bk:ch05:s02": {
+    "concepts": [
+      {
+        "canonical": "intervalo creciente",
+        "aliases": [],
+        "definition": "la ampliación progresiva del tiempo entre repasos",
+        "kind": "procedure",
+        "importance": 0.9,
+        "difficulty": 3
+      },
+      {
+        "canonical": "repetición espaciada",
+        "aliases": [
+          "spaced repetition"
+        ],
+        "definition": "el sistema que programa cada repaso según la retención esperada",
+        "kind": "fact",
+        "importance": 0.6,
+        "difficulty": 4
+      }
+    ],
+    "claims": [
+      {
+        "text": "Intervalo creciente es la ampliación progresiva del tiempo entre repasos.",
+        "block_ids": [
+          "p0-ghost",
+          "p18-b1"
+        ]
+      },
+      {
+        "text": "Repetición espaciada (también llamada spaced repetition) es el sistema que programa cada repaso según la retención esperada.",
+        "block_ids": [
+          "p18-b2"
+        ]
+      }
+    ],
+    "objectives": [
+      {
+        "text": "Explicar qué es intervalo creciente",
+        "bloom": "understand"
+      }
+    ],
+    "prerequisites_mentioned": [
+      "repaso espaciado"
+    ],
+    "figures": [
+      {
+        "label": "Figura 5.2",
+        "description": "Esquema de intervalo creciente"
+      }
+    ],
+    "exercises": [
+      {
+        "text": "Explique qué es repetición espaciada",
+        "kind": "question"
+      }
+    ],
+    "is_frontmatter_like": false
+  },
+  "bk:ch05:s03": {
+    "concepts": [
+      {
+        "canonical": "umbral de retención",
+        "aliases": [],
+        "definition": "la probabilidad de recuerdo por debajo de la cual conviene repasar",
+        "kind": "fact",
+        "importance": 0.9,
+        "difficulty": 4
+      },
+      {
+        "canonical": "retención deseada",
+        "aliases": [],
+        "definition": "el objetivo de probabilidad de recuerdo que fija un sistema de repaso",
+        "kind": "principle",
+        "importance": 0.6,
+        "difficulty": 5
+      }
+    ],
+    "claims": [
+      {
+        "text": "Umbral de retención es la probabilidad de recuerdo por debajo de la cual conviene repasar.",
+        "block_ids": [
+          "p0-ghost",
+          "p19-b1"
+        ]
+      },
+      {
+        "text": "Retención deseada es el objetivo de probabilidad de recuerdo que fija un sistema de repaso.",
+        "block_ids": [
+          "p19-b2"
+        ]
+      }
+    ],
+    "objectives": [
+      {
+        "text": "Explicar qué es umbral de retención",
+        "bloom": "understand"
+      }
+    ],
+    "prerequisites_mentioned": [
+      "intervalo creciente"
+    ],
+    "figures": [
+      {
+        "label": "Figura 5.3",
+        "description": "Esquema de umbral de retención"
+      }
+    ],
+    "exercises": [],
+    "is_frontmatter_like": false
+  },
+  "bk:ch06:s01": {
+    "concepts": [
+      {
+        "canonical": "práctica de recuperación",
+        "aliases": [
+          "retrieval practice"
+        ],
+        "definition": "el esfuerzo de recordar algo, que lo fortalece más que releerlo",
+        "kind": "principle",
+        "importance": 0.9,
+        "difficulty": 5
+      },
+      {
+        "canonical": "efecto de prueba",
+        "aliases": [],
+        "definition": "la ventaja de responder preguntas sobre releer el material",
+        "kind": "example",
+        "importance": 0.6,
+        "difficulty": 2
+      }
+    ],
+    "claims": [
+      {
+        "text": "Práctica de recuperación (también llamada retrieval practice) es el esfuerzo de recordar algo, que lo fortalece más que releerlo.",
+        "block_ids": [
+          "p0-ghost",
+          "p20-b1"
+        ]
+      },
+      {
+        "text": "Efecto de prueba es la ventaja de responder preguntas sobre releer el material.",
+        "block_ids": [
+          "p20-b2"
+        ]
+      }
+    ],
+    "objectives": [
+      {
+        "text": "Explicar qué es práctica de recuperación",
+        "bloom": "understand"
+      }
+    ],
+    "prerequisites_mentioned": [
+      "umbral de retención"
+    ],
+    "figures": [
+      {
+        "label": "Figura 6.1",
+        "description": "Esquema de práctica de recuperación"
+      }
+    ],
+    "exercises": [],
+    "is_frontmatter_like": false
+  },
+  "bk:ch06:s02": {
+    "concepts": [
+      {
+        "canonical": "dificultad deseable",
+        "aliases": [],
+        "definition": "un obstáculo que hace más lento el aprendizaje pero mejora la retención",
+        "kind": "example",
+        "importance": 0.9,
+        "difficulty": 2
+      },
+      {
+        "canonical": "relectura",
+        "aliases": [],
+        "definition": "la estrategia de volver a leer, que da una sensación engañosa de dominio",
+        "kind": "misconception",
+        "importance": 0.6,
+        "difficulty": 3
+      }
+    ],
+    "claims": [
+      {
+        "text": "Dificultad deseable es un obstáculo que hace más lento el aprendizaje pero mejora la retención.",
+        "block_ids": [
+          "p0-ghost",
+          "p21-b1"
+        ]
+      },
+      {
+        "text": "Relectura es la estrategia de volver a leer, que da una sensación engañosa de dominio.",
+        "block_ids": [
+          "p21-b2"
+        ]
+      }
+    ],
+    "objectives": [
+      {
+        "text": "Explicar qué es dificultad deseable",
+        "bloom": "understand"
+      }
+    ],
+    "prerequisites_mentioned": [
+      "práctica de recuperación"
+    ],
+    "figures": [
+      {
+        "label": "Figura 6.2",
+        "description": "Esquema de dificultad deseable"
+      }
+    ],
+    "exercises": [
+      {
+        "text": "Explique qué es relectura",
+        "kind": "question"
+      }
+    ],
+    "is_frontmatter_like": false
+  },
+  "bk:ch06:s03": {
+    "concepts": [
+      {
+        "canonical": "retroalimentación",
+        "aliases": [],
+        "definition": "la información sobre la corrección de una respuesta",
+        "kind": "misconception",
+        "importance": 0.9,
+        "difficulty": 3
+      },
+      {
+        "canonical": "retroalimentación demorada",
+        "aliases": [],
+        "definition": "la corrección que llega después de un intervalo",
+        "kind": "concept",
+        "importance": 0.3,
+        "difficulty": 4
+      }
+    ],
+    "claims": [
+      {
+        "text": "Retroalimentación es la información sobre la corrección de una respuesta.",
+        "block_ids": [
+          "p0-ghost",
+          "p22-b1"
+        ]
+      },
+      {
+        "text": "Retroalimentación demorada es la corrección que llega después de un intervalo.",
+        "block_ids": [
+          "p22-b2"
+        ]
+      }
+    ],
+    "objectives": [
+      {
+        "text": "Explicar qué es retroalimentación",
+        "bloom": "understand"
+      }
+    ],
+    "prerequisites_mentioned": [
+      "dificultad deseable"
+    ],
+    "figures": [
+      {
+        "label": "Figura 6.3",
+        "description": "Esquema de retroalimentación"
+      }
+    ],
+    "exercises": [],
+    "is_frontmatter_like": false
+  },
+  "bk:ch07:s01": {
+    "concepts": [
+      {
+        "canonical": "atención selectiva",
+        "aliases": [],
+        "definition": "la capacidad de concentrarse en una fuente e ignorar las demás",
+        "kind": "concept",
+        "importance": 0.9,
+        "difficulty": 4
+      },
+      {
+        "canonical": "efecto de fiesta de cóctel",
+        "aliases": [],
+        "definition": "el fenómeno de oír el propio nombre en una conversación ajena",
+        "kind": "procedure",
+        "importance": 0.6,
+        "difficulty": 1
+      }
+    ],
+    "claims": [
+      {
+        "text": "Atención selectiva es la capacidad de concentrarse en una fuente e ignorar las demás.",
+        "block_ids": [
+          "p0-ghost",
+          "p23-b1"
+        ]
+      },
+      {
+        "text": "Efecto de fiesta de cóctel es el fenómeno de oír el propio nombre en una conversación ajena.",
+        "block_ids": [
+          "p23-b2"
+        ]
+      }
+    ],
+    "objectives": [
+      {
+        "text": "Explicar qué es atención selectiva",
+        "bloom": "understand"
+      }
+    ],
+    "prerequisites_mentioned": [
+      "retroalimentación"
+    ],
+    "figures": [
+      {
+        "label": "Figura 7.1",
+        "description": "Esquema de atención selectiva"
+      }
+    ],
+    "exercises": [],
+    "is_frontmatter_like": false
+  },
+  "bk:ch07:s02": {
+    "concepts": [
+      {
+        "canonical": "memoria operativa",
+        "aliases": [],
+        "definition": "el sistema de capacidad limitada que mantiene y manipula información activa",
+        "kind": "procedure",
+        "importance": 0.9,
+        "difficulty": 5
+      },
+      {
+        "canonical": "carga cognitiva",
+        "aliases": [],
+        "definition": "la cantidad de recursos de la memoria de trabajo que exige una tarea",
+        "kind": "fact",
+        "importance": 0.6,
+        "difficulty": 2
+      }
+    ],
+    "claims": [
+      {
+        "text": "Memoria operativa es el sistema de capacidad limitada que mantiene y manipula información activa.",
+        "block_ids": [
+          "p0-ghost",
+          "p24-b1"
+        ]
+      },
+      {
+        "text": "Carga cognitiva es la cantidad de recursos de la memoria de trabajo que exige una tarea.",
+        "block_ids": [
+          "p24-b2"
+        ]
+      }
+    ],
+    "objectives": [
+      {
+        "text": "Explicar qué es memoria operativa",
+        "bloom": "understand"
+      }
+    ],
+    "prerequisites_mentioned": [
+      "atención selectiva"
+    ],
+    "figures": [
+      {
+        "label": "Figura 7.2",
+        "description": "Esquema de memoria operativa"
+      }
+    ],
+    "exercises": [
+      {
+        "text": "Explique qué es carga cognitiva",
+        "kind": "question"
+      }
+    ],
+    "is_frontmatter_like": false
+  },
+  "bk:ch07:s03": {
+    "concepts": [
+      {
+        "canonical": "multitarea",
+        "aliases": [],
+        "definition": "el intento de atender a dos tareas a la vez, que degrada ambas",
+        "kind": "fact",
+        "importance": 0.9,
+        "difficulty": 2
+      },
+      {
+        "canonical": "cambio de tarea",
+        "aliases": [],
+        "definition": "el costo de tiempo y errores al alternar entre tareas",
+        "kind": "principle",
+        "importance": 0.6,
+        "difficulty": 3
+      }
+    ],
+    "claims": [
+      {
+        "text": "Multitarea es el intento de atender a dos tareas a la vez, que degrada ambas.",
+        "block_ids": [
+          "p0-ghost",
+          "p25-b1"
+        ]
+      },
+      {
+        "text": "Cambio de tarea es el costo de tiempo y errores al alternar entre tareas.",
+        "block_ids": [
+          "p25-b2"
+        ]
+      }
+    ],
+    "objectives": [
+      {
+        "text": "Explicar qué es multitarea",
+        "bloom": "understand"
+      }
+    ],
+    "prerequisites_mentioned": [
+      "memoria operativa"
+    ],
+    "figures": [
+      {
+        "label": "Figura 7.3",
+        "description": "Esquema de multitarea"
+      }
+    ],
+    "exercises": [],
+    "is_frontmatter_like": false
+  },
+  "bk:ch08:s01": {
+    "concepts": [
+      {
+        "canonical": "niveles de procesamiento",
+        "aliases": [],
+        "definition": "la idea de que el análisis semántico deja una huella más duradera que el superficial",
+        "kind": "principle",
+        "importance": 0.9,
+        "difficulty": 3
+      },
+      {
+        "canonical": "elaboración",
+        "aliases": [],
+        "definition": "la conexión de lo nuevo con lo que ya se sabe",
+        "kind": "example",
+        "importance": 0.6,
+        "difficulty": 4
+      }
+    ],
+    "claims": [
+      {
+        "text": "Niveles de procesamiento es la idea de que el análisis semántico deja una huella más duradera que el superficial.",
+        "block_ids": [
+          "p0-ghost",
+          "p26-b1"
+        ]
+      },
+      {
+        "text": "Elaboración es la conexión de lo nuevo con lo que ya se sabe.",
+        "block_ids": [
+          "p26-b2"
+        ]
+      }
+    ],
+    "objectives": [
+      {
+        "text": "Explicar qué es niveles de procesamiento",
+        "bloom": "understand"
+      }
+    ],
+    "prerequisites_mentioned": [
+      "multitarea"
+    ],
+    "figures": [
+      {
+        "label": "Figura 8.1",
+        "description": "Esquema de niveles de procesamiento"
+      }
+    ],
+    "exercises": [],
+    "is_frontmatter_like": false
+  },
+  "bk:ch08:s02": {
+    "concepts": [
+      {
+        "canonical": "organización del material",
+        "aliases": [],
+        "definition": "la estructuración del contenido en categorías y jerarquías",
+        "kind": "example",
+        "importance": 0.9,
+        "difficulty": 4
+      },
+      {
+        "canonical": "mapa conceptual",
+        "aliases": [],
+        "definition": "el diagrama que representa conceptos y sus relaciones",
+        "kind": "misconception",
+        "importance": 0.6,
+        "difficulty": 5
+      }
+    ],
+    "claims": [
+      {
+        "text": "Organización del material es la estructuración del contenido en categorías y jerarquías.",
+        "block_ids": [
+          "p0-ghost",
+          "p27-b1"
+        ]
+      },
+      {
+        "text": "Mapa conceptual es el diagrama que representa conceptos y sus relaciones.",
+        "block_ids": [
+          "p27-b2"
+        ]
+      }
+    ],
+    "objectives": [
+      {
+        "text": "Explicar qué es organización del material",
+        "bloom": "understand"
+      }
+    ],
+    "prerequisites_mentioned": [
+      "niveles de procesamiento"
+    ],
+    "figures": [
+      {
+        "label": "Figura 8.2",
+        "description": "Esquema de organización del material"
+      }
+    ],
+    "exercises": [
+      {
+        "text": "Explique qué es mapa conceptual",
+        "kind": "question"
+      }
+    ],
+    "is_frontmatter_like": false
+  },
+  "bk:ch08:s03": {
+    "concepts": [
+      {
+        "canonical": "codificación dual",
+        "aliases": [],
+        "definition": "la teoría de que las palabras y las imágenes se almacenan por vías distintas",
+        "kind": "misconception",
+        "importance": 0.9,
+        "difficulty": 5
+      },
+      {
+        "canonical": "método de loci",
+        "aliases": [],
+        "definition": "la técnica de asociar elementos con lugares de un recorrido conocido",
+        "kind": "concept",
+        "importance": 0.6,
+        "difficulty": 2
+      }
+    ],
+    "claims": [
+      {
+        "text": "Codificación dual es la teoría de que las palabras y las imágenes se almacenan por vías distintas.",
+        "block_ids": [
+          "p0-ghost",
+          "p28-b1"
+        ]
+      },
+      {
+        "text": "Método de loci es la técnica de asociar elementos con lugares de un recorrido conocido.",
+        "block_ids": [
+          "p28-b2"
+        ]
+      }
+    ],
+    "objectives": [
+      {
+        "text": "Explicar qué es codificación dual",
+        "bloom": "understand"
+      }
+    ],
+    "prerequisites_mentioned": [
+      "organización del material"
+    ],
+    "figures": [
+      {
+        "label": "Figura 8.3",
+        "description": "Esquema de codificación dual"
+      }
+    ],
+    "exercises": [],
+    "is_frontmatter_like": false
+  },
+  "bk:ch09:s01": {
+    "concepts": [
+      {
+        "canonical": "metacognición",
+        "aliases": [],
+        "definition": "el conocimiento y control de los propios procesos de aprendizaje",
+        "kind": "concept",
+        "importance": 0.9,
+        "difficulty": 2
+      },
+      {
+        "canonical": "juicio de aprendizaje",
+        "aliases": [],
+        "definition": "la estimación de cuánto se ha aprendido algo",
+        "kind": "procedure",
+        "importance": 0.6,
+        "difficulty": 3
+      }
+    ],
+    "claims": [
+      {
+        "text": "Metacognición es el conocimiento y control de los propios procesos de aprendizaje.",
+        "block_ids": [
+          "p0-ghost",
+          "p29-b1"
+        ]
+      },
+      {
+        "text": "Juicio de aprendizaje es la estimación de cuánto se ha aprendido algo.",
+        "block_ids": [
+          "p29-b2"
+        ]
+      }
+    ],
+    "objectives": [
+      {
+        "text": "Explicar qué es metacognición",
+        "bloom": "understand"
+      }
+    ],
+    "prerequisites_mentioned": [
+      "codificación dual"
+    ],
+    "figures": [
+      {
+        "label": "Figura 9.1",
+        "description": "Esquema de metacognición"
+      }
+    ],
+    "exercises": [],
+    "is_frontmatter_like": false
+  },
+  "bk:ch09:s02": {
+    "concepts": [
+      {
+        "canonical": "ilusión de competencia",
+        "aliases": [],
+        "definition": "la sensación de dominio que produce la fluidez sin recuerdo real",
+        "kind": "procedure",
+        "importance": 0.9,
+        "difficulty": 3
+      },
+      {
+        "canonical": "sesgo de fluidez",
+        "aliases": [],
+        "definition": "la tendencia a juzgar más aprendido lo que se procesa con facilidad",
+        "kind": "fact",
+        "importance": 0.6,
+        "difficulty": 4
+      }
+    ],
+    "claims": [
+      {
+        "text": "Ilusión de competencia es la sensación de dominio que produce la fluidez sin recuerdo real.",
+        "block_ids": [
+          "p0-ghost",
+          "p30-b1"
+        ]
+      },
+      {
+        "text": "Sesgo de fluidez es la tendencia a juzgar más aprendido lo que se procesa con facilidad.",
+        "block_ids": [
+          "p30-b2"
+        ]
+      }
+    ],
+    "objectives": [
+      {
+        "text": "Explicar qué es ilusión de competencia",
+        "bloom": "understand"
+      }
+    ],
+    "prerequisites_mentioned": [
+      "metacognición"
+    ],
+    "figures": [
+      {
+        "label": "Figura 9.2",
+        "description": "Esquema de ilusión de competencia"
+      }
+    ],
+    "exercises": [
+      {
+        "text": "Explique qué es sesgo de fluidez",
+        "kind": "question"
+      }
+    ],
+    "is_frontmatter_like": false
+  },
+  "bk:ch09:s03": {
+    "concepts": [
+      {
+        "canonical": "estilos de aprendizaje",
+        "aliases": [],
+        "definition": "la creencia, no respaldada, de que cada persona aprende mejor en una modalidad",
+        "kind": "fact",
+        "importance": 0.9,
+        "difficulty": 4
+      },
+      {
+        "canonical": "evidencia sobre estilos",
+        "aliases": [],
+        "definition": "los estudios que no encuentran ventaja al enseñar según el estilo preferido",
+        "kind": "principle",
+        "importance": 0.6,
+        "difficulty": 5
+      }
+    ],
+    "claims": [
+      {
+        "text": "Estilos de aprendizaje es la creencia, no respaldada, de que cada persona aprende mejor en una modalidad.",
+        "block_ids": [
+          "p0-ghost",
+          "p31-b1"
+        ]
+      },
+      {
+        "text": "Evidencia sobre estilos es los estudios que no encuentran ventaja al enseñar según el estilo preferido.",
+        "block_ids": [
+          "p31-b2"
+        ]
+      }
+    ],
+    "objectives": [
+      {
+        "text": "Explicar qué es estilos de aprendizaje",
+        "bloom": "understand"
+      }
+    ],
+    "prerequisites_mentioned": [
+      "ilusión de competencia"
+    ],
+    "figures": [
+      {
+        "label": "Figura 9.3",
+        "description": "Esquema de estilos de aprendizaje"
+      }
+    ],
+    "exercises": [],
+    "is_frontmatter_like": false
+  },
+  "bk:ch10:s01": {
+    "concepts": [
+      {
+        "canonical": "motivación intrínseca",
+        "aliases": [],
+        "definition": "el impulso de hacer algo por el interés que despierta en sí mismo",
+        "kind": "principle",
+        "importance": 0.9,
+        "difficulty": 5
+      },
+      {
+        "canonical": "motivación extrínseca",
+        "aliases": [],
+        "definition": "el impulso de hacer algo por una recompensa externa",
+        "kind": "example",
+        "importance": 0.6,
+        "difficulty": 2
+      }
+    ],
+    "claims": [
+      {
+        "text": "Motivación intrínseca es el impulso de hacer algo por el interés que despierta en sí mismo.",
+        "block_ids": [
+          "p0-ghost",
+          "p32-b1"
+        ]
+      },
+      {
+        "text": "Motivación extrínseca es el impulso de hacer algo por una recompensa externa.",
+        "block_ids": [
+          "p32-b2"
+        ]
+      }
+    ],
+    "objectives": [
+      {
+        "text": "Explicar qué es motivación intrínseca",
+        "bloom": "understand"
+      }
+    ],
+    "prerequisites_mentioned": [
+      "estilos de aprendizaje"
+    ],
+    "figures": [
+      {
+        "label": "Figura 10.1",
+        "description": "Esquema de motivación intrínseca"
+      }
+    ],
+    "exercises": [],
+    "is_frontmatter_like": false
+  },
+  "bk:ch10:s02": {
+    "concepts": [
+      {
+        "canonical": "meta de aprendizaje",
+        "aliases": [],
+        "definition": "un objetivo centrado en mejorar la propia competencia",
+        "kind": "example",
+        "importance": 0.9,
+        "difficulty": 2
+      },
+      {
+        "canonical": "hábito de estudio",
+        "aliases": [],
+        "definition": "una rutina de estudio que se ejecuta con poco esfuerzo de voluntad",
+        "kind": "misconception",
+        "importance": 0.6,
+        "difficulty": 3
+      }
+    ],
+    "claims": [
+      {
+        "text": "Meta de aprendizaje es un objetivo centrado en mejorar la propia competencia.",
+        "block_ids": [
+          "p0-ghost",
+          "p33-b1"
+        ]
+      },
+      {
+        "text": "Hábito de estudio es una rutina de estudio que se ejecuta con poco esfuerzo de voluntad.",
+        "block_ids": [
+          "p33-b2"
+        ]
+      }
+    ],
+    "objectives": [
+      {
+        "text": "Explicar qué es meta de aprendizaje",
+        "bloom": "understand"
+      }
+    ],
+    "prerequisites_mentioned": [
+      "motivación intrínseca"
+    ],
+    "figures": [
+      {
+        "label": "Figura 10.2",
+        "description": "Esquema de meta de aprendizaje"
+      }
+    ],
+    "exercises": [
+      {
+        "text": "Explique qué es hábito de estudio",
+        "kind": "question"
+      }
+    ],
+    "is_frontmatter_like": false
+  },
+  "bk:ch10:s03": {
+    "concepts": [
+      {
+        "canonical": "racha",
+        "aliases": [],
+        "definition": "la cuenta de días consecutivos de práctica que sostiene el hábito",
+        "kind": "misconception",
+        "importance": 0.9,
+        "difficulty": 3
+      },
+      {
+        "canonical": "recompensa variable",
+        "aliases": [],
+        "definition": "un refuerzo que llega de forma impredecible",
+        "kind": "concept",
+        "importance": 0.6,
+        "difficulty": 4
+      }
+    ],
+    "claims": [
+      {
+        "text": "Racha es la cuenta de días consecutivos de práctica que sostiene el hábito.",
+        "block_ids": [
+          "p0-ghost",
+          "p34-b1"
+        ]
+      },
+      {
+        "text": "Recompensa variable es un refuerzo que llega de forma impredecible.",
+        "block_ids": [
+          "p34-b2"
+        ]
+      }
+    ],
+    "objectives": [
+      {
+        "text": "Explicar qué es racha",
+        "bloom": "understand"
+      }
+    ],
+    "prerequisites_mentioned": [
+      "meta de aprendizaje"
+    ],
+    "figures": [
+      {
+        "label": "Figura 10.3",
+        "description": "Esquema de racha"
+      }
+    ],
+    "exercises": [],
+    "is_frontmatter_like": false
+  },
+  "bk:ch11:s01": {
+    "concepts": [
+      {
+        "canonical": "tarjeta de estudio",
+        "aliases": [],
+        "definition": "una pregunta con su respuesta oculta, usada para practicar la recuperación",
+        "kind": "concept",
+        "importance": 0.9,
+        "difficulty": 4
+      },
+      {
+        "canonical": "cloze",
+        "aliases": [],
+        "definition": "una tarjeta con un hueco que hay que completar",
+        "kind": "procedure",
+        "importance": 0.6,
+        "difficulty": 5
+      }
+    ],
+    "claims": [
+      {
+        "text": "Tarjeta de estudio es una pregunta con su respuesta oculta, usada para practicar la recuperación.",
+        "block_ids": [
+          "p0-ghost",
+          "p35-b1"
+        ]
+      },
+      {
+        "text": "Cloze es una tarjeta con un hueco que hay que completar.",
+        "block_ids": [
+          "p35-b2"
+        ]
+      }
+    ],
+    "objectives": [
+      {
+        "text": "Explicar qué es tarjeta de estudio",
+        "bloom": "understand"
+      }
+    ],
+    "prerequisites_mentioned": [
+      "racha"
+    ],
+    "figures": [
+      {
+        "label": "Figura 11.1",
+        "description": "Esquema de tarjeta de estudio"
+      }
+    ],
+    "exercises": [],
+    "is_frontmatter_like": false
+  },
+  "bk:ch11:s02": {
+    "concepts": [
+      {
+        "canonical": "intercalado",
+        "aliases": [
+          "interleaving"
+        ],
+        "definition": "la mezcla de problemas de distintos tipos en una misma sesión",
+        "kind": "procedure",
+        "importance": 0.9,
+        "difficulty": 5
+      },
+      {
+        "canonical": "práctica en bloque",
+        "aliases": [],
+        "definition": "la práctica de un solo tipo de problema hasta dominarlo",
+        "kind": "fact",
+        "importance": 0.6,
+        "difficulty": 2
+      }
+    ],
+    "claims": [
+      {
+        "text": "Intercalado (también llamada interleaving) es la mezcla de problemas de distintos tipos en una misma sesión.",
+        "block_ids": [
+          "p0-ghost",
+          "p36-b1"
+        ]
+      },
+      {
+        "text": "Práctica en bloque es la práctica de un solo tipo de problema hasta dominarlo.",
+        "block_ids": [
+          "p36-b2"
+        ]
+      }
+    ],
+    "objectives": [
+      {
+        "text": "Explicar qué es intercalado",
+        "bloom": "understand"
+      }
+    ],
+    "prerequisites_mentioned": [
+      "tarjeta de estudio"
+    ],
+    "figures": [
+      {
+        "label": "Figura 11.2",
+        "description": "Esquema de intercalado"
+      }
+    ],
+    "exercises": [
+      {
+        "text": "Explique qué es práctica en bloque",
+        "kind": "question"
+      }
+    ],
+    "is_frontmatter_like": false
+  },
+  "bk:ch11:s03": {
+    "concepts": [
+      {
+        "canonical": "autoexplicación",
+        "aliases": [],
+        "definition": "la explicación en voz propia de por qué algo es así",
+        "kind": "fact",
+        "importance": 0.9,
+        "difficulty": 2
+      },
+      {
+        "canonical": "enseñar para aprender",
+        "aliases": [],
+        "definition": "la mejora en el aprendizaje que produce preparar una explicación para otros",
+        "kind": "principle",
+        "importance": 0.6,
+        "difficulty": 3
+      }
+    ],
+    "claims": [
+      {
+        "text": "Autoexplicación es la explicación en voz propia de por qué algo es así.",
+        "block_ids": [
+          "p0-ghost",
+          "p37-b1"
+        ]
+      },
+      {
+        "text": "Enseñar para aprender es la mejora en el aprendizaje que produce preparar una explicación para otros.",
+        "block_ids": [
+          "p37-b2"
+        ]
+      }
+    ],
+    "objectives": [
+      {
+        "text": "Explicar qué es autoexplicación",
+        "bloom": "understand"
+      }
+    ],
+    "prerequisites_mentioned": [
+      "intercalado"
+    ],
+    "figures": [
+      {
+        "label": "Figura 11.3",
+        "description": "Esquema de autoexplicación"
+      }
+    ],
+    "exercises": [],
+    "is_frontmatter_like": false
+  },
+  "bk:ch12:s01": {
+    "concepts": [
+      {
+        "canonical": "plan de estudio",
+        "aliases": [],
+        "definition": "la distribución de sesiones de práctica espaciada e intercalada en el calendario",
+        "kind": "principle",
+        "importance": 0.9,
+        "difficulty": 3
+      },
+      {
+        "canonical": "sesión de estudio",
+        "aliases": [],
+        "definition": "un bloque de práctica con un objetivo definido",
+        "kind": "example",
+        "importance": 0.6,
+        "difficulty": 4
+      }
+    ],
+    "claims": [
+      {
+        "text": "Plan de estudio es la distribución de sesiones de práctica espaciada e intercalada en el calendario.",
+        "block_ids": [
+          "p0-ghost",
+          "p38-b1"
+        ]
+      },
+      {
+        "text": "Sesión de estudio es un bloque de práctica con un objetivo definido.",
+        "block_ids": [
+          "p38-b2"
+        ]
+      }
+    ],
+    "objectives": [
+      {
+        "text": "Explicar qué es plan de estudio",
+        "bloom": "understand"
+      }
+    ],
+    "prerequisites_mentioned": [
+      "autoexplicación"
+    ],
+    "figures": [
+      {
+        "label": "Figura 12.1",
+        "description": "Esquema de plan de estudio"
+      }
+    ],
+    "exercises": [],
+    "is_frontmatter_like": false
+  },
+  "bk:ch12:s02": {
+    "concepts": [
+      {
+        "canonical": "subrayar",
+        "aliases": [],
+        "definition": "la técnica de marcar el texto, de utilidad baja según la evidencia",
+        "kind": "example",
+        "importance": 0.9,
+        "difficulty": 4
+      },
+      {
+        "canonical": "atracón de estudio",
+        "aliases": [],
+        "definition": "la concentración de toda la práctica en una sesión larga",
+        "kind": "misconception",
+        "importance": 0.6,
+        "difficulty": 5
+      }
+    ],
+    "claims": [
+      {
+        "text": "Subrayar es la técnica de marcar el texto, de utilidad baja según la evidencia.",
+        "block_ids": [
+          "p0-ghost",
+          "p39-b1"
+        ]
+      },
+      {
+        "text": "Atracón de estudio es la concentración de toda la práctica en una sesión larga.",
+        "block_ids": [
+          "p39-b2"
+        ]
+      }
+    ],
+    "objectives": [
+      {
+        "text": "Explicar qué es subrayar",
+        "bloom": "understand"
+      }
+    ],
+    "prerequisites_mentioned": [
+      "plan de estudio"
+    ],
+    "figures": [
+      {
+        "label": "Figura 12.2",
+        "description": "Esquema de subrayar"
+      }
+    ],
+    "exercises": [
+      {
+        "text": "Explique qué es atracón de estudio",
+        "kind": "question"
+      }
+    ],
+    "is_frontmatter_like": false
+  },
+  "bk:ch12:s03": {
+    "concepts": [
+      {
+        "canonical": "recapitulación",
+        "aliases": [],
+        "definition": "la revisión final de lo aprendido en el libro",
+        "kind": "misconception",
+        "importance": 0.9,
+        "difficulty": 5
+      },
+      {
+        "canonical": "próximos pasos",
+        "aliases": [],
+        "definition": "las lecturas y prácticas recomendadas tras el libro",
+        "kind": "concept",
+        "importance": 0.3,
+        "difficulty": 2
+      }
+    ],
+    "claims": [
+      {
+        "text": "Recapitulación es la revisión final de lo aprendido en el libro.",
+        "block_ids": [
+          "p0-ghost",
+          "p40-b1"
+        ]
+      },
+      {
+        "text": "Próximos pasos es las lecturas y prácticas recomendadas tras el libro.",
+        "block_ids": [
+          "p40-b2"
+        ]
+      }
+    ],
+    "objectives": [
+      {
+        "text": "Explicar qué es recapitulación",
+        "bloom": "understand"
+      }
+    ],
+    "prerequisites_mentioned": [
+      "subrayar"
+    ],
+    "figures": [
+      {
+        "label": "Figura 12.3",
+        "description": "Esquema de recapitulación"
+      }
+    ],
+    "exercises": [],
+    "is_frontmatter_like": false
+  },
+  "bk:apendice-a": {
+    "concepts": [
+      {
+        "canonical": "tabla de intervalos",
+        "aliases": [],
+        "definition": "la tabla con los intervalos de repaso recomendados",
+        "kind": "fact",
+        "importance": 0.2,
+        "difficulty": 1
+      }
+    ],
+    "claims": [],
+    "objectives": [],
+    "prerequisites_mentioned": [],
+    "figures": [],
+    "exercises": [],
+    "is_frontmatter_like": false
+  },
+  "tr:seg01": {
+    "concepts": [
+      {
+        "canonical": "learning science",
+        "aliases": [],
+        "definition": "the study of how people learn and remember",
+        "kind": "concept",
+        "importance": 0.9,
+        "difficulty": 2
+      },
+      {
+        "canonical": "course goals",
+        "aliases": [],
+        "definition": "what this course sets out to teach",
+        "kind": "principle",
+        "importance": 0.3,
+        "difficulty": 5
+      }
+    ],
+    "claims": [
+      {
+        "text": "learning science is the study of how people learn and remember",
+        "block_ids": [
+          "seg01"
+        ]
+      }
+    ],
+    "objectives": [],
+    "prerequisites_mentioned": [],
+    "figures": [],
+    "exercises": [],
+    "is_frontmatter_like": false
+  },
+  "tr:seg02": {
+    "concepts": [
+      {
+        "canonical": "working memory",
+        "aliases": [
+          "memoria de trabajo"
+        ],
+        "definition": "the limited-capacity system that holds and manipulates active information",
+        "kind": "procedure",
+        "importance": 0.9,
+        "difficulty": 3
+      },
+      {
+        "canonical": "cognitive load",
+        "aliases": [],
+        "definition": "the demand a task places on working memory",
+        "kind": "example",
+        "importance": 0.6,
+        "difficulty": 2
+      }
+    ],
+    "claims": [
+      {
+        "text": "working memory is the limited-capacity system that holds and manipulates active information",
+        "block_ids": [
+          "seg02"
+        ]
+      }
+    ],
+    "objectives": [],
+    "prerequisites_mentioned": [],
+    "figures": [],
+    "exercises": [],
+    "is_frontmatter_like": false
+  },
+  "tr:seg03": {
+    "concepts": [
+      {
+        "canonical": "forgetting curve",
+        "aliases": [
+          "curva del olvido"
+        ],
+        "definition": "the fast-then-slow decline of retention over time",
+        "kind": "fact",
+        "importance": 0.9,
+        "difficulty": 4
+      },
+      {
+        "canonical": "interference",
+        "aliases": [],
+        "definition": "the disruption of one memory by another",
+        "kind": "misconception",
+        "importance": 0.6,
+        "difficulty": 3
+      }
+    ],
+    "claims": [
+      {
+        "text": "forgetting curve is the fast-then-slow decline of retention over time",
+        "block_ids": [
+          "seg03"
+        ]
+      }
+    ],
+    "objectives": [],
+    "prerequisites_mentioned": [],
+    "figures": [],
+    "exercises": [],
+    "is_frontmatter_like": false
+  },
+  "tr:seg04": {
+    "concepts": [
+      {
+        "canonical": "spaced repetition",
+        "aliases": [],
+        "definition": "the scheduling of reviews according to expected retention",
+        "kind": "principle",
+        "importance": 0.9,
+        "difficulty": 5
+      },
+      {
+        "canonical": "spacing effect",
+        "aliases": [],
+        "definition": "the advantage of separated sessions over massed ones",
+        "kind": "concept",
+        "importance": 0.6,
+        "difficulty": 4
+      }
+    ],
+    "claims": [
+      {
+        "text": "spaced repetition is the scheduling of reviews according to expected retention",
+        "block_ids": [
+          "seg04"
+        ]
+      }
+    ],
+    "objectives": [],
+    "prerequisites_mentioned": [],
+    "figures": [],
+    "exercises": [],
+    "is_frontmatter_like": false
+  },
+  "tr:seg05": {
+    "concepts": [
+      {
+        "canonical": "retrieval practice",
+        "aliases": [],
+        "definition": "the effort of recalling something, which strengthens it",
+        "kind": "example",
+        "importance": 0.9,
+        "difficulty": 2
+      },
+      {
+        "canonical": "testing effect",
+        "aliases": [],
+        "definition": "the advantage of answering questions over rereading",
+        "kind": "procedure",
+        "importance": 0.6,
+        "difficulty": 5
+      }
+    ],
+    "claims": [
+      {
+        "text": "retrieval practice is the effort of recalling something, which strengthens it",
+        "block_ids": [
+          "seg05"
+        ]
+      }
+    ],
+    "objectives": [],
+    "prerequisites_mentioned": [],
+    "figures": [],
+    "exercises": [],
+    "is_frontmatter_like": false
+  },
+  "tr:seg06": {
+    "concepts": [
+      {
+        "canonical": "selective attention",
+        "aliases": [],
+        "definition": "the capacity to focus on one source and ignore the rest",
+        "kind": "misconception",
+        "importance": 0.9,
+        "difficulty": 3
+      },
+      {
+        "canonical": "multitasking",
+        "aliases": [],
+        "definition": "attempting two tasks at once, which degrades both",
+        "kind": "fact",
+        "importance": 0.6,
+        "difficulty": 2
+      }
+    ],
+    "claims": [
+      {
+        "text": "selective attention is the capacity to focus on one source and ignore the rest",
+        "block_ids": [
+          "seg06"
+        ]
+      }
+    ],
+    "objectives": [],
+    "prerequisites_mentioned": [],
+    "figures": [],
+    "exercises": [],
+    "is_frontmatter_like": false
+  },
+  "tr:seg07": {
+    "concepts": [
+      {
+        "canonical": "metacognition",
+        "aliases": [],
+        "definition": "knowledge and control of one’s own learning",
+        "kind": "concept",
+        "importance": 0.9,
+        "difficulty": 4
+      },
+      {
+        "canonical": "illusion of competence",
+        "aliases": [],
+        "definition": "the feeling of mastery that fluency produces without real recall",
+        "kind": "principle",
+        "importance": 0.6,
+        "difficulty": 3
+      }
+    ],
+    "claims": [
+      {
+        "text": "metacognition is knowledge and control of one’s own learning",
+        "block_ids": [
+          "seg07"
+        ]
+      }
+    ],
+    "objectives": [],
+    "prerequisites_mentioned": [],
+    "figures": [],
+    "exercises": [],
+    "is_frontmatter_like": false
+  },
+  "tr:seg08": {
+    "concepts": [
+      {
+        "canonical": "study plan",
+        "aliases": [],
+        "definition": "the distribution of spaced, interleaved practice over a calendar",
+        "kind": "procedure",
+        "importance": 0.9,
+        "difficulty": 5
+      },
+      {
+        "canonical": "next steps",
+        "aliases": [],
+        "definition": "recommended reading and practice after the course",
+        "kind": "example",
+        "importance": 0.3,
+        "difficulty": 4
+      }
+    ],
+    "claims": [
+      {
+        "text": "study plan is the distribution of spaced, interleaved practice over a calendar",
+        "block_ids": [
+          "seg08"
+        ]
+      }
+    ],
+    "objectives": [],
+    "prerequisites_mentioned": [],
+    "figures": [],
+    "exercises": [],
+    "is_frontmatter_like": false
+  }
+}

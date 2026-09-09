@@ -47,6 +47,12 @@ const PROMPTS = {
   explain_answer: [1],
   /** Stage 2 of §3, `docs/spec/05-ingestion-rag.md` §4.2 — contextual retrieval (6.2). */
   contextualize: [1],
+  /** P1 of §9 — extraction per chunk, stage 3 of §3 (8.1). */
+  P1_extract_chunk: [1],
+  /** P2 of §9 — knowledge graph and skeleton synthesis, stage 4 of §3 (8.1). */
+  P2_synthesize_outline: [1],
+  /** The second half of P2: one module's lesson specs over the same cached prefix (8.1). */
+  P2_synthesize_module: [1],
 } as const satisfies Record<string, readonly number[]>
 
 export type PromptId = keyof typeof PROMPTS

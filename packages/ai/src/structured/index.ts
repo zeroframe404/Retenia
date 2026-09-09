@@ -24,7 +24,13 @@ export type {
   StructuredRequestBase,
   StructuredResult,
 } from './run-structured'
-export { DEFAULT_MAX_CONTINUATIONS, runStructured, tolerantArray } from './run-structured'
+export {
+  DEFAULT_MAX_CONTINUATIONS,
+  runStructured,
+  structuredRequestFor,
+  tolerantArray,
+  validateStructuredCompletion,
+} from './run-structured'
 export type { SanitizeLimits } from './sanitize'
 export { DEFAULT_SANITIZE_LIMITS, sanitizeOutput, sanitizeString } from './sanitize'
 export type { WrappedUserContent } from './user-content'

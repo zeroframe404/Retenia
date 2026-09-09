@@ -12,6 +12,11 @@ import type { AuditValues, OutboxOperation, OutboxWriter, RepositoryContext } fr
  * that: it holds a provider's own job id against one account's key, and a second device could
  * neither poll it nor cancel it.
  *
+ * `generation_runs` and `extractions` (sub-phase 8.1) follow the same rule. A run's progress
+ * names this device's batches and its key's spend, and an extraction is model output derived
+ * from a chunk — reproducible for a known price, exactly like `ai_results`. The draft a run
+ * produces is a `path_versions` row, and that one does sync.
+ *
  * `ai_results` is the interesting one of the three, because a shared cache would genuinely
  * save money: a second device that had the answer to `contextualize-9f2c…` would not have to
  * buy it again. It is still excluded, for two reasons that outrank the saving. It is the only

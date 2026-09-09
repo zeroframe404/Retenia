@@ -66,6 +66,12 @@ const TABLE_GROUPS: readonly { title: string; blurb: string; tables: readonly st
     tables: ['paths', 'path_versions', 'sections', 'modules', 'lessons', 'activities'],
   },
   {
+    title: 'Path generation',
+    blurb:
+      'The "Generate with AI" run ledger and the validated P1 extraction per chunk (`src/schema/generation.ts`). The draft a run produces is an unfrozen `path_versions` row, not a table of its own.',
+    tables: ['generation_runs', 'extractions'],
+  },
+  {
     title: 'Exams and item bank',
     blurb:
       'Dated/mock/final/diagnostic exams, their items and attempts, and the generated item bank (`src/schema/exams.ts`).',
@@ -266,6 +272,8 @@ export function renderSchemaDoc(): string {
       '0009_source_embedding_state':
         "`sources.embedding_status`, `sources.embedding_model_id` and `sources.embedding_error`, plus the `sources_embedding` index: where each source stands in the *vector* index, which is a different question from whether it parsed. `embedding_model_id` is the reindex trigger — the startup sweep re-embeds every source whose space is not the active provider's, so switching embedding models can never leave two spaces mixed in one query (`05-ingestion-rag.md` §3). Added with `ALTER TABLE` rather than a table rebuild, which would drop the source soft-delete cascade triggers of migration 0001.",
       '0011_chunks_fts_trigram': `\`chunks_fts_trigram\` (FTS5, \`${FTS_TRIGRAM_TOKENIZER}\`) + sync triggers: an infix index alongside \`chunks_fts\`, so a search term that is a substring of a word — never a prefix \`chunks_fts\`'s \`unicode61\` tokenizer would produce on its own — still finds it (\`05-ingestion-rag.md\` §4).`,
+      '0014_generation_runs_and_extractions':
+        '`generation_runs` (the "Generate with AI" run ledger: config and its hash, status = stage, progress, estimate, cost and token totals, manifest, warnings) and `extractions` (the validated P1 output per chunk, live-unique on `custom_id`, so a re-run over the same book makes no P1 call). The draft itself is an unfrozen `path_versions` row (`04-path-generation.md` §3 stages 3–5, §7).',
     }
     for (const [index, migration] of loadMigrations().entries()) {
       line(

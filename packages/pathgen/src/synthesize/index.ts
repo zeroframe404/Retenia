@@ -1,0 +1,48 @@
+export { type BuiltGraph, buildGraph } from './build-graph'
+export {
+  buildConceptBlock,
+  buildSynthesisInputs,
+  buildToc,
+  type ConceptBlock,
+  type ConceptBlockOptions,
+  conceptLine,
+  conceptSetHash,
+  firstHeadingOf,
+  MAX_CANONICAL_CHARS,
+  MAX_CONCEPT_BLOCK_TOKENS,
+  MAX_CONCEPTS_IN_BLOCK,
+  MAX_HEADING_CHARS,
+  MAX_TOC_DEPTH,
+  MAX_TOC_ENTRIES,
+  type SynthesisInputs,
+  sha256,
+  type TocChunk,
+  type TocSource,
+  tocHash,
+} from './inputs'
+export { fixSkeleton, type Skeleton, type SkeletonModule, type SkeletonSection } from './skeleton'
+export {
+  type SynthesizeDeps,
+  type SynthesizeInput,
+  type SynthesizeProgress,
+  type SynthesizeResult,
+  type SynthesizeStatus,
+  synthesize,
+} from './synthesize'
+export {
+  buildModuleTask,
+  buildOutlineTask,
+  DEFAULT_MODULE_CONCURRENCY,
+  describeScope,
+  MODULE_MAX_OUTPUT_TOKENS,
+  MODULE_STAGE,
+  type ModuleConcept,
+  type ModuleTaskInput,
+  moduleKey,
+  OUTLINE_MAX_OUTPUT_TOKENS,
+  OUTLINE_SANITIZE_LIMITS,
+  OUTLINE_STAGE,
+  type ParsedModuleTask,
+  parseModuleTask,
+  type Task,
+} from './tasks'

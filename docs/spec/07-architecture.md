@@ -113,6 +113,8 @@ retenia/
                            # audio (wavesurfer)
     ai/                    # AI SDK providers, routing by role, versioned prompts, pricing,
                            # budgets, keys (interface)
+    pathgen/               # path generation stages 3–5: P1 extraction, consolidation, P2
+                           # synthesis, deterministic sequencing, manifest, estimator
     ingest/                # extractors, chunking, embeddings, jobs (Node only), sidecar manager
                            # (ffmpeg / whisper / yt-dlp)
     importers/             # anki, remnote, obsidian, csv; exporters markdown / apkg
@@ -121,7 +123,8 @@ retenia/
 ```
 
 **Allowed dependencies:** `core` imports nothing internal; `db`, `ai`, `ingest`, `importers`
-import `core`; `ui`, `activities`, `editor`, `readers` import `core` (types) and `ui`;
+import `core`; `pathgen` imports `core` and `ai`; `ui`, `activities`, `editor`, `readers` import
+`core` (types) and `ui`;
 `apps/desktop` imports everything. A future Expo or web client reuses `core`, `ai`,
 `activities` and `editor` with a different `db` adapter.
 

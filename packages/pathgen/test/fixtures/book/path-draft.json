@@ -1,0 +1,2311 @@
+{
+  "version": 1,
+  "kind": "draft",
+  "title": "Memoria y aprendizaje: cómo retener lo que estudiás",
+  "language": "es-AR",
+  "level": "beginner",
+  "goal": "Aprender a estudiar con memoria espaciada y práctica de recuperación",
+  "target_date": null,
+  "sources": [
+    {
+      "source_id": "src-book",
+      "title": "Memoria y aprendizaje: cómo retener lo que estudiás",
+      "primary": true
+    },
+    {
+      "source_id": "src-course",
+      "title": "Learning science course",
+      "primary": false
+    }
+  ],
+  "sections": [
+    {
+      "id": "S01",
+      "title": "Parte 1",
+      "modules": [
+        {
+          "id": "M01",
+          "title": "Módulo 1.1",
+          "objectives": [
+            {
+              "text": "Dominar los conceptos de la parte 1, módulo 1",
+              "bloom": "apply"
+            }
+          ],
+          "concept_ids": [
+            "c_816e71358c8f2c85",
+            "c_c44ed704b386df6b",
+            "c_92903d399a849556",
+            "c_f8a721dfbd88eed9",
+            "c_157cbd4709e7cd22",
+            "c_0c9a4577a1c63a51",
+            "c_91145e7d51d90373",
+            "c_e6e079ff22d5650c",
+            "c_310d793b4e27131c",
+            "c_54d463cd9f0a6894",
+            "c_69f5bf5c30ae0252",
+            "c_9dee677ae888f5df"
+          ],
+          "lessons": [
+            {
+              "id": "L01",
+              "kind": "core",
+              "title": "Módulo 1.1, lección 1 (2/2)",
+              "concept_ids": [
+                "c_816e71358c8f2c85",
+                "c_c44ed704b386df6b",
+                "c_92903d399a849556",
+                "c_f8a721dfbd88eed9",
+                "c_157cbd4709e7cd22"
+              ],
+              "warmup_concept_ids": [],
+              "objectives": [
+                {
+                  "text": "Explicar los conceptos de la lección 1",
+                  "bloom": "understand"
+                },
+                {
+                  "text": "Aplicar la lección 1 a un caso",
+                  "bloom": "apply"
+                }
+              ],
+              "prerequisite_lesson_ids": [],
+              "estimated_minutes": 8,
+              "source_refs": [
+                {
+                  "source_id": "src-book",
+                  "chunk_id": "chunk-ch02:s01",
+                  "chunk_key": "bk:ch02:s01",
+                  "block_ids": [
+                    "p8-b1",
+                    "p8-b2",
+                    "p8-b3"
+                  ],
+                  "heading_path": "Libro > Cap. 2: La memoria de trabajo > 2.1 Capacidad limitada",
+                  "ordinal": 7
+                },
+                {
+                  "source_id": "src-book",
+                  "chunk_id": "chunk-ch02:s02",
+                  "chunk_key": "bk:ch02:s02",
+                  "block_ids": [
+                    "p9-b1",
+                    "p9-b2",
+                    "p9-b3"
+                  ],
+                  "heading_path": "Libro > Cap. 2: La memoria de trabajo > 2.2 Los componentes",
+                  "ordinal": 8
+                },
+                {
+                  "source_id": "src-book",
+                  "chunk_id": "chunk-ch02:s03",
+                  "chunk_key": "bk:ch02:s03",
+                  "block_ids": [
+                    "p10-b1",
+                    "p10-b2",
+                    "p10-b3"
+                  ],
+                  "heading_path": "Libro > Cap. 2: La memoria de trabajo > 2.3 El ejecutivo central",
+                  "ordinal": 9
+                },
+                {
+                  "source_id": "src-book",
+                  "chunk_id": "chunk-ch07:s02",
+                  "chunk_key": "bk:ch07:s02",
+                  "block_ids": [
+                    "p24-b1",
+                    "p24-b2",
+                    "p24-b3"
+                  ],
+                  "heading_path": "Libro > Cap. 7: La atención > 7.2 Atención y memoria de trabajo",
+                  "ordinal": 23
+                },
+                {
+                  "source_id": "src-course",
+                  "chunk_id": "chunk-seg02",
+                  "chunk_key": "tr:seg02",
+                  "block_ids": [
+                    "seg02"
+                  ],
+                  "heading_path": "Transcript > Working memory",
+                  "ordinal": 1
+                }
+              ],
+              "origin": "split"
+            },
+            {
+              "id": "L02",
+              "kind": "core",
+              "title": "Módulo 1.1, lección 2",
+              "concept_ids": [
+                "c_0c9a4577a1c63a51",
+                "c_91145e7d51d90373"
+              ],
+              "warmup_concept_ids": [],
+              "objectives": [
+                {
+                  "text": "Explicar los conceptos de la lección 2",
+                  "bloom": "understand"
+                },
+                {
+                  "text": "Aplicar la lección 2 a un caso",
+                  "bloom": "apply"
+                }
+              ],
+              "prerequisite_lesson_ids": [
+                "L01"
+              ],
+              "estimated_minutes": 12,
+              "source_refs": [
+                {
+                  "source_id": "src-book",
+                  "chunk_id": "chunk-ch01:s01",
+                  "chunk_key": "bk:ch01:s01",
+                  "block_ids": [
+                    "p5-b1",
+                    "p5-b2",
+                    "p5-b3"
+                  ],
+                  "heading_path": "Libro > Cap. 1: Qué es la memoria > 1.1 Codificar, almacenar, recuperar",
+                  "ordinal": 4
+                },
+                {
+                  "source_id": "src-book",
+                  "chunk_id": "chunk-ch02:s03",
+                  "chunk_key": "bk:ch02:s03",
+                  "block_ids": [
+                    "p10-b1",
+                    "p10-b2",
+                    "p10-b3"
+                  ],
+                  "heading_path": "Libro > Cap. 2: La memoria de trabajo > 2.3 El ejecutivo central",
+                  "ordinal": 9
+                }
+              ],
+              "origin": "model"
+            },
+            {
+              "id": "L03",
+              "kind": "core",
+              "title": "Módulo 1.1, lección 1 (1/2)",
+              "concept_ids": [
+                "c_e6e079ff22d5650c",
+                "c_310d793b4e27131c",
+                "c_54d463cd9f0a6894",
+                "c_69f5bf5c30ae0252",
+                "c_9dee677ae888f5df"
+              ],
+              "warmup_concept_ids": [
+                "c_c44ed704b386df6b"
+              ],
+              "objectives": [
+                {
+                  "text": "Explicar los conceptos de la lección 1",
+                  "bloom": "understand"
+                },
+                {
+                  "text": "Aplicar la lección 1 a un caso",
+                  "bloom": "apply"
+                }
+              ],
+              "prerequisite_lesson_ids": [
+                "L02"
+              ],
+              "estimated_minutes": 8,
+              "source_refs": [
+                {
+                  "source_id": "src-book",
+                  "chunk_id": "chunk-ch01:s01",
+                  "chunk_key": "bk:ch01:s01",
+                  "block_ids": [
+                    "p5-b1",
+                    "p5-b2",
+                    "p5-b3"
+                  ],
+                  "heading_path": "Libro > Cap. 1: Qué es la memoria > 1.1 Codificar, almacenar, recuperar",
+                  "ordinal": 4
+                },
+                {
+                  "source_id": "src-book",
+                  "chunk_id": "chunk-ch01:s02",
+                  "chunk_key": "bk:ch01:s02",
+                  "block_ids": [
+                    "p6-b1",
+                    "p6-b2",
+                    "p6-b3"
+                  ],
+                  "heading_path": "Libro > Cap. 1: Qué es la memoria > 1.2 Los sistemas de memoria",
+                  "ordinal": 5
+                },
+                {
+                  "source_id": "src-book",
+                  "chunk_id": "chunk-ch01:s03",
+                  "chunk_key": "bk:ch01:s03",
+                  "block_ids": [
+                    "p7-b1",
+                    "p7-b2",
+                    "p7-b3"
+                  ],
+                  "heading_path": "Libro > Cap. 1: Qué es la memoria > 1.3 Medir la memoria",
+                  "ordinal": 6
+                }
+              ],
+              "origin": "split"
+            }
+          ],
+          "reinforcement": {
+            "id": "M01.reinf",
+            "kind": "reinforcement",
+            "module_id": "M01",
+            "concept_ids": [
+              "c_0c9a4577a1c63a51",
+              "c_54d463cd9f0a6894",
+              "c_c44ed704b386df6b",
+              "c_69f5bf5c30ae0252",
+              "c_f8a721dfbd88eed9",
+              "c_310d793b4e27131c",
+              "c_e6e079ff22d5650c",
+              "c_92903d399a849556",
+              "c_9dee677ae888f5df",
+              "c_816e71358c8f2c85",
+              "c_91145e7d51d90373",
+              "c_157cbd4709e7cd22"
+            ],
+            "earlier_concept_ids": [],
+            "item_count": 15,
+            "estimated_minutes": 15
+          },
+          "checkpoint": null,
+          "estimated_minutes": 43
+        },
+        {
+          "id": "M02",
+          "title": "Módulo 1.2",
+          "objectives": [
+            {
+              "text": "Dominar los conceptos de la parte 1, módulo 2",
+              "bloom": "apply"
+            }
+          ],
+          "concept_ids": [
+            "c_601d31be0dfe9d35",
+            "c_e2608a08b7eba379",
+            "c_96a6a858df6bce37",
+            "c_72e65b3248daaf82",
+            "c_411a73b92a0626cd",
+            "c_c0d277152e651880",
+            "c_250331bbed519385",
+            "c_84b3e7eec7051036",
+            "c_420a4ac9e436e87c",
+            "c_813bb7a3458e7cf9"
+          ],
+          "lessons": [
+            {
+              "id": "L04",
+              "kind": "core",
+              "title": "Módulo 1.2, lección 1",
+              "concept_ids": [
+                "c_601d31be0dfe9d35",
+                "c_e2608a08b7eba379",
+                "c_96a6a858df6bce37"
+              ],
+              "warmup_concept_ids": [
+                "c_157cbd4709e7cd22"
+              ],
+              "objectives": [
+                {
+                  "text": "Explicar los conceptos de la lección 1",
+                  "bloom": "understand"
+                },
+                {
+                  "text": "Aplicar la lección 1 a un caso",
+                  "bloom": "apply"
+                }
+              ],
+              "prerequisite_lesson_ids": [],
+              "estimated_minutes": 8,
+              "source_refs": [
+                {
+                  "source_id": "src-book",
+                  "chunk_id": "chunk-ch03:s01",
+                  "chunk_key": "bk:ch03:s01",
+                  "block_ids": [
+                    "p11-b1",
+                    "p11-b2",
+                    "p11-b3"
+                  ],
+                  "heading_path": "Libro > Cap. 3: El olvido > 3.1 La curva del olvido",
+                  "ordinal": 10
+                },
+                {
+                  "source_id": "src-book",
+                  "chunk_id": "chunk-ch03:s02",
+                  "chunk_key": "bk:ch03:s02",
+                  "block_ids": [
+                    "p12-b1",
+                    "p12-b2",
+                    "p12-b3"
+                  ],
+                  "heading_path": "Libro > Cap. 3: El olvido > 3.2 La interferencia",
+                  "ordinal": 11
+                },
+                {
+                  "source_id": "src-course",
+                  "chunk_id": "chunk-seg03",
+                  "chunk_key": "tr:seg03",
+                  "block_ids": [
+                    "seg03"
+                  ],
+                  "heading_path": "Transcript > Forgetting",
+                  "ordinal": 2
+                }
+              ],
+              "origin": "model"
+            },
+            {
+              "id": "L05",
+              "kind": "core",
+              "title": "Módulo 1.2, lección 2",
+              "concept_ids": [
+                "c_72e65b3248daaf82",
+                "c_411a73b92a0626cd",
+                "c_c0d277152e651880"
+              ],
+              "warmup_concept_ids": [
+                "c_92903d399a849556"
+              ],
+              "objectives": [
+                {
+                  "text": "Explicar los conceptos de la lección 2",
+                  "bloom": "understand"
+                },
+                {
+                  "text": "Aplicar la lección 2 a un caso",
+                  "bloom": "apply"
+                }
+              ],
+              "prerequisite_lesson_ids": [],
+              "estimated_minutes": 12,
+              "source_refs": [
+                {
+                  "source_id": "src-book",
+                  "chunk_id": "chunk-ch03:s02",
+                  "chunk_key": "bk:ch03:s02",
+                  "block_ids": [
+                    "p12-b1",
+                    "p12-b2",
+                    "p12-b3"
+                  ],
+                  "heading_path": "Libro > Cap. 3: El olvido > 3.2 La interferencia",
+                  "ordinal": 11
+                },
+                {
+                  "source_id": "src-book",
+                  "chunk_id": "chunk-ch03:s03",
+                  "chunk_key": "bk:ch03:s03",
+                  "block_ids": [
+                    "p13-b1",
+                    "p13-b2",
+                    "p13-b3"
+                  ],
+                  "heading_path": "Libro > Cap. 3: El olvido > 3.3 Fallos de recuperación",
+                  "ordinal": 12
+                }
+              ],
+              "origin": "model"
+            },
+            {
+              "id": "L06",
+              "kind": "core",
+              "title": "Módulo 1.2, lección 3",
+              "concept_ids": [
+                "c_250331bbed519385",
+                "c_84b3e7eec7051036",
+                "c_420a4ac9e436e87c",
+                "c_813bb7a3458e7cf9"
+              ],
+              "warmup_concept_ids": [
+                "c_601d31be0dfe9d35"
+              ],
+              "objectives": [
+                {
+                  "text": "Explicar los conceptos de la lección 3",
+                  "bloom": "understand"
+                },
+                {
+                  "text": "Aplicar la lección 3 a un caso",
+                  "bloom": "apply"
+                }
+              ],
+              "prerequisite_lesson_ids": [],
+              "estimated_minutes": 16,
+              "source_refs": [
+                {
+                  "source_id": "src-book",
+                  "chunk_id": "chunk-ch04:s01",
+                  "chunk_key": "bk:ch04:s01",
+                  "block_ids": [
+                    "p14-b1",
+                    "p14-b2",
+                    "p14-b3"
+                  ],
+                  "heading_path": "Libro > Cap. 4: La consolidación > 4.1 Consolidación sináptica",
+                  "ordinal": 13
+                },
+                {
+                  "source_id": "src-book",
+                  "chunk_id": "chunk-ch04:s02",
+                  "chunk_key": "bk:ch04:s02",
+                  "block_ids": [
+                    "p15-b1",
+                    "p15-b2",
+                    "p15-b3"
+                  ],
+                  "heading_path": "Libro > Cap. 4: La consolidación > 4.2 Consolidación de sistemas",
+                  "ordinal": 14
+                }
+              ],
+              "origin": "model"
+            }
+          ],
+          "reinforcement": {
+            "id": "M02.reinf",
+            "kind": "reinforcement",
+            "module_id": "M02",
+            "concept_ids": [
+              "c_c0d277152e651880",
+              "c_250331bbed519385",
+              "c_420a4ac9e436e87c",
+              "c_0c9a4577a1c63a51",
+              "c_813bb7a3458e7cf9",
+              "c_72e65b3248daaf82",
+              "c_816e71358c8f2c85",
+              "c_96a6a858df6bce37",
+              "c_601d31be0dfe9d35",
+              "c_411a73b92a0626cd",
+              "c_f8a721dfbd88eed9",
+              "c_e2608a08b7eba379",
+              "c_84b3e7eec7051036",
+              "c_157cbd4709e7cd22"
+            ],
+            "earlier_concept_ids": [
+              "c_0c9a4577a1c63a51",
+              "c_816e71358c8f2c85",
+              "c_f8a721dfbd88eed9",
+              "c_157cbd4709e7cd22"
+            ],
+            "item_count": 13,
+            "estimated_minutes": 13
+          },
+          "checkpoint": null,
+          "estimated_minutes": 49
+        }
+      ]
+    },
+    {
+      "id": "S02",
+      "title": "Parte 2",
+      "modules": [
+        {
+          "id": "M03",
+          "title": "Módulo 2.1",
+          "objectives": [
+            {
+              "text": "Dominar los conceptos de la parte 2, módulo 1",
+              "bloom": "apply"
+            }
+          ],
+          "concept_ids": [
+            "c_7740ddb312d5a768",
+            "c_da34f1b4a867270e",
+            "c_1a88d9f590c78998",
+            "c_2129d8ff0564e5f4",
+            "c_352e843ccd23dc34",
+            "c_ef6e1e8180ed5dff",
+            "c_2efcdfc79ec037f4",
+            "c_d18a171fb4630062",
+            "c_b2b98990586256aa",
+            "c_ac8d1afea282231c",
+            "c_1e43cff2f1ac8acc"
+          ],
+          "lessons": [
+            {
+              "id": "L07",
+              "kind": "core",
+              "title": "Módulo 2.1, lección 1",
+              "concept_ids": [
+                "c_7740ddb312d5a768",
+                "c_da34f1b4a867270e",
+                "c_1a88d9f590c78998"
+              ],
+              "warmup_concept_ids": [
+                "c_0c9a4577a1c63a51"
+              ],
+              "objectives": [
+                {
+                  "text": "Explicar los conceptos de la lección 1",
+                  "bloom": "understand"
+                },
+                {
+                  "text": "Aplicar la lección 1 a un caso",
+                  "bloom": "apply"
+                }
+              ],
+              "prerequisite_lesson_ids": [
+                "L06"
+              ],
+              "estimated_minutes": 8,
+              "source_refs": [
+                {
+                  "source_id": "src-book",
+                  "chunk_id": "chunk-ch04:s03",
+                  "chunk_key": "bk:ch04:s03",
+                  "block_ids": [
+                    "p16-b1",
+                    "p16-b2",
+                    "p16-b3"
+                  ],
+                  "heading_path": "Libro > Cap. 4: La consolidación > 4.3 El sueño",
+                  "ordinal": 15
+                },
+                {
+                  "source_id": "src-book",
+                  "chunk_id": "chunk-ch05:s01",
+                  "chunk_key": "bk:ch05:s01",
+                  "block_ids": [
+                    "p17-b1",
+                    "p17-b2",
+                    "p17-b3"
+                  ],
+                  "heading_path": "Libro > Cap. 5: El espaciado > 5.1 El efecto de espaciado",
+                  "ordinal": 16
+                }
+              ],
+              "origin": "model"
+            },
+            {
+              "id": "L08",
+              "kind": "core",
+              "title": "Módulo 2.1, lección 2",
+              "concept_ids": [
+                "c_2129d8ff0564e5f4",
+                "c_352e843ccd23dc34",
+                "c_ef6e1e8180ed5dff"
+              ],
+              "warmup_concept_ids": [
+                "c_310d793b4e27131c"
+              ],
+              "objectives": [
+                {
+                  "text": "Explicar los conceptos de la lección 2",
+                  "bloom": "understand"
+                },
+                {
+                  "text": "Aplicar la lección 2 a un caso",
+                  "bloom": "apply"
+                }
+              ],
+              "prerequisite_lesson_ids": [
+                "L07"
+              ],
+              "estimated_minutes": 12,
+              "source_refs": [
+                {
+                  "source_id": "src-book",
+                  "chunk_id": "chunk-ch05:s01",
+                  "chunk_key": "bk:ch05:s01",
+                  "block_ids": [
+                    "p17-b1",
+                    "p17-b2",
+                    "p17-b3"
+                  ],
+                  "heading_path": "Libro > Cap. 5: El espaciado > 5.1 El efecto de espaciado",
+                  "ordinal": 16
+                },
+                {
+                  "source_id": "src-book",
+                  "chunk_id": "chunk-ch05:s02",
+                  "chunk_key": "bk:ch05:s02",
+                  "block_ids": [
+                    "p18-b1",
+                    "p18-b2",
+                    "p18-b3"
+                  ],
+                  "heading_path": "Libro > Cap. 5: El espaciado > 5.2 Intervalos crecientes",
+                  "ordinal": 17
+                },
+                {
+                  "source_id": "src-course",
+                  "chunk_id": "chunk-seg04",
+                  "chunk_key": "tr:seg04",
+                  "block_ids": [
+                    "seg04"
+                  ],
+                  "heading_path": "Transcript > Spacing",
+                  "ordinal": 3
+                }
+              ],
+              "origin": "model"
+            },
+            {
+              "id": "L09",
+              "kind": "core",
+              "title": "Módulo 2.1, lección 3",
+              "concept_ids": [
+                "c_2efcdfc79ec037f4",
+                "c_d18a171fb4630062",
+                "c_b2b98990586256aa"
+              ],
+              "warmup_concept_ids": [
+                "c_9dee677ae888f5df"
+              ],
+              "objectives": [
+                {
+                  "text": "Explicar los conceptos de la lección 3",
+                  "bloom": "understand"
+                },
+                {
+                  "text": "Aplicar la lección 3 a un caso",
+                  "bloom": "apply"
+                }
+              ],
+              "prerequisite_lesson_ids": [
+                "L08"
+              ],
+              "estimated_minutes": 16,
+              "source_refs": [
+                {
+                  "source_id": "src-book",
+                  "chunk_id": "chunk-ch05:s03",
+                  "chunk_key": "bk:ch05:s03",
+                  "block_ids": [
+                    "p19-b1",
+                    "p19-b2",
+                    "p19-b3"
+                  ],
+                  "heading_path": "Libro > Cap. 5: El espaciado > 5.3 Cuándo repasar",
+                  "ordinal": 18
+                },
+                {
+                  "source_id": "src-book",
+                  "chunk_id": "chunk-ch06:s01",
+                  "chunk_key": "bk:ch06:s01",
+                  "block_ids": [
+                    "p20-b1",
+                    "p20-b2",
+                    "p20-b3"
+                  ],
+                  "heading_path": "Libro > Cap. 6: La recuperación > 6.1 El efecto de prueba",
+                  "ordinal": 19
+                },
+                {
+                  "source_id": "src-course",
+                  "chunk_id": "chunk-seg05",
+                  "chunk_key": "tr:seg05",
+                  "block_ids": [
+                    "seg05"
+                  ],
+                  "heading_path": "Transcript > Retrieval",
+                  "ordinal": 4
+                }
+              ],
+              "origin": "model"
+            },
+            {
+              "id": "L10",
+              "kind": "core",
+              "title": "Módulo 2.1, lección 4",
+              "concept_ids": [
+                "c_ac8d1afea282231c",
+                "c_1e43cff2f1ac8acc"
+              ],
+              "warmup_concept_ids": [
+                "c_ef6e1e8180ed5dff"
+              ],
+              "objectives": [
+                {
+                  "text": "Explicar los conceptos de la lección 4",
+                  "bloom": "understand"
+                },
+                {
+                  "text": "Aplicar la lección 4 a un caso",
+                  "bloom": "apply"
+                }
+              ],
+              "prerequisite_lesson_ids": [
+                "L09"
+              ],
+              "estimated_minutes": 8,
+              "source_refs": [
+                {
+                  "source_id": "src-book",
+                  "chunk_id": "chunk-ch06:s01",
+                  "chunk_key": "bk:ch06:s01",
+                  "block_ids": [
+                    "p20-b1",
+                    "p20-b2",
+                    "p20-b3"
+                  ],
+                  "heading_path": "Libro > Cap. 6: La recuperación > 6.1 El efecto de prueba",
+                  "ordinal": 19
+                },
+                {
+                  "source_id": "src-book",
+                  "chunk_id": "chunk-ch06:s02",
+                  "chunk_key": "bk:ch06:s02",
+                  "block_ids": [
+                    "p21-b1",
+                    "p21-b2",
+                    "p21-b3"
+                  ],
+                  "heading_path": "Libro > Cap. 6: La recuperación > 6.2 Dificultad deseable",
+                  "ordinal": 20
+                }
+              ],
+              "origin": "model"
+            }
+          ],
+          "reinforcement": {
+            "id": "M03.reinf",
+            "kind": "reinforcement",
+            "module_id": "M03",
+            "concept_ids": [
+              "c_2129d8ff0564e5f4",
+              "c_ac8d1afea282231c",
+              "c_b2b98990586256aa",
+              "c_310d793b4e27131c",
+              "c_da34f1b4a867270e",
+              "c_ef6e1e8180ed5dff",
+              "c_92903d399a849556",
+              "c_d18a171fb4630062",
+              "c_1a88d9f590c78998",
+              "c_250331bbed519385",
+              "c_7740ddb312d5a768",
+              "c_352e843ccd23dc34",
+              "c_c44ed704b386df6b",
+              "c_1e43cff2f1ac8acc",
+              "c_2efcdfc79ec037f4",
+              "c_9dee677ae888f5df"
+            ],
+            "earlier_concept_ids": [
+              "c_310d793b4e27131c",
+              "c_92903d399a849556",
+              "c_250331bbed519385",
+              "c_c44ed704b386df6b",
+              "c_9dee677ae888f5df"
+            ],
+            "item_count": 14,
+            "estimated_minutes": 14
+          },
+          "checkpoint": null,
+          "estimated_minutes": 58
+        },
+        {
+          "id": "M04",
+          "title": "Módulo 2.2",
+          "objectives": [
+            {
+              "text": "Dominar los conceptos de la parte 2, módulo 2",
+              "bloom": "apply"
+            }
+          ],
+          "concept_ids": [
+            "c_e71477c834fd0d25",
+            "c_94bdbd57d2d6a96b",
+            "c_a2a1951dd4085979",
+            "c_b2479e211ac7f020",
+            "c_ede23c57c4342aae",
+            "c_3a40056464e4f257",
+            "c_76398db7b9d2d32b",
+            "c_e983b3bd36062255",
+            "c_3d96bfa8f38fa4cb",
+            "c_6e386f475b264c51"
+          ],
+          "lessons": [
+            {
+              "id": "L11",
+              "kind": "core",
+              "title": "Módulo 2.2, lección 1",
+              "concept_ids": [
+                "c_e71477c834fd0d25",
+                "c_94bdbd57d2d6a96b",
+                "c_a2a1951dd4085979"
+              ],
+              "warmup_concept_ids": [
+                "c_b2b98990586256aa"
+              ],
+              "objectives": [
+                {
+                  "text": "Explicar los conceptos de la lección 1",
+                  "bloom": "understand"
+                },
+                {
+                  "text": "Aplicar la lección 1 a un caso",
+                  "bloom": "apply"
+                }
+              ],
+              "prerequisite_lesson_ids": [],
+              "estimated_minutes": 8,
+              "source_refs": [
+                {
+                  "source_id": "src-book",
+                  "chunk_id": "chunk-ch06:s02",
+                  "chunk_key": "bk:ch06:s02",
+                  "block_ids": [
+                    "p21-b1",
+                    "p21-b2",
+                    "p21-b3"
+                  ],
+                  "heading_path": "Libro > Cap. 6: La recuperación > 6.2 Dificultad deseable",
+                  "ordinal": 20
+                },
+                {
+                  "source_id": "src-book",
+                  "chunk_id": "chunk-ch06:s03",
+                  "chunk_key": "bk:ch06:s03",
+                  "block_ids": [
+                    "p22-b1",
+                    "p22-b2",
+                    "p22-b3"
+                  ],
+                  "heading_path": "Libro > Cap. 6: La recuperación > 6.3 Feedback",
+                  "ordinal": 21
+                }
+              ],
+              "origin": "model"
+            },
+            {
+              "id": "L12",
+              "kind": "core",
+              "title": "Módulo 2.2, lección 2",
+              "concept_ids": [
+                "c_b2479e211ac7f020",
+                "c_ede23c57c4342aae",
+                "c_3a40056464e4f257"
+              ],
+              "warmup_concept_ids": [
+                "c_96a6a858df6bce37"
+              ],
+              "objectives": [
+                {
+                  "text": "Explicar los conceptos de la lección 2",
+                  "bloom": "understand"
+                },
+                {
+                  "text": "Aplicar la lección 2 a un caso",
+                  "bloom": "apply"
+                }
+              ],
+              "prerequisite_lesson_ids": [],
+              "estimated_minutes": 12,
+              "source_refs": [
+                {
+                  "source_id": "src-book",
+                  "chunk_id": "chunk-ch07:s01",
+                  "chunk_key": "bk:ch07:s01",
+                  "block_ids": [
+                    "p23-b1",
+                    "p23-b2",
+                    "p23-b3"
+                  ],
+                  "heading_path": "Libro > Cap. 7: La atención > 7.1 Atención selectiva",
+                  "ordinal": 22
+                },
+                {
+                  "source_id": "src-book",
+                  "chunk_id": "chunk-ch07:s02",
+                  "chunk_key": "bk:ch07:s02",
+                  "block_ids": [
+                    "p24-b1",
+                    "p24-b2",
+                    "p24-b3"
+                  ],
+                  "heading_path": "Libro > Cap. 7: La atención > 7.2 Atención y memoria de trabajo",
+                  "ordinal": 23
+                }
+              ],
+              "origin": "model"
+            },
+            {
+              "id": "L13",
+              "kind": "core",
+              "title": "Módulo 2.2, lección 3",
+              "concept_ids": [
+                "c_76398db7b9d2d32b",
+                "c_e983b3bd36062255",
+                "c_3d96bfa8f38fa4cb",
+                "c_6e386f475b264c51"
+              ],
+              "warmup_concept_ids": [
+                "c_c0d277152e651880"
+              ],
+              "objectives": [
+                {
+                  "text": "Explicar los conceptos de la lección 3",
+                  "bloom": "understand"
+                },
+                {
+                  "text": "Aplicar la lección 3 a un caso",
+                  "bloom": "apply"
+                }
+              ],
+              "prerequisite_lesson_ids": [],
+              "estimated_minutes": 16,
+              "source_refs": [
+                {
+                  "source_id": "src-book",
+                  "chunk_id": "chunk-ch07:s03",
+                  "chunk_key": "bk:ch07:s03",
+                  "block_ids": [
+                    "p25-b1",
+                    "p25-b2",
+                    "p25-b3"
+                  ],
+                  "heading_path": "Libro > Cap. 7: La atención > 7.3 La multitarea",
+                  "ordinal": 24
+                },
+                {
+                  "source_id": "src-book",
+                  "chunk_id": "chunk-ch08:s01",
+                  "chunk_key": "bk:ch08:s01",
+                  "block_ids": [
+                    "p26-b1",
+                    "p26-b2",
+                    "p26-b3"
+                  ],
+                  "heading_path": "Libro > Cap. 8: El aprendizaje profundo > 8.1 Niveles de procesamiento",
+                  "ordinal": 25
+                }
+              ],
+              "origin": "model"
+            }
+          ],
+          "reinforcement": {
+            "id": "M04.reinf",
+            "kind": "reinforcement",
+            "module_id": "M04",
+            "concept_ids": [
+              "c_94bdbd57d2d6a96b",
+              "c_76398db7b9d2d32b",
+              "c_6e386f475b264c51",
+              "c_ef6e1e8180ed5dff",
+              "c_3a40056464e4f257",
+              "c_b2479e211ac7f020",
+              "c_92903d399a849556",
+              "c_3d96bfa8f38fa4cb",
+              "c_e71477c834fd0d25",
+              "c_e983b3bd36062255",
+              "c_c44ed704b386df6b",
+              "c_a2a1951dd4085979",
+              "c_ede23c57c4342aae",
+              "c_0c9a4577a1c63a51"
+            ],
+            "earlier_concept_ids": [
+              "c_ef6e1e8180ed5dff",
+              "c_92903d399a849556",
+              "c_c44ed704b386df6b",
+              "c_0c9a4577a1c63a51"
+            ],
+            "item_count": 13,
+            "estimated_minutes": 13
+          },
+          "checkpoint": {
+            "id": "C01",
+            "kind": "checkpoint",
+            "module_ids": [
+              "M01",
+              "M02",
+              "M03",
+              "M04"
+            ],
+            "concept_ids": [
+              "c_816e71358c8f2c85",
+              "c_c44ed704b386df6b",
+              "c_92903d399a849556",
+              "c_f8a721dfbd88eed9",
+              "c_157cbd4709e7cd22",
+              "c_0c9a4577a1c63a51",
+              "c_91145e7d51d90373",
+              "c_e6e079ff22d5650c",
+              "c_310d793b4e27131c",
+              "c_54d463cd9f0a6894",
+              "c_69f5bf5c30ae0252",
+              "c_9dee677ae888f5df",
+              "c_601d31be0dfe9d35",
+              "c_e2608a08b7eba379",
+              "c_96a6a858df6bce37",
+              "c_72e65b3248daaf82",
+              "c_411a73b92a0626cd",
+              "c_c0d277152e651880",
+              "c_250331bbed519385",
+              "c_84b3e7eec7051036",
+              "c_420a4ac9e436e87c",
+              "c_813bb7a3458e7cf9",
+              "c_7740ddb312d5a768",
+              "c_da34f1b4a867270e",
+              "c_1a88d9f590c78998",
+              "c_2129d8ff0564e5f4",
+              "c_352e843ccd23dc34",
+              "c_ef6e1e8180ed5dff",
+              "c_2efcdfc79ec037f4",
+              "c_d18a171fb4630062",
+              "c_b2b98990586256aa",
+              "c_ac8d1afea282231c",
+              "c_1e43cff2f1ac8acc",
+              "c_e71477c834fd0d25",
+              "c_94bdbd57d2d6a96b",
+              "c_a2a1951dd4085979",
+              "c_b2479e211ac7f020",
+              "c_ede23c57c4342aae",
+              "c_3a40056464e4f257",
+              "c_76398db7b9d2d32b",
+              "c_e983b3bd36062255",
+              "c_3d96bfa8f38fa4cb",
+              "c_6e386f475b264c51"
+            ],
+            "item_count": 16,
+            "estimated_minutes": 16
+          },
+          "estimated_minutes": 65
+        }
+      ]
+    },
+    {
+      "id": "S03",
+      "title": "Parte 3",
+      "modules": [
+        {
+          "id": "M05",
+          "title": "Módulo 3.1",
+          "objectives": [
+            {
+              "text": "Dominar los conceptos de la parte 3, módulo 1",
+              "bloom": "apply"
+            }
+          ],
+          "concept_ids": [
+            "c_0999a35b470a888c",
+            "c_2b89690cfa9acc66",
+            "c_ff73954561d9e19c",
+            "c_b2b0f29149ac6cbe",
+            "c_1f39fc808db6b68b",
+            "c_7d145d42a9bbdd45",
+            "c_485461fd2573eaef",
+            "c_b194007da3165511",
+            "c_95a21a94ad90cf66",
+            "c_80cf81e3e2ad52cb",
+            "c_d8017d8c89356b89"
+          ],
+          "lessons": [
+            {
+              "id": "L14",
+              "kind": "core",
+              "title": "Módulo 3.1, lección 1",
+              "concept_ids": [
+                "c_0999a35b470a888c",
+                "c_2b89690cfa9acc66",
+                "c_ff73954561d9e19c"
+              ],
+              "warmup_concept_ids": [
+                "c_250331bbed519385"
+              ],
+              "objectives": [
+                {
+                  "text": "Explicar los conceptos de la lección 1",
+                  "bloom": "understand"
+                },
+                {
+                  "text": "Aplicar la lección 1 a un caso",
+                  "bloom": "apply"
+                }
+              ],
+              "prerequisite_lesson_ids": [
+                "L13"
+              ],
+              "estimated_minutes": 8,
+              "source_refs": [
+                {
+                  "source_id": "src-book",
+                  "chunk_id": "chunk-ch08:s02",
+                  "chunk_key": "bk:ch08:s02",
+                  "block_ids": [
+                    "p27-b1",
+                    "p27-b2",
+                    "p27-b3"
+                  ],
+                  "heading_path": "Libro > Cap. 8: El aprendizaje profundo > 8.2 Organización",
+                  "ordinal": 26
+                },
+                {
+                  "source_id": "src-book",
+                  "chunk_id": "chunk-ch08:s03",
+                  "chunk_key": "bk:ch08:s03",
+                  "block_ids": [
+                    "p28-b1",
+                    "p28-b2",
+                    "p28-b3"
+                  ],
+                  "heading_path": "Libro > Cap. 8: El aprendizaje profundo > 8.3 Imágenes mentales",
+                  "ordinal": 27
+                }
+              ],
+              "origin": "model"
+            },
+            {
+              "id": "L15",
+              "kind": "core",
+              "title": "Módulo 3.1, lección 2",
+              "concept_ids": [
+                "c_b2b0f29149ac6cbe",
+                "c_1f39fc808db6b68b",
+                "c_7d145d42a9bbdd45"
+              ],
+              "warmup_concept_ids": [
+                "c_420a4ac9e436e87c"
+              ],
+              "objectives": [
+                {
+                  "text": "Explicar los conceptos de la lección 2",
+                  "bloom": "understand"
+                },
+                {
+                  "text": "Aplicar la lección 2 a un caso",
+                  "bloom": "apply"
+                }
+              ],
+              "prerequisite_lesson_ids": [
+                "L14"
+              ],
+              "estimated_minutes": 12,
+              "source_refs": [
+                {
+                  "source_id": "src-book",
+                  "chunk_id": "chunk-ch08:s03",
+                  "chunk_key": "bk:ch08:s03",
+                  "block_ids": [
+                    "p28-b1",
+                    "p28-b2",
+                    "p28-b3"
+                  ],
+                  "heading_path": "Libro > Cap. 8: El aprendizaje profundo > 8.3 Imágenes mentales",
+                  "ordinal": 27
+                },
+                {
+                  "source_id": "src-book",
+                  "chunk_id": "chunk-ch09:s01",
+                  "chunk_key": "bk:ch09:s01",
+                  "block_ids": [
+                    "p29-b1",
+                    "p29-b2",
+                    "p29-b3"
+                  ],
+                  "heading_path": "Libro > Cap. 9: Las creencias sobre el aprendizaje > 9.1 Metacognición",
+                  "ordinal": 28
+                }
+              ],
+              "origin": "model"
+            },
+            {
+              "id": "L16",
+              "kind": "core",
+              "title": "Módulo 3.1, lección 3",
+              "concept_ids": [
+                "c_485461fd2573eaef",
+                "c_b194007da3165511",
+                "c_95a21a94ad90cf66"
+              ],
+              "warmup_concept_ids": [
+                "c_1a88d9f590c78998"
+              ],
+              "objectives": [
+                {
+                  "text": "Explicar los conceptos de la lección 3",
+                  "bloom": "understand"
+                },
+                {
+                  "text": "Aplicar la lección 3 a un caso",
+                  "bloom": "apply"
+                }
+              ],
+              "prerequisite_lesson_ids": [
+                "L15"
+              ],
+              "estimated_minutes": 16,
+              "source_refs": [
+                {
+                  "source_id": "src-book",
+                  "chunk_id": "chunk-ch09:s02",
+                  "chunk_key": "bk:ch09:s02",
+                  "block_ids": [
+                    "p30-b1",
+                    "p30-b2",
+                    "p30-b3"
+                  ],
+                  "heading_path": "Libro > Cap. 9: Las creencias sobre el aprendizaje > 9.2 Ilusiones de competencia",
+                  "ordinal": 29
+                },
+                {
+                  "source_id": "src-book",
+                  "chunk_id": "chunk-ch09:s03",
+                  "chunk_key": "bk:ch09:s03",
+                  "block_ids": [
+                    "p31-b1",
+                    "p31-b2",
+                    "p31-b3"
+                  ],
+                  "heading_path": "Libro > Cap. 9: Las creencias sobre el aprendizaje > 9.3 Estilos de aprendizaje",
+                  "ordinal": 30
+                }
+              ],
+              "origin": "model"
+            },
+            {
+              "id": "L17",
+              "kind": "core",
+              "title": "Módulo 3.1, lección 4",
+              "concept_ids": [
+                "c_80cf81e3e2ad52cb",
+                "c_d8017d8c89356b89"
+              ],
+              "warmup_concept_ids": [
+                "c_7740ddb312d5a768"
+              ],
+              "objectives": [
+                {
+                  "text": "Explicar los conceptos de la lección 4",
+                  "bloom": "understand"
+                },
+                {
+                  "text": "Aplicar la lección 4 a un caso",
+                  "bloom": "apply"
+                }
+              ],
+              "prerequisite_lesson_ids": [
+                "L16"
+              ],
+              "estimated_minutes": 8,
+              "source_refs": [
+                {
+                  "source_id": "src-book",
+                  "chunk_id": "chunk-ch09:s03",
+                  "chunk_key": "bk:ch09:s03",
+                  "block_ids": [
+                    "p31-b1",
+                    "p31-b2",
+                    "p31-b3"
+                  ],
+                  "heading_path": "Libro > Cap. 9: Las creencias sobre el aprendizaje > 9.3 Estilos de aprendizaje",
+                  "ordinal": 30
+                },
+                {
+                  "source_id": "src-book",
+                  "chunk_id": "chunk-ch10:s01",
+                  "chunk_key": "bk:ch10:s01",
+                  "block_ids": [
+                    "p32-b1",
+                    "p32-b2",
+                    "p32-b3"
+                  ],
+                  "heading_path": "Libro > Cap. 10: La motivación > 10.1 Motivación intrínseca",
+                  "ordinal": 31
+                }
+              ],
+              "origin": "model"
+            }
+          ],
+          "reinforcement": {
+            "id": "M05.reinf",
+            "kind": "reinforcement",
+            "module_id": "M05",
+            "concept_ids": [
+              "c_0999a35b470a888c",
+              "c_95a21a94ad90cf66",
+              "c_d8017d8c89356b89",
+              "c_310d793b4e27131c",
+              "c_485461fd2573eaef",
+              "c_ff73954561d9e19c",
+              "c_9dee677ae888f5df",
+              "c_b2b0f29149ac6cbe",
+              "c_b194007da3165511",
+              "c_b2b98990586256aa",
+              "c_7d145d42a9bbdd45",
+              "c_2b89690cfa9acc66",
+              "c_96a6a858df6bce37",
+              "c_1f39fc808db6b68b",
+              "c_80cf81e3e2ad52cb",
+              "c_157cbd4709e7cd22"
+            ],
+            "earlier_concept_ids": [
+              "c_310d793b4e27131c",
+              "c_9dee677ae888f5df",
+              "c_b2b98990586256aa",
+              "c_96a6a858df6bce37",
+              "c_157cbd4709e7cd22"
+            ],
+            "item_count": 14,
+            "estimated_minutes": 14
+          },
+          "checkpoint": null,
+          "estimated_minutes": 58
+        },
+        {
+          "id": "M06",
+          "title": "Módulo 3.2",
+          "objectives": [
+            {
+              "text": "Dominar los conceptos de la parte 3, módulo 2",
+              "bloom": "apply"
+            }
+          ],
+          "concept_ids": [
+            "c_a69eb75563e6ca28",
+            "c_9b4efac912a8bd0d",
+            "c_e4bb10e4b5bae6d1",
+            "c_5844fb9fc6cf14a9",
+            "c_fb8fce1459868b70",
+            "c_7693856b279ee5b9",
+            "c_516dc8a43bc48ea2",
+            "c_73aa4eddcf0f171e",
+            "c_f18521e17b18cbcd",
+            "c_a83bb10a4e53db6f"
+          ],
+          "lessons": [
+            {
+              "id": "L18",
+              "kind": "core",
+              "title": "Módulo 3.2, lección 1",
+              "concept_ids": [
+                "c_a69eb75563e6ca28",
+                "c_9b4efac912a8bd0d",
+                "c_e4bb10e4b5bae6d1"
+              ],
+              "warmup_concept_ids": [
+                "c_352e843ccd23dc34"
+              ],
+              "objectives": [
+                {
+                  "text": "Explicar los conceptos de la lección 1",
+                  "bloom": "understand"
+                },
+                {
+                  "text": "Aplicar la lección 1 a un caso",
+                  "bloom": "apply"
+                }
+              ],
+              "prerequisite_lesson_ids": [],
+              "estimated_minutes": 8,
+              "source_refs": [
+                {
+                  "source_id": "src-book",
+                  "chunk_id": "chunk-ch10:s01",
+                  "chunk_key": "bk:ch10:s01",
+                  "block_ids": [
+                    "p32-b1",
+                    "p32-b2",
+                    "p32-b3"
+                  ],
+                  "heading_path": "Libro > Cap. 10: La motivación > 10.1 Motivación intrínseca",
+                  "ordinal": 31
+                },
+                {
+                  "source_id": "src-book",
+                  "chunk_id": "chunk-ch10:s02",
+                  "chunk_key": "bk:ch10:s02",
+                  "block_ids": [
+                    "p33-b1",
+                    "p33-b2",
+                    "p33-b3"
+                  ],
+                  "heading_path": "Libro > Cap. 10: La motivación > 10.2 Metas y hábitos",
+                  "ordinal": 32
+                }
+              ],
+              "origin": "model"
+            },
+            {
+              "id": "L19",
+              "kind": "core",
+              "title": "Módulo 3.2, lección 2",
+              "concept_ids": [
+                "c_5844fb9fc6cf14a9",
+                "c_fb8fce1459868b70",
+                "c_7693856b279ee5b9"
+              ],
+              "warmup_concept_ids": [
+                "c_d18a171fb4630062"
+              ],
+              "objectives": [
+                {
+                  "text": "Explicar los conceptos de la lección 2",
+                  "bloom": "understand"
+                },
+                {
+                  "text": "Aplicar la lección 2 a un caso",
+                  "bloom": "apply"
+                }
+              ],
+              "prerequisite_lesson_ids": [],
+              "estimated_minutes": 12,
+              "source_refs": [
+                {
+                  "source_id": "src-book",
+                  "chunk_id": "chunk-ch10:s03",
+                  "chunk_key": "bk:ch10:s03",
+                  "block_ids": [
+                    "p34-b1",
+                    "p34-b2",
+                    "p34-b3"
+                  ],
+                  "heading_path": "Libro > Cap. 10: La motivación > 10.3 Rachas",
+                  "ordinal": 33
+                },
+                {
+                  "source_id": "src-book",
+                  "chunk_id": "chunk-ch11:s01",
+                  "chunk_key": "bk:ch11:s01",
+                  "block_ids": [
+                    "p35-b1",
+                    "p35-b2",
+                    "p35-b3"
+                  ],
+                  "heading_path": "Libro > Cap. 11: Aplicaciones > 11.1 Tarjetas de estudio",
+                  "ordinal": 34
+                }
+              ],
+              "origin": "model"
+            },
+            {
+              "id": "L20",
+              "kind": "core",
+              "title": "Módulo 3.2, lección 3",
+              "concept_ids": [
+                "c_516dc8a43bc48ea2",
+                "c_73aa4eddcf0f171e",
+                "c_f18521e17b18cbcd",
+                "c_a83bb10a4e53db6f"
+              ],
+              "warmup_concept_ids": [
+                "c_1e43cff2f1ac8acc"
+              ],
+              "objectives": [
+                {
+                  "text": "Explicar los conceptos de la lección 3",
+                  "bloom": "understand"
+                },
+                {
+                  "text": "Aplicar la lección 3 a un caso",
+                  "bloom": "apply"
+                }
+              ],
+              "prerequisite_lesson_ids": [],
+              "estimated_minutes": 16,
+              "source_refs": [
+                {
+                  "source_id": "src-book",
+                  "chunk_id": "chunk-ch11:s01",
+                  "chunk_key": "bk:ch11:s01",
+                  "block_ids": [
+                    "p35-b1",
+                    "p35-b2",
+                    "p35-b3"
+                  ],
+                  "heading_path": "Libro > Cap. 11: Aplicaciones > 11.1 Tarjetas de estudio",
+                  "ordinal": 34
+                },
+                {
+                  "source_id": "src-book",
+                  "chunk_id": "chunk-ch11:s02",
+                  "chunk_key": "bk:ch11:s02",
+                  "block_ids": [
+                    "p36-b1",
+                    "p36-b2",
+                    "p36-b3"
+                  ],
+                  "heading_path": "Libro > Cap. 11: Aplicaciones > 11.2 Intercalado",
+                  "ordinal": 35
+                },
+                {
+                  "source_id": "src-book",
+                  "chunk_id": "chunk-ch11:s03",
+                  "chunk_key": "bk:ch11:s03",
+                  "block_ids": [
+                    "p37-b1",
+                    "p37-b2",
+                    "p37-b3"
+                  ],
+                  "heading_path": "Libro > Cap. 11: Aplicaciones > 11.3 Autoexplicación",
+                  "ordinal": 36
+                }
+              ],
+              "origin": "model"
+            }
+          ],
+          "reinforcement": {
+            "id": "M06.reinf",
+            "kind": "reinforcement",
+            "module_id": "M06",
+            "concept_ids": [
+              "c_f18521e17b18cbcd",
+              "c_e4bb10e4b5bae6d1",
+              "c_9b4efac912a8bd0d",
+              "c_b2b98990586256aa",
+              "c_fb8fce1459868b70",
+              "c_73aa4eddcf0f171e",
+              "c_157cbd4709e7cd22",
+              "c_a83bb10a4e53db6f",
+              "c_7693856b279ee5b9",
+              "c_516dc8a43bc48ea2",
+              "c_310d793b4e27131c",
+              "c_a69eb75563e6ca28",
+              "c_5844fb9fc6cf14a9",
+              "c_c44ed704b386df6b"
+            ],
+            "earlier_concept_ids": [
+              "c_b2b98990586256aa",
+              "c_157cbd4709e7cd22",
+              "c_310d793b4e27131c",
+              "c_c44ed704b386df6b"
+            ],
+            "item_count": 13,
+            "estimated_minutes": 13
+          },
+          "checkpoint": null,
+          "estimated_minutes": 49
+        }
+      ]
+    },
+    {
+      "id": "S04",
+      "title": "Parte 4",
+      "modules": [
+        {
+          "id": "M07",
+          "title": "Módulo 4.1",
+          "objectives": [
+            {
+              "text": "Dominar los conceptos de la parte 4, módulo 1",
+              "bloom": "apply"
+            }
+          ],
+          "concept_ids": [
+            "c_f8866647f1791c3e",
+            "c_0244fc42940ae844",
+            "c_63bc7292bddf1599",
+            "c_516410696d72e81a",
+            "c_8f266a5f75744763",
+            "c_43b33c5a7836e347",
+            "c_5699bad8910eef9c",
+            "c_fc1261ec9b0b7861",
+            "c_981cc7f5ee9b090c",
+            "c_2059bc5318a907c9"
+          ],
+          "lessons": [
+            {
+              "id": "L21",
+              "kind": "core",
+              "title": "Módulo 4.1, lección 1",
+              "concept_ids": [
+                "c_f8866647f1791c3e",
+                "c_0244fc42940ae844",
+                "c_63bc7292bddf1599"
+              ],
+              "warmup_concept_ids": [
+                "c_a2a1951dd4085979"
+              ],
+              "objectives": [
+                {
+                  "text": "Explicar los conceptos de la lección 1",
+                  "bloom": "understand"
+                },
+                {
+                  "text": "Aplicar la lección 1 a un caso",
+                  "bloom": "apply"
+                }
+              ],
+              "prerequisite_lesson_ids": [
+                "L20"
+              ],
+              "estimated_minutes": 8,
+              "source_refs": [
+                {
+                  "source_id": "src-book",
+                  "chunk_id": "chunk-ch11:s03",
+                  "chunk_key": "bk:ch11:s03",
+                  "block_ids": [
+                    "p37-b1",
+                    "p37-b2",
+                    "p37-b3"
+                  ],
+                  "heading_path": "Libro > Cap. 11: Aplicaciones > 11.3 Autoexplicación",
+                  "ordinal": 36
+                },
+                {
+                  "source_id": "src-book",
+                  "chunk_id": "chunk-ch12:s01",
+                  "chunk_key": "bk:ch12:s01",
+                  "block_ids": [
+                    "p38-b1",
+                    "p38-b2",
+                    "p38-b3"
+                  ],
+                  "heading_path": "Libro > Cap. 12: Síntesis > 12.1 Un plan de estudio",
+                  "ordinal": 37
+                }
+              ],
+              "origin": "model"
+            },
+            {
+              "id": "L22",
+              "kind": "core",
+              "title": "Módulo 4.1, lección 2",
+              "concept_ids": [
+                "c_516410696d72e81a",
+                "c_8f266a5f75744763",
+                "c_43b33c5a7836e347"
+              ],
+              "warmup_concept_ids": [
+                "c_b2479e211ac7f020"
+              ],
+              "objectives": [
+                {
+                  "text": "Explicar los conceptos de la lección 2",
+                  "bloom": "understand"
+                },
+                {
+                  "text": "Aplicar la lección 2 a un caso",
+                  "bloom": "apply"
+                }
+              ],
+              "prerequisite_lesson_ids": [
+                "L21"
+              ],
+              "estimated_minutes": 12,
+              "source_refs": [
+                {
+                  "source_id": "src-book",
+                  "chunk_id": "chunk-ch12:s02",
+                  "chunk_key": "bk:ch12:s02",
+                  "block_ids": [
+                    "p39-b1",
+                    "p39-b2",
+                    "p39-b3"
+                  ],
+                  "heading_path": "Libro > Cap. 12: Síntesis > 12.2 Errores frecuentes",
+                  "ordinal": 38
+                },
+                {
+                  "source_id": "src-book",
+                  "chunk_id": "chunk-ch12:s03",
+                  "chunk_key": "bk:ch12:s03",
+                  "block_ids": [
+                    "p40-b1",
+                    "p40-b2",
+                    "p40-b3"
+                  ],
+                  "heading_path": "Libro > Cap. 12: Síntesis > 12.3 Recapitulación",
+                  "ordinal": 39
+                }
+              ],
+              "origin": "model"
+            },
+            {
+              "id": "L23",
+              "kind": "core",
+              "title": "Módulo 4.1, lección 3",
+              "concept_ids": [
+                "c_5699bad8910eef9c",
+                "c_fc1261ec9b0b7861",
+                "c_981cc7f5ee9b090c",
+                "c_2059bc5318a907c9"
+              ],
+              "warmup_concept_ids": [
+                "c_3d96bfa8f38fa4cb"
+              ],
+              "objectives": [
+                {
+                  "text": "Explicar los conceptos de la lección 3",
+                  "bloom": "understand"
+                },
+                {
+                  "text": "Aplicar la lección 3 a un caso",
+                  "bloom": "apply"
+                }
+              ],
+              "prerequisite_lesson_ids": [
+                "L22"
+              ],
+              "estimated_minutes": 16,
+              "source_refs": [
+                {
+                  "source_id": "src-book",
+                  "chunk_id": "chunk-ch12:s03",
+                  "chunk_key": "bk:ch12:s03",
+                  "block_ids": [
+                    "p40-b1",
+                    "p40-b2",
+                    "p40-b3"
+                  ],
+                  "heading_path": "Libro > Cap. 12: Síntesis > 12.3 Recapitulación",
+                  "ordinal": 39
+                },
+                {
+                  "source_id": "src-book",
+                  "chunk_id": "chunk-apendice-a",
+                  "chunk_key": "bk:apendice-a",
+                  "block_ids": [
+                    "p41-b1",
+                    "p41-b2"
+                  ],
+                  "heading_path": "Libro > Apéndice A: Tablas",
+                  "ordinal": 40
+                },
+                {
+                  "source_id": "src-course",
+                  "chunk_id": "chunk-seg01",
+                  "chunk_key": "tr:seg01",
+                  "block_ids": [
+                    "seg01"
+                  ],
+                  "heading_path": "Transcript > Welcome",
+                  "ordinal": 0
+                },
+                {
+                  "source_id": "src-course",
+                  "chunk_id": "chunk-seg07",
+                  "chunk_key": "tr:seg07",
+                  "block_ids": [
+                    "seg07"
+                  ],
+                  "heading_path": "Transcript > Metacognition",
+                  "ordinal": 6
+                }
+              ],
+              "origin": "model"
+            }
+          ],
+          "reinforcement": {
+            "id": "M07.reinf",
+            "kind": "reinforcement",
+            "module_id": "M07",
+            "concept_ids": [
+              "c_8f266a5f75744763",
+              "c_0244fc42940ae844",
+              "c_981cc7f5ee9b090c",
+              "c_310d793b4e27131c",
+              "c_516410696d72e81a",
+              "c_f8866647f1791c3e",
+              "c_ef6e1e8180ed5dff",
+              "c_2059bc5318a907c9",
+              "c_fc1261ec9b0b7861",
+              "c_5699bad8910eef9c",
+              "c_601d31be0dfe9d35",
+              "c_43b33c5a7836e347",
+              "c_63bc7292bddf1599",
+              "c_0c9a4577a1c63a51"
+            ],
+            "earlier_concept_ids": [
+              "c_310d793b4e27131c",
+              "c_ef6e1e8180ed5dff",
+              "c_601d31be0dfe9d35",
+              "c_0c9a4577a1c63a51"
+            ],
+            "item_count": 13,
+            "estimated_minutes": 13
+          },
+          "checkpoint": null,
+          "estimated_minutes": 49
+        },
+        {
+          "id": "M08",
+          "title": "Módulo 4.2",
+          "objectives": [
+            {
+              "text": "Dominar los conceptos de la parte 4, módulo 2",
+              "bloom": "apply"
+            }
+          ],
+          "concept_ids": [
+            "c_33c633812ae05c79",
+            "c_a5a399853759b435",
+            "c_f1a5c77c0bf4c92a",
+            "c_56f027a85bf91de9",
+            "c_555377131a784bde",
+            "c_a7e43c6f2d23cfba",
+            "c_8e2aa9394171251d",
+            "c_e3b1f58e9bd1e8b9",
+            "c_d7997abbfb581ed3",
+            "c_94fc815f3a5b98d5"
+          ],
+          "lessons": [
+            {
+              "id": "L24",
+              "kind": "core",
+              "title": "Módulo 4.2, lección 1",
+              "concept_ids": [
+                "c_33c633812ae05c79",
+                "c_a5a399853759b435",
+                "c_f1a5c77c0bf4c92a"
+              ],
+              "warmup_concept_ids": [
+                "c_76398db7b9d2d32b"
+              ],
+              "objectives": [
+                {
+                  "text": "Explicar los conceptos de la lección 1",
+                  "bloom": "understand"
+                },
+                {
+                  "text": "Aplicar la lección 1 a un caso",
+                  "bloom": "apply"
+                }
+              ],
+              "prerequisite_lesson_ids": [
+                "L23"
+              ],
+              "estimated_minutes": 8,
+              "source_refs": [
+                {
+                  "source_id": "src-course",
+                  "chunk_id": "chunk-seg05",
+                  "chunk_key": "tr:seg05",
+                  "block_ids": [
+                    "seg05"
+                  ],
+                  "heading_path": "Transcript > Retrieval",
+                  "ordinal": 4
+                },
+                {
+                  "source_id": "src-course",
+                  "chunk_id": "chunk-seg06",
+                  "chunk_key": "tr:seg06",
+                  "block_ids": [
+                    "seg06"
+                  ],
+                  "heading_path": "Transcript > Attention",
+                  "ordinal": 5
+                },
+                {
+                  "source_id": "src-course",
+                  "chunk_id": "chunk-seg08",
+                  "chunk_key": "tr:seg08",
+                  "block_ids": [
+                    "seg08"
+                  ],
+                  "heading_path": "Transcript > Wrap-up",
+                  "ordinal": 7
+                }
+              ],
+              "origin": "model"
+            },
+            {
+              "id": "L25",
+              "kind": "core",
+              "title": "Módulo 4.2, lección 2",
+              "concept_ids": [
+                "c_56f027a85bf91de9",
+                "c_555377131a784bde",
+                "c_a7e43c6f2d23cfba"
+              ],
+              "warmup_concept_ids": [
+                "c_2b89690cfa9acc66"
+              ],
+              "objectives": [
+                {
+                  "text": "Explicar los conceptos de la lección 2",
+                  "bloom": "understand"
+                },
+                {
+                  "text": "Aplicar la lección 2 a un caso",
+                  "bloom": "apply"
+                }
+              ],
+              "prerequisite_lesson_ids": [
+                "L24"
+              ],
+              "estimated_minutes": 12,
+              "source_refs": [
+                {
+                  "source_id": "src-course",
+                  "chunk_id": "chunk-seg02",
+                  "chunk_key": "tr:seg02",
+                  "block_ids": [
+                    "seg02"
+                  ],
+                  "heading_path": "Transcript > Working memory",
+                  "ordinal": 1
+                },
+                {
+                  "source_id": "src-course",
+                  "chunk_id": "chunk-seg06",
+                  "chunk_key": "tr:seg06",
+                  "block_ids": [
+                    "seg06"
+                  ],
+                  "heading_path": "Transcript > Attention",
+                  "ordinal": 5
+                },
+                {
+                  "source_id": "src-course",
+                  "chunk_id": "chunk-seg07",
+                  "chunk_key": "tr:seg07",
+                  "block_ids": [
+                    "seg07"
+                  ],
+                  "heading_path": "Transcript > Metacognition",
+                  "ordinal": 6
+                }
+              ],
+              "origin": "model"
+            },
+            {
+              "id": "L26",
+              "kind": "core",
+              "title": "Módulo 4.2, lección 3",
+              "concept_ids": [
+                "c_8e2aa9394171251d",
+                "c_e3b1f58e9bd1e8b9",
+                "c_d7997abbfb581ed3",
+                "c_94fc815f3a5b98d5"
+              ],
+              "warmup_concept_ids": [
+                "c_ff73954561d9e19c"
+              ],
+              "objectives": [
+                {
+                  "text": "Explicar los conceptos de la lección 3",
+                  "bloom": "understand"
+                },
+                {
+                  "text": "Aplicar la lección 3 a un caso",
+                  "bloom": "apply"
+                }
+              ],
+              "prerequisite_lesson_ids": [
+                "L25"
+              ],
+              "estimated_minutes": 16,
+              "source_refs": [
+                {
+                  "source_id": "src-course",
+                  "chunk_id": "chunk-seg01",
+                  "chunk_key": "tr:seg01",
+                  "block_ids": [
+                    "seg01"
+                  ],
+                  "heading_path": "Transcript > Welcome",
+                  "ordinal": 0
+                },
+                {
+                  "source_id": "src-course",
+                  "chunk_id": "chunk-seg03",
+                  "chunk_key": "tr:seg03",
+                  "block_ids": [
+                    "seg03"
+                  ],
+                  "heading_path": "Transcript > Forgetting",
+                  "ordinal": 2
+                },
+                {
+                  "source_id": "src-course",
+                  "chunk_id": "chunk-seg04",
+                  "chunk_key": "tr:seg04",
+                  "block_ids": [
+                    "seg04"
+                  ],
+                  "heading_path": "Transcript > Spacing",
+                  "ordinal": 3
+                },
+                {
+                  "source_id": "src-course",
+                  "chunk_id": "chunk-seg08",
+                  "chunk_key": "tr:seg08",
+                  "block_ids": [
+                    "seg08"
+                  ],
+                  "heading_path": "Transcript > Wrap-up",
+                  "ordinal": 7
+                }
+              ],
+              "origin": "model"
+            }
+          ],
+          "reinforcement": {
+            "id": "M08.reinf",
+            "kind": "reinforcement",
+            "module_id": "M08",
+            "concept_ids": [
+              "c_94fc815f3a5b98d5",
+              "c_a7e43c6f2d23cfba",
+              "c_e3b1f58e9bd1e8b9",
+              "c_157cbd4709e7cd22",
+              "c_33c633812ae05c79",
+              "c_f1a5c77c0bf4c92a",
+              "c_92903d399a849556",
+              "c_555377131a784bde",
+              "c_8e2aa9394171251d",
+              "c_d7997abbfb581ed3",
+              "c_c44ed704b386df6b",
+              "c_a5a399853759b435",
+              "c_56f027a85bf91de9",
+              "c_0c9a4577a1c63a51"
+            ],
+            "earlier_concept_ids": [
+              "c_157cbd4709e7cd22",
+              "c_92903d399a849556",
+              "c_c44ed704b386df6b",
+              "c_0c9a4577a1c63a51"
+            ],
+            "item_count": 13,
+            "estimated_minutes": 13
+          },
+          "checkpoint": {
+            "id": "C02",
+            "kind": "checkpoint",
+            "module_ids": [
+              "M05",
+              "M06",
+              "M07",
+              "M08"
+            ],
+            "concept_ids": [
+              "c_0999a35b470a888c",
+              "c_2b89690cfa9acc66",
+              "c_ff73954561d9e19c",
+              "c_b2b0f29149ac6cbe",
+              "c_1f39fc808db6b68b",
+              "c_7d145d42a9bbdd45",
+              "c_485461fd2573eaef",
+              "c_b194007da3165511",
+              "c_95a21a94ad90cf66",
+              "c_80cf81e3e2ad52cb",
+              "c_d8017d8c89356b89",
+              "c_a69eb75563e6ca28",
+              "c_9b4efac912a8bd0d",
+              "c_e4bb10e4b5bae6d1",
+              "c_5844fb9fc6cf14a9",
+              "c_fb8fce1459868b70",
+              "c_7693856b279ee5b9",
+              "c_516dc8a43bc48ea2",
+              "c_73aa4eddcf0f171e",
+              "c_f18521e17b18cbcd",
+              "c_a83bb10a4e53db6f",
+              "c_f8866647f1791c3e",
+              "c_0244fc42940ae844",
+              "c_63bc7292bddf1599",
+              "c_516410696d72e81a",
+              "c_8f266a5f75744763",
+              "c_43b33c5a7836e347",
+              "c_5699bad8910eef9c",
+              "c_fc1261ec9b0b7861",
+              "c_981cc7f5ee9b090c",
+              "c_2059bc5318a907c9",
+              "c_33c633812ae05c79",
+              "c_a5a399853759b435",
+              "c_f1a5c77c0bf4c92a",
+              "c_56f027a85bf91de9",
+              "c_555377131a784bde",
+              "c_a7e43c6f2d23cfba",
+              "c_8e2aa9394171251d",
+              "c_e3b1f58e9bd1e8b9",
+              "c_d7997abbfb581ed3",
+              "c_94fc815f3a5b98d5"
+            ],
+            "item_count": 16,
+            "estimated_minutes": 16
+          },
+          "estimated_minutes": 65
+        }
+      ]
+    }
+  ],
+  "final_exam": {
+    "id": "FINAL",
+    "kind": "final_exam",
+    "blueprint": {
+      "topics": [
+        {
+          "module_id": "M01",
+          "weight": 0.15
+        },
+        {
+          "module_id": "M02",
+          "weight": 0.12
+        },
+        {
+          "module_id": "M03",
+          "weight": 0.15
+        },
+        {
+          "module_id": "M04",
+          "weight": 0.11
+        },
+        {
+          "module_id": "M05",
+          "weight": 0.14
+        },
+        {
+          "module_id": "M06",
+          "weight": 0.12
+        },
+        {
+          "module_id": "M07",
+          "weight": 0.11
+        },
+        {
+          "module_id": "M08",
+          "weight": 0.1
+        }
+      ],
+      "item_count": 32
+    },
+    "estimated_minutes": 48
+  },
+  "misconceptions": [
+    {
+      "id": "X001",
+      "concept_id": "c_e6e079ff22d5650c",
+      "text": "Confundir Módulo 1.1 con memorizar",
+      "why_wrong": "Memorizar no exige comprender."
+    },
+    {
+      "id": "X002",
+      "concept_id": "c_601d31be0dfe9d35",
+      "text": "Confundir Módulo 1.2 con memorizar",
+      "why_wrong": "Memorizar no exige comprender."
+    },
+    {
+      "id": "X003",
+      "concept_id": "c_7740ddb312d5a768",
+      "text": "Confundir Módulo 2.1 con memorizar",
+      "why_wrong": "Memorizar no exige comprender."
+    },
+    {
+      "id": "X004",
+      "concept_id": "c_e71477c834fd0d25",
+      "text": "Confundir Módulo 2.2 con memorizar",
+      "why_wrong": "Memorizar no exige comprender."
+    },
+    {
+      "id": "X005",
+      "concept_id": "c_2b89690cfa9acc66",
+      "text": "Confundir Módulo 3.1 con memorizar",
+      "why_wrong": "Memorizar no exige comprender."
+    },
+    {
+      "id": "X006",
+      "concept_id": "c_a69eb75563e6ca28",
+      "text": "Confundir Módulo 3.2 con memorizar",
+      "why_wrong": "Memorizar no exige comprender."
+    },
+    {
+      "id": "X007",
+      "concept_id": "c_f8866647f1791c3e",
+      "text": "Confundir Módulo 4.1 con memorizar",
+      "why_wrong": "Memorizar no exige comprender."
+    },
+    {
+      "id": "X008",
+      "concept_id": "c_a5a399853759b435",
+      "text": "Confundir Módulo 4.2 con memorizar",
+      "why_wrong": "Memorizar no exige comprender."
+    }
+  ],
+  "excluded": [
+    {
+      "heading_path": "Libro > Apéndice A: Tablas",
+      "reason": "apéndice de tablas"
+    }
+  ],
+  "stats": {
+    "sections": 4,
+    "modules": 8,
+    "lessons": 26,
+    "checkpoints": 2,
+    "concepts": 84,
+    "minutes": 484,
+    "weeks_estimate": 3
+  },
+  "warnings": [
+    {
+      "code": "injection_suspected",
+      "stage": "extract",
+      "params": {
+        "chunk_id": "chunk-ch08:s02"
+      }
+    },
+    {
+      "code": "chunk_excluded",
+      "stage": "synthesize",
+      "params": {
+        "heading_path": "Libro > Apéndice A: Tablas",
+        "reason": "apéndice de tablas"
+      }
+    },
+    {
+      "code": "unknown_node",
+      "stage": "synthesize",
+      "params": {
+        "concept_id": "c_deadbeefdeadbeef"
+      }
+    },
+    {
+      "code": "dangling_edge",
+      "stage": "validate",
+      "params": {
+        "from": "c_310d793b4e27131c",
+        "to": "c_0000000000000000",
+        "kind": "PREREQ_OF"
+      }
+    },
+    {
+      "code": "cycle_broken",
+      "stage": "validate",
+      "params": {
+        "from": "c_e6e079ff22d5650c",
+        "to": "c_0c9a4577a1c63a51",
+        "confidence": 0.4
+      }
+    },
+    {
+      "code": "coverage_gap",
+      "stage": "validate",
+      "params": {
+        "concept_ids": [
+          "c_0c9a4577a1c63a51"
+        ],
+        "module": "Módulo 1.1"
+      }
+    },
+    {
+      "code": "model_warning",
+      "stage": "synthesize",
+      "params": {
+        "text": "capítulo 9 excluido: apéndice"
+      }
+    },
+    {
+      "code": "model_warning",
+      "stage": "synthesize",
+      "params": {
+        "text": "este módulo quedó más largo de lo habitual"
+      }
+    },
+    {
+      "code": "lesson_split",
+      "stage": "validate",
+      "params": {
+        "lesson": "Módulo 1.1, lección 1",
+        "parts": 2
+      }
+    },
+    {
+      "code": "concept_repeated",
+      "stage": "validate",
+      "params": {
+        "concept_id": "c_601d31be0dfe9d35",
+        "first_lesson": "Módulo 1.2, lección 1",
+        "lesson": "Módulo 1.2, lección 2"
+      }
+    }
+  ]
+}
