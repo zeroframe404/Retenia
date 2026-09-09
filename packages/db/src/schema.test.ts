@@ -29,6 +29,8 @@ const ALL_TABLES = [
   'exam_attempts',
   'exam_items',
   'exams',
+  'extractions',
+  'generation_runs',
   'importance_levels',
   'item_bank',
   'jobs',
@@ -501,6 +503,66 @@ describe('v1 schema', () => {
       })
       .run()
 
+    const generationRunId = ids.next()
+    db.insert(schema.generationRuns)
+      .values({
+        id: generationRunId,
+        pathId,
+        pathVersionId,
+        status: 'completed',
+        config: {
+          goal: 'Entender la fisiología cardiovascular',
+          level: 'beginner',
+          lessonLanguage: 'es-AR',
+          primarySourceId: sourceId,
+          sourceIds: [sourceId],
+        },
+        configHash: '7'.repeat(64),
+        progress: { stage: 'persisting', done: 1, total: 1 },
+        estimate: { usd: 0.42 },
+        costUsd: 0.31,
+        inputTokens: 120_000,
+        outputTokens: 18_000,
+        cachedTokens: 60_000,
+        manifest: { version: 1 },
+        warnings: [{ code: 'cycle_broken', stage: 'validate', params: { from: 'a', to: 'b' } }],
+        startedAt: now,
+        finishedAt: now + 240_000,
+        ...a,
+      })
+      .run()
+
+    db.insert(schema.extractions)
+      .values({
+        id: ids.next(),
+        runId: generationRunId,
+        sourceId,
+        chunkId,
+        chunkKey: null,
+        chunkHash: 'a'.repeat(64),
+        customId: 'P1_extract_chunk-9f2c4a1b7e6d5c3a2f1e0d9c8b7a6f5e',
+        promptVersion: '1',
+        schemaVersion: 'extract_chunk@1',
+        provider: 'google',
+        model: 'gemini-3.7-flash',
+        output: {
+          concepts: [],
+          claims: [],
+          objectives: [],
+          prerequisites_mentioned: [],
+          figures: [],
+          exercises: [],
+          is_frontmatter_like: false,
+        },
+        conceptCount: 0,
+        inputTokens: 900,
+        outputTokens: 300,
+        cachedTokens: 0,
+        costUsd: 0.0004,
+        ...a,
+      })
+      .run()
+
     db.insert(schema.settings)
       .values({ id: ids.next(), key: 'ai.budget.monthlyUsd', value: 30, ...a })
       .run()
@@ -652,7 +714,7 @@ describe('v1 schema', () => {
       expect(count(table), table).toBeGreaterThanOrEqual(1)
     }
     expect(count('importance_levels')).toBe(5)
-    expect(count('_migrations')).toBe(14)
+    expect(count('_migrations')).toBe(15)
     expect(count('lessons')).toBe(2)
   })
 

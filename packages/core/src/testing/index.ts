@@ -17,6 +17,8 @@ export {
   blobsContract,
   cardsContract,
   chunksContract,
+  extractionsContract,
+  generationRunsContract,
   importanceLevelsContract,
   jobsContract,
   outboxContract,

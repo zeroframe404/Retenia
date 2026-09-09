@@ -1,5 +1,6 @@
 import type { AbortSignalLike } from '@retenia/core'
 import type { z } from 'zod'
+import type { PromptCacheDirective } from '../caching/directive'
 import { AiError } from '../errors'
 import type { AiAttempt, AiBinding, AiReview, RunDeps } from '../run'
 import { DEFAULT_REPAIR_BUDGET, runOnce } from '../run'
@@ -63,6 +64,14 @@ export interface StructuredRequestBase {
   readonly sanitizeLimits?: SanitizeLimits
   /** Defaults to `DEFAULT_REPAIR_BUDGET` (2). Zero means "one shot, then the next model". */
   readonly repairBudget?: number
+  /**
+   * The stable, wrapped head of the user message and its breakpoints, as `withCache` builds
+   * them (sub-phase 7.3). Carried through to the transport request untouched — and, because
+   * a repair turn spreads the same base request, through every repair as well, so the
+   * prefix a run paid to cache is read back on the retry rather than re-sent.
+   */
+  readonly cachePrefix?: string
+  readonly cache?: PromptCacheDirective
 }
 
 export interface StructuredObjectRequest<T> extends StructuredRequestBase {
@@ -152,8 +161,14 @@ function issuesFor(error: unknown): string[] {
   return [error instanceof Error ? error.message : String(error)]
 }
 
-/** Parse → sanitize → validate, the three steps that stand between a completion and a value. */
-function validate<T>(
+/**
+ * Parse → sanitize → validate, the three steps that stand between a completion and a value.
+ *
+ * Exported for the one caller that receives completions outside this loop: the Batch API
+ * path, whose answers arrive from `ai_results` long after the request was built and have
+ * to be held to exactly the same three steps as a synchronous one.
+ */
+export function validateStructuredCompletion<T>(
   text: string,
   schema: z.ZodType<T>,
   limits: SanitizeLimits,
@@ -190,18 +205,20 @@ export function runStructured<T>(
     : runStructuredObject(deps, binding, request)
 }
 
-async function runStructuredObject<T>(
-  deps: RunDeps,
-  binding: AiBinding,
+/**
+ * The `TextGenerationRequest` a structured object call dispatches.
+ *
+ * Public because the Batch API path has to build the very same request without going
+ * through `runStructured` — its requests are submitted as a list and answered later — and
+ * a request built anywhere else would drift: a different instruction text is a different
+ * cached prefix and, with the schema, a different answer. `runStructuredObject` below uses
+ * this and nothing else, which is what keeps the two paths byte-identical.
+ */
+export function structuredRequestFor<T>(
   request: StructuredObjectRequest<T>,
-): Promise<StructuredResult<T>> {
+): TextGenerationRequest {
   const jsonSchema = toStrictJsonSchema(request.schema)
-  const limits = request.sanitizeLimits ?? DEFAULT_SANITIZE_LIMITS
-
-  let accepted: { value: T } | undefined
-  let repairs = 0
-
-  const base: TextGenerationRequest = {
+  return {
     ...(request.system === undefined && jsonSchema === undefined
       ? {}
       : { system: withInstruction(request.system, outputInstruction(jsonSchema, 'object')) }),
@@ -212,11 +229,26 @@ async function runStructuredObject<T>(
     ...(request.schemaName === undefined ? {} : { schemaName: request.schemaName }),
     ...(request.maxOutputTokens === undefined ? {} : { maxOutputTokens: request.maxOutputTokens }),
     ...(request.idempotencyKey === undefined ? {} : { idempotencyKey: request.idempotencyKey }),
+    ...(request.cachePrefix === undefined ? {} : { cachePrefix: request.cachePrefix }),
+    ...(request.cache === undefined ? {} : { cache: request.cache }),
     ...(request.signal === undefined ? {} : { signal: request.signal }),
   }
+}
+
+async function runStructuredObject<T>(
+  deps: RunDeps,
+  binding: AiBinding,
+  request: StructuredObjectRequest<T>,
+): Promise<StructuredResult<T>> {
+  const limits = request.sanitizeLimits ?? DEFAULT_SANITIZE_LIMITS
+
+  let accepted: { value: T } | undefined
+  let repairs = 0
+
+  const base = structuredRequestFor(request)
 
   const review = (attempt: AiAttempt): AiReview => {
-    const outcome = validate(attempt.text, request.schema, limits)
+    const outcome = validateStructuredCompletion(attempt.text, request.schema, limits)
     if (outcome.ok) {
       accepted = { value: outcome.value }
       return { kind: 'accept' }

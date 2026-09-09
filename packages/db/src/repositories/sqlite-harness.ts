@@ -1,6 +1,8 @@
 import { createHash } from 'node:crypto'
 import type {
   Activity,
+  Extraction,
+  GenerationRun,
   LearningPath,
   Lesson,
   Module,
@@ -260,6 +262,73 @@ function createSeeds(repos: UnitOfWork, clock: TestClock): ContractSeeds {
         sourceRefs: [],
         ...overrides,
       }) as Promise<Activity>
+    },
+
+    generationRun: async (overrides = {}) => {
+      const pathId = overrides.pathId ?? (await seeds.path()).id
+      return repos.generationRuns.create({
+        pathId,
+        pathVersionId: null,
+        status: 'queued',
+        config: {
+          goal: 'Aprender lo esencial',
+          level: 'beginner',
+          lessonLanguage: 'es-AR',
+          primarySourceId: 'source-1',
+          sourceIds: ['source-1'],
+        },
+        configHash: createHash('sha256').update(`config ${next()}`).digest('hex'),
+        progress: null,
+        estimate: null,
+        costUsd: 0,
+        inputTokens: 0,
+        outputTokens: 0,
+        cachedTokens: 0,
+        manifest: null,
+        warnings: [],
+        error: null,
+        startedAt: null,
+        finishedAt: null,
+        ...overrides,
+      }) as Promise<GenerationRun>
+    },
+
+    extraction: async (overrides = {}) => {
+      const runId = overrides.runId ?? (await seeds.generationRun()).id
+      const chunk =
+        overrides.chunkId === undefined
+          ? await seeds.chunk(
+              overrides.sourceId === undefined ? {} : { sourceId: overrides.sourceId },
+            )
+          : await repos.chunks.findById(overrides.chunkId)
+      if (chunk === undefined) throw new Error('extraction seed: the chunk does not exist')
+      return repos.extractions.create({
+        runId,
+        sourceId: chunk.sourceId,
+        chunkId: chunk.id,
+        chunkKey: chunk.chunkKey,
+        chunkHash: chunk.hash,
+        customId: `P1_extract_chunk-${next()}`,
+        promptVersion: '1',
+        schemaVersion: '1',
+        provider: null,
+        model: 'fixture-model',
+        output: {
+          concepts: [],
+          claims: [],
+          objectives: [],
+          prerequisites_mentioned: [],
+          figures: [],
+          exercises: [],
+          is_frontmatter_like: false,
+        },
+        conceptCount: 0,
+        inputTokens: 0,
+        outputTokens: 0,
+        cachedTokens: 0,
+        costUsd: 0,
+        ...overrides,
+      }) as Promise<Extraction>
     },
   }
 

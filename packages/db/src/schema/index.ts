@@ -20,6 +20,7 @@ export {
 } from './_common'
 export * from './exams'
 export * from './gamification'
+export * from './generation'
 export * from './library'
 export * from './memory'
 export * from './paths'

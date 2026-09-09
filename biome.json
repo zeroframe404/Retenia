@@ -21,6 +21,7 @@
       "!**/routeTree.gen.ts",
       "!**/migrations/meta",
       "!packages/core/test/fixtures",
+      "!packages/pathgen/test/fixtures",
       "!packages/readers/src/epub/vendor/foliate-js"
     ]
   },

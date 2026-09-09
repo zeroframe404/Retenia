@@ -393,6 +393,7 @@ describe('domain vocabulary parity', () => {
     ['JOB_STATUSES', core.JOB_STATUSES, schema.JOB_STATUSES],
     ['AI_CALL_STATUSES', core.AI_CALL_STATUSES, schema.AI_CALL_STATUSES],
     ['AI_BATCH_STATUSES', core.AI_BATCH_STATUSES, schema.AI_BATCH_STATUSES],
+    ['GENERATION_RUN_STATUSES', core.GENERATION_RUN_STATUSES, schema.GENERATION_RUN_STATUSES],
     ['OUTBOX_OPS', core.OUTBOX_OPS, schema.OUTBOX_OPS],
     ['XP_REASONS', core.XP_REASONS, schema.XP_REASONS],
   ]
@@ -411,7 +412,18 @@ describe('outbox allowlist covers the syncable tables', () => {
     // `outbox` would recurse; `jobs`, `ai_calls`, `ai_results` and `ai_batches` describe what
     // this machine did — `ai_results` holds raw model output that local-first says stays here,
     // and `ai_batches` a provider job id only this device's key can poll.
-    const deviceLocal = new Set(['outbox', 'jobs', 'ai_calls', 'ai_results', 'ai_batches'])
+    // `generation_runs` and `extractions` (8.1) are the same kind of thing: a run names this
+    // device's batches and spend, an extraction is reproducible model output — the draft they
+    // produce is a `path_versions` row, which does sync.
+    const deviceLocal = new Set([
+      'outbox',
+      'jobs',
+      'ai_calls',
+      'ai_results',
+      'ai_batches',
+      'generation_runs',
+      'extractions',
+    ])
     const audited = Object.values(schema)
       .filter((value) => is(value, Table))
       .map((table) => getTableName(table))

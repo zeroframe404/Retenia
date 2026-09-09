@@ -67,7 +67,9 @@ export {
   OptimisticConcurrencyError,
 } from './errors'
 export type { ExamRepository } from './exam-repository'
+export type { ExtractionRepository } from './extraction-repository'
 export type { GamificationRepository, XpRange } from './gamification-repository'
+export type { GenerationRunRepository } from './generation-run-repository'
 export type { IdGenerator } from './id-generator'
 export type {
   ImportanceLevelPatch,
