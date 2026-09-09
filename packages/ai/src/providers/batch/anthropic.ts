@@ -50,8 +50,9 @@ const API_VERSION = '2023-06-01'
 
 /**
  * Anthropic requires `max_tokens` on every message request; the SDK supplies a default and the
- * REST endpoint does not. 8,192 is comfortably above a lesson or a graded answer and below the
- * 128K ceiling of the 5.x models, and a caller that knows better sets `maxOutputTokens`.
+ * REST endpoint does not. Used only when neither the caller (`maxOutputTokens`) nor the
+ * profile (`caps.maxOutput`, `profiles.ts`) names a number — the last-resort floor beneath
+ * even that, for a profile that never set `caps.maxOutput` at all.
  */
 const DEFAULT_MAX_TOKENS = 8_192
 
@@ -86,7 +87,7 @@ export function createAnthropicBatchProvider(options: AnthropicBatchOptions = {}
       const body = {
         requests: requests.map(({ customId, request }) => ({
           custom_id: customId,
-          params: toMessageParams(target.modelId, request),
+          params: toMessageParams(target.modelId, request, target.profile.caps.maxOutput),
         })),
       }
 
@@ -256,10 +257,18 @@ function assertSameOrigin(candidate: string, baseUrl: string, context: AiErrorCo
   }
 }
 
-/** `TextGenerationRequest` in the `/v1/messages` vocabulary, cache breakpoints included. */
+/**
+ * `TextGenerationRequest` in the `/v1/messages` vocabulary, cache breakpoints included.
+ *
+ * `profileMaxOutput` is `target.profile.caps.maxOutput` at the one call site; a bare third
+ * parameter rather than the whole profile because this function's job is a translation, not
+ * a lookup, and every existing two-argument call — including every case in this file's own
+ * test — keeps working exactly as it did with `DEFAULT_MAX_TOKENS`.
+ */
 export function toMessageParams(
   modelId: string,
   request: TextGenerationRequest,
+  profileMaxOutput?: number,
 ): Record<string, unknown> {
   const cacheControl =
     request.cache === undefined ? undefined : { type: 'ephemeral' as const, ttl: request.cache.ttl }
@@ -292,7 +301,7 @@ export function toMessageParams(
 
   return {
     model: modelId,
-    max_tokens: request.maxOutputTokens ?? DEFAULT_MAX_TOKENS,
+    max_tokens: request.maxOutputTokens ?? profileMaxOutput ?? DEFAULT_MAX_TOKENS,
     temperature: request.temperature,
     ...(system === undefined ? {} : { system }),
     messages: [{ role: 'user', content }],

@@ -25,9 +25,11 @@ export type ProviderKind = (typeof PROVIDER_KINDS)[number]
  * What the transport can do, as far as this layer needs to know
  * (`docs/spec/06-ai-providers.md` §6, "Support").
  *
- * Only `jsonStrict` for now: the media flags the spec lists (`pdf`, `image`, `audio`,
- * `video`) are unreachable until a request shape carries a media part, and declaring a
- * capability nothing can exercise is a claim no test can hold to account.
+ * `pdf`/`image`/`audio`/`video` are not declared: they are unreachable until a request
+ * shape carries a media part, and declaring a capability nothing can exercise is a claim
+ * no test can hold to account. `maxOutput`/`ctx` cover a real, live consequence instead —
+ * see the field docs below — and TODO(11.x/12.x) marks the media flags for whichever
+ * sub-phase gives a request shape a media part to carry.
  */
 export interface ProviderCaps {
   /**
@@ -42,6 +44,28 @@ export interface ProviderCaps {
    * and no grammar, through the same code path.
    */
   readonly jsonStrict: boolean
+  /**
+   * The output ceiling a caller may rely on when it does not set `maxOutputTokens` itself
+   * (`docs/spec/06-ai-providers.md` §6, "Long outputs": 128K for Claude 5.x, 64K for
+   * Haiku 4.5 and Gemini 3.x). Optional, and read as a *default*, never a clamp on a
+   * caller-supplied value: a profile that bundles models with different real ceilings
+   * (the shipped `anthropic` profile spans Haiku through Fable) declares the smallest one,
+   * so the default this layer ever picks on its own is never past what every model in the
+   * profile can actually honour.
+   *
+   * Without it, `providers/batch/anthropic.ts` had a single flat constant applied to
+   * every model regardless of profile — this is what a caller that wants more than that
+   * constant, and does not want to name a number itself, now gets instead.
+   */
+  readonly maxOutput?: number
+  /**
+   * The context window a caller may rely on absent better information — same
+   * smallest-of-the-bundle reasoning as `maxOutput`. `local.ts`'s `guardLocalContext`
+   * still uses its own `DEFAULT_LOCAL_CONTEXT_TOKENS` rather than this field: that guard
+   * exists for locally-hosted models the user names by typing a model id nothing here has
+   * a profile for, so there is no `ProviderCaps` to read in that case.
+   */
+  readonly ctx?: number
 }
 
 export interface ProviderProfile {
@@ -91,7 +115,11 @@ export const DEFAULT_PROFILES: readonly ProviderProfile[] = Object.freeze([
     kind: 'anthropic',
     keyRef: 'anthropic',
     // §6: `output_config.format = json_schema`, a compiled grammar with a 24 h cache.
-    caps: Object.freeze({ jsonStrict: true }),
+    // `maxOutput`/`ctx` are Haiku 4.5's ceilings (64K output, 200K context) — the
+    // smallest of the four bundled models, so a default this layer picks on its own
+    // never exceeds what every model below can actually honour; Sonnet/Opus/Fable's
+    // real 128K/1M ceilings are still reachable by a caller that sets `maxOutputTokens`.
+    caps: Object.freeze({ jsonStrict: true, maxOutput: 64_000, ctx: 200_000 }),
     models: Object.freeze([
       'claude-sonnet-5',
       'claude-haiku-4-5',
@@ -103,8 +131,9 @@ export const DEFAULT_PROFILES: readonly ProviderProfile[] = Object.freeze([
     id: 'google',
     kind: 'google',
     keyRef: 'google',
-    // §6: `responseJsonSchema`, over a broad subset of JSON Schema.
-    caps: Object.freeze({ jsonStrict: true }),
+    // §6: `responseJsonSchema`, over a broad subset of JSON Schema. Both bundled models
+    // share the same 64K output ceiling and 1M context window.
+    caps: Object.freeze({ jsonStrict: true, maxOutput: 64_000, ctx: 1_000_000 }),
     models: Object.freeze(['gemini-3.7-flash', 'gemini-3.5-flash-lite']),
   }),
 ] as const satisfies readonly ProviderProfile[])
