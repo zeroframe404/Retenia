@@ -1,4 +1,4 @@
-import { AiError, DEFAULT_PROFILES, ZERO_USAGE } from '@retenia/ai'
+import { AiError, DEFAULT_PROFILES, DEFAULT_ROLES, ZERO_USAGE } from '@retenia/ai'
 import { createScriptedInvoker } from '@retenia/ai/testing'
 import type { AiCall, AiResult, NewEntity, SettingsMap } from '@retenia/core'
 import { describe, expect, it, vi } from 'vitest'
@@ -59,7 +59,9 @@ function harness(
   }
 }
 
-const { allowedProfiles, createMainAiClient } = await import('./client')
+const { allowedProfiles, buildRegistry, createMainAiClient, LOCAL_PROFILE_ID } = await import(
+  './client'
+)
 
 describe('allowedProfiles', () => {
   it('reads an empty allowlist as "all of them"', () => {
@@ -172,5 +174,55 @@ describe('createMainAiClient', () => {
       costUsd: 0.006975,
       customId: 'contextualize:1:s:c',
     })
+  })
+})
+
+describe('buildRegistry: local providers', () => {
+  it('leaves the registry untouched when no local model is configured', async () => {
+    const registry = await buildRegistry(harness().deps.repos)
+    expect(registry.profiles).toEqual(DEFAULT_PROFILES)
+    expect(registry.roles).toBe(DEFAULT_ROLES)
+  })
+
+  it('adds the local profile and prefers it for the named roles', async () => {
+    const h = harness({
+      'ai.providers.local.model': 'qwen3.5:9b',
+      'ai.providers.local.baseUrl': 'http://127.0.0.1:11434',
+      'ai.providers.local.preferRoles': ['cheap'],
+    })
+    const registry = await buildRegistry(h.deps.repos)
+
+    const local = registry.profiles.find((p) => p.id === LOCAL_PROFILE_ID)
+    expect(local).toMatchObject({
+      kind: 'openai-compatible',
+      keyRef: null,
+      local: true,
+      baseURL: 'http://127.0.0.1:11434',
+      models: ['qwen3.5:9b'],
+    })
+
+    expect(registry.roles.cheap?.primary).toEqual({
+      profileId: LOCAL_PROFILE_ID,
+      modelId: 'qwen3.5:9b',
+    })
+    // "smart" was not in `preferRoles`: composing "cheap" must not touch it.
+    expect(registry.roles.smart).toBe(DEFAULT_ROLES.smart)
+  })
+
+  it('ignores preferRoles when no local model is configured', async () => {
+    const h = harness({ 'ai.providers.local.preferRoles': ['cheap'] })
+    const registry = await buildRegistry(h.deps.repos)
+    expect(registry.roles).toBe(DEFAULT_ROLES)
+    expect(registry.profiles.some((p) => p.id === LOCAL_PROFILE_ID)).toBe(false)
+  })
+
+  it('applies the provider allowlist to the local profile too', async () => {
+    const h = harness({
+      'ai.providers.local.model': 'qwen3.5:9b',
+      'ai.providers.local.baseUrl': 'http://127.0.0.1:11434',
+      'ai.providers.allowlist': ['anthropic'],
+    })
+    const registry = await buildRegistry(h.deps.repos)
+    expect(registry.profiles.map((p) => p.id)).toEqual(['anthropic'])
   })
 })

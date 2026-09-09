@@ -21,6 +21,14 @@ export const AI_ERROR_CODES = [
   'server_error',
   /** Transport failure with no HTTP status. */
   'network',
+  /**
+   * `local.ts`'s offline gate refused to dial a cloud target because the device has no
+   * connectivity — never thrown for a `local: true` target, which needs no network at all.
+   * Not retryable (going offline for 500ms and back is not what this reports), and
+   * `classify`'s default case already sends it to the next target, which — if the role has
+   * a `local` primary and this is the cloud fallback — simply fails the same way twice.
+   */
+  'offline',
   /** 400/404/413 — the request is wrong, not the connection. */
   'bad_request',
   /** The month's spend has reached `ai.budget.monthlyUsd`. */

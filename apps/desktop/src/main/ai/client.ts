@@ -1,5 +1,20 @@
-import type { AiBudgetEvent, AiClient, ProviderInvoker, ProviderProfile } from '@retenia/ai'
-import { createAiClient, DEFAULT_PROFILES, DEFAULT_ROLES } from '@retenia/ai'
+import type {
+  AiBudgetEvent,
+  AiClient,
+  AiRegistry,
+  ProviderInvoker,
+  ProviderProfile,
+  ProviderRole,
+} from '@retenia/ai'
+import {
+  createAiClient,
+  createLocalProfile,
+  DEFAULT_PROFILES,
+  DEFAULT_ROLES,
+  realTimers,
+  withLocalPolicy,
+  withLocalPreference,
+} from '@retenia/ai'
 import { createSdkInvoker } from '@retenia/ai/providers'
 import type {
   AiCallRepository,
@@ -7,6 +22,7 @@ import type {
   SecretStore,
   SettingsRepository,
 } from '@retenia/core'
+import { net } from 'electron'
 import { redactPaths } from '../jobs/redact'
 import { log } from '../logging/log'
 
@@ -63,17 +79,70 @@ export function allowedProfiles(
     : profiles.filter((profile) => allowlist.includes(profile.id))
 }
 
+/** `docs/spec/06-ai-providers.md` §7's local profile is always registered under this id. */
+export const LOCAL_PROFILE_ID = 'local'
+
+const PROVIDER_ROLES: ReadonlySet<ProviderRole> = new Set<ProviderRole>([
+  'smart',
+  'cheap',
+  'vision',
+  'audio',
+  'embed',
+  'local',
+])
+
+function isProviderRole(value: string): value is ProviderRole {
+  return PROVIDER_ROLES.has(value as ProviderRole)
+}
+
+/**
+ * `ai.providers.local.model` (7.4): a `RoleMap`/profile list built once per call, so a
+ * changed setting — a different model loaded in Ollama, a role added to "prefer local" —
+ * takes effect on the next call and never needs a relaunch, the same reasoning the
+ * allowlist above already applies.
+ *
+ * An empty `ai.providers.local.model` means "not configured": no local profile is added,
+ * and `ai.providers.local.preferRoles` is not consulted, so a role composed with an unset
+ * local target never accidentally becomes local-only.
+ */
+export async function buildRegistry(repos: MainAiClientRepositories): Promise<AiRegistry> {
+  const allowlist = await repos.settings.get('ai.providers.allowlist')
+  const localModel = await repos.settings.get('ai.providers.local.model')
+  const localBaseUrl = await repos.settings.get('ai.providers.local.baseUrl')
+
+  if (localModel === '' || localModel === undefined) {
+    return { profiles: allowedProfiles(DEFAULT_PROFILES, allowlist), roles: DEFAULT_ROLES }
+  }
+
+  const localProfile = createLocalProfile({
+    id: LOCAL_PROFILE_ID,
+    baseURL: localBaseUrl ?? '',
+    models: [localModel],
+  })
+  const profiles = allowedProfiles([...DEFAULT_PROFILES, localProfile], allowlist)
+
+  const preferRoles = (await repos.settings.get('ai.providers.local.preferRoles')) ?? []
+  let roles = DEFAULT_ROLES
+  for (const name of preferRoles) {
+    if (isProviderRole(name)) {
+      roles = withLocalPreference(roles, name, { profileId: LOCAL_PROFILE_ID, modelId: localModel })
+    }
+  }
+
+  return { profiles, roles }
+}
+
 export function createMainAiClient({ repos, secrets, invoker }: MainAiClientOptions): AiClient {
   return createAiClient({
-    invoker: invoker ?? createSdkInvoker(),
+    // `net.isOnline()` gates every *cloud* target; a local target is never gated on it and
+    // is instead raced against `withLocalPolicy`'s own clock (`docs/spec/08-ux.md` §1:
+    // "Offline without surprises"). Only the default invoker is wrapped: `client.test.ts`'s
+    // override is a scripted fake and has no connectivity or timeout concerns of its own.
+    invoker:
+      invoker ??
+      withLocalPolicy(createSdkInvoker(), { timers: realTimers, isOnline: () => net.isOnline() }),
 
-    registry: async () => ({
-      profiles: allowedProfiles(
-        DEFAULT_PROFILES,
-        await repos.settings.get('ai.providers.allowlist'),
-      ),
-      roles: DEFAULT_ROLES,
-    }),
+    registry: () => buildRegistry(repos),
 
     getSecret: (name) => secrets.getSecret(name),
 

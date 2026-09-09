@@ -62,6 +62,27 @@ export interface SettingsMap {
   /** Profile ids `packages/ai` may route to. Empty means "all of them". */
   'ai.providers.allowlist': string[]
   /**
+   * The local text-generation server (Ollama or LM Studio,
+   * `docs/spec/06-ai-providers.md` §7), OpenAI-compatible on this base URL.
+   *
+   * Distinct from `retrieval.ollamaBaseUrl`: that one is the embedding server §6's RAG
+   * pipeline reaches, and changing it triggers a reindex. This one only ever backs a
+   * `packages/ai` chat/completion role, and changing it is free — there is nothing to
+   * migrate.
+   */
+  'ai.providers.local.baseUrl': string
+  /** The model tag that server has loaded. Empty means "no local provider is configured". */
+  'ai.providers.local.model': string
+  /**
+   * Which `ProviderRole`s try the local model first, falling back to that role's ordinary
+   * cloud chain on any error or timeout (`docs/spec/06-ai-providers.md` §7: "'local' is just
+   * one more provider, opt-in, with a cloud fallback"). A plain `string[]` rather than
+   * `ProviderRole[]`: `packages/core` cannot import `@retenia/ai`, whose package depends on
+   * this one and not the other way around, so an entry that does not name a real role is
+   * simply never matched by whoever composes the registry.
+   */
+  'ai.providers.local.preferRoles': string[]
+  /**
    * Which embedding space the library is indexed in — a catalog model id
    * (`embeddinggemma-300m`, `bge-m3`) or `ollama` for a local server
    * (`docs/spec/05-ingestion-rag.md` §3).
@@ -232,6 +253,9 @@ export const SETTINGS: { readonly [K in SettingsKey]: SettingSpec<SettingsMap[K]
   'ai.budget.monthlyUsd': numberIn(0, 100000, 30),
   'ai.budget.hardBlock': booleanSetting(true),
   'ai.providers.allowlist': stringArray([]),
+  'ai.providers.local.baseUrl': stringSetting('http://127.0.0.1:11434'),
+  'ai.providers.local.model': stringSetting(''),
+  'ai.providers.local.preferRoles': stringArray([]),
   // The catalog itself lives in `packages/ingest` (Node-only), which `core` must not import,
   // so these are plain strings validated at the point of use — an unknown id degrades to "no
   // embedding provider is configured", which is exactly how a missing model already behaves.

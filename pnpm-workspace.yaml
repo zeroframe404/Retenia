@@ -56,3 +56,6 @@ minimumReleaseAgeExclude:
   - konva@10.3.3
   - react-konva@19.2.6
   - katex@0.18.7
+  - '@ai-sdk/openai-compatible@3.0.45'
+  - '@ai-sdk/provider-utils@5.0.37'
+  - '@ai-sdk/provider@4.0.11'
