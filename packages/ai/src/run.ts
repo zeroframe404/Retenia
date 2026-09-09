@@ -229,7 +229,9 @@ export async function runOnce(
 
   let last: AiError | undefined
   for (const [index, target] of targets.entries()) {
-    const apiKey = await deps.getSecret(target.profile.keyRef)
+    // `null` is a profile that needs no key at all (Ollama, LM Studio): an empty string is
+    // a real, defined `apiKey`, so it never falls into the "no key stored" branch below.
+    const apiKey = target.profile.keyRef === null ? '' : await deps.getSecret(target.profile.keyRef)
     if (apiKey === undefined) {
       // No key stored for this profile: not a failure of the provider, and nothing was
       // sent, so there is nothing to log.
@@ -398,28 +400,35 @@ async function settle(deps: RunDeps, input: SettleInput): Promise<number> {
 
   let costUsd = 0
   let rates: AiCallMeta['rates']
-  try {
-    const breakdown = computeCostUsd(deps.pricing, {
-      modelKey: key,
-      usage,
-      at: input.at,
-      // The tier the request asked for, so a 1 h write is billed at 2x rather than at the
-      // 5 m tier's 1.25x. Without it the two are indistinguishable here and the cheaper of
-      // the two is always assumed — which under-reports precisely the tier a generation run
-      // uses (`caching/with-cache.ts`).
-      ...(input.request.cache === undefined ? {} : { cacheTtl: input.request.cache.ttl }),
-    })
-    costUsd = breakdown.usd
-    rates = {
-      input: breakdown.rates.input,
-      output: breakdown.rates.output,
-      cacheRead: breakdown.rates.cacheRead,
+  if (target.profile.local === true) {
+    // Runs on the user's own hardware: there is no per-token rate to look up, and a model
+    // id the user typed into a settings field (`qwen3.5:9b`) will never have a row in
+    // `pricing.json`. Looking it up anyway would log every single local call as
+    // `costUnknown`, which is the wrong story for a call that is not unpriced — it is free.
+  } else {
+    try {
+      const breakdown = computeCostUsd(deps.pricing, {
+        modelKey: key,
+        usage,
+        at: input.at,
+        // The tier the request asked for, so a 1 h write is billed at 2x rather than at the
+        // 5 m tier's 1.25x. Without it the two are indistinguishable here and the cheaper of
+        // the two is always assumed — which under-reports precisely the tier a generation run
+        // uses (`caching/with-cache.ts`).
+        ...(input.request.cache === undefined ? {} : { cacheTtl: input.request.cache.ttl }),
+      })
+      costUsd = breakdown.usd
+      rates = {
+        input: breakdown.rates.input,
+        output: breakdown.rates.output,
+        cacheRead: breakdown.rates.cacheRead,
+      }
+    } catch (error) {
+      // An unpriced model is a bug in our table, not a reason to lose the row: log it and
+      // record the call with a cost of zero plus `costUnknown`, so the month's total is
+      // visibly incomplete rather than quietly wrong.
+      deps.logger.error(`[ai] no price for ${key}; recording the call with an unknown cost`, error)
     }
-  } catch (error) {
-    // An unpriced model is a bug in our table, not a reason to lose the row: log it and
-    // record the call with a cost of zero plus `costUnknown`, so the month's total is
-    // visibly incomplete rather than quietly wrong.
-    deps.logger.error(`[ai] no price for ${key}; recording the call with an unknown cost`, error)
   }
 
   const noUsage = outcome.usage === undefined

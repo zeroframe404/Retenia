@@ -38,6 +38,11 @@ export function cacheMinimumTokens(profile: ProviderProfile, modelId: string): n
       return modelId.includes('haiku') ? ANTHROPIC_HAIKU_MINIMUM : ANTHROPIC_LARGE_MODEL_MINIMUM
     case 'google':
       return null
+    case 'openai-compatible':
+      // No explicit breakpoint on this kind (`supportsExplicitCache` already says so), and
+      // `num_ctx` on a local server is small enough that a repeated-prefix implicit cache
+      // is not a thing a 16K local context ever benefits from measuring.
+      return null
   }
 }
 

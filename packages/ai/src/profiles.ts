@@ -6,9 +6,10 @@ import type { SecretName } from '@retenia/core'
  * The spec's profile also carries `baseURL`, `pricing` and `caps`. Here pricing lives in
  * its own versioned table (`./pricing`) keyed by `${kind}:${modelId}`, because a price is a
  * fact about a model on a date and a profile is a fact about an account — they change for
- * different reasons and on different schedules. `baseURL` arrives with 7.4's
- * `openai-compatible` kind, which is what makes a base URL mandatory (and brings its SSRF
- * check with it); `caps` arrives here, with the one flag 7.2 can act on.
+ * different reasons and on different schedules. `caps` arrives here, with the one flag 7.2
+ * can act on. `baseURL` arrives with 7.4's `openai-compatible` kind: mandatory for it (and
+ * checked for SSRF by whoever constructs the profile — `apps/desktop`, never this package),
+ * absent for `anthropic`/`google`, whose SDKs know their own endpoint.
  */
 
 /**
@@ -17,7 +18,7 @@ import type { SecretName } from '@retenia/core'
  * 7.4 adds `openai-compatible` (Ollama, LM Studio, Z.ai, Kimi, Qwen) and, later, `proxy`
  * for the commercial backend — which the spec is explicit is "just another profile".
  */
-export const PROVIDER_KINDS = ['anthropic', 'google'] as const
+export const PROVIDER_KINDS = ['anthropic', 'google', 'openai-compatible'] as const
 export type ProviderKind = (typeof PROVIDER_KINDS)[number]
 
 /**
@@ -55,10 +56,27 @@ export interface ProviderProfile {
    * *Which* secret, never the secret. Because this is a `SECRET_NAMES` label rather than
    * key material, a profile is safe to log, to serialize, and — if a channel ever carried
    * one — to send over IPC.
+   *
+   * `null` for a profile that needs no key at all — Ollama and LM Studio answer any request
+   * on their loopback port, and inventing a `SECRET_NAMES` entry for "no secret" would make
+   * every other reader of that list handle a case that is not a secret.
    */
-  readonly keyRef: SecretName
+  readonly keyRef: SecretName | null
   readonly models: readonly string[]
   readonly caps: ProviderCaps
+  /**
+   * Reachable on the loopback interface with no internet required, and billed at zero
+   * regardless of what `pricing.json` does or does not know about the model id the user
+   * typed in. `run.ts`'s cost step and `local.ts`'s offline gate both read exactly this
+   * flag; it is *not* the same question as `kind === 'openai-compatible'`, because that
+   * kind also reaches Z.ai/Kimi/Qwen (7.5+), which are cloud services with a real price.
+   */
+  readonly local?: boolean
+  /**
+   * Ollama, LM Studio and every other `openai-compatible` endpoint reach the model over
+   * this base URL; absent for `anthropic`/`google`, whose SDK factories know their own.
+   */
+  readonly baseURL?: string
 }
 
 /**

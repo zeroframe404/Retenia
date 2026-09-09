@@ -22,5 +22,11 @@ export {
 export type { BindModel } from './bind'
 export { bindLanguageModel } from './bind'
 export { fromSdkError } from './from-sdk-error'
+export type {
+  DiscoveredLocalModel,
+  FetchLike as LocalFetchLike,
+  LocalDiscovery,
+} from './local-discovery'
+export { discoverLocalProvider } from './local-discovery'
 export { createSdkInvoker } from './sdk-invoker'
 export { toBillableUsage } from './usage'

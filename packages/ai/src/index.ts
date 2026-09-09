@@ -92,6 +92,15 @@ export type {
   InvokeTarget,
   ProviderInvoker,
 } from './invoker'
+export type { CreateLocalProfileInput, LocalContextGuard, LocalPolicyDeps } from './local'
+export {
+  createLocalProfile,
+  DEFAULT_LOCAL_CONTEXT_TOKENS,
+  DEFAULT_LOCAL_TIMEOUT_MS,
+  guardLocalContext,
+  withLocalPolicy,
+  withLocalPreference,
+} from './local'
 export type { Random, SecretReader, Timers } from './ports'
 export { realTimers } from './ports'
 export type {
@@ -121,6 +130,8 @@ export {
   toPerMillionRates,
   ZERO_USAGE,
 } from './pricing'
+export type { PiiRedactionResult } from './privacy'
+export { redactPii } from './privacy'
 export type { ProviderCaps, ProviderKind, ProviderProfile } from './profiles'
 export { DEFAULT_PROFILES, PROVIDER_KINDS } from './profiles'
 export type { ProviderPort, ProviderRole } from './provider-port'

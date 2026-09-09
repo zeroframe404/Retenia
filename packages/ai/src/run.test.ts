@@ -2,6 +2,7 @@ import type { AiCall, Clock, NewEntity } from '@retenia/core'
 import { describe, expect, it } from 'vitest'
 import { AiError, isAiError } from './errors'
 import type { InvokeOutcome } from './invoker'
+import { createLocalProfile, withLocalPreference } from './local'
 import { SHIPPED_PRICING, ZERO_USAGE } from './pricing'
 import { DEFAULT_PROFILES } from './profiles'
 import { DEFAULT_ROLES } from './roles'
@@ -174,6 +175,69 @@ describe('ACCEPTANCE: fallback and logging', () => {
     // One logical unit of work: both rows carry the caller's idempotency key.
     expect(h.rows.map((r) => r.customId)).toEqual([REQUEST.idempotencyKey, REQUEST.idempotencyKey])
     expect(h.calls.map((c) => c.target.profile.id)).toEqual(['google', 'anthropic'])
+    expect(result.text).toBe('a context sentence')
+  })
+})
+
+describe('ACCEPTANCE: local providers', () => {
+  const OLLAMA = createLocalProfile({
+    id: 'ollama',
+    baseURL: 'http://127.0.0.1:11434/v1',
+    models: ['qwen3.5:9b'],
+  })
+
+  it('dispatches to a local profile with no stored key and logs USD 0', async () => {
+    const h = build([ok({ modelId: 'qwen3.5:9b' })], {
+      registry: async () => ({
+        profiles: [...DEFAULT_PROFILES, OLLAMA],
+        roles: withLocalPreference(DEFAULT_ROLES, 'cheap', {
+          profileId: 'ollama',
+          modelId: 'qwen3.5:9b',
+        }),
+      }),
+    })
+
+    const result = await runOnce(h.deps, BINDING, REQUEST)
+
+    // Local first, per `withLocalPreference` — never the cloud primary it displaced.
+    expect(h.calls[0]?.target.profile.id).toBe('ollama')
+    // `keyRef: null` skips `getSecret` entirely: the dispatched apiKey is an empty string,
+    // never `undefined` (which would have skipped the target as "not_configured").
+    expect(h.calls[0]?.target.apiKey).toBe('')
+
+    expect(h.rows).toHaveLength(1)
+    expect(h.rows[0]).toMatchObject({ provider: 'ollama', model: 'qwen3.5:9b', status: 'ok' })
+    // No pricing row exists for "openai-compatible:qwen3.5:9b": a local call is billed at
+    // zero directly, never surfaced as `costUnknown`.
+    expect(h.rows[0]?.costUsd).toBe(0)
+    expect(h.rows[0]?.meta).not.toHaveProperty('costUnknown')
+    expect(result.usage?.usd).toBe(0)
+  })
+
+  it('falls through to the cloud fallback when the local target errors', async () => {
+    const h = build(
+      [
+        // A 'network' error retries the same target once (`retry.ts`'s
+        // `MAX_ATTEMPTS_PER_TARGET`) before `classify` sends it to the next one.
+        failure(new AiError('network', 'ECONNREFUSED')),
+        failure(new AiError('network', 'ECONNREFUSED')),
+        ok({ modelId: 'gemini-3.7-flash' }),
+      ],
+      {
+        registry: async () => ({
+          profiles: [...DEFAULT_PROFILES, OLLAMA],
+          roles: withLocalPreference(DEFAULT_ROLES, 'cheap', {
+            profileId: 'ollama',
+            modelId: 'qwen3.5:9b',
+          }),
+        }),
+      },
+    )
+
+    const result = await runOnce(h.deps, BINDING, REQUEST)
+
+    expect(h.calls.map((c) => c.target.profile.id)).toEqual(['ollama', 'ollama', 'google'])
+    expect(h.rows.at(-1)).toMatchObject({ provider: 'google', status: 'ok' })
     expect(result.text).toBe('a context sentence')
   })
 })

@@ -242,7 +242,7 @@ export function createBatchRunner(deps: BatchRunnerDeps): BatchRunner {
     if (target === undefined) {
       throw new AiError('not_configured', `no provider is configured for the "${role}" role`)
     }
-    const apiKey = await deps.getSecret(target.profile.keyRef)
+    const apiKey = target.profile.keyRef === null ? '' : await deps.getSecret(target.profile.keyRef)
     if (apiKey === undefined) {
       throw new AiError(
         'not_configured',
@@ -271,7 +271,7 @@ export function createBatchRunner(deps: BatchRunnerDeps): BatchRunner {
         `the "${batch.provider}" provider this batch was submitted to is no longer configured`,
       )
     }
-    const apiKey = await deps.getSecret(profile.keyRef)
+    const apiKey = profile.keyRef === null ? '' : await deps.getSecret(profile.keyRef)
     if (apiKey === undefined) {
       throw new AiError('not_configured', `no API key is stored for the "${profile.id}" provider`, {
         profileId: profile.id,

@@ -1,5 +1,6 @@
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import type { LanguageModel } from 'ai'
 import type { ProviderProfile } from '../profiles'
 
@@ -27,5 +28,19 @@ export function bindLanguageModel(
       return createAnthropic({ apiKey })(modelId)
     case 'google':
       return createGoogleGenerativeAI({ apiKey })(modelId)
+    case 'openai-compatible':
+      if (profile.baseURL === undefined) {
+        // A profile-construction bug, not a runtime condition: whoever built this profile
+        // (Ollama/LM Studio discovery, or a future Z.ai/Kimi/Qwen settings screen) is
+        // required to set `baseURL` for this kind. Failing loudly here is better than
+        // `createOpenAICompatible` failing on an `undefined` string with a less legible
+        // message three layers down.
+        throw new Error(`provider profile "${profile.id}" is openai-compatible but has no baseURL`)
+      }
+      // An empty key is exactly what a local server with no auth gets (`ProviderProfile`'s
+      // `keyRef: null`): `apiKey` is always a string here, never `undefined`, so this never
+      // falls back to reading an environment variable the way the two SDK factories above
+      // deliberately avoid doing.
+      return createOpenAICompatible({ name: profile.id, baseURL: profile.baseURL, apiKey })(modelId)
   }
 }
