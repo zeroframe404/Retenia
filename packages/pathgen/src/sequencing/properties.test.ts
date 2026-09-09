@@ -51,7 +51,8 @@ const sequenced = runs.flatMap(({ entry, validated, result }) =>
   result === null ? [] : [{ entry, validated, result }],
 )
 
-describe('validation and sequencing, over random inputs', () => {
+// A thousand cases sequenced twice takes ~20 s on a CI runner: well over the 15 s default.
+describe('validation and sequencing, over random inputs', { timeout: 120_000 }, () => {
   it('never throws, and is fatal only when nothing survives', () => {
     expect(sequenced.length).toBeGreaterThan(CASES / 2)
     for (const { validated, result } of runs) {
