@@ -21,6 +21,7 @@
     "@ai-sdk/openai-compatible": "3.0.45",
     "@retenia/core": "workspace:*",
     "ai": "7.0.93",
+    "p-queue": "^9.3.3",
     "zod": "4.5.4"
   },
   "devDependencies": {

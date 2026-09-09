@@ -100,6 +100,19 @@ describe('toMessageParams', () => {
     ).toBe(500)
   })
 
+  it('prefers the profile ceiling over the flat default, and the caller over both', () => {
+    expect(
+      toMessageParams('claude-sonnet-5', { prompt: 'x', temperature: 0 }, 64_000).max_tokens,
+    ).toBe(64_000)
+    expect(
+      toMessageParams(
+        'claude-sonnet-5',
+        { prompt: 'x', temperature: 0, maxOutputTokens: 500 },
+        64_000,
+      ).max_tokens,
+    ).toBe(500)
+  })
+
   it('binds a schema as output_config, matching the synchronous path', () => {
     const params = toMessageParams('claude-sonnet-5', {
       prompt: 'x',

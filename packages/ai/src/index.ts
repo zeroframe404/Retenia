@@ -72,6 +72,7 @@ export {
 } from './caching'
 export type { AiClient, AiClientOptions } from './client'
 export { createAiClient } from './client'
+export { DEFAULT_AI_CONCURRENCY, withConcurrencyLimit } from './concurrency'
 export type { AiCallMeta } from './cost-log'
 export { aiCallMetaSchema, META_STRING_MAX, sanitizeMeta } from './cost-log'
 export type { AiErrorCode, AiErrorContext } from './errors'
@@ -95,6 +96,7 @@ export type {
 export type { CreateLocalProfileInput, LocalContextGuard, LocalPolicyDeps } from './local'
 export {
   createLocalProfile,
+  DEFAULT_CLOUD_TIMEOUT_MS,
   DEFAULT_LOCAL_CONTEXT_TOKENS,
   DEFAULT_LOCAL_TIMEOUT_MS,
   guardLocalContext,

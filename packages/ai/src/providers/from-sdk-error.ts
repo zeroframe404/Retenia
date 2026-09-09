@@ -22,6 +22,15 @@ export function fromSdkError(error: unknown, context: AiErrorContext, apiKey: st
     return new AiError('aborted', 'the caller cancelled the request', context)
   }
 
+  // A deadline elapsing is not the same decision as the caller cancelling: nobody asked
+  // for this to stop, so the next target in the role should still get a turn.
+  // `docs/spec/06-ai-providers.md` §6 asks for "ordered fallback on 429/5xx/timeout" —
+  // `network` is what `retry.ts`'s `classify` already treats as retryable-then-fallback,
+  // matching a 5xx rather than the give-up path a real cancellation takes.
+  if (isTimeout(error)) {
+    return new AiError('network', 'the request timed out', context)
+  }
+
   if (NoObjectGeneratedError.isInstance(error)) {
     // The model answered and the answer does not fit the schema. `sdk-invoker.ts` normally
     // catches this earlier and hands the text to the repair loop; reaching here means there
@@ -58,5 +67,9 @@ function codeForStatus(status: number | undefined): AiErrorCode {
 }
 
 function isAbort(error: unknown): boolean {
-  return error instanceof Error && (error.name === 'AbortError' || error.name === 'TimeoutError')
+  return error instanceof Error && error.name === 'AbortError'
+}
+
+function isTimeout(error: unknown): boolean {
+  return error instanceof Error && error.name === 'TimeoutError'
 }

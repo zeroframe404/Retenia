@@ -1,5 +1,6 @@
 import type { AiCall, Clock, NewEntity, SecretName } from '@retenia/core'
 import type { AiBudgetEvent } from './budget'
+import { DEFAULT_AI_CONCURRENCY, withConcurrencyLimit } from './concurrency'
 import type { AiResultCache } from './idempotency'
 import type { ProviderInvoker } from './invoker'
 import type { Random, Timers } from './ports'
@@ -17,7 +18,7 @@ import type {
   StructuredObjectRequest,
   StructuredResult,
 } from './structured'
-import { runStructured } from './structured'
+import { DEFAULT_SANITIZE_LIMITS, runStructured, sanitizeString } from './structured'
 import type { TextGenerator } from './text-generator'
 
 export interface AiClientOptions {
@@ -27,6 +28,13 @@ export interface AiClientOptions {
    * about the SDK itself.
    */
   invoker: ProviderInvoker
+  /**
+   * How many calls this client may have in flight at once, across every role and every
+   * caller (`docs/spec/06-ai-providers.md` §6: "concurrency with `p-queue`"). Defaults to
+   * `DEFAULT_AI_CONCURRENCY`. Set to `Infinity` for a test that wants every scripted
+   * outcome dispatched without an extra tick of scheduling in between.
+   */
+  concurrency?: number
   /**
    * A resolver, not a value: main reads `ai.providers.allowlist` on every run, so a
    * changed setting takes effect without a relaunch and `createMainAiClient` can stay
@@ -122,7 +130,7 @@ export function createAiClient(options: AiClientOptions): AiClient {
   const registry = options.registry ?? defaultRegistry
 
   const deps = {
-    invoker: options.invoker,
+    invoker: withConcurrencyLimit(options.invoker, options.concurrency ?? DEFAULT_AI_CONCURRENCY),
     registry,
     pricing,
     getSecret: options.getSecret,
@@ -142,7 +150,16 @@ export function createAiClient(options: AiClientOptions): AiClient {
   }
 
   return {
-    textGenerator: (binding) => (request) => runOnce(deps, binding, request),
+    // `runOnce`'s completion is the provider's raw text: nothing between it and a caller
+    // that stores or renders it. `structured()` below sanitizes the *parsed* value on its
+    // own path (`runStructured`); free text has no schema to carry a sanitizer, so this is
+    // the one place that path gets one. These completions are written from the user's own
+    // PDFs, scraped pages and video transcripts, any of which can carry a `<script>` — the
+    // same reasoning `structured/sanitize.ts` documents in full.
+    textGenerator: (binding) => async (request) => {
+      const result = await runOnce(deps, binding, request)
+      return { ...result, text: sanitizeString(result.text, DEFAULT_SANITIZE_LIMITS) }
+    },
 
     // The overloads live on `runStructured`; this forwards them with the deps already
     // bound, and the cast is the one-line price of saying that in TypeScript — an
