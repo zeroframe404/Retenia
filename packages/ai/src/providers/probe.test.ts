@@ -97,4 +97,35 @@ describe('probeProvider', () => {
     expect(result.ok).toBe(true)
     expect(result.models).toEqual(['qwen3.5:9b'])
   })
+
+  it('never follows a redirect on the model-list call, so the key cannot be replayed to another host', async () => {
+    const bindModel = () => successModel()
+    const fetchLike: FetchLike = async (_url, init) => {
+      expect(init?.redirect).toBe('manual')
+      // What undici hands back for a 3xx under `redirect: 'manual'`: a real status, not
+      // a thrown error, and `!response.ok` already treats it as "no models".
+      return json({}, false)
+    }
+
+    const result = await probeProvider(anthropicProfile, 'sk-ant-test', { bindModel, fetchLike })
+
+    expect(result.ok).toBe(true)
+    expect(result.models).toEqual([])
+  })
+
+  it('sends the Google key as a header, never in the URL', async () => {
+    const bindModel = () => successModel()
+    const fetchLike: FetchLike = async (url, init) => {
+      expect(url).toBe('https://generativelanguage.googleapis.com/v1beta/models')
+      expect(url).not.toContain('sk-goog-CANARY')
+      expect(init?.headers).toMatchObject({ 'x-goog-api-key': 'sk-goog-CANARY' })
+      return json({ models: [{ name: 'gemini-3.7-flash' }] })
+    }
+    const googleProfile = DEFAULT_PROFILES.find((p) => p.kind === 'google')
+    if (googleProfile === undefined) throw new Error('no google profile in DEFAULT_PROFILES')
+
+    const result = await probeProvider(googleProfile, 'sk-goog-CANARY', { bindModel, fetchLike })
+
+    expect(result.models).toEqual(['gemini-3.7-flash'])
+  })
 })

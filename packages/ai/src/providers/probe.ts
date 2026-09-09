@@ -96,10 +96,13 @@ async function listModels(
         'id',
       )
     case 'google':
+      // The key travels as `x-goog-api-key`, never in the URL: a query string is the one
+      // string a proxy or gateway is most likely to record whole, and `batch/google.ts`
+      // already uses the header form for every other Gemini call this app makes.
       return listFromArray(
-        `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`,
+        'https://generativelanguage.googleapis.com/v1beta/models',
         fetchLike,
-        {},
+        { 'x-goog-api-key': apiKey },
         'models',
         'name',
       )
@@ -129,7 +132,16 @@ async function listFromArray(
   idField: string,
 ): Promise<readonly string[]> {
   try {
-    const response = await fetchLike(url, { headers })
+    const response = await fetchLike(url, {
+      headers,
+      // **Never followed.** Every branch above sends the key in a custom header
+      // (`x-api-key`, `x-goog-api-key`, `Authorization`), and Node only strips
+      // `authorization` — not a custom header — across an origin on a redirect. A single
+      // 3xx from anything that can answer as the provider would otherwise replay the key
+      // to whatever host `Location` names; `batch/http.ts` applies the same rule for the
+      // same reason. `!response.ok` below already treats a 3xx as "no models".
+      redirect: 'manual',
+    })
     if (!response.ok) return []
     const body = asRecord(await response.json())
     const entries = body?.[arrayField]
