@@ -157,6 +157,23 @@ describe('withLocalPolicy', () => {
     expect(result).toBe(OK)
   })
 
+  it('turns a stalled cloud call into a network error instead of hanging forever', async () => {
+    // Before this, only a local target was raced against a clock; a stuck cloud call had
+    // no deadline at all, so `docs/spec/06-ai-providers.md` §6's "ordered fallback on
+    // 429/5xx/timeout" had no timeout to fall through on.
+    const policy = withLocalPolicy(hangingInvoker(), {
+      timers: instantTimers(),
+      isOnline: () => true,
+      cloudTimeoutMs: 5,
+    })
+    const result = await policy(CLOUD_TARGET, REQUEST, { signal: undefined })
+    expect(result.kind).toBe('error')
+    if (result.kind === 'error') {
+      expect(result.error.code).toBe('network')
+      expect(result.error.message).toContain('did not answer')
+    }
+  })
+
   it('never gates a local target on connectivity', async () => {
     // `isOnline` says offline, but the target is local: the whole point of "local" is that
     // it needs no network, so it must dispatch anyway.

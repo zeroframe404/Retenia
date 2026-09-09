@@ -1,5 +1,5 @@
 import { AiError } from './errors'
-import type { InvokeOutcome, ProviderInvoker } from './invoker'
+import type { InvokeOptions, InvokeOutcome, InvokeTarget, ProviderInvoker } from './invoker'
 import type { Timers } from './ports'
 import type { ProviderProfile } from './profiles'
 import type { ProviderRole } from './provider-port'
@@ -28,6 +28,16 @@ export const DEFAULT_LOCAL_CONTEXT_TOKENS = 16_000
  * that never started.
  */
 export const DEFAULT_LOCAL_TIMEOUT_MS = 60_000
+
+/**
+ * The same idea, for a cloud target: `docs/spec/06-ai-providers.md` §6 asks for "ordered
+ * fallback on 429/5xx/**timeout**", and nothing above this layer ever imposed one on a
+ * cloud call — a hung connection had no way to reach the next target in the role, only the
+ * caller's own signal (if any) could ever end it. 2 minutes matches the deadline
+ * `batch/runner.ts`'s `REQUEST_TIMEOUT_MS` already uses for a batch poll, generous enough
+ * that a real lesson generation call is never mistaken for a stuck one.
+ */
+export const DEFAULT_CLOUD_TIMEOUT_MS = 120_000
 
 export interface CreateLocalProfileInput {
   readonly id: string
@@ -85,20 +95,52 @@ export interface LocalPolicyDeps {
    */
   readonly isOnline?: () => boolean | Promise<boolean>
   readonly localTimeoutMs?: number
+  readonly cloudTimeoutMs?: number
+}
+
+/**
+ * Race one call against a deadline, on whichever target: local or cloud, only the timeout
+ * and the message differ. Whichever of the two settles first wins `Promise.race`, and the
+ * other side's timer is aborted immediately after — freeing it promptly instead of leaving
+ * it to fire uselessly up to `timeoutMs` later.
+ */
+function raceAgainstDeadline(
+  invoker: ProviderInvoker,
+  target: InvokeTarget,
+  request: TextGenerationRequest,
+  options: InvokeOptions,
+  timers: Timers,
+  timeoutMs: number,
+  describeTarget: string,
+): Promise<InvokeOutcome> {
+  const controller = new AbortController()
+  const timeout: Promise<InvokeOutcome> = timers.sleep(timeoutMs, controller.signal).then(() => ({
+    kind: 'error',
+    error: new AiError('network', `${describeTarget} did not answer within ${timeoutMs}ms`, {
+      profileId: target.profile.id,
+      model: target.modelId,
+    }),
+  }))
+
+  return Promise.race([invoker(target, request, options), timeout]).finally(() => {
+    controller.abort()
+  })
 }
 
 /**
  * Wrap a `ProviderInvoker` with the local-provider policy: refuse a cloud target while
  * offline (`AiError('offline', …)`, which `classify`'s default sends straight to the next
- * target rather than retrying a connection that is not coming back in 500 ms), and race a
- * local target against `localTimeoutMs` so a stalled model server falls through the same
- * way a real network error would.
+ * target rather than retrying a connection that is not coming back in 500 ms), and race
+ * *every* target — local against `localTimeoutMs`, cloud against `cloudTimeoutMs` — so a
+ * stalled provider falls through to the next one in the role the same way a real network
+ * error would, rather than holding the call open indefinitely.
  *
  * A `local: true` target is never gated on connectivity — that is the entire point of it
- * being local — and never anything but raced against the clock.
+ * being local — and never anything but raced against its own clock.
  */
 export function withLocalPolicy(invoker: ProviderInvoker, deps: LocalPolicyDeps): ProviderInvoker {
-  const timeoutMs = deps.localTimeoutMs ?? DEFAULT_LOCAL_TIMEOUT_MS
+  const localTimeoutMs = deps.localTimeoutMs ?? DEFAULT_LOCAL_TIMEOUT_MS
+  const cloudTimeoutMs = deps.cloudTimeoutMs ?? DEFAULT_CLOUD_TIMEOUT_MS
 
   return async function invoke(target, request, options) {
     if (target.profile.local !== true) {
@@ -112,28 +154,26 @@ export function withLocalPolicy(invoker: ProviderInvoker, deps: LocalPolicyDeps)
           ),
         }
       }
-      return invoker(target, request, options)
+      return raceAgainstDeadline(
+        invoker,
+        target,
+        request,
+        options,
+        deps.timers,
+        cloudTimeoutMs,
+        `the "${target.profile.id}" provider`,
+      )
     }
 
-    const controller = new AbortController()
-    const timeout: Promise<InvokeOutcome> = deps.timers
-      .sleep(timeoutMs, controller.signal)
-      .then(() => ({
-        kind: 'error',
-        error: new AiError(
-          'network',
-          `the local "${target.profile.id}" provider did not answer within ${timeoutMs}ms`,
-          { profileId: target.profile.id, model: target.modelId },
-        ),
-      }))
-
-    try {
-      return await Promise.race([invoker(target, request, options), timeout])
-    } finally {
-      // Whichever settled first, the other outcome is discarded: this frees the sleep's
-      // timer promptly instead of leaving it to fire uselessly up to `timeoutMs` later.
-      controller.abort()
-    }
+    return raceAgainstDeadline(
+      invoker,
+      target,
+      request,
+      options,
+      deps.timers,
+      localTimeoutMs,
+      `the local "${target.profile.id}" provider`,
+    )
   }
 }
 
