@@ -113,6 +113,25 @@ describe('createAiClient', () => {
     await expect(instance.ratesFor('cheap')).resolves.toMatchObject({ inputUsdPerMillion: 1 })
   })
 
+  it('sanitizes free text the same way structured output is sanitized', async () => {
+    // The provider echoed the user's own source verbatim, script tag included. Nothing
+    // downstream of `textGenerator` has a schema to catch this, so this layer must.
+    const harness = client([
+      {
+        kind: 'ok',
+        text: 'a summary<script>alert(1)</script> of the chunk',
+        modelId: 'gemini-3.7-flash',
+        usage: ZERO_USAGE,
+        finishReason: 'stop',
+      },
+    ])
+    const result = await harness.client.textGenerator({ role: 'cheap', purpose: 'contextualize' })({
+      prompt: 'hola',
+      temperature: 0,
+    })
+    expect(result.text).toBe('a summary of the chunk')
+  })
+
   it('blocks by default when the cap is reached', async () => {
     // `hardBlockEnabled` is optional and defaults to true: an unenforced cap is a number
     // that only looks like a control. 7.5 exposes the toggle.
