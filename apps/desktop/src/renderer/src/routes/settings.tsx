@@ -17,6 +17,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react'
 import { z } from 'zod'
 import { SchedulerSettings } from '../features/scheduler/scheduler-settings'
+import { AiSettingsSection } from '../features/settings/ai/ai-settings-section'
 import { ThirdPartyNoticesSection } from '../features/settings/third-party-notices-section'
 import { useT } from '../i18n/use-t'
 import { useSetDensity, useSetGamificationProfile, useSettings } from '../shell/use-settings'
@@ -37,7 +38,7 @@ const settingsSearchSchema = z.object({
    * voice, …) lands in sub-phase 7.5/13.5; this phase wires the fields the shell itself
    * reads (density, gamification profile), typography (purely local to `@retenia/ui`'s
    * `useTypographySettingsStore`), and the scheduler section of sub-phase 4.6. */
-  tab: z.enum(['density', 'gamification', 'typography', 'scheduler']).optional(),
+  tab: z.enum(['density', 'gamification', 'typography', 'scheduler', 'ai']).optional(),
 })
 
 function SettingsScreen() {
@@ -87,6 +88,8 @@ function SettingsScreen() {
       </section>
 
       <SchedulerSettings focused={tab === 'scheduler'} />
+
+      <AiSettingsSection focused={tab === 'ai'} />
 
       <section
         data-testid="settings-density"

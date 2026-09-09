@@ -1,5 +1,10 @@
+import { writeFile } from 'node:fs/promises'
 import { is } from '@electron-toolkit/utils'
+import type { PricingOverlay } from '@retenia/ai'
+import { mergePricingOverlay, resolveRates, SHIPPED_PRICING, unknownOverlayKeys } from '@retenia/ai'
+import { probeProvider } from '@retenia/ai/providers'
 import type {
+  AiCallRepository,
   Annotation,
   BlobStore,
   Card,
@@ -13,6 +18,7 @@ import type {
   OptimizerStatus,
   RescheduleImpact,
   RescheduleSelection,
+  RoleAssignmentValue,
   SchedulerProfile,
   SchedulingPreview,
   SecretName,
@@ -39,8 +45,10 @@ import type {
   SearchHit,
   SourceSummary,
 } from '@retenia/ipc-contract'
+import { PROVIDER_ROLE_VALUES } from '@retenia/ipc-contract'
 import { app, BrowserWindow, dialog, nativeTheme } from 'electron'
 import type { BatchesFacade } from '../ai/batch'
+import { buildRegistry } from '../ai/client'
 import type { BackupService } from '../backups/service'
 import { ensureDevMediaSample } from '../dev/media-sample'
 import { collectSystemInfo, exportDiagnostics } from '../diagnostics/export'
@@ -64,6 +72,42 @@ function unavailable(domain: string, reason: string): never {
   throw new Error(`${domain} is unavailable: the database did not open (${reason})`)
 }
 
+/** `ProviderProfile` carries no display label — `docs/spec/08-ux.md` §1's provider cards
+ *  are Anthropic, Google and, once configured, Ollama/LM Studio; the other cards the spec
+ *  lists (OpenAI, OpenRouter, Azure Speech, ElevenLabs) are not `packages/ai` profiles yet
+ *  and are rendered as static placeholders by the renderer, not by this list. */
+function providerLabel(profile: { id: string; kind: string; local?: boolean }): string {
+  if (profile.local === true) return 'Ollama / LM Studio'
+  if (profile.kind === 'anthropic') return 'Anthropic'
+  if (profile.kind === 'google') return 'Google'
+  return profile.id
+}
+
+/**
+ * One field of a CSV row, quoted only when it needs to be.
+ *
+ * The quote character is spelled `\x22` rather than written literally: a source-level `"`
+ * inside a regex or string on this line reads, to `esm-main-globals.test.ts`'s naive
+ * comment/string stripper (it does not parse regex literals), as an unterminated string —
+ * which then swallows everything up to the next stray `"` anywhere later in the file.
+ */
+function csvField(value: string | number): string {
+  const text = String(value)
+  const quote = '\x22'
+  if (!text.includes(quote) && !text.includes(',') && !text.includes('\n')) return text
+  return quote + text.split(quote).join(quote + quote) + quote
+}
+
+/** The `[from, to)` window for a `YYYY-MM` month, in local time — matching
+ *  `packages/ai/src/budget.ts`'s `startOfMonth`'s reasoning: a budget lines up with the
+ *  calendar month the user typed, not with a UTC boundary that can land on a different day. */
+function monthRange(month: string): { from: Date; to: Date } {
+  const [year, monthNumber] = month.split('-').map(Number)
+  const y = year ?? new Date().getFullYear()
+  const m = (monthNumber ?? 1) - 1
+  return { from: new Date(y, m, 1), to: new Date(y, m + 1, 1) }
+}
+
 export interface HandlerDeps {
   settings: SettingsStore
   updater: Updater
@@ -83,6 +127,14 @@ export interface HandlerDeps {
   secrets: SecretStore | null
   backups: BackupService | null
   settingsRepo: SettingsRepository | null
+  /** Rebuilds the main `AiClient` against a fresh `ai.pricing.overlay` — called after
+   *  `ai.setPricingOverlay` and `ai.restorePricing` write the setting
+   *  (`../jobs/bootstrap.ts`'s `AiClientOptions.pricing` is a value, not a resolver).
+   *  and `ai.restorePricing` write the setting. No-op when the database did not open. */
+  refreshAiPricing: () => Promise<void>
+  /** The cost log behind the usage dashboard (sub-phase 7.1/7.5). `null` when the database
+   *  did not open. */
+  aiCalls: AiCallRepository | null
   memory: MemoryService | null
   /** Computed once at startup (`../backups/synced-folder.ts`). */
   syncedFolderWarning: boolean
@@ -475,6 +527,8 @@ export function createHandlers({
   secrets,
   backups,
   settingsRepo,
+  refreshAiPricing,
+  aiCalls,
   memory,
   syncedFolderWarning,
   restoreFromBackup,
@@ -998,6 +1052,221 @@ export function createHandlers({
       return { ok: true }
     },
 
+    'ai.listProviderCards': async () => {
+      if (!settingsRepo || !secrets) unavailable('ai', dbUnavailableReason)
+      const registry = await buildRegistry({ settings: settingsRepo })
+      const cards = await Promise.all(
+        registry.profiles.map(async (profile) => {
+          const secretValue =
+            profile.keyRef === null ? undefined : await secrets.getSecret(profile.keyRef)
+          const perMillionUsd: Record<string, { input: number; output: number } | null> = {}
+          for (const modelId of profile.models) {
+            try {
+              const rates = resolveRates(SHIPPED_PRICING, `${profile.kind}:${modelId}`, new Date())
+              perMillionUsd[modelId] = { input: rates.input, output: rates.output }
+            } catch {
+              perMillionUsd[modelId] = null
+            }
+          }
+          return {
+            id: profile.id,
+            kind: profile.kind,
+            label: providerLabel(profile),
+            models: [...profile.models],
+            perMillionUsd,
+            local: profile.local === true,
+            hasKey: secretValue !== undefined,
+            keyPreview: maskSecret(secretValue),
+            baseUrl: profile.baseURL ?? null,
+          }
+        }),
+      )
+      return { cards }
+    },
+
+    'ai.probeProvider': async ({ profileId }) => {
+      if (!settingsRepo || !secrets) unavailable('ai', dbUnavailableReason)
+      const registry = await buildRegistry({ settings: settingsRepo })
+      const profile = registry.profiles.find((p) => p.id === profileId)
+      if (!profile) {
+        return { ok: false, models: [], error: `no such provider: "${profileId}"`, latencyMs: 0 }
+      }
+      const apiKey = profile.keyRef === null ? '' : await secrets.getSecret(profile.keyRef)
+      if (apiKey === undefined) {
+        return {
+          ok: false,
+          models: [],
+          error: 'no key is stored for this provider',
+          latencyMs: 0,
+        }
+      }
+      const result = await probeProvider(profile, apiKey)
+      return { ...result, models: [...result.models] }
+    },
+
+    'ai.getRoles': async () => {
+      if (!settingsRepo) unavailable('ai', dbUnavailableReason)
+      const registry = await buildRegistry({ settings: settingsRepo })
+      const roles = PROVIDER_ROLE_VALUES.map((role) => {
+        const config = registry.roles[role]
+        return {
+          role,
+          primary: config?.primary ?? null,
+          fallbacks: config ? [...config.fallbacks] : [],
+        }
+      })
+      return { roles }
+    },
+
+    'ai.setRoles': async ({ roles }) => {
+      if (!settingsRepo || !secrets) unavailable('ai', dbUnavailableReason)
+      const registry = await buildRegistry({ settings: settingsRepo })
+      const byId = new Map(registry.profiles.map((profile) => [profile.id, profile]))
+
+      const isUsable = async (ref: { profileId: string; modelId: string }): Promise<boolean> => {
+        const profile = byId.get(ref.profileId)
+        if (!profile?.models.includes(ref.modelId)) return false
+        if (profile.keyRef === null) return true
+        return (await secrets.getSecret(profile.keyRef)) !== undefined
+      }
+
+      const stored: Record<string, RoleAssignmentValue> = {}
+      for (const assignment of roles) {
+        if (assignment.primary !== null) {
+          if (!(await isUsable(assignment.primary))) {
+            throw new Error(
+              `ai.setRoles: "${assignment.role}"'s primary ` +
+                `(${assignment.primary.profileId}/${assignment.primary.modelId}) has no ` +
+                'stored key or is not a model that provider lists',
+            )
+          }
+          for (const fallback of assignment.fallbacks) {
+            if (!(await isUsable(fallback))) {
+              throw new Error(
+                `ai.setRoles: "${assignment.role}"'s fallback ` +
+                  `(${fallback.profileId}/${fallback.modelId}) has no stored key or is not ` +
+                  'a model that provider lists',
+              )
+            }
+          }
+        }
+        stored[assignment.role] = { primary: assignment.primary, fallbacks: assignment.fallbacks }
+      }
+
+      await settingsRepo.set('ai.roles', stored)
+      return { ok: true }
+    },
+
+    'ai.getPricingOverlay': async () => {
+      if (!settingsRepo) unavailable('ai', dbUnavailableReason)
+      const overlayRaw = await settingsRepo.get('ai.pricing.overlay')
+      const overlay = overlayRaw as unknown as PricingOverlay
+      const merged = mergePricingOverlay(SHIPPED_PRICING, overlay)
+      const now = new Date()
+      const rows = Object.entries(SHIPPED_PRICING.models).map(([key, model]) => {
+        const resolved = resolveRates(merged, key, now)
+        const entry = overlayRaw[key]
+        return {
+          modelKey: key,
+          label: model.label,
+          resolved: {
+            input: resolved.input,
+            output: resolved.output,
+            cacheRead: resolved.cacheRead,
+            cacheWrite5m: resolved.cacheWrite5m,
+            cacheWrite1h: resolved.cacheWrite1h,
+            batchDiscount: resolved.batchDiscount,
+          },
+          overlay: entry === undefined ? null : { modelKey: key, ...entry },
+        }
+      })
+      return {
+        revision: SHIPPED_PRICING.revision,
+        isOverridden: Object.keys(overlayRaw).length > 0,
+        rows,
+      }
+    },
+
+    'ai.setPricingOverlay': async ({ entries }) => {
+      if (!settingsRepo) unavailable('ai', dbUnavailableReason)
+      const overlay: PricingOverlay = {}
+      for (const entry of entries) {
+        const { modelKey: key, ...rate } = entry
+        overlay[key] = rate
+      }
+      const unknown = unknownOverlayKeys(SHIPPED_PRICING, overlay)
+      if (unknown.length > 0) {
+        throw new Error(`ai.setPricingOverlay: unknown model key(s): ${unknown.join(', ')}`)
+      }
+      await settingsRepo.set('ai.pricing.overlay', overlay)
+      await refreshAiPricing()
+      return { ok: true }
+    },
+
+    'ai.restorePricing': async () => {
+      if (!settingsRepo) unavailable('ai', dbUnavailableReason)
+      await settingsRepo.set('ai.pricing.overlay', {})
+      await refreshAiPricing()
+      return { ok: true }
+    },
+
+    'ai.getUsageSummary': async ({ month }) => {
+      if (!aiCalls) unavailable('ai', dbUnavailableReason)
+      const { from, to } = monthRange(month)
+      const [totalUsd, byModel, byPurpose] = await Promise.all([
+        aiCalls.sumCost({ from, to }),
+        aiCalls.costByModel({ from, to }),
+        aiCalls.costByPurpose({ from, to }),
+      ])
+      return { month, totalUsd, byModel, byPurpose }
+    },
+
+    'ai.listRecentCalls': async ({ limit }) => {
+      if (!aiCalls) unavailable('ai', dbUnavailableReason)
+      const rows = await aiCalls.listRecent({ limit })
+      return {
+        calls: rows.map((row) => ({
+          id: row.id,
+          createdAt: row.createdAt.toISOString(),
+          provider: row.provider,
+          model: row.model,
+          role: row.role,
+          purpose: row.purpose,
+          status: row.status,
+          costUsd: row.costUsd,
+          latencyMs: row.latencyMs,
+          inputTokens: row.inputTokens,
+          outputTokens: row.outputTokens,
+        })),
+      }
+    },
+
+    'ai.exportUsageCsv': async ({ month }, event) => {
+      if (!aiCalls) unavailable('ai', dbUnavailableReason)
+      const { from, to } = monthRange(month)
+      const byPurpose = await aiCalls.costByPurpose({ from, to })
+
+      const window = BrowserWindow.fromWebContents(event.sender)
+      const dialogOptions = {
+        title: 'Export this month’s AI usage',
+        defaultPath: `retenia-ai-usage-${month}.csv`,
+        filters: [{ name: 'CSV', extensions: ['csv'] }],
+      }
+      const { canceled, filePath } = window
+        ? await dialog.showSaveDialog(window, dialogOptions)
+        : await dialog.showSaveDialog(dialogOptions)
+      if (canceled || !filePath) return { savedTo: null }
+
+      const header = 'purpose,provider,cost_usd,calls\n'
+      const body = byPurpose
+        .map((row) =>
+          [csvField(row.purpose), csvField(row.provider), row.costUsd, row.calls].join(','),
+        )
+        .join('\n')
+      await writeFile(filePath, `${header}${body}\n`, 'utf-8')
+      return { savedTo: filePath }
+    },
+
     'backups.status': async () => {
       if (!backups) unavailable('backups', dbUnavailableReason)
       return { backups: await backups.list(), syncedFolderWarning }
@@ -1033,7 +1302,13 @@ export function createHandlers({
       if (!Object.hasOwn(SETTINGS, key)) {
         throw new Error(`settings.get: "${key}" is not a registered setting`)
       }
-      return { value: await settingsRepo.get(key as SettingsKey) }
+      // The registry is heterogeneous by key — some values (`ai.roles`,
+      // `ai.pricing.overlay`, `ai.budget.lastAlertedThreshold`) are plain interfaces rather
+      // than `Record`s, so TypeScript cannot see them as structurally `JsonValue` even
+      // though every field in every one of them already is. The cast is this boundary's,
+      // not a new escape hatch: everything this repository stores is JSON by construction
+      // (`packages/db`'s `settings` column is `TEXT` with a `json_valid` check).
+      return { value: (await settingsRepo.get(key as SettingsKey)) as JsonValue }
     },
 
     'settings.set': async ({ key, value }) => {
@@ -1047,7 +1322,7 @@ export function createHandlers({
       // than crashing here).
       // biome-ignore lint/suspicious/noExplicitAny: see above.
       await settingsRepo.set(settingsKey, value as any)
-      const stored = await settingsRepo.get(settingsKey)
+      const stored = (await settingsRepo.get(settingsKey)) as JsonValue
       emitSettingsChanged(settingsKey, stored)
       return { value: stored }
     },

@@ -1,5 +1,5 @@
 import type { ChunkSummary, ContextualizationEstimateDto } from '@retenia/ipc-contract'
-import { Badge, ScrollArea, Switch } from '@retenia/ui'
+import { AiUnavailableNotice, Badge, ScrollArea, Switch } from '@retenia/ui'
 import { useT } from '../../i18n/use-t'
 
 /**
@@ -119,7 +119,7 @@ export function SourceChunks({
                   })}
           </p>
           {!contextualizationAvailable && (
-            <p className="text-muted text-xs">{t('chunks.improvedIndexUnavailable')}</p>
+            <AiUnavailableNotice reason={t('chunks.improvedIndexUnavailable')} />
           )}
         </div>
       </div>

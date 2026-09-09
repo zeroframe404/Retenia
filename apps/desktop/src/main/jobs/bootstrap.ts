@@ -1,5 +1,6 @@
 import { dirname, join } from 'node:path'
 import type { AiClient, BatchRunner } from '@retenia/ai'
+import { mergePricingOverlay, SHIPPED_PRICING } from '@retenia/ai'
 import type { SecretStore } from '@retenia/core'
 import { createJobRegistry, createJobScheduler, uuidv7 } from '@retenia/core'
 import { forwardableEnv } from '@retenia/ingest/sidecars/env'
@@ -59,8 +60,14 @@ export interface JobsSubsystem {
    *  `null` when the database did not open — the store keeps its ciphertext in `settings`. */
   readonly secrets: SecretStore | null
   /** The AI gateway (sub-phase 7.1): role routing, cost log and budget. `null` when the
-   *  database did not open, because every one of those three needs it. */
+   *  database did not open, because every one of those three needs it. A getter, not a
+   *  plain value: `refreshAiPricing` rebuilds the client in place (7.5's price editor), and
+   *  every reader here must see the rebuilt one rather than a snapshot taken at boot. */
   readonly ai: AiClient | null
+  /** Re-reads `ai.pricing.overlay` and rebuilds `ai` against it — `packages/ai`'s
+   *  `AiClientOptions.pricing` is a plain value, not a resolver, so a changed overlay can
+   *  only take effect by constructing a fresh client. No-op when the database did not open. */
+  refreshAiPricing(): Promise<void>
   /** The Batch API (sub-phase 7.3): submission, durable polling, reconciliation into
    *  `ai_results`. `null` when the database did not open — a batch that cannot be recorded
    *  cannot be resumed, and submitting one that nothing will ever collect is worse than
@@ -78,6 +85,13 @@ export interface BootstrapJobsOptions {
   emit: (event: JobProgressEvent) => void
   /** Pushes `ai.batchProgress`; the tray's batch rows are driven by it. */
   emitBatch: (event: AiBatchEvent) => void
+  /** Pushes `ai.budgetAlert`; the settings screen's budget banner is driven by it. */
+  emitBudgetAlert?: (alert: {
+    period: string
+    threshold: 80 | 100
+    spentUsd: number
+    capUsd: number
+  }) => void
   /** Whether `jobs.enqueueDemo` will queue anything. False in a packaged build. */
   demoEnabled: boolean
 }
@@ -135,6 +149,7 @@ export function bootstrapJobs({
   deviceId,
   emit,
   emitBatch,
+  emitBudgetAlert,
   demoEnabled,
 }: BootstrapJobsOptions): JobsSubsystem {
   let database: AppDatabase
@@ -149,6 +164,7 @@ export function bootstrapJobs({
       embeddings: null,
       secrets: null,
       ai: null,
+      refreshAiPricing: async () => {},
       batches: null,
       batchesFacade: null,
       database: null,
@@ -224,7 +240,24 @@ export function bootstrapJobs({
   // Both are needed before `library` below. Built here, once, so the `secrets.*` IPC
   // handlers and the AI client that reads keys through them share one instance.
   const secrets = createSecretStore(database.repos.settings)
-  const ai = createMainAiClient({ repos: database.repos, secrets })
+  // Reassigned by `refreshAiPricing` (7.5's price editor), never by anything else — every
+  // reference below closes over this binding rather than destructuring its value, so a
+  // rebuild is visible to `contextualizationPricing` and to the returned facade's `ai`
+  // getter without either being told about it explicitly.
+  let ai = createMainAiClient({ repos: database.repos, secrets, onBudgetAlert: emitBudgetAlert })
+  const refreshAiPricing = async (): Promise<void> => {
+    try {
+      const overlay = await database.repos.settings.get('ai.pricing.overlay')
+      ai = createMainAiClient({
+        repos: database.repos,
+        secrets,
+        onBudgetAlert: emitBudgetAlert,
+        pricing: mergePricingOverlay(SHIPPED_PRICING, overlay),
+      })
+    } catch (error) {
+      log.error('[ai] could not rebuild the client with the new pricing overlay:', error)
+    }
+  }
   // The Batch API's own runner (sub-phase 7.3). It shares the client's repositories and key
   // store rather than opening its own: one cost log, one answer store, one budget.
   const batches = createMainBatchRunner({
@@ -291,7 +324,10 @@ export function bootstrapJobs({
     library,
     embeddings,
     secrets,
-    ai,
+    get ai() {
+      return ai
+    },
+    refreshAiPricing,
     batches,
     batchesFacade: createBatchesFacade(batches),
     database,

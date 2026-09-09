@@ -99,6 +99,10 @@ const JUSTIFIED: Readonly<Record<string, string>> = {
   hasSecret: 'a boolean: whether a key is stored. Never the key itself',
   tokenCount: 'LLM tokens in a chunk (sub-phase 6.2), not an auth token',
   chunkTokenCount: 'LLM tokens across a source chunk set, not an auth token',
+  hasKey: 'ai.listProviderCards: a boolean, the same shape as hasSecret above',
+  keyPreview: 'ai.listProviderCards: the same masked `••••wxyz` shape secrets.get answers with',
+  modelKey:
+    'the pricing table\'s "<kind>:<modelId>" row id (packages/ai/src/pricing/types.ts) — a catalog key, not a credential',
 }
 
 function words(name: string): string[] {
@@ -227,6 +231,9 @@ describe('layer 3 — the outputs with a JSON hole are a known, visible set', ()
    * leak in.
    */
   const OPEN_OUTPUTS: readonly string[] = [
+    // `perMillionUsd` is keyed by model id (`z.record`), so the JSON Schema has no fixed
+    // property list — a catalog of prices, not a hole a secret could pass through.
+    'ai.listProviderCards.output',
     'event:app.deepLink',
     'event:settings.changed',
     'jobs.cancel.output',
@@ -258,23 +265,38 @@ describe('layer 3 — the outputs with a JSON hole are a known, visible set', ()
     expect(open.sort()).toEqual([...OPEN_OUTPUTS].sort())
   })
 
-  it('exposes exactly the ai.* surface the batch tray needs, and nothing else', () => {
+  it('exposes exactly the ai.* surface the batch tray and the settings screen need', () => {
     // Sub-phase 7.1 asserted there was no `ai.*` surface at all, which was the strongest
-    // available form of "keys never cross IPC". 7.3 has to add two channels and one push so
-    // the tray can show and stop a batch, so the assertion becomes the next-strongest thing:
-    // the surface is enumerated here, and adding to it is a diff somebody reads rather than
-    // one nobody notices. `ai.listBatches` takes no input, `ai.cancelBatch` takes an id, and
-    // every one of the three carries `aiBatchSummarySchema` — a closed object whose fields
-    // are counts, a cost and a status. Layer 1 checks none of them is named like a
-    // credential; layer 3 checks none of them is an open JSON hole.
+    // available form of "keys never cross IPC". 7.3 added the batch tray's two channels and
+    // one push; 7.5 adds the settings screen's nine — provider cards, a live connection
+    // probe, role assignment, the pricing overlay, and the usage dashboard. The assertion
+    // stays the next-strongest thing: the surface is enumerated here, and adding to it is a
+    // diff somebody reads rather than one nobody notices. Every schema below is either
+    // closed or, for `ai.listProviderCards`, explicitly listed in `OPEN_OUTPUTS` above with
+    // why. Layer 1 checks none of them is named like a credential.
     expect(
       Object.keys(contract)
         .filter((name) => name.startsWith('ai.'))
         .sort(),
-    ).toEqual(['ai.cancelBatch', 'ai.listBatches'])
-    expect(Object.keys(events).filter((name) => name.startsWith('ai.'))).toEqual([
-      'ai.batchProgress',
+    ).toEqual([
+      'ai.cancelBatch',
+      'ai.exportUsageCsv',
+      'ai.getPricingOverlay',
+      'ai.getRoles',
+      'ai.getUsageSummary',
+      'ai.listBatches',
+      'ai.listProviderCards',
+      'ai.listRecentCalls',
+      'ai.probeProvider',
+      'ai.restorePricing',
+      'ai.setPricingOverlay',
+      'ai.setRoles',
     ])
+    expect(
+      Object.keys(events)
+        .filter((name) => name.startsWith('ai.'))
+        .sort(),
+    ).toEqual(['ai.batchProgress', 'ai.budgetAlert'])
   })
 
   it('never carries the provider own batch handle across the bridge', () => {

@@ -2,9 +2,13 @@ import type {
   AiBudgetEvent,
   AiClient,
   AiRegistry,
+  ModelRef,
+  PricingTable,
   ProviderInvoker,
   ProviderProfile,
   ProviderRole,
+  RoleConfig,
+  RoleMap,
 } from '@retenia/ai'
 import {
   createAiClient,
@@ -12,6 +16,7 @@ import {
   DEFAULT_PROFILES,
   DEFAULT_ROLES,
   realTimers,
+  SHIPPED_PRICING,
   withLocalPolicy,
   withLocalPreference,
 } from '@retenia/ai'
@@ -19,6 +24,7 @@ import { createSdkInvoker } from '@retenia/ai/providers'
 import type {
   AiCallRepository,
   AiResultRepository,
+  BudgetAlertLatch,
   SecretStore,
   SettingsRepository,
 } from '@retenia/core'
@@ -47,7 +53,9 @@ import { log } from '../logging/log'
 export interface MainAiClientRepositories {
   aiCalls: Pick<AiCallRepository, 'record' | 'sumCost'>
   aiResults: Pick<AiResultRepository, 'findByCustomId' | 'put'>
-  settings: Pick<SettingsRepository, 'get'>
+  /** `'set'` is only ever used for the budget-alert latch (`ai.budget.lastAlertedThreshold`)
+   *  — this adapter never writes any other setting. */
+  settings: Pick<SettingsRepository, 'get' | 'set'>
 }
 
 export interface MainAiClientOptions {
@@ -61,6 +69,28 @@ export interface MainAiClientOptions {
    * a network and without this package depending on the SDK it never imports directly.
    */
   invoker?: ProviderInvoker
+  /**
+   * The merged pricing table this client bills against. Defaults to the shipped table.
+   *
+   * A plain value, not a resolver: `packages/ai`'s `AiClientOptions.pricing` is documented
+   * as "7.5's price editor merges into this argument", so a changed overlay takes effect by
+   * calling `createMainAiClient` again — `jobs/bootstrap.ts` holds the result in a
+   * reassignable binding and rebuilds it on `ai.pricing.overlay`/`ai.setPricingOverlay`,
+   * rather than this package growing a live-reload path of its own.
+   */
+  pricing?: PricingTable
+  /**
+   * The settings screen's budget banner/toast (`docs/spec/08-ux.md` §1: "monthly budget
+   * with alerts"). Fired for every threshold crossing that the latch below has not already
+   * recorded for this month — never for a `kind: 'blocked'` event, which the log line above
+   * already covers and which fires on every over-cap call rather than once.
+   */
+  onBudgetAlert?: (alert: {
+    period: string
+    threshold: 80 | 100
+    spentUsd: number
+    capUsd: number
+  }) => void
 }
 
 /**
@@ -105,13 +135,17 @@ function isProviderRole(value: string): value is ProviderRole {
  * and `ai.providers.local.preferRoles` is not consulted, so a role composed with an unset
  * local target never accidentally becomes local-only.
  */
-export async function buildRegistry(repos: MainAiClientRepositories): Promise<AiRegistry> {
+export async function buildRegistry(
+  repos: Pick<MainAiClientRepositories, 'settings'>,
+): Promise<AiRegistry> {
   const allowlist = await repos.settings.get('ai.providers.allowlist')
   const localModel = await repos.settings.get('ai.providers.local.model')
   const localBaseUrl = await repos.settings.get('ai.providers.local.baseUrl')
+  const storedRoles = (await repos.settings.get('ai.roles')) ?? {}
 
   if (localModel === '' || localModel === undefined) {
-    return { profiles: allowedProfiles(DEFAULT_PROFILES, allowlist), roles: DEFAULT_ROLES }
+    const profiles = allowedProfiles(DEFAULT_PROFILES, allowlist)
+    return { profiles, roles: applyRoleOverrides(DEFAULT_ROLES, profiles, storedRoles) }
   }
 
   const localProfile = createLocalProfile({
@@ -129,10 +163,88 @@ export async function buildRegistry(repos: MainAiClientRepositories): Promise<Ai
     }
   }
 
-  return { profiles, roles }
+  return { profiles, roles: applyRoleOverrides(roles, profiles, storedRoles) }
 }
 
-export function createMainAiClient({ repos, secrets, invoker }: MainAiClientOptions): AiClient {
+/**
+ * The role-assignment panel's writes, laid over the local-preference roles computed above.
+ *
+ * An absent or empty entry for a role means "keep the incoming role", never "unset it" — a
+ * user who never opens the role editor keeps working exactly as before this setting existed
+ * (`docs/spec/08-ux.md` §1's role assignment dropdowns). `ai.setRoles` already validates every
+ * profile/model pair against the live registry before persisting, so this never has to decide
+ * what an invalid stored entry means — it can only ever find entries that already resolve.
+ */
+function applyRoleOverrides(
+  roles: RoleMap,
+  profiles: readonly ProviderProfile[],
+  stored: Record<string, { primary: ModelRef | null; fallbacks: readonly ModelRef[] }>,
+): RoleMap {
+  const byId = new Map(profiles.map((profile) => [profile.id, profile]))
+  const resolves = (ref: ModelRef): boolean =>
+    byId.get(ref.profileId)?.models.includes(ref.modelId) === true
+
+  let next = roles
+  for (const [role, assignment] of Object.entries(stored)) {
+    if (!isProviderRole(role) || assignment.primary === null) continue
+    if (!resolves(assignment.primary)) continue
+    const fallbacks = assignment.fallbacks.filter(resolves)
+    const config: RoleConfig = { primary: assignment.primary, fallbacks }
+    next = next === roles ? { ...roles } : next
+    next[role] = config
+  }
+  return next
+}
+
+/**
+ * The read-compare-write behind `ai.budget.lastAlertedThreshold`.
+ *
+ * `crossedThresholds` (`packages/ai/src/budget.ts`) already edge-triggers within a single
+ * `runOnce` call, so one request cannot fire twice for the same line. What it cannot see is
+ * *two concurrent* requests each reading the month's spend before either has recorded its
+ * own cost: both can independently observe `spentBefore < line <= spentAfter` and both then
+ * call `onBudgetEvent` for the same threshold. This latch is the cross-request guard for
+ * exactly that race, and it survives a restart the same way (a fresh process re-reads the
+ * setting rather than assuming the threshold is new).
+ *
+ * The alert is emitted *before* the latch is persisted — a crash in between costs one
+ * repeated toast next run, which is the safe direction to fail; losing the alert entirely
+ * is not.
+ */
+async function maybeAlertBudgetThreshold(
+  repos: MainAiClientRepositories,
+  event: AiBudgetEvent,
+  onBudgetAlert: MainAiClientOptions['onBudgetAlert'],
+): Promise<void> {
+  const threshold = event.threshold
+  if (threshold === undefined) return
+
+  try {
+    const latch = await repos.settings.get('ai.budget.lastAlertedThreshold')
+    const isNewMonth = latch.period !== event.period
+    if (!isNewMonth && latch.threshold >= threshold) return
+
+    onBudgetAlert?.({
+      period: event.period,
+      threshold,
+      spentUsd: event.spentUsd,
+      capUsd: event.capUsd,
+    })
+
+    const next: BudgetAlertLatch = { period: event.period, threshold }
+    await repos.settings.set('ai.budget.lastAlertedThreshold', next)
+  } catch (error) {
+    log.error('[ai] could not check or persist the budget-alert latch', error)
+  }
+}
+
+export function createMainAiClient({
+  repos,
+  secrets,
+  invoker,
+  pricing,
+  onBudgetAlert,
+}: MainAiClientOptions): AiClient {
   return createAiClient({
     // `net.isOnline()` gates every *cloud* target; a local target is never gated on it and
     // is instead raced against `withLocalPolicy`'s own clock (`docs/spec/08-ux.md` §1:
@@ -143,6 +255,7 @@ export function createMainAiClient({ repos, secrets, invoker }: MainAiClientOpti
       withLocalPolicy(createSdkInvoker(), { timers: realTimers, isOnline: () => net.isOnline() }),
 
     registry: () => buildRegistry(repos),
+    pricing: pricing ?? SHIPPED_PRICING,
 
     getSecret: (name) => secrets.getSecret(name),
 
@@ -197,8 +310,6 @@ export function createMainAiClient({ repos, secrets, invoker }: MainAiClientOpti
     clock: { now: () => new Date() },
 
     onBudgetEvent: (event: AiBudgetEvent) => {
-      // The log is the whole surface for now. 7.5 adds the dashboard and the durable latch,
-      // and 13.3 the notification; both need a UI this build does not have.
       const spent = event.spentUsd.toFixed(2)
       const cap = event.capUsd.toFixed(2)
       log.warn(
@@ -208,6 +319,10 @@ export function createMainAiClient({ repos, secrets, invoker }: MainAiClientOpti
           : `[ai] the monthly AI budget is ${event.threshold ?? 0} % spent ` +
               `(USD ${spent} of ${cap}) for ${event.period}`,
       )
+
+      if (event.kind === 'threshold' && event.threshold !== undefined) {
+        void maybeAlertBudgetThreshold(repos, event, onBudgetAlert)
+      }
     },
 
     logger: {

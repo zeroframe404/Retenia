@@ -27,6 +27,9 @@ const SETTINGS: SettingsMap = {
   'ai.budget.monthlyUsd': 30,
   'ai.budget.hardBlock': true,
   'ai.providers.allowlist': [],
+  'ai.roles': {},
+  'ai.pricing.overlay': {},
+  'ai.budget.lastAlertedThreshold': { period: '', threshold: 0 },
 } as unknown as SettingsMap
 
 function harness(
@@ -34,9 +37,10 @@ function harness(
   keys: Record<string, string> = { google: 'AIza', anthropic: 'sk-ant' },
 ) {
   const rows: Array<NewEntity<AiCall>> = []
-  const settings = { ...SETTINGS, ...over }
+  const settings: Record<string, unknown> = { ...SETTINGS, ...over }
   return {
     rows,
+    settings,
     deps: {
       repos: {
         aiCalls: {
@@ -51,7 +55,10 @@ function harness(
           put: async (input: NewEntity<AiResult>) => input as unknown as AiResult,
         },
         settings: {
-          get: async <K extends keyof SettingsMap>(key: K) => settings[key],
+          get: async <K extends keyof SettingsMap>(key: K) => settings[key] as SettingsMap[K],
+          set: async <K extends keyof SettingsMap>(key: K, value: SettingsMap[K]) => {
+            settings[key] = value
+          },
         },
       },
       secrets: { getSecret: async (name: string) => keys[name] },
@@ -224,5 +231,130 @@ describe('buildRegistry: local providers', () => {
     })
     const registry = await buildRegistry(h.deps.repos)
     expect(registry.profiles.map((p) => p.id)).toEqual(['anthropic'])
+  })
+})
+
+describe('buildRegistry: ai.roles overrides', () => {
+  it('leaves the default role untouched when ai.roles has no entry for it', async () => {
+    const registry = await buildRegistry(harness().deps.repos)
+    expect(registry.roles.smart).toBe(DEFAULT_ROLES.smart)
+  })
+
+  it('overrides a role whose stored profile/model pair resolves', async () => {
+    const h = harness({
+      'ai.roles': {
+        cheap: {
+          primary: { profileId: 'anthropic', modelId: 'claude-haiku-4-5' },
+          fallbacks: [],
+        },
+      },
+    })
+    const registry = await buildRegistry(h.deps.repos)
+    expect(registry.roles.cheap).toEqual({
+      primary: { profileId: 'anthropic', modelId: 'claude-haiku-4-5' },
+      fallbacks: [],
+    })
+    expect(registry.roles.smart).toBe(DEFAULT_ROLES.smart)
+  })
+
+  it('keeps the default when the stored assignment does not resolve', async () => {
+    const h = harness({
+      'ai.roles': {
+        cheap: {
+          primary: { profileId: 'anthropic', modelId: 'model-that-does-not-exist' },
+          fallbacks: [],
+        },
+      },
+    })
+    const registry = await buildRegistry(h.deps.repos)
+    expect(registry.roles.cheap).toBe(DEFAULT_ROLES.cheap)
+  })
+
+  it('drops a fallback that does not resolve but keeps the rest', async () => {
+    const h = harness({
+      'ai.roles': {
+        smart: {
+          primary: { profileId: 'anthropic', modelId: 'claude-sonnet-5' },
+          fallbacks: [
+            { profileId: 'google', modelId: 'gemini-3.7-flash' },
+            { profileId: 'anthropic', modelId: 'model-that-does-not-exist' },
+          ],
+        },
+      },
+    })
+    const registry = await buildRegistry(h.deps.repos)
+    expect(registry.roles.smart).toEqual({
+      primary: { profileId: 'anthropic', modelId: 'claude-sonnet-5' },
+      fallbacks: [{ profileId: 'google', modelId: 'gemini-3.7-flash' }],
+    })
+  })
+})
+
+describe('the budget-alert latch', () => {
+  const overBudget = { 'ai.budget.monthlyUsd': 0.05 }
+
+  function bigCall(inputTokens = 100_000) {
+    return createScriptedInvoker([
+      {
+        kind: 'ok' as const,
+        text: 'ok',
+        modelId: 'gemini-3.7-flash',
+        usage: { ...ZERO_USAGE, inputTokens, outputTokens: 100 },
+        finishReason: 'stop' as const,
+      },
+    ])
+  }
+
+  it('fires the alert and persists the latch on a threshold crossing', async () => {
+    const h = harness(overBudget)
+    const alerts: Array<{ period: string; threshold: 80 | 100 }> = []
+    const client = createMainAiClient({
+      ...h.deps,
+      invoker: bigCall().invoker,
+      onBudgetAlert: (a) => alerts.push(a),
+    })
+
+    await client.textGenerator({ role: 'cheap', purpose: 'x' })({ prompt: 'y', temperature: 0 })
+
+    expect(alerts.length).toBeGreaterThan(0)
+    expect(h.settings['ai.budget.lastAlertedThreshold']).toMatchObject({
+      threshold: alerts[alerts.length - 1]?.threshold,
+    })
+  })
+
+  it('does not re-fire the same threshold again within the same month', async () => {
+    const h = harness(overBudget)
+    const alerts: unknown[] = []
+    const options = { ...h.deps, onBudgetAlert: (a: unknown) => alerts.push(a) }
+
+    await createMainAiClient({ ...options, invoker: bigCall().invoker }).textGenerator({
+      role: 'cheap',
+      purpose: 'x',
+    })({ prompt: 'y', temperature: 0 })
+    const afterFirst = alerts.length
+    expect(afterFirst).toBeGreaterThan(0)
+
+    // The latch is now stored; a second run whose crossings top out at the same threshold
+    // (or lower) must not alert again.
+    await createMainAiClient({ ...options, invoker: bigCall(1000).invoker }).textGenerator({
+      role: 'cheap',
+      purpose: 'x',
+    })({ prompt: 'y', temperature: 0 })
+
+    expect(alerts.length).toBe(afterFirst)
+  })
+
+  it('resets the latch for a new month', async () => {
+    const h = harness(overBudget)
+    h.settings['ai.budget.lastAlertedThreshold'] = { period: '2020-01', threshold: 100 }
+    const alerts: unknown[] = []
+
+    await createMainAiClient({
+      ...h.deps,
+      invoker: bigCall().invoker,
+      onBudgetAlert: (a) => alerts.push(a),
+    }).textGenerator({ role: 'cheap', purpose: 'x' })({ prompt: 'y', temperature: 0 })
+
+    expect(alerts.length).toBeGreaterThan(0)
   })
 })

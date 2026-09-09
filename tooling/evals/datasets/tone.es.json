@@ -1,0 +1,112 @@
+[
+  {
+    "vars": {
+      "prompt": "El estudiante acaba de fallar tres tarjetas seguidas. Escribi un mensaje breve de aliento, sin sonar condescendiente."
+    },
+    "assert": [
+      {
+        "type": "llm-rubric",
+        "value": "El tono es calido, alentador y nunca condescendiente ni culpabilizador; no usa emojis excesivos; esta en espanol; no excede 80 palabras."
+      }
+    ]
+  },
+  {
+    "vars": {
+      "prompt": "El estudiante completo su racha de 30 dias. Escribi un mensaje breve de felicitacion."
+    },
+    "assert": [
+      {
+        "type": "llm-rubric",
+        "value": "El tono es calido, alentador y nunca condescendiente ni culpabilizador; no usa emojis excesivos; esta en espanol; no excede 80 palabras."
+      }
+    ]
+  },
+  {
+    "vars": {
+      "prompt": "Explicale a un principiante, con calidez, por que olvidar una tarjeta no es un fracaso."
+    },
+    "assert": [
+      {
+        "type": "llm-rubric",
+        "value": "El tono es calido, alentador y nunca condescendiente ni culpabilizador; no usa emojis excesivos; esta en espanol; no excede 80 palabras."
+      }
+    ]
+  },
+  {
+    "vars": {
+      "prompt": "El estudiante pregunta si esta \"mal\" necesitar repasar un tema muchas veces. Respondele con empatia y datos."
+    },
+    "assert": [
+      {
+        "type": "llm-rubric",
+        "value": "El tono es calido, alentador y nunca condescendiente ni culpabilizador; no usa emojis excesivos; esta en espanol; no excede 80 palabras."
+      }
+    ]
+  },
+  {
+    "vars": {
+      "prompt": "Escribi un recordatorio corto para volver a repasar hoy, sin generar culpa."
+    },
+    "assert": [
+      {
+        "type": "llm-rubric",
+        "value": "El tono es calido, alentador y nunca condescendiente ni culpabilizador; no usa emojis excesivos; esta en espanol; no excede 80 palabras."
+      }
+    ]
+  },
+  {
+    "vars": {
+      "prompt": "El estudiante logro un examen de practica con 95%. Escribi un mensaje breve celebrando el resultado."
+    },
+    "assert": [
+      {
+        "type": "llm-rubric",
+        "value": "El tono es calido, alentador y nunca condescendiente ni culpabilizador; no usa emojis excesivos; esta en espanol; no excede 80 palabras."
+      }
+    ]
+  },
+  {
+    "vars": {
+      "prompt": "El estudiante dice que esta abrumado por la cantidad de tarjetas pendientes. Respondele con calma y una sugerencia concreta."
+    },
+    "assert": [
+      {
+        "type": "llm-rubric",
+        "value": "El tono es calido, alentador y nunca condescendiente ni culpabilizador; no usa emojis excesivos; esta en espanol; no excede 80 palabras."
+      }
+    ]
+  },
+  {
+    "vars": {
+      "prompt": "Explicale, en tono cercano, que es la retencion verdadera (true retention)."
+    },
+    "assert": [
+      {
+        "type": "llm-rubric",
+        "value": "El tono es calido, alentador y nunca condescendiente ni culpabilizador; no usa emojis excesivos; esta en espanol; no excede 80 palabras."
+      }
+    ]
+  },
+  {
+    "vars": {
+      "prompt": "El estudiante volvio despues de una semana sin estudiar. Dale la bienvenida sin reproches."
+    },
+    "assert": [
+      {
+        "type": "llm-rubric",
+        "value": "El tono es calido, alentador y nunca condescendiente ni culpabilizador; no usa emojis excesivos; esta en espanol; no excede 80 palabras."
+      }
+    ]
+  },
+  {
+    "vars": {
+      "prompt": "Escribi un mensaje breve invitando a probar el modo examen antes de una fecha limite."
+    },
+    "assert": [
+      {
+        "type": "llm-rubric",
+        "value": "El tono es calido, alentador y nunca condescendiente ni culpabilizador; no usa emojis excesivos; esta en espanol; no excede 80 palabras."
+      }
+    ]
+  }
+]

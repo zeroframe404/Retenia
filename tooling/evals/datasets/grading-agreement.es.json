@@ -1,0 +1,242 @@
+[
+  {
+    "vars": {
+      "prompt": "Pregunta: Cual es la derivada de x^2?\nRespuesta del estudiante: 2x\n\nRespondé con una sola palabra: \"correcta\" si la respuesta es correcta, o \"incorrecta\" si no lo es.",
+      "expected_grade": "correct"
+    },
+    "assert": [
+      {
+        "type": "javascript",
+        "value": "file://./assertions/grading_agreement.mjs"
+      }
+    ]
+  },
+  {
+    "vars": {
+      "prompt": "Pregunta: Cual es la derivada de x^2?\nRespuesta del estudiante: x\n\nRespondé con una sola palabra: \"correcta\" si la respuesta es correcta, o \"incorrecta\" si no lo es.",
+      "expected_grade": "incorrect"
+    },
+    "assert": [
+      {
+        "type": "javascript",
+        "value": "file://./assertions/grading_agreement.mjs"
+      }
+    ]
+  },
+  {
+    "vars": {
+      "prompt": "Pregunta: Cual es la capital de Francia?\nRespuesta del estudiante: Paris\n\nRespondé con una sola palabra: \"correcta\" si la respuesta es correcta, o \"incorrecta\" si no lo es.",
+      "expected_grade": "correct"
+    },
+    "assert": [
+      {
+        "type": "javascript",
+        "value": "file://./assertions/grading_agreement.mjs"
+      }
+    ]
+  },
+  {
+    "vars": {
+      "prompt": "Pregunta: Cual es la capital de Francia?\nRespuesta del estudiante: Lyon\n\nRespondé con una sola palabra: \"correcta\" si la respuesta es correcta, o \"incorrecta\" si no lo es.",
+      "expected_grade": "incorrect"
+    },
+    "assert": [
+      {
+        "type": "javascript",
+        "value": "file://./assertions/grading_agreement.mjs"
+      }
+    ]
+  },
+  {
+    "vars": {
+      "prompt": "Pregunta: Que gas respiran las plantas para hacer fotosintesis?\nRespuesta del estudiante: Dioxido de carbono\n\nRespondé con una sola palabra: \"correcta\" si la respuesta es correcta, o \"incorrecta\" si no lo es.",
+      "expected_grade": "correct"
+    },
+    "assert": [
+      {
+        "type": "javascript",
+        "value": "file://./assertions/grading_agreement.mjs"
+      }
+    ]
+  },
+  {
+    "vars": {
+      "prompt": "Pregunta: Que gas respiran las plantas para hacer fotosintesis?\nRespuesta del estudiante: Oxigeno\n\nRespondé con una sola palabra: \"correcta\" si la respuesta es correcta, o \"incorrecta\" si no lo es.",
+      "expected_grade": "incorrect"
+    },
+    "assert": [
+      {
+        "type": "javascript",
+        "value": "file://./assertions/grading_agreement.mjs"
+      }
+    ]
+  },
+  {
+    "vars": {
+      "prompt": "Pregunta: Cuanto es 12 por 12?\nRespuesta del estudiante: 144\n\nRespondé con una sola palabra: \"correcta\" si la respuesta es correcta, o \"incorrecta\" si no lo es.",
+      "expected_grade": "correct"
+    },
+    "assert": [
+      {
+        "type": "javascript",
+        "value": "file://./assertions/grading_agreement.mjs"
+      }
+    ]
+  },
+  {
+    "vars": {
+      "prompt": "Pregunta: Cuanto es 12 por 12?\nRespuesta del estudiante: 132\n\nRespondé con una sola palabra: \"correcta\" si la respuesta es correcta, o \"incorrecta\" si no lo es.",
+      "expected_grade": "incorrect"
+    },
+    "assert": [
+      {
+        "type": "javascript",
+        "value": "file://./assertions/grading_agreement.mjs"
+      }
+    ]
+  },
+  {
+    "vars": {
+      "prompt": "Pregunta: Quien escribio Cien anos de soledad?\nRespuesta del estudiante: Gabriel Garcia Marquez\n\nRespondé con una sola palabra: \"correcta\" si la respuesta es correcta, o \"incorrecta\" si no lo es.",
+      "expected_grade": "correct"
+    },
+    "assert": [
+      {
+        "type": "javascript",
+        "value": "file://./assertions/grading_agreement.mjs"
+      }
+    ]
+  },
+  {
+    "vars": {
+      "prompt": "Pregunta: Quien escribio Cien anos de soledad?\nRespuesta del estudiante: Mario Vargas Llosa\n\nRespondé con una sola palabra: \"correcta\" si la respuesta es correcta, o \"incorrecta\" si no lo es.",
+      "expected_grade": "incorrect"
+    },
+    "assert": [
+      {
+        "type": "javascript",
+        "value": "file://./assertions/grading_agreement.mjs"
+      }
+    ]
+  },
+  {
+    "vars": {
+      "prompt": "Pregunta: Cual es el organo que bombea la sangre?\nRespuesta del estudiante: El corazon\n\nRespondé con una sola palabra: \"correcta\" si la respuesta es correcta, o \"incorrecta\" si no lo es.",
+      "expected_grade": "correct"
+    },
+    "assert": [
+      {
+        "type": "javascript",
+        "value": "file://./assertions/grading_agreement.mjs"
+      }
+    ]
+  },
+  {
+    "vars": {
+      "prompt": "Pregunta: Cual es el organo que bombea la sangre?\nRespuesta del estudiante: El higado\n\nRespondé con una sola palabra: \"correcta\" si la respuesta es correcta, o \"incorrecta\" si no lo es.",
+      "expected_grade": "incorrect"
+    },
+    "assert": [
+      {
+        "type": "javascript",
+        "value": "file://./assertions/grading_agreement.mjs"
+      }
+    ]
+  },
+  {
+    "vars": {
+      "prompt": "Pregunta: En que anio comenzo la Segunda Guerra Mundial?\nRespuesta del estudiante: 1939\n\nRespondé con una sola palabra: \"correcta\" si la respuesta es correcta, o \"incorrecta\" si no lo es.",
+      "expected_grade": "correct"
+    },
+    "assert": [
+      {
+        "type": "javascript",
+        "value": "file://./assertions/grading_agreement.mjs"
+      }
+    ]
+  },
+  {
+    "vars": {
+      "prompt": "Pregunta: En que anio comenzo la Segunda Guerra Mundial?\nRespuesta del estudiante: 1945\n\nRespondé con una sola palabra: \"correcta\" si la respuesta es correcta, o \"incorrecta\" si no lo es.",
+      "expected_grade": "incorrect"
+    },
+    "assert": [
+      {
+        "type": "javascript",
+        "value": "file://./assertions/grading_agreement.mjs"
+      }
+    ]
+  },
+  {
+    "vars": {
+      "prompt": "Pregunta: Cual es la formula quimica del agua?\nRespuesta del estudiante: H2O\n\nRespondé con una sola palabra: \"correcta\" si la respuesta es correcta, o \"incorrecta\" si no lo es.",
+      "expected_grade": "correct"
+    },
+    "assert": [
+      {
+        "type": "javascript",
+        "value": "file://./assertions/grading_agreement.mjs"
+      }
+    ]
+  },
+  {
+    "vars": {
+      "prompt": "Pregunta: Cual es la formula quimica del agua?\nRespuesta del estudiante: CO2\n\nRespondé con una sola palabra: \"correcta\" si la respuesta es correcta, o \"incorrecta\" si no lo es.",
+      "expected_grade": "incorrect"
+    },
+    "assert": [
+      {
+        "type": "javascript",
+        "value": "file://./assertions/grading_agreement.mjs"
+      }
+    ]
+  },
+  {
+    "vars": {
+      "prompt": "Pregunta: Cuantos lados tiene un hexagono?\nRespuesta del estudiante: Seis\n\nRespondé con una sola palabra: \"correcta\" si la respuesta es correcta, o \"incorrecta\" si no lo es.",
+      "expected_grade": "correct"
+    },
+    "assert": [
+      {
+        "type": "javascript",
+        "value": "file://./assertions/grading_agreement.mjs"
+      }
+    ]
+  },
+  {
+    "vars": {
+      "prompt": "Pregunta: Cuantos lados tiene un hexagono?\nRespuesta del estudiante: Cinco\n\nRespondé con una sola palabra: \"correcta\" si la respuesta es correcta, o \"incorrecta\" si no lo es.",
+      "expected_grade": "incorrect"
+    },
+    "assert": [
+      {
+        "type": "javascript",
+        "value": "file://./assertions/grading_agreement.mjs"
+      }
+    ]
+  },
+  {
+    "vars": {
+      "prompt": "Pregunta: Cual es el planeta mas cercano al sol?\nRespuesta del estudiante: Mercurio\n\nRespondé con una sola palabra: \"correcta\" si la respuesta es correcta, o \"incorrecta\" si no lo es.",
+      "expected_grade": "correct"
+    },
+    "assert": [
+      {
+        "type": "javascript",
+        "value": "file://./assertions/grading_agreement.mjs"
+      }
+    ]
+  },
+  {
+    "vars": {
+      "prompt": "Pregunta: Cual es el planeta mas cercano al sol?\nRespuesta del estudiante: Venus\n\nRespondé con una sola palabra: \"correcta\" si la respuesta es correcta, o \"incorrecta\" si no lo es.",
+      "expected_grade": "incorrect"
+    },
+    "assert": [
+      {
+        "type": "javascript",
+        "value": "file://./assertions/grading_agreement.mjs"
+      }
+    ]
+  }
+]

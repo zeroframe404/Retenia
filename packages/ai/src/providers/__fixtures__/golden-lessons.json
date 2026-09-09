@@ -1,0 +1,122 @@
+[
+  {
+    "id": "lesson-01",
+    "prompt": "Escribi una explicacion breve, en espanol, sobre la memoria espaciada para un estudiante que recien empieza.",
+    "system": "Sos un tutor que explica conceptos de aprendizaje de forma clara y concisa.",
+    "expectedShape": "text"
+  },
+  {
+    "id": "lesson-02",
+    "prompt": "Escribi una explicacion breve, en espanol, sobre la curva del olvido para un estudiante que recien empieza.",
+    "system": "Sos un tutor que explica conceptos de aprendizaje de forma clara y concisa.",
+    "expectedShape": "text"
+  },
+  {
+    "id": "lesson-03",
+    "prompt": "Escribi una explicacion breve, en espanol, sobre la practica de recuperacion para un estudiante que recien empieza.",
+    "system": "Sos un tutor que explica conceptos de aprendizaje de forma clara y concisa.",
+    "expectedShape": "text"
+  },
+  {
+    "id": "lesson-04",
+    "prompt": "Escribi una explicacion breve, en espanol, sobre la interferencia proactiva para un estudiante que recien empieza.",
+    "system": "Sos un tutor que explica conceptos de aprendizaje de forma clara y concisa.",
+    "expectedShape": "text"
+  },
+  {
+    "id": "lesson-05",
+    "prompt": "Escribi una explicacion breve, en espanol, sobre el efecto de generacion para un estudiante que recien empieza.",
+    "system": "Sos un tutor que explica conceptos de aprendizaje de forma clara y concisa.",
+    "expectedShape": "text"
+  },
+  {
+    "id": "lesson-06",
+    "prompt": "Escribi una explicacion breve, en espanol, sobre la codificacion elaborativa para un estudiante que recien empieza.",
+    "system": "Sos un tutor que explica conceptos de aprendizaje de forma clara y concisa.",
+    "expectedShape": "text"
+  },
+  {
+    "id": "lesson-07",
+    "prompt": "Escribi una explicacion breve, en espanol, sobre el efecto de testing para un estudiante que recien empieza.",
+    "system": "Sos un tutor que explica conceptos de aprendizaje de forma clara y concisa.",
+    "expectedShape": "text"
+  },
+  {
+    "id": "lesson-08",
+    "prompt": "Escribi una explicacion breve, en espanol, sobre la carga cognitiva para un estudiante que recien empieza.",
+    "system": "Sos un tutor que explica conceptos de aprendizaje de forma clara y concisa.",
+    "expectedShape": "text"
+  },
+  {
+    "id": "lesson-09",
+    "prompt": "Escribi una explicacion breve, en espanol, sobre el aprendizaje intercalado para un estudiante que recien empieza.",
+    "system": "Sos un tutor que explica conceptos de aprendizaje de forma clara y concisa.",
+    "expectedShape": "text"
+  },
+  {
+    "id": "lesson-10",
+    "prompt": "Escribi una explicacion breve, en espanol, sobre la metacognicion para un estudiante que recien empieza.",
+    "system": "Sos un tutor que explica conceptos de aprendizaje de forma clara y concisa.",
+    "expectedShape": "text"
+  },
+  {
+    "id": "lesson-11",
+    "prompt": "Escribi una explicacion breve, en espanol, sobre el efecto de dispersion para un estudiante que recien empieza.",
+    "system": "Sos un tutor que explica conceptos de aprendizaje de forma clara y concisa.",
+    "expectedShape": "text"
+  },
+  {
+    "id": "lesson-12",
+    "prompt": "Escribi una explicacion breve, en espanol, sobre la consolidacion durante el sueno para un estudiante que recien empieza.",
+    "system": "Sos un tutor que explica conceptos de aprendizaje de forma clara y concisa.",
+    "expectedShape": "text"
+  },
+  {
+    "id": "lesson-13",
+    "prompt": "Escribi una explicacion breve, en espanol, sobre el efecto de contexto para un estudiante que recien empieza.",
+    "system": "Sos un tutor que explica conceptos de aprendizaje de forma clara y concisa.",
+    "expectedShape": "text"
+  },
+  {
+    "id": "lesson-14",
+    "prompt": "Escribi una explicacion breve, en espanol, sobre la sobreaprendizaje para un estudiante que recien empieza.",
+    "system": "Sos un tutor que explica conceptos de aprendizaje de forma clara y concisa.",
+    "expectedShape": "text"
+  },
+  {
+    "id": "lesson-15",
+    "prompt": "Escribi una explicacion breve, en espanol, sobre el efecto de fluidez ilusoria para un estudiante que recien empieza.",
+    "system": "Sos un tutor que explica conceptos de aprendizaje de forma clara y concisa.",
+    "expectedShape": "text"
+  },
+  {
+    "id": "lesson-16",
+    "prompt": "Escribi una explicacion breve, en espanol, sobre la practica deliberada para un estudiante que recien empieza.",
+    "system": "Sos un tutor que explica conceptos de aprendizaje de forma clara y concisa.",
+    "expectedShape": "text"
+  },
+  {
+    "id": "lesson-17",
+    "prompt": "Escribi una explicacion breve, en espanol, sobre el efecto de primacia y recencia para un estudiante que recien empieza.",
+    "system": "Sos un tutor que explica conceptos de aprendizaje de forma clara y concisa.",
+    "expectedShape": "text"
+  },
+  {
+    "id": "lesson-18",
+    "prompt": "Escribi una explicacion breve, en espanol, sobre la retroalimentacion inmediata para un estudiante que recien empieza.",
+    "system": "Sos un tutor que explica conceptos de aprendizaje de forma clara y concisa.",
+    "expectedShape": "text"
+  },
+  {
+    "id": "lesson-19",
+    "prompt": "Escribi una explicacion breve, en espanol, sobre el aprendizaje multimodal para un estudiante que recien empieza.",
+    "system": "Sos un tutor que explica conceptos de aprendizaje de forma clara y concisa.",
+    "expectedShape": "text"
+  },
+  {
+    "id": "lesson-20",
+    "prompt": "Escribi una explicacion breve, en espanol, sobre la motivacion intrinseca para un estudiante que recien empieza.",
+    "system": "Sos un tutor que explica conceptos de aprendizaje de forma clara y concisa.",
+    "expectedShape": "text"
+  }
+]

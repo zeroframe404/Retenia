@@ -148,6 +148,7 @@ if (gotLock) {
       deviceId: settings.deviceId,
       emit: (event) => broadcast('jobs.progress', event),
       emitBatch: (event) => broadcast('ai.batchProgress', event),
+      emitBudgetAlert: (alert) => broadcast('ai.budgetAlert', alert),
       // Same gate as `app.devMediaSampleUrl`: nothing in the shipped product enqueues from
       // the renderer, so the demo channel refuses outside a dev run or the e2e suite.
       demoEnabled: is.dev || process.env.RETENIA_E2E === '1',
@@ -272,6 +273,8 @@ if (gotLock) {
       secrets: secretStore,
       backups: backupService,
       settingsRepo: database ? database.repos.settings : null,
+      refreshAiPricing: jobs.refreshAiPricing,
+      aiCalls: database ? database.repos.aiCalls : null,
       memory,
       syncedFolderWarning,
       restoreFromBackup: restoreFromBackupAndRelaunch,
