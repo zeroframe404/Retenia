@@ -7,7 +7,6 @@ import type {
   Lesson,
   PathRepository,
 } from '@retenia/core'
-import { parseSourceLocator } from '@retenia/core'
 import type {
   GenerationEstimateDto,
   GenerationResultDto,
@@ -32,6 +31,7 @@ import {
   pathDraftSchema,
 } from '@retenia/pathgen'
 import {
+  citedPageOf,
   perLessonUsdOf,
   toEditOp,
   toGenerationResultDto,
@@ -147,9 +147,7 @@ async function loadVersion(repos: PathgenFacadeRepos, pathVersionId: string) {
 async function citedPage(deps: PathgenFacadeDeps, lesson: Lesson): Promise<number | null> {
   const citation = lessonCitationSchema.safeParse(lesson.citations[0])
   if (!citation.success) return null
-  const chunk = await deps.repos.chunks.findById(citation.data.chunk_id)
-  if (chunk === undefined) return null
-  return parseSourceLocator(chunk).page ?? null
+  return citedPageOf(citation.data, await deps.repos.chunks.findById(citation.data.chunk_id))
 }
 
 /** One lesson plus the counts the panel shows, which are one query each. */

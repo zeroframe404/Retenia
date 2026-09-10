@@ -84,7 +84,8 @@
       "flashcard_deduped": "Se descartó una tarjeta repetida de la lección {{lesson}} ({{reason}}).",
       "lesson_context_over_budget": "Las fuentes de la lección {{lesson}} superan el presupuesto ({{tokens}} de {{budget}} tokens): se usaron todas igual.",
       "flashcards_thin": "La lección {{lesson}} dejó {{kept}} tarjetas, menos de las tres habituales.",
-      "flashcard_uncited": "Una tarjeta de la lección {{lesson}} no pudo citar ninguna fuente: se guardó sin origen."
+      "flashcard_uncited": "Una tarjeta de la lección {{lesson}} no pudo citar ninguna fuente: se guardó sin origen.",
+      "lesson_fragment_truncated": "Un fragmento de la lección {{lesson}} se recortó a {{chars}} caracteres ({{fragments}}): la cita puede apuntar a texto que el modelo no leyó."
     }
   },
   "wizard": {

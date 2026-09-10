@@ -13,7 +13,7 @@ import { z } from 'zod'
  */
 
 /** A BCP-47 language tag, loosely: `es`, `es-AR`, `en-GB`, `pt-BR`. */
-const BCP47 = /^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/
+export const BCP47 = /^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 
 /** The separator the chunker writes into `chunks.heading_path` (`Book > Chapter 3 > 3.2`). */

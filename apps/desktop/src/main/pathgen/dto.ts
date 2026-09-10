@@ -1,4 +1,5 @@
-import type { GenerationRun, LearningPath, Lesson, PathVersion } from '@retenia/core'
+import type { Chunk, GenerationRun, LearningPath, Lesson, PathVersion } from '@retenia/core'
+import { parseSourceLocator } from '@retenia/core'
 import {
   type GenerationResultDto,
   type GenerationRunDto,
@@ -157,6 +158,28 @@ export function toEditOp(dto: PathEditOpDto): PathEditOp {
  * kilobytes of Markdown per lesson across the boundary for that would be a list nobody could
  * scroll. `firstCitation` is what "Reportar error" opens.
  */
+/**
+ * The page `firstCitation` may carry, given the chunk the citation names.
+ *
+ * Two things have to hold and neither is guaranteed by a type. The chunk must be the one the
+ * citation claims — `lessonCitationSchema` types `source_id` and `chunk_id` as bare strings,
+ * so only `resolveCitations` writing both from one fragment keeps them in step. And the page
+ * must be a positive integer: `parseSourceLocator` is deliberately permissive, because the
+ * `locator` column is written by ingestion parsers and later by importers of other apps'
+ * data, so it can hand back 0, a negative or a fraction. The DTO is `z.int().positive()` and
+ * `registerHandlers` validates the whole answer, so one 0-based page anywhere in a path would
+ * fail `pathgen.getLessons` for every lesson in it. Both failures degrade to `null`, which the
+ * contract already means "open the source at its start".
+ */
+export function citedPageOf(
+  citation: { readonly source_id: string; readonly chunk_id: string },
+  chunk: (Pick<Chunk, 'locator' | 'unitId'> & { readonly sourceId: string }) | undefined,
+): number | null {
+  if (chunk === undefined || chunk.sourceId !== citation.source_id) return null
+  const { page } = parseSourceLocator(chunk)
+  return page !== null && Number.isInteger(page) && page > 0 ? page : null
+}
+
 export function toLessonSummaryDto(
   lesson: Lesson,
   moduleTitle: string,

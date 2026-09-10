@@ -90,6 +90,9 @@ export const WARNING_STAGE_OF = {
   practice_incomplete: 'expand',
   /** A flashcard dropped as a duplicate of one the path already has. */
   flashcard_deduped: 'expand',
+  /** A chunk reached the model cut to `MAX_CHUNK_CHARS`, while still offering every one of its
+   *  block ids as citable — so a claim from the cut tail can cite a block nothing read. */
+  lesson_fragment_truncated: 'expand',
   /** The mapped chunks alone exceed the lesson's source budget. Nothing is dropped — they are
    *  what sequencing decided the lesson is about — so this is what says the call ran long. */
   lesson_context_over_budget: 'expand',

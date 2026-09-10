@@ -12,6 +12,7 @@ function fragment(citeId: string, text: string): CitableFragment {
     headingPath: 'Libro > Cap. 2',
     locator: 'p. 8',
     text,
+    truncated: false,
     origin: 'mapped',
   }
 }
@@ -23,7 +24,7 @@ const context: LessonContext = {
   ],
   previous: [],
   glossary: [],
-  sourceTokens: 0,
+  budgetedTokens: 0,
   trimmed: 0,
   warnings: [],
 }

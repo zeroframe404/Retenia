@@ -146,6 +146,7 @@ function minimalDraft() {
     kind: 'draft',
     title: 't',
     language: 'es-AR',
+    target_language: null,
     level: 'l',
     goal: 'g',
     target_date: null,

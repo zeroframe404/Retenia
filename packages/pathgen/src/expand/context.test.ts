@@ -122,6 +122,22 @@ describe('buildLessonContext()', () => {
     ])
   })
 
+  it('says when a chunk reached the model cut short', () => {
+    const long = new Map(chunks)
+    long.set('ch1', chunk('ch1', 'a'.repeat(7_000), ['b1']))
+    const context = buildLessonContext(
+      { lesson, chunks: long, retrieved: [], previous: [], glossary: [] },
+      { countTokens, budgetTokens: 100_000 },
+    )
+
+    // The cut has always happened; what it never did was say so. The fragment still offers
+    // every block id of the whole chunk, so a claim taken from the tail cites a block that was
+    // not in the prompt — which is what §5 gate 2 will check against the full text.
+    expect(context.citable[0]?.truncated).toBe(true)
+    expect(context.citable[1]?.truncated).toBe(false)
+    expect(context.warnings.map((entry) => entry.code)).toEqual(['lesson_fragment_truncated'])
+  })
+
   it('says when the mapped chunks alone are over budget, and still keeps every one of them', () => {
     const context = buildLessonContext(
       { lesson, chunks, retrieved: [], previous: [], glossary: [] },

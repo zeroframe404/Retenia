@@ -17,6 +17,7 @@ const fragment: CitableFragment = {
   headingPath: 'Libro > Cap. 2',
   locator: 'p. 8',
   text: 'La memoria de trabajo retiene unos cuatro elementos.',
+  truncated: false,
   origin: 'mapped',
 }
 
@@ -24,7 +25,7 @@ const context: LessonContext = {
   citable: [fragment],
   previous: [],
   glossary: [],
-  sourceTokens: 0,
+  budgetedTokens: 0,
   trimmed: 0,
   warnings: [],
 }

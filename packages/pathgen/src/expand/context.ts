@@ -48,6 +48,16 @@ export interface CitableFragment {
   readonly headingPath: string | null
   readonly locator: string
   readonly text: string
+  /**
+   * The chunk was longer than `MAX_CHUNK_CHARS` and the model saw only its head.
+   *
+   * `blockIds` still names every block the chunk covers, because the locator does not say
+   * where in the text each block ends — so a citation of this fragment can resolve to a block
+   * whose text was cut. That is a real gap in the acceptance property, and §5 gate 2's fuzzy
+   * span check (sub-phase 8.4) would verify such a claim against text that was never in the
+   * prompt. Reported rather than hidden until the gate can act on it.
+   */
+  readonly truncated: boolean
   /** `mapped` came from the draft's `source_refs`; `retrieved` from top-k. */
   readonly origin: 'mapped' | 'retrieved'
 }
@@ -83,8 +93,9 @@ export interface LessonContext {
   readonly citable: readonly CitableFragment[]
   readonly previous: readonly PreviousLesson[]
   readonly glossary: readonly GlossaryTerm[]
-  /** Tokens the citable fragments cost, by the counter that was given. */
-  readonly sourceTokens: number
+  /** What the whole task costs against the budget — the citable fragments plus the framing
+   *  that travels with them — by the counter that was given. */
+  readonly budgetedTokens: number
   /** Retrieval hits the budget could not fit. */
   readonly trimmed: number
   readonly warnings: readonly GenerationWarning[]
@@ -114,6 +125,7 @@ function fragmentOf(
       chunk.text.length <= MAX_CHUNK_CHARS
         ? chunk.text
         : `${chunk.text.slice(0, MAX_CHUNK_CHARS)}…`,
+    truncated: chunk.text.length > MAX_CHUNK_CHARS,
     origin,
   }
 }
@@ -157,6 +169,21 @@ export function buildLessonContext(
     push(chunk, 'mapped')
   }
 
+  // A chunk longer than `MAX_CHUNK_CHARS` reaches the model as its head plus an ellipsis, and
+  // has done since this stage was written. What is new is saying so: the fragment still offers
+  // every one of the chunk's block ids as citable, so a claim taken from the cut tail cites a
+  // block the model never read (§14 pitfall 1, and what §5 gate 2 will check).
+  const cut = citable.filter((fragment) => fragment.truncated)
+  if (cut.length > 0) {
+    warnings.push(
+      warning('lesson_fragment_truncated', {
+        lesson: input.lesson.id,
+        fragments: cut.map((fragment) => fragment.citeId),
+        chars: MAX_CHUNK_CHARS,
+      }),
+    )
+  }
+
   // Which leaves the case the budget cannot fix: the mapped chunks alone are already over it.
   // Dropping one is still the wrong answer, so this reports instead of trimming — otherwise a
   // lesson mapped to half a chapter runs long, costs more than §6's table budgets for it, and
@@ -196,7 +223,7 @@ export function buildLessonContext(
     citable,
     previous: input.previous,
     glossary: input.glossary,
-    sourceTokens: tokens,
+    budgetedTokens: tokens,
     trimmed,
     warnings,
   }

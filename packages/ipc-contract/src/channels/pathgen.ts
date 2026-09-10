@@ -257,6 +257,10 @@ export const pathDraftDtoSchema = z.object({
   kind: z.literal('draft'),
   title: z.string(),
   language: z.string(),
+  /** The language the path *teaches*, for a language path; `null` for every other one. Zod
+   *  strips what it does not declare, so leaving it out would make the preview unable to show
+   *  a field the wizard collects — the draft on disk keeps it either way. */
+  target_language: z.string().nullable(),
   level: z.string(),
   goal: z.string(),
   target_date: z.string().nullable(),

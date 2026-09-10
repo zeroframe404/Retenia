@@ -84,7 +84,8 @@
       "flashcard_deduped": "A duplicate flashcard of lesson {{lesson}} was discarded ({{reason}}).",
       "lesson_context_over_budget": "Lesson {{lesson}}’s sources are over budget ({{tokens}} of {{budget}} tokens); all of them were used anyway.",
       "flashcards_thin": "Lesson {{lesson}} produced {{kept}} cards, fewer than the usual three.",
-      "flashcard_uncited": "A card from lesson {{lesson}} could not cite any source, so it was stored without one."
+      "flashcard_uncited": "A card from lesson {{lesson}} could not cite any source, so it was stored without one.",
+      "lesson_fragment_truncated": "A fragment of lesson {{lesson}} was cut to {{chars}} characters ({{fragments}}); its citation may point at text the model never read."
     }
   },
   "wizard": {
