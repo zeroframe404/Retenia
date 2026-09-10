@@ -141,6 +141,9 @@ export type {
   GenerationScopeDto,
   GenerationStageDto,
   GenerationWarningDto,
+  LessonRegenerateModeDto,
+  LessonStatusDto,
+  LessonSummaryDto,
   ModuleNodeDto,
   PathDraftDto,
   PathDto,
@@ -164,6 +167,11 @@ export {
   generationScopeDtoSchema,
   generationStageSchema,
   generationWarningDtoSchema,
+  LESSON_REGENERATE_MODES,
+  LESSON_STATUSES,
+  lessonRegenerateModeSchema,
+  lessonStatusDtoSchema,
+  lessonSummaryDtoSchema,
   moduleNodeDtoSchema,
   pathDraftDtoSchema,
   pathDtoSchema,
@@ -239,8 +247,8 @@ export type { DeepLink, UpdateStatus } from './events/app'
 export { updateStatusSchema } from './events/app'
 export type { JobProgressEvent } from './events/jobs'
 export { jobProgressSchema } from './events/jobs'
-export type { PathgenProgressEvent } from './events/pathgen'
-export { pathgenProgressSchema } from './events/pathgen'
+export type { PathgenLessonStatusEvent, PathgenProgressEvent } from './events/pathgen'
+export { pathgenLessonStatusSchema, pathgenProgressSchema } from './events/pathgen'
 
 /**
  * Every main<->renderer request/response channel. Merge one object per domain; the

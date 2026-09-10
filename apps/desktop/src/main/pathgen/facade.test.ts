@@ -251,12 +251,35 @@ function makeRepos(
       freezeVersion: vi.fn(async () => frozen),
       setActiveVersion: vi.fn(async () => activePath),
       loadTree: vi.fn(async () => tree),
+      findSection: vi.fn(async () => sectionRow),
+      findModule: vi.fn(async () => moduleRow),
+      findLesson: vi.fn(async (id: string) => lessonRows.find((row) => row.id === id)),
+      listActivities: vi.fn(async () => []),
     },
     generationRuns: {
       findById: vi.fn(async (id: string) => (id === 'run-1' ? makeRun() : undefined)),
       findLatestByPath: vi.fn(async () => undefined),
     },
+    knowledgeItems: {
+      listByLesson: vi.fn(async () => []),
+    },
     updateVersion,
+  }
+}
+
+function makeExpansion() {
+  return {
+    expand: vi.fn(async () => ({
+      runId: 'run-1',
+      pathId: 'path-1',
+      pathVersionId: 'version-1',
+      status: 'completed' as const,
+      stage: null as never,
+      warnings: [],
+      error: null,
+    })),
+    resume: vi.fn(),
+    active: vi.fn(async () => []),
   }
 }
 
@@ -285,6 +308,7 @@ describe('createPathgenFacade()', () => {
     const repos = makeRepos(version, path)
     const facade = createPathgenFacade({
       runs: makeRuns(),
+      expansion: makeExpansion(),
       repos,
       clock,
       quote: async () => ({ estimate: null as never, warnings: [] }),
@@ -300,6 +324,7 @@ describe('createPathgenFacade()', () => {
     const repos = makeRepos(version, makePath())
     const facade = createPathgenFacade({
       runs: makeRuns(),
+      expansion: makeExpansion(),
       repos,
       clock,
       quote: async () => ({ estimate: null as never, warnings: [] }),
@@ -319,6 +344,7 @@ describe('createPathgenFacade()', () => {
     const repos = makeRepos(version, makePath())
     const facade = createPathgenFacade({
       runs: makeRuns(),
+      expansion: makeExpansion(),
       repos,
       clock,
       quote: async () => ({ estimate: null as never, warnings: [] }),
@@ -345,6 +371,7 @@ describe('createPathgenFacade()', () => {
     )
     const facade = createPathgenFacade({
       runs: makeRuns(),
+      expansion: makeExpansion(),
       repos,
       clock,
       quote: async () => ({ estimate: null as never, warnings: [] }),
@@ -363,6 +390,7 @@ describe('createPathgenFacade()', () => {
     const repos = makeRepos(version, path)
     const facade = createPathgenFacade({
       runs: makeRuns(),
+      expansion: makeExpansion(),
       repos,
       clock,
       quote: async () => ({ estimate: null as never, warnings: [] }),
@@ -378,7 +406,7 @@ describe('createPathgenFacade()', () => {
     const repos = makeRepos(version, makePath())
     const runs = makeRuns()
     const quote = vi.fn(async () => ({ estimate: { usd: 1 } as never, warnings: [] }))
-    const facade = createPathgenFacade({ runs, repos, clock, quote })
+    const facade = createPathgenFacade({ runs, expansion: makeExpansion(), repos, clock, quote })
 
     const started = await facade.start({
       config: { goal: 'g', level: 'l', primarySourceId: 's', sourceIds: ['s'] },

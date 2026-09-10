@@ -409,6 +409,7 @@ function makeDeps(overrides: Partial<HandlerDeps> = {}): HandlerDeps {
       activeModelId: vi.fn(async () => 'embeddinggemma-300m@768'),
       embedSource: vi.fn(async () => {}),
       reindexStaleSources: vi.fn(async () => []),
+      embedMany: vi.fn(async () => undefined),
       search: vi.fn(async () => []),
       status: vi.fn(async () => ({
         modelId: 'embeddinggemma-300m@768',

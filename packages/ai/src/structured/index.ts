@@ -34,4 +34,9 @@ export {
 export type { SanitizeLimits } from './sanitize'
 export { DEFAULT_SANITIZE_LIMITS, sanitizeOutput, sanitizeString } from './sanitize'
 export type { WrappedUserContent } from './user-content'
-export { USER_CONTENT_INSTRUCTIONS, USER_CONTENT_TAG, wrapUserContent } from './user-content'
+export {
+  systemFor,
+  USER_CONTENT_INSTRUCTIONS,
+  USER_CONTENT_TAG,
+  wrapUserContent,
+} from './user-content'

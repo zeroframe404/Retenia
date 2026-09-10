@@ -1,4 +1,8 @@
-import type { GenerationConfigInputDto, PathEditOpDto } from '@retenia/ipc-contract'
+import type {
+  GenerationConfigInputDto,
+  LessonSummaryDto,
+  PathEditOpDto,
+} from '@retenia/ipc-contract'
 import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useState } from 'react'
 import { useIpcEvent, useIpcMutation, useIpcQuery } from '../../ipc/hooks'
@@ -79,4 +83,71 @@ export function useFreeze() {
   })
 }
 
-export type { GenerationConfigInputDto, PathEditOpDto }
+export type { GenerationConfigInputDto, LessonSummaryDto, PathEditOpDto }
+
+const LESSONS_KEY = (pathVersionId: string) => ['pathgen.getLessons', { pathVersionId }]
+
+/**
+ * Stage 7's panel (sub-phase 8.3, §13 step 5): the lessons of a frozen version, seeded by a
+ * query and kept live by `pathgen.lessonStatus`.
+ *
+ * The same seed-then-overlay shape as `useGenerationProgress`, and for the same reason: the
+ * list has to be right after a reload, when no push has arrived yet, and a panel that
+ * refetched the whole tree on every tick would be unusable for a forty-lesson path.
+ */
+export function useLessons(pathVersionId: string | undefined) {
+  const client = useQueryClient()
+  const query = useIpcQuery(
+    'pathgen.getLessons',
+    { pathVersionId: pathVersionId ?? '' },
+    { enabled: pathVersionId !== undefined },
+  )
+
+  useIpcEvent(
+    'pathgen.lessonStatus',
+    useCallback(
+      (event) => {
+        if (pathVersionId === undefined || event.pathVersionId !== pathVersionId) return
+        client.setQueryData(
+          LESSONS_KEY(pathVersionId),
+          (previous: { lessons: LessonSummaryDto[] } | undefined) =>
+            previous === undefined
+              ? previous
+              : {
+                  lessons: previous.lessons.map((lesson) =>
+                    lesson.id === event.lessonId
+                      ? {
+                          ...lesson,
+                          status: event.status,
+                          activities: event.activities,
+                          flashcards: event.flashcards,
+                        }
+                      : lesson,
+                  ),
+                },
+        )
+      },
+      [client, pathVersionId],
+    ),
+  )
+
+  return query
+}
+
+export function useExpand(pathVersionId: string) {
+  const client = useQueryClient()
+  return useIpcMutation('pathgen.expand', {
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: LESSONS_KEY(pathVersionId) })
+    },
+  })
+}
+
+export function useRegenerateLesson(pathVersionId: string) {
+  const client = useQueryClient()
+  return useIpcMutation('pathgen.regenerateLesson', {
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: LESSONS_KEY(pathVersionId) })
+    },
+  })
+}

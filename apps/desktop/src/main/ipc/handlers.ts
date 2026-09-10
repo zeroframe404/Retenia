@@ -639,6 +639,14 @@ export function createHandlers({
 
     'pathgen.freeze': (input) => pathgenOrThrow().freeze(input),
 
+    // --- stage 7: lesson expansion (sub-phase 8.3) ---
+
+    'pathgen.expand': (input) => pathgenOrThrow().expand(input),
+
+    'pathgen.getLessons': (input) => pathgenOrThrow().getLessons(input),
+
+    'pathgen.regenerateLesson': (input) => pathgenOrThrow().regenerateLesson(input),
+
     // --- AI batches: the Batch API's tray surface (sub-phase 7.3) ---
 
     'ai.listBatches': async () => ({

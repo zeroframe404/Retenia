@@ -12,6 +12,8 @@ import { type PathgenPrompt, type PathgenPrompts, systemFor } from '../prompts'
 import { DEFAULT_GENERATION_CONCURRENCY, type GenerationConcurrency } from '../run/deps'
 import { type ChunkPlan, planChunks } from '../run/plan-chunks'
 import { extractChunkOutputSchema } from '../schemas/extraction'
+import { makeFlashcardsOutputSchema } from '../schemas/flashcards'
+import { writeLessonOutputSchema } from '../schemas/lesson'
 import { synthesizeModuleOutputSchema, synthesizeOutlineOutputSchema } from '../schemas/outline'
 import { estimateGeneration, type GenerationEstimate } from './estimate-generation'
 
@@ -114,6 +116,12 @@ export async function quoteFromPlan(
       extract: systemTokensOf(countTokens, deps.prompts.extract, extractChunkOutputSchema),
       outline: systemTokensOf(countTokens, deps.prompts.outline, synthesizeOutlineOutputSchema),
       module: systemTokensOf(countTokens, deps.prompts.module, synthesizeModuleOutputSchema),
+      lesson: systemTokensOf(countTokens, deps.prompts.lesson, writeLessonOutputSchema),
+      // P4's schema is built per family by `@retenia/activity-ai`, which this package may not
+      // import; `choice` is the family every lesson asks for and the closest stand-in for what
+      // one of these calls weighs.
+      activities: systemTokensOf(countTokens, deps.prompts.activities, writeLessonOutputSchema),
+      flashcards: systemTokensOf(countTokens, deps.prompts.flashcards, makeFlashcardsOutputSchema),
     },
     dispatch: !userWaiting && deps.runner !== undefined ? 'batch' : 'sync',
     countTokens,

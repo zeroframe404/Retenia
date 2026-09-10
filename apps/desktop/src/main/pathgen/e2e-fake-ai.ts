@@ -8,10 +8,12 @@ import {
 } from '@retenia/ai'
 import {
   EXTRACT_CHUNK_SCHEMA_NAME,
+  MAKE_FLASHCARDS_SCHEMA_NAME,
   type ParsedModuleTask,
   parseModuleTask,
   SYNTHESIZE_MODULE_SCHEMA_NAME,
   SYNTHESIZE_OUTLINE_SCHEMA_NAME,
+  WRITE_LESSON_SCHEMA_NAME,
 } from '@retenia/pathgen'
 
 /**
@@ -20,6 +22,13 @@ import {
  * preview → freeze with fakes"). No network, no key, no real model — just enough of a real
  * answer, for each of the three schemas the pipeline asks for, that a real generation run
  * completes end to end and produces a draft worth previewing and freezing.
+ *
+ * Stage 7's three calls (sub-phase 8.3) are answered the same way, with one deliberate gap:
+ * P4 only knows how to write a `choice` exercise. Every other family gets the empty object
+ * below, which fails validation and is reported as a rejected candidate — so the E2E run
+ * exercises the *real* over-generation filter, including what it does with a thin pool, rather
+ * than a path where every family happens to succeed. Teaching this fake all ten MVP payload
+ * shapes would be re-implementing `packages/activity-schema` in a test double.
  *
  * The trick behind all three: `packages/pathgen` embeds what it wants an answer to be *about*
  * — the concept catalog, a module's own concept ids — in the request itself
@@ -131,10 +140,114 @@ function moduleAnswer(request: TextGenerationRequest) {
   }
 }
 
+/** The cite ids a lesson's task listed under `citable`, so the fake can cite a real one. */
+const CITE_ID = /^- (B\d{1,3}) \(/gm
+
+function citeIdsFrom(prompt: string): string[] {
+  return [...prompt.matchAll(CITE_ID)]
+    .map((match) => match[1])
+    .filter((id): id is string => id !== undefined)
+}
+
+function lessonAnswer(request: TextGenerationRequest) {
+  const [cite] = citeIdsFrom(request.prompt)
+  const citations = cite === undefined ? [] : [cite]
+  const block = (type: string, content: string, cited: boolean) => ({
+    type,
+    content,
+    citations: cited ? citations : [],
+    diagram: null,
+    misconception_id: null,
+  })
+  return {
+    blocks: [
+      block('hook', 'Al terminar vas a poder explicar el concepto de esta lección.', false),
+      block(
+        'explanation',
+        `El concepto se explica en la fuente${cite === undefined ? '' : ` [cite:${cite}]`}.`,
+        true,
+      ),
+      block('summary', '- Un punto\n- Otro punto\n- Un tercero', true),
+    ],
+    glossary: [],
+    word_count: 700,
+    warnings: [],
+  }
+}
+
+function flashcardAnswer(request: TextGenerationRequest) {
+  const [cite] = citeIdsFrom(request.prompt)
+  return {
+    flashcards: [
+      {
+        type: 'basic',
+        front: '¿Qué explica esta lección?',
+        back: 'El concepto de la fuente',
+        cloze_text: null,
+        context_cue: null,
+        concept_ids: ['e2e-concept'],
+        importance: 'normal',
+        interference_group: null,
+        as_of: null,
+        citations: cite === undefined ? [] : [cite],
+      },
+    ],
+    skipped: [],
+  }
+}
+
+function activitiesAnswer() {
+  return {
+    candidates: [
+      {
+        bloom: 'understand',
+        misconception_ids: [],
+        activity: {
+          schemaVersion: 1,
+          type: 'mcq_single',
+          family: 'choice',
+          lang: 'es-AR',
+          prompt: '¿Qué afirma la lección?',
+          skills: ['e2e-concept'],
+          difficulty: 2,
+          grading: { method: 'det' },
+          review: { eligible: true, ratingStrategy: 'binary', expectedSeconds: 12 },
+          explanation: 'La primera opción es la que la lección explica.',
+          payload: {
+            family: 'choice',
+            sets: [
+              {
+                id: 's1',
+                multiple: false,
+                options: [
+                  { id: 'a', text: 'Lo que la fuente dice', correct: true, feedback: 'Correcto.' },
+                  {
+                    id: 'b',
+                    text: 'Lo contrario',
+                    correct: false,
+                    feedback: 'La fuente dice lo opuesto.',
+                  },
+                  { id: 'c', text: 'Algo sin relación', correct: false },
+                  { id: 'd', text: 'Nada de lo anterior', correct: false },
+                ],
+              },
+            ],
+          },
+        },
+      },
+    ],
+    notes: [],
+  }
+}
+
 function answerFor(request: TextGenerationRequest): object {
   if (request.schemaName === EXTRACT_CHUNK_SCHEMA_NAME) return extractionAnswer()
   if (request.schemaName === SYNTHESIZE_OUTLINE_SCHEMA_NAME) return outlineAnswer(request)
   if (request.schemaName === SYNTHESIZE_MODULE_SCHEMA_NAME) return moduleAnswer(request)
+  if (request.schemaName === WRITE_LESSON_SCHEMA_NAME) return lessonAnswer(request)
+  if (request.schemaName === MAKE_FLASHCARDS_SCHEMA_NAME) return flashcardAnswer(request)
+  // `make_activities_<family>`: only `choice` is written, for the reason in the module doc.
+  if (request.schemaName === 'make_activities_choice') return activitiesAnswer()
   // Outside pathgen's three P1/P2 calls this provider is never selected for a real feature
   // (nothing else routes a role at `E2E_PROFILE_ID`), so an empty object is a deliberate
   // "this should not happen" rather than a guess at some other schema's shape.

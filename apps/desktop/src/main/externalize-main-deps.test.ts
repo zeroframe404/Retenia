@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
@@ -193,4 +193,51 @@ describe('packages that break the build if bundled instead of external', () => {
       expect(dependencies).toContain(pkg)
     },
   )
+})
+
+/**
+ * The trap the scan above cannot see: a workspace package main never names itself.
+ *
+ * `externalizeDeps.exclude` is a list of specifiers to *bundle*, and bundling one pulls in
+ * everything it imports. `@retenia/activity-ai` re-exports its long-text grader, which imports
+ * `@retenia/activity-graders`; excluding only the package main names leaves that one external,
+ * and an external `@retenia/*` is a bare import of raw TypeScript in `out/main/index.js` that
+ * Node refuses to load. Main then throws before it opens a window, and the only job that
+ * notices is `e2e` — as all ~46 Playwright tests timing out in `firstWindow`, 50 minutes in.
+ *
+ * So the list has to be **closed under workspace dependencies**: if it bundles a package, it
+ * bundles that package's `@retenia/*` dependencies too. Read from `package.json` rather than
+ * by scanning source, because that is what actually bounds the module graph — a dependency
+ * declared and unused is `check-deps.mjs`'s business, not this one's.
+ */
+describe('the bundled set is closed under workspace dependencies', () => {
+  const workspaceDependenciesOf = (specifier: string): string[] => {
+    const manifest = path.join(
+      desktopRoot,
+      '..',
+      '..',
+      'packages',
+      specifier.replace('@retenia/', ''),
+      'package.json',
+    )
+    if (!existsSync(manifest)) return []
+    const { dependencies = {} } = JSON.parse(readFileSync(manifest, 'utf-8')) as {
+      dependencies?: Record<string, string>
+    }
+    return Object.keys(dependencies).filter((name) => name.startsWith('@retenia/'))
+  }
+
+  const excluded = excludedFromExternalization().filter(
+    (entry): entry is string => typeof entry === 'string' && entry.startsWith('@retenia/'),
+  )
+
+  it('finds the workspace packages the config bundles', () => {
+    expect(excluded.length).toBeGreaterThanOrEqual(3)
+  })
+
+  it.each(excluded)('bundles every workspace dependency of %s', (specifier) => {
+    for (const dependency of workspaceDependenciesOf(specifier)) {
+      expect(excluded).toContain(dependency)
+    }
+  })
 })

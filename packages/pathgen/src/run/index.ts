@@ -6,6 +6,15 @@ export {
   type Sequencer,
 } from './deps'
 export {
+  conceptsOf,
+  createExpansionRun,
+  type ExpandOptions,
+  type ExpansionRepos,
+  type ExpansionResult,
+  type ExpansionRunDeps,
+  type ExpansionRunHandle,
+} from './expansion-run'
+export {
   createGenerationRun,
   type GenerationResult,
   type GenerationRunHandle,

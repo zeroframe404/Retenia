@@ -1,10 +1,11 @@
-import type { GenerationRun, LearningPath, PathVersion } from '@retenia/core'
+import type { GenerationRun, LearningPath, Lesson, PathVersion } from '@retenia/core'
 import {
   type GenerationResultDto,
   type GenerationRunDto,
   type GenerationStageDto,
   generationEstimateDtoSchema,
   generationWarningDtoSchema,
+  type LessonSummaryDto,
   type PathDto,
   type PathEditOpDto,
   type PathVersionDto,
@@ -12,6 +13,8 @@ import {
 import {
   GENERATION_STAGES,
   type GenerationResult,
+  lessonCitationSchema,
+  lessonExpansionSchema,
   type PathEditOp,
   pathDraftSchema,
 } from '@retenia/pathgen'
@@ -99,8 +102,17 @@ export function toPathVersionDto(version: PathVersion): PathVersionDto {
 export function perLessonUsdOf(run: GenerationRun | undefined): number {
   if (run === undefined) return 0
   const estimate = generationEstimateDtoSchema.safeParse(run.estimate)
-  if (!estimate.success || estimate.data.p2Modules.calls === 0) return 0
-  return estimate.data.p2Modules.usd / estimate.data.p2Modules.calls
+  if (!estimate.success) return 0
+
+  // What one more lesson actually costs, now that the quote covers stage 7: writing it, its
+  // exercises and its cards. Before sub-phase 8.3 the quote stopped at P2, so the per-module
+  // synthesis cost was the only proxy available — an estimate stored back then still parses
+  // (the stage-7 fields default to zero) and still falls back to it.
+  const { p3Lessons, p4Activities, p5Flashcards, p2Modules } = estimate.data
+  if (p3Lessons.calls > 0) {
+    return (p3Lessons.usd + p4Activities.usd + p5Flashcards.usd) / p3Lessons.calls
+  }
+  return p2Modules.calls === 0 ? 0 : p2Modules.usd / p2Modules.calls
 }
 
 /** `PathEditOpDto` → `PathEditOp`: the wire shape is looser (a `replace` draft is validated
@@ -134,5 +146,40 @@ export function toEditOp(dto: PathEditOpDto): PathEditOp {
       return { kind: 'setPrimarySource', sourceId: dto.sourceId }
     case 'replace':
       return { kind: 'replace', draft: pathDraftSchema.parse(dto.draft) }
+  }
+}
+
+/**
+ * One lesson as the expansion panel shows it (sub-phase 8.3).
+ *
+ * Everything here is already on the row or one count away from it, and none of it is the
+ * theory: the panel renders a chip, two counts and three buttons, and shipping tens of
+ * kilobytes of Markdown per lesson across the boundary for that would be a list nobody could
+ * scroll. `firstCitation` is what "Reportar error" opens.
+ */
+export function toLessonSummaryDto(
+  lesson: Lesson,
+  moduleTitle: string,
+  counts: { readonly activities: number; readonly flashcards: number },
+): LessonSummaryDto {
+  const expansion = lessonExpansionSchema.safeParse(lesson.expansion)
+  const citation = lessonCitationSchema.safeParse(lesson.citations[0])
+  return {
+    id: lesson.id,
+    specId: lesson.specId,
+    moduleTitle,
+    title: lesson.title,
+    status: lesson.status,
+    activities: counts.activities,
+    flashcards: counts.flashcards,
+    unmet: expansion.success ? (expansion.data.p4?.unmet ?? []) : [],
+    warnings: expansion.success ? toWarningsDto(expansion.data.warnings) : [],
+    firstCitation: citation.success
+      ? {
+          sourceId: citation.data.source_id,
+          locator: citation.data.locator,
+          blockIds: [...citation.data.block_ids],
+        }
+      : null,
   }
 }

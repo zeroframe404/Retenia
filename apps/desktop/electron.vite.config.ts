@@ -28,6 +28,8 @@ export default defineConfig({
           '@retenia/core',
           '@retenia/db',
           '@retenia/activity-schema',
+          '@retenia/activity-ai',
+          '@retenia/activity-graders',
           '@retenia/ingest',
           '@retenia/ai',
           '@retenia/pathgen',

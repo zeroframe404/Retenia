@@ -101,6 +101,7 @@ describe('loadMigrations()', () => {
       '0012_ai_results',
       '0013_ai_batches',
       '0014_generation_runs_and_extractions',
+      '0015_lesson_expansion',
     ])
     for (const migration of migrations) expect(migration.sql.length).toBeGreaterThan(0)
   })
@@ -150,6 +151,7 @@ describe('migrate()', () => {
       '0012_ai_results',
       '0013_ai_batches',
       '0014_generation_runs_and_extractions',
+      '0015_lesson_expansion',
     ])
     expect(result.alreadyApplied).toEqual([])
     expect(listTables(opened)).toEqual([...EXPECTED_TABLES])
@@ -177,6 +179,7 @@ describe('migrate()', () => {
       '0012_ai_results',
       '0013_ai_batches',
       '0014_generation_runs_and_extractions',
+      '0015_lesson_expansion',
     ])
     expect(listTables(opened)).toEqual([...EXPECTED_TABLES])
     expect(opened.sqlite.prepare('SELECT count(*) AS n FROM importance_levels').get()).toEqual({
@@ -206,7 +209,7 @@ describe('migrate()', () => {
 
   it('accepts the raw handle and the Drizzle instance as targets too', () => {
     opened = openDatabase(IN_MEMORY)
-    expect(migrate(opened.sqlite).applied).toHaveLength(15)
+    expect(migrate(opened.sqlite).applied).toHaveLength(16)
     expect(migrate(opened.db).applied).toHaveLength(0)
   })
 

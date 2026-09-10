@@ -24,6 +24,7 @@ export const GENERATION_RUN_STATUSES = [
   'synthesizing',
   'sequencing',
   'persisting',
+  'expanding',
   'completed',
   'failed',
   'cancelled',
@@ -41,6 +42,9 @@ export const GENERATION_STAGES = [
   'synthesizing_modules',
   'sequencing',
   'persisting',
+  'expanding_theory',
+  'expanding_practice',
+  'expanding_flashcards',
 ] as const
 export const generationStageSchema = z.enum(GENERATION_STAGES)
 export type GenerationStageDto = z.infer<typeof generationStageSchema>
@@ -101,14 +105,37 @@ const stageEstimateDtoSchema = z.object({
   usd: z.number().min(0),
 })
 
+/**
+ * A stage that costs nothing, which is what an estimate written before that stage existed
+ * says about it.
+ *
+ * `generation_runs.estimate` is a stored column, so a row quoted by sub-phase 8.1 or 8.2 is
+ * still read back by this schema today. Making stage 7's fields required would make every one
+ * of those rows fail to parse — and `perLessonUsdOf` reads exactly that column to price
+ * "profundizar esta lección".
+ */
+const ZERO_STAGE_DTO = Object.freeze({
+  calls: 0,
+  inputTokens: 0,
+  cachedInputTokens: 0,
+  cacheWriteTokens: 0,
+  outputTokens: 0,
+  usd: 0,
+})
+
 /** Mirrors `GenerationEstimate` in `packages/pathgen/src/estimate/estimate-generation.ts`. */
 export const generationEstimateDtoSchema = z.object({
   chunks: z.number().int().min(0),
   concepts: z.number().int().min(0),
   modules: z.number().int().min(0),
+  /** Expected lessons: what stage 7 will be billed for (sub-phase 8.3). */
+  lessons: z.number().int().min(0).default(0),
   p1: stageEstimateDtoSchema,
   p2Outline: stageEstimateDtoSchema,
   p2Modules: stageEstimateDtoSchema,
+  p3Lessons: stageEstimateDtoSchema.default(ZERO_STAGE_DTO),
+  p4Activities: stageEstimateDtoSchema.default(ZERO_STAGE_DTO),
+  p5Flashcards: stageEstimateDtoSchema.default(ZERO_STAGE_DTO),
   usd: z.number().min(0),
   lowUsd: z.number().min(0),
   highUsd: z.number().min(0),
@@ -318,6 +345,43 @@ export const generationResultDtoSchema = z.object({
 })
 export type GenerationResultDto = z.infer<typeof generationResultDtoSchema>
 
+/** How far one lesson's expansion has got — `lessons.status`, mirrored for the renderer. */
+export const LESSON_STATUSES = ['pending', 'generating', 'ready', 'failed'] as const
+export const lessonStatusDtoSchema = z.enum(LESSON_STATUSES)
+export type LessonStatusDto = z.infer<typeof lessonStatusDtoSchema>
+
+/**
+ * One row of the expansion panel (sub-phase 8.3, `docs/spec/04-path-generation.md` §13 step
+ * 5): *"lessons appear progressively; the first is ready in < 1 min; each lesson with
+ * 'Regenerate', 'More examples', 'Report an error' (opens the citation)"*.
+ *
+ * Deliberately not the lesson itself. The theory is a document the player renders (9.2) and
+ * would be tens of kilobytes per lesson across the IPC boundary for a list that shows a chip
+ * and three buttons; `firstCitation` is what "Reportar error" needs and nothing more.
+ */
+export const lessonSummaryDtoSchema = z.object({
+  id: z.uuid(),
+  specId: z.string(),
+  moduleTitle: z.string(),
+  title: z.string(),
+  status: lessonStatusDtoSchema,
+  activities: z.number().int().min(0),
+  flashcards: z.number().int().min(0),
+  /** The practice rules the generated pool could not satisfy, for the quiet note. */
+  unmet: z.array(z.object({ rule: z.string(), detail: z.string() })),
+  warnings: z.array(generationWarningDtoSchema),
+  /** Where to open the source at, for "Reportar error". */
+  firstCitation: z
+    .object({ sourceId: z.uuid(), locator: z.string(), blockIds: z.array(z.string()) })
+    .nullable(),
+})
+export type LessonSummaryDto = z.infer<typeof lessonSummaryDtoSchema>
+
+/** What "Regenerar" and "Más ejemplos" mean, as one closed choice. */
+export const LESSON_REGENERATE_MODES = ['regenerate', 'more_examples'] as const
+export const lessonRegenerateModeSchema = z.enum(LESSON_REGENERATE_MODES)
+export type LessonRegenerateModeDto = z.infer<typeof lessonRegenerateModeSchema>
+
 export const pathgenChannels = defineContract({
   /** The wizard's step-1 live estimate — never writes anything (§13 step 1). */
   'pathgen.quote': {
@@ -375,6 +439,37 @@ export const pathgenChannels = defineContract({
       breaksPrerequisite: z.boolean(),
       projectedCostDeltaUsd: z.number().optional(),
     }),
+  },
+
+  /**
+   * Stage 7: expands every lesson of a frozen version that is not `ready` yet
+   * (`docs/spec/04-path-generation.md` §3 stage 7). Safe to call again — an expansion that is
+   * already running is continued rather than duplicated, and a lesson that is already written
+   * is reused rather than paid for twice.
+   */
+  'pathgen.expand': {
+    input: z.object({
+      pathVersionId: z.uuid(),
+      userWaiting: z.boolean().optional(),
+      allowOverBudget: z.boolean().optional(),
+    }),
+    output: z.object({ run: generationRunDtoSchema }),
+  },
+
+  /** The expansion panel's list. Cheap enough to poll, and pushed by `pathgen.lessonStatus`. */
+  'pathgen.getLessons': {
+    input: z.object({ pathVersionId: z.uuid() }),
+    output: z.object({ lessons: z.array(lessonSummaryDtoSchema) }),
+  },
+
+  /**
+   * §13 step 5's per-lesson buttons. `regenerate` replaces the lesson — theory, practice and
+   * cards — and forces past the cached answer; `more_examples` adds to the practice block and
+   * leaves everything else where it is.
+   */
+  'pathgen.regenerateLesson': {
+    input: z.object({ lessonId: z.uuid(), mode: lessonRegenerateModeSchema }),
+    output: z.object({ run: generationRunDtoSchema, lesson: lessonSummaryDtoSchema.nullable() }),
   },
 
   /** "Confirmar ruta" (§13 step 3): materializes the tree and sets `frozen_at`. */

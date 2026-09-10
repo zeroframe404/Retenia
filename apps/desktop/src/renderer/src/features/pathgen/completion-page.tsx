@@ -1,11 +1,16 @@
 import { Button, ErrorState, StatTile } from '@retenia/ui'
 import { useT } from '../../i18n/use-t'
+import { ExpansionPanel } from './expansion-panel'
 import { usePathVersion } from './use-pathgen'
 
 /**
  * "Confirmar ruta" step 6's completion summary
  * (`docs/spec/04-path-generation.md` §13 step 6): lessons, minutes, plan until the exam date,
  * "Regenerar ruta" (disabled — diff-based regeneration is sub-phase 8.6).
+ *
+ * It is also where stage 7 becomes visible (§13 step 5): freezing the path is what makes the
+ * lessons expandable, and this is the screen the user lands on when they do. The panel starts
+ * the expansion itself and shows each lesson as it lands.
  */
 export interface CompletionPageProps {
   pathVersionId: string
@@ -44,6 +49,7 @@ export function CompletionPage({ pathVersionId }: CompletionPageProps) {
           {t('completion.regenerate')}
         </Button>
       </div>
+      <ExpansionPanel pathVersionId={pathVersionId} />
     </div>
   )
 }

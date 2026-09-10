@@ -30,6 +30,7 @@ describe('generation run vocabulary', () => {
       'synthesizing',
       'sequencing',
       'persisting',
+      'expanding',
       'completed',
       'failed',
       'cancelled',
@@ -46,6 +47,9 @@ describe('generation run vocabulary', () => {
       'synthesizing_modules',
       'sequencing',
       'persisting',
+      'expanding_theory',
+      'expanding_practice',
+      'expanding_flashcards',
     ])
   })
 })

@@ -71,6 +71,15 @@ export interface MainAiClientOptions {
    */
   invoker?: ProviderInvoker
   /**
+   * Which profiles and roles this client resolves against. Defaults to the stored ones.
+   *
+   * Overriding the invoker alone is not enough to take a client off the network: role
+   * resolution happens first, and it needs a *profile*, whose key `runOnce` then asks for.
+   * A fresh test profile has none, so every target fails before the fake invoker is reached
+   * ("every provider for the cheap role failed"). `RETENIA_E2E=1` passes both halves.
+   */
+  registry?: () => Promise<AiRegistry>
+  /**
    * The merged pricing table this client bills against. Defaults to the shipped table.
    *
    * A plain value, not a resolver: `packages/ai`'s `AiClientOptions.pricing` is documented
@@ -286,6 +295,7 @@ export function createMainAiClient({
   repos,
   secrets,
   invoker,
+  registry,
   pricing,
   onBudgetAlert,
 }: MainAiClientOptions): AiClient {
@@ -298,7 +308,7 @@ export function createMainAiClient({
       invoker ??
       withLocalPolicy(createSdkInvoker(), { timers: realTimers, isOnline: () => net.isOnline() }),
 
-    registry: () => buildRegistry(repos),
+    registry: registry ?? (() => buildRegistry(repos)),
     pricing: pricing ?? SHIPPED_PRICING,
 
     getSecret: (name) => secrets.getSecret(name),

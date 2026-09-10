@@ -234,6 +234,7 @@ function createSeeds(repos: UnitOfWork, clock: TestClock): ContractSeeds {
         theory: null,
         citations: [],
         qa: null,
+        expansion: null,
         remediation: null,
         unlockRule: null,
         xpReward: 0,

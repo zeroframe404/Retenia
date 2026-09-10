@@ -62,6 +62,21 @@ export interface EmbeddingService {
    * and degrades to full text — rather than to nothing — when it cannot.
    */
   search(query: string, options?: EmbeddingSearchOptions): Promise<ChunkSearchHit[]>
+  /**
+   * Embeds a handful of short strings in the active space, or `undefined` when there is no
+   * model configured or the host could not answer.
+   *
+   * For comparing texts to each other rather than for searching: sub-phase 8.3's flashcard
+   * dedupe asks whether two fronts mean the same thing (§1.2 rule 11's *"cosine > 0.92"*).
+   * `undefined` rather than a throw, because the caller has a cheaper exact-match pass and a
+   * path generated without embeddings is degraded, not broken. The space's id travels with
+   * the vectors so a caller can record which one they were compared in — distances across
+   * spaces are meaningless, and a manifest that named the wrong one would be worse than one
+   * that names none.
+   */
+  embedMany(
+    texts: readonly string[],
+  ): Promise<{ modelId: string; vectors: Float32Array[] } | undefined>
   /** What retrieval is configured with, for the search screen's status line. */
   status(): Promise<{ modelId: string | null; pendingSources: number; rerankerEnabled: boolean }>
   /** Wired into the runner's `onSettled`; a no-op for any job that is not ours. */
@@ -268,6 +283,25 @@ export function createEmbeddingService(options: EmbeddingServiceOptions): Embedd
       // the user typed a query and the library can still be searched.
       if (mode === 'vector') return []
       return search.search(query, { ...base, mode: 'fts' })
+    },
+
+    embedMany: async (texts) => {
+      const active = await activeModel()
+      if (active === undefined) return undefined
+      if (texts.length === 0) return { modelId: active.modelId, vectors: [] }
+      try {
+        const vectors: Float32Array[] = []
+        // One at a time: `EmbeddingHost` exposes `embedQuery`, and a dedupe pass is a handful
+        // of short fronts per lesson rather than a corpus — the batching that matters is in
+        // the ingestion job, which has its own path through the host.
+        for (const text of texts) {
+          vectors.push((await host.embedQuery(active.model, text)).vector)
+        }
+        return { modelId: active.modelId, vectors }
+      } catch (error) {
+        log.warn('[embeddings] a batch could not be embedded:', error)
+        return undefined
+      }
     },
 
     status: async () => {

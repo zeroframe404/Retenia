@@ -198,9 +198,15 @@ if (gotLock) {
     // Under `RETENIA_E2E=1` a real generation still has nowhere to send its P1/P2 calls — no
     // key is configured in a fresh test profile — so this builds a second, disposable client
     // over the same repositories with a deterministic in-process invoker instead of the real
-    // SDK one, and a registry that routes both text roles at it. Same gate as
-    // `jobs.enqueueDemo`/`app.devMediaSampleUrl`: never true in a packaged build.
-    const isE2e = process.env.RETENIA_E2E === '1'
+    // SDK one, and a registry that routes both text roles at it.
+    //
+    // `!app.isPackaged` is what makes "never true in a packaged build" a fact rather than a
+    // convention: the env var alone is settable by anyone who can write a shortcut, and it now
+    // decides more than it used to — it also silences the batch runner and swaps the registry
+    // the client resolves roles with, so a flipped flag would answer a real, paid-looking
+    // generation with canned content. Playwright launches the *built but unpackaged* main, so
+    // this stays true there.
+    const isE2e = !app.isPackaged && process.env.RETENIA_E2E === '1'
     const pathgen: PathgenFacade | null =
       database && jobs.ai && jobs.secrets
         ? bootstrapPathgen({
@@ -210,10 +216,29 @@ if (gotLock) {
                   repos: database.repos,
                   secrets: jobs.secrets,
                   invoker: createE2eFakeInvoker(),
+                  // Both halves of the swap: without the registry the client still resolves
+                  // the *stored* roles, needs their keys, and fails every target before the
+                  // fake invoker is ever called.
+                  registry: async () => e2eFakeRegistry(),
                 })
               : jobs.ai,
             registry: isE2e ? async () => e2eFakeRegistry() : () => buildRegistry(database.repos),
             emit: (event) => broadcast('pathgen.progress', event),
+            emitLesson: (event) => broadcast('pathgen.lessonStatus', event),
+            // Sub-phase 8.3: the Batch API runner and the embedding service were built by
+            // `bootstrapJobs` and simply never handed over, so P1 ran every chunk
+            // synchronously and consolidation matched on names alone. Stage 7 needs both —
+            // its tail is where the -50 % actually lands, and the flashcard dedupe is a
+            // cosine over the fronts (§1.2 rule 11).
+            //
+            // Not under E2E, though: the fake swap above replaces the *client* and the
+            // registry pathgen resolves roles with, while `jobs.batches` was built against
+            // the real one. Handing it over would send P1 at Anthropic and Google, which in a
+            // fresh test profile have no key — "every provider for the cheap role failed".
+            // The batch path is covered against a real `BatchRunner` in `packages/pathgen`'s
+            // own suites, over the replay fakes; what E2E is for is the app's wiring.
+            batches: isE2e ? null : jobs.batches,
+            embeddings: jobs.embeddings,
           })
         : null
 

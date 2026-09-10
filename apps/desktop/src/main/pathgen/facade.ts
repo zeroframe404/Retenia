@@ -1,9 +1,18 @@
-import type { Clock, GenerationRunRepository, JsonObject, PathRepository } from '@retenia/core'
+import type {
+  Clock,
+  GenerationRunRepository,
+  JsonObject,
+  KnowledgeItemRepository,
+  Lesson,
+  PathRepository,
+} from '@retenia/core'
 import type {
   GenerationEstimateDto,
   GenerationResultDto,
   GenerationRunDto,
   GenerationWarningDto,
+  LessonRegenerateModeDto,
+  LessonSummaryDto,
   PathDraftDto,
   PathDto,
   PathEditOpDto,
@@ -13,6 +22,7 @@ import type {
 import {
   type ApplyEditOptions,
   applyEdit,
+  type ExpansionRunHandle,
   freezePath,
   type GenerationConfigInput,
   type GenerationRunHandle,
@@ -23,6 +33,7 @@ import {
   toEditOp,
   toGenerationResultDto,
   toGenerationRunDto,
+  toLessonSummaryDto,
   toPathDto,
   toPathVersionDto,
 } from './dto'
@@ -47,12 +58,19 @@ export interface PathgenFacadeRepos {
     | 'freezeVersion'
     | 'setActiveVersion'
     | 'loadTree'
+    | 'findLesson'
+    | 'findModule'
+    | 'findSection'
+    | 'listActivities'
   >
   readonly generationRuns: Pick<GenerationRunRepository, 'findById' | 'findLatestByPath'>
+  readonly knowledgeItems: Pick<KnowledgeItemRepository, 'listByLesson'>
 }
 
 export interface PathgenFacadeDeps {
   readonly runs: GenerationRunHandle
+  /** Stage 7's own run handle (sub-phase 8.3); a second `generation_runs` row per path. */
+  readonly expansion: ExpansionRunHandle
   readonly repos: PathgenFacadeRepos
   readonly clock: Clock
   /** The wizard's live pre-flight estimate — a separate function from `runs` because it must
@@ -88,6 +106,16 @@ export interface PathgenFacade {
   freeze(input: {
     pathVersionId: string
   }): Promise<{ path: PathDto; version: PathVersionDto; stats: PathStatsDto }>
+  expand(input: {
+    pathVersionId: string
+    userWaiting?: boolean
+    allowOverBudget?: boolean
+  }): Promise<{ run: GenerationRunDto }>
+  getLessons(input: { pathVersionId: string }): Promise<{ lessons: LessonSummaryDto[] }>
+  regenerateLesson(input: {
+    lessonId: string
+    mode: LessonRegenerateModeDto
+  }): Promise<{ run: GenerationRunDto; lesson: LessonSummaryDto | null }>
 }
 
 async function loadVersion(repos: PathgenFacadeRepos, pathVersionId: string) {
@@ -100,6 +128,22 @@ async function loadVersion(repos: PathgenFacadeRepos, pathVersionId: string) {
     throw new Error(`pathgen: no path "${version.pathId}"`)
   }
   return { path, version, draft: pathDraftSchema.parse(version.spec) }
+}
+
+/** One lesson plus the two counts the panel shows, which are one query each. */
+async function summarize(
+  deps: PathgenFacadeDeps,
+  lesson: Lesson,
+  moduleTitle: string,
+): Promise<LessonSummaryDto> {
+  const [activities, items] = await Promise.all([
+    deps.repos.paths.listActivities(lesson.id),
+    deps.repos.knowledgeItems.listByLesson(lesson.id),
+  ])
+  return toLessonSummaryDto(lesson, moduleTitle, {
+    activities: activities.length,
+    flashcards: items.length,
+  })
 }
 
 export function createPathgenFacade(deps: PathgenFacadeDeps): PathgenFacade {
@@ -163,6 +207,62 @@ export function createPathgenFacade(deps: PathgenFacadeDeps): PathgenFacade {
         ...(result.projectedCostDeltaUsd === undefined
           ? {}
           : { projectedCostDeltaUsd: result.projectedCostDeltaUsd }),
+      }
+    },
+
+    /**
+     * Stage 7 (`docs/spec/04-path-generation.md` §3 stage 7). Idempotent by construction: an
+     * expansion already under way is continued rather than duplicated, and every lesson that
+     * is already written is reused rather than paid for again.
+     */
+    expand: async ({ pathVersionId, userWaiting, allowOverBudget }) => {
+      const result = await deps.expansion.expand(pathVersionId, {
+        ...(userWaiting === undefined ? {} : { userWaiting }),
+        ...(allowOverBudget === undefined ? {} : { allowOverBudget }),
+      })
+      const run = await deps.repos.generationRuns.findById(result.runId)
+      if (run === undefined) throw new Error(`pathgen: run "${result.runId}" disappeared`)
+      return { run: toGenerationRunDto(run) }
+    },
+
+    getLessons: async ({ pathVersionId }) => {
+      const tree = await deps.repos.paths.loadTree(pathVersionId)
+      if (tree === undefined) return { lessons: [] }
+      const lessons: LessonSummaryDto[] = []
+      for (const section of tree.sections) {
+        for (const module of section.modules) {
+          for (const lesson of module.lessons) {
+            // The panel is about what stage 7 writes, and stage 7 writes core lessons only:
+            // reinforcement and checkpoint nodes compose items that already exist (8.5).
+            if (lesson.kind !== 'core') continue
+            lessons.push(await summarize(deps, lesson, module.title))
+          }
+        }
+      }
+      return { lessons }
+    },
+
+    regenerateLesson: async ({ lessonId, mode }) => {
+      const lesson = await deps.repos.paths.findLesson(lessonId)
+      if (lesson === undefined) throw new Error(`pathgen: no lesson "${lessonId}"`)
+      const module = await deps.repos.paths.findModule(lesson.moduleId)
+      const section =
+        module === undefined ? undefined : await deps.repos.paths.findSection(module.sectionId)
+      if (section === undefined) throw new Error(`pathgen: lesson "${lessonId}" has no version`)
+
+      // The user pressed a button and is watching: this one is never batched (§3 stage 7's
+      // `userWaiting` is "the one input that overrides everything else").
+      const result = await deps.expansion.expand(section.pathVersionId, {
+        userWaiting: true,
+        onlyLessonIds: [lesson.specId],
+        ...(mode === 'regenerate' ? { regenerate: true } : { moreExamples: true }),
+      })
+      const run = await deps.repos.generationRuns.findById(result.runId)
+      if (run === undefined) throw new Error(`pathgen: run "${result.runId}" disappeared`)
+      const updated = await deps.repos.paths.findLesson(lessonId)
+      return {
+        run: toGenerationRunDto(run),
+        lesson: updated === undefined ? null : await summarize(deps, updated, module?.title ?? ''),
       }
     },
 

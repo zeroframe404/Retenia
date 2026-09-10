@@ -7,6 +7,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./prompts": "./src/prompts/index.ts",
+    "./prompts-bundled": "./src/prompts-bundled.ts",
     "./providers": "./src/providers/index.ts",
     "./testing": "./src/testing/index.ts"
   },

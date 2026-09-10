@@ -67,7 +67,12 @@ test('generates, edits and freezes a path against the e2e fake provider', async 
   )
   expect(started.ok).toBe(true)
   if (!started.ok) throw new Error('pathgen.start failed')
-  expect(started.data.status).toBe('completed')
+  // The run's own `error` in the message: a generation that failed and says only "expected
+  // completed, received failed" costs a rebuild and a rerun to find out why.
+  expect(
+    started.data.status,
+    `${started.data.error ?? '(no error recorded)'} — ${JSON.stringify(started.data.warnings)}`,
+  ).toBe('completed')
   expect(started.data.pathVersionId).not.toBeNull()
   const pathVersionId = started.data.pathVersionId as string
 

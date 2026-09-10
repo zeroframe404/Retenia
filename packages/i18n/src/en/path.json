@@ -9,7 +9,10 @@
       "synthesizing": "Building the prerequisite map",
       "synthesizing_modules": "Proposing a path ({{done}}/{{total}} modules)",
       "sequencing": "Proposing a path",
-      "persisting": "Saving the draft"
+      "persisting": "Saving the draft",
+      "expanding_theory": "Writing the lessons ({{done}}/{{total}})",
+      "expanding_practice": "Writing the exercises ({{done}}/{{total}})",
+      "expanding_flashcards": "Making the flashcards ({{done}}/{{total}})"
     },
     "status": {
       "queued": "Queued",
@@ -21,7 +24,8 @@
       "completed": "Draft ready",
       "failed": "Failed",
       "cancelled": "Cancelled",
-      "blocked_budget": "Paused on budget"
+      "blocked_budget": "Paused on budget",
+      "expanding": "Writing the lessons"
     },
     "estimate": {
       "summary": "≈ {{minutes}} min and USD {{usd}}",
@@ -69,7 +73,15 @@
       "module_merged": "Module “{{module}}” was merged into “{{into}}”.",
       "section_dropped": "Section “{{section}}” was left without modules and was removed.",
       "path_too_small": "The path has only {{lessons}} lessons.",
-      "exam_date_overshoot": "At the chosen pace {{weeks_estimate}} weeks are needed and {{weeks_available}} remain until {{target_date}}."
+      "exam_date_overshoot": "At the chosen pace {{weeks_estimate}} weeks are needed and {{weeks_available}} remain until {{target_date}}.",
+      "lesson_failed": "Lesson {{lesson}} could not be written: {{error}}",
+      "lesson_context_trimmed": "Lesson {{lesson}} had more sources than fit: {{kept}} were used and {{dropped}} left out.",
+      "expansion_injection_suspected": "Lesson {{lesson}} contains text that looks aimed at the model ({{block}}); it was processed anyway.",
+      "citation_unresolved": "Lesson {{lesson}} cited fragments that do not exist ({{ids}}); those references were removed.",
+      "lesson_block_uncited": "A {{block}} block of lesson {{lesson}} could not cite any source, so it is marked as general knowledge.",
+      "activity_rejected": "A {{type}} exercise of lesson {{lesson}} was discarded ({{code}}).",
+      "practice_incomplete": "Lesson {{lesson}} practice does not meet \"{{rule}}\": {{detail}}.",
+      "flashcard_deduped": "A duplicate flashcard of lesson {{lesson}} was discarded ({{reason}})."
     }
   },
   "wizard": {
@@ -120,5 +132,24 @@
     "plan": "At this pace, ready by {{date}} in about {{weeks}} weeks.",
     "regenerate": "Regenerate path",
     "regenerateDisabledReason": "Diff-based regeneration arrives in a later phase."
+  },
+  "expansion": {
+    "title": "Lessons",
+    "subtitle": "The first ones are ready; the rest are written in the background.",
+    "empty": "There are no lessons to expand yet.",
+    "status": {
+      "pending": "Queued",
+      "generating": "Writing",
+      "ready": "Ready",
+      "failed": "Failed"
+    },
+    "counts": "{{activities}} exercises · {{flashcards}} flashcards",
+    "regenerate": "Regenerate",
+    "moreExamples": "More examples",
+    "reportError": "Report an error",
+    "reportErrorDisabled": "This lesson does not cite a source yet.",
+    "unmet": "The practice does not meet: {{rules}}",
+    "expand": "Write the lessons",
+    "expanding": "Writing…"
   }
 }

@@ -82,6 +82,7 @@ export {
   asAiError,
   isAiError,
   MAX_ERROR_CHARS,
+  redactAiError,
   redactKey,
 } from './errors'
 export type { AiResultCache, CachedAiResult, IdempotencyInput, NewAiResult } from './idempotency'
@@ -180,6 +181,7 @@ export {
   sanitizeOutput,
   sanitizeString,
   structuredRequestFor,
+  systemFor,
   tolerantArray,
   toStrictJsonSchema,
   USER_CONTENT_INSTRUCTIONS,

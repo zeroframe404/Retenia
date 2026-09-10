@@ -18,7 +18,23 @@ const pathSearchSchema = z.object({
   runId: z.uuid().optional(),
 })
 
+/**
+ * The screen wrapper `e2e/shell.spec.ts` asserts on: every section renders `screen-<id>`, and
+ * the accessibility sweep scopes its axe run to it.
+ *
+ * A wrapper rather than a `data-testid` on each of the three views, because what the shell
+ * test is checking is that the *route* rendered — which view it settled on is the business of
+ * `pathgen.spec.ts`.
+ */
 function PathScreen() {
+  return (
+    <div data-testid="screen-path" className="flex h-full flex-col">
+      <PathView />
+    </div>
+  )
+}
+
+function PathView() {
   const t = useT('path')
   const { view, pathVersionId } = Route.useSearch()
   const navigate = Route.useNavigate()

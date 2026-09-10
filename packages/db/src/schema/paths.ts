@@ -249,6 +249,14 @@ export const lessons = sqliteTable(
     citations: jsonColumn('citations').$type<JsonObject[]>().notNull().default(sql`'[]'`),
     /** `{ faithfulness, pedagogy_score, coverage_ok, warnings }` from the QA gates. */
     qa: jsonColumn('qa').$type<JsonObject>(),
+    /**
+     * Stage 7's bookkeeping (sub-phase 8.3): `{ attempt, p4_attempt, phases: { p3, p4, p5 },
+     * unmet, warnings }`. Everything else about expansion is derived — `theory` says whether
+     * P3 landed, an `activities` row that P4 did, a `knowledge_items` row that P5 did — so
+     * this column carries only what cannot be: the attempt counters "Regenerar" and "Más
+     * ejemplos" increment, and the practice rules the pool could not satisfy.
+     */
+    expansion: jsonColumn('expansion').$type<JsonObject>(),
     /** What fired a remediation (`{ trigger, concept_id, misconception_id, evidence }`) and
      * its measured effect, for tuning thresholds. */
     remediation: jsonColumn('remediation').$type<JsonObject>(),
@@ -273,6 +281,7 @@ export const lessons = sqliteTable(
     check('lessons_theory_json', jsonObject(t.theory)),
     check('lessons_citations_json', jsonArray(t.citations)),
     check('lessons_qa_json', jsonObject(t.qa)),
+    check('lessons_expansion_json', jsonObject(t.expansion)),
     check('lessons_remediation_json', jsonObject(t.remediation)),
     check('lessons_unlock_rule_json', jsonObject(t.unlockRule)),
     ...standardChecks('lessons', t),

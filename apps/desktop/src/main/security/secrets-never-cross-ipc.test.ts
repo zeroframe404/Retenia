@@ -252,9 +252,12 @@ describe('layer 3 — the outputs with a JSON hole are a known, visible set', ()
     // warnings are produced entirely inside `packages/pathgen`, which never reads a key.
     'pathgen.cancel.output',
     'pathgen.editDraft.output',
+    'pathgen.expand.output',
+    'pathgen.getLessons.output',
     'pathgen.getRun.output',
     'pathgen.getVersion.output',
     'pathgen.quote.output',
+    'pathgen.regenerateLesson.output',
     'pathgen.resume.output',
     'pathgen.start.output',
     'scheduler.optimize.output',

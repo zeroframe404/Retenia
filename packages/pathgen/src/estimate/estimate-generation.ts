@@ -1,6 +1,7 @@
 import type { PerMillionRates, TokenCounter } from '@retenia/ai'
 import { approximateTokens } from '@retenia/ai'
 import type { Chunk } from '@retenia/core'
+import { SYNCHRONOUS_HEAD_LESSONS } from '../expand/expand-lessons'
 import { type GenerationWarning, warning } from '../schemas/warnings'
 import { OUTLINE_MAX_OUTPUT_TOKENS } from '../synthesize/tasks'
 
@@ -35,6 +36,42 @@ export const OUTLINE_OUTPUT_BASE_TOKENS = 1_500
 export const OUTLINE_OUTPUT_MARGIN = 1.3
 export const MODULE_TASK_TOKENS = 1_500
 export const MODULE_OUTPUT_TOKENS = 1_200
+/**
+ * Stage 7 (sub-phase 8.3), fitted to §6's lessons row: *"≈ 40 × 14k in, 5k cached / 4k out"*
+ * for a 300-page book, which is 40 lessons over 8 modules.
+ *
+ * The wizard has to include these or its headline number is wrong by most of the bill: §6's
+ * total for that book is USD 3.4 in batch and the lessons row alone is 1.18 of it. Before
+ * this sub-phase the quote covered everything the app would actually spend; expansion is
+ * what made that stop being true.
+ */
+export const LESSONS_PER_MODULE = 5
+/** The lesson's own fragments and its spec — the 9k of §6's 14k that is not the cached head. */
+export const P3_INPUT_TOKENS_PER_LESSON = 9_000
+/** The path-wide head every lesson reads: few-shots, the table of contents, the glossary. */
+export const P3_CACHED_PREFIX_TOKENS = 5_000
+/** 600–1,200 words of Markdown with citations and a diagram. */
+export const P3_OUTPUT_TOKENS = 4_000
+/** One call per family, over the theory P3 just wrote. */
+export const FAMILIES_PER_LESSON = 4
+export const P4_INPUT_TOKENS_PER_FAMILY = 3_000
+/** 2–3× the wanted count, of one family. */
+export const P4_OUTPUT_TOKENS_PER_FAMILY = 2_500
+export const P5_INPUT_TOKENS_PER_LESSON = 3_000
+/** 3–8 cards with their cloze text and cues. */
+export const P5_OUTPUT_TOKENS = 1_200
+export const P3_SECONDS = 20
+export const P4_SECONDS = 15
+export const P5_SECONDS = 8
+/**
+ * The tail's batch windows: theory, then practice, then cards.
+ *
+ * Three rather than one because P4 and P5 both read the theory P3 wrote, and because the two
+ * of them are dispatched one after the other rather than together — two waves spending from
+ * one `BudgetGuard` could each clear the cap check before either had charged.
+ */
+export const EXPANSION_BATCH_WAVES = 3
+
 export const P1_TOLERANCE = 0.1
 export const P2_TOLERANCE = 0.3
 /** `docs/spec/06-ai-providers.md` §2: the Batch API is −50 %. */
@@ -58,6 +95,9 @@ export interface EstimateInput {
     readonly extract: number
     readonly outline: number
     readonly module: number
+    readonly lesson: number
+    readonly activities: number
+    readonly flashcards: number
   }
   readonly dispatch: 'sync' | 'batch'
   /** The cheap model's Batch API discount, when `dispatch` is `batch`; `0` for a model without one. */
@@ -80,9 +120,14 @@ export interface GenerationEstimate {
   readonly chunks: number
   readonly concepts: number
   readonly modules: number
+  /** Expected lessons — what stage 7 will be billed for, at `LESSONS_PER_MODULE` a module. */
+  readonly lessons: number
   readonly p1: StageEstimate
   readonly p2Outline: StageEstimate
   readonly p2Modules: StageEstimate
+  readonly p3Lessons: StageEstimate
+  readonly p4Activities: StageEstimate
+  readonly p5Flashcards: StageEstimate
   /** The midpoint; `lowUsd`/`highUsd` are the band the wizard should render. */
   readonly usd: number
   readonly lowUsd: number
@@ -153,6 +198,11 @@ export function expectedModules(concepts: number): number {
   return Math.min(MAX_MODULES, Math.max(MIN_MODULES, Math.round(concepts / CONCEPTS_PER_MODULE)))
 }
 
+/** §3 stage 5: *"module = 3–7 lessons"*. */
+export function expectedLessons(modules: number): number {
+  return modules * LESSONS_PER_MODULE
+}
+
 export function estimateGeneration(input: EstimateInput): GenerationEstimate {
   const count = input.countTokens ?? approximateTokens
   const concurrency = input.concurrency ?? { extract: 6, modules: 3 }
@@ -213,34 +263,105 @@ export function estimateGeneration(input: EstimateInput): GenerationEstimate {
       ? ZERO_STAGE
       : { calls: modules, ...moduleTokens, usd: priceOf(input.rates.smart, moduleTokens) }
 
+  // P3, P4 and P5 — stage 7, one lesson at a time over a path-wide cached head.
+  const lessons = chunks === 0 ? 0 : expectedLessons(modules)
+  const lessonPrefix = input.systemTokens.lesson + P3_CACHED_PREFIX_TOKENS
+  const p3Tokens = {
+    inputTokens: lessons * P3_INPUT_TOKENS_PER_LESSON,
+    cachedInputTokens: lessonPrefix * Math.max(0, lessons - 1),
+    cacheWriteTokens: lessons === 0 ? 0 : lessonPrefix,
+    outputTokens: lessons * P3_OUTPUT_TOKENS,
+  }
+  const p3Lessons: StageEstimate =
+    lessons === 0
+      ? ZERO_STAGE
+      : {
+          calls: lessons,
+          ...p3Tokens,
+          usd: priceOf(input.rates.smart, p3Tokens, 1 - discount),
+        }
+
+  const familyCalls = lessons * FAMILIES_PER_LESSON
+  const p4Tokens = {
+    inputTokens: familyCalls * (input.systemTokens.activities + P4_INPUT_TOKENS_PER_FAMILY),
+    cachedInputTokens: 0,
+    cacheWriteTokens: 0,
+    outputTokens: familyCalls * P4_OUTPUT_TOKENS_PER_FAMILY,
+  }
+  const p4Activities: StageEstimate =
+    lessons === 0
+      ? ZERO_STAGE
+      : {
+          calls: familyCalls,
+          ...p4Tokens,
+          usd: priceOf(input.rates.smart, p4Tokens, 1 - discount),
+        }
+
+  const p5Tokens = {
+    inputTokens: lessons * (input.systemTokens.flashcards + P5_INPUT_TOKENS_PER_LESSON),
+    cachedInputTokens: 0,
+    cacheWriteTokens: 0,
+    outputTokens: lessons * P5_OUTPUT_TOKENS,
+  }
+  const p5Flashcards: StageEstimate =
+    lessons === 0
+      ? ZERO_STAGE
+      : {
+          calls: lessons,
+          ...p5Tokens,
+          usd: priceOf(input.rates.smart, p5Tokens, 1 - discount),
+        }
+
   const p2Usd = p2Outline.usd + p2Modules.usd
-  const usd = round(p1.usd + p2Usd)
-  const lowUsd = round(p1.usd * (1 - P1_TOLERANCE) + p2Usd * (1 - P2_TOLERANCE))
-  const highUsd = round(p1.usd * (1 + P1_TOLERANCE) + p2Usd * (1 + P2_TOLERANCE))
+  // Stage 7 shares P2's tolerance: its token counts are the same kind of guess — what a
+  // lesson weighs before one has been written — rather than a measured chunk length.
+  const expandUsd = p3Lessons.usd + p4Activities.usd + p5Flashcards.usd
+  const usd = round(p1.usd + p2Usd + expandUsd)
+  const lowUsd = round(p1.usd * (1 - P1_TOLERANCE) + (p2Usd + expandUsd) * (1 - P2_TOLERANCE))
+  const highUsd = round(p1.usd * (1 + P1_TOLERANCE) + (p2Usd + expandUsd) * (1 + P2_TOLERANCE))
 
   const p2Seconds =
     chunks === 0
       ? 0
       : OUTLINE_SECONDS + (modules * MODULE_SECONDS) / Math.max(1, concurrency.modules)
   const p1Seconds = (calls * SYNC_SECONDS_PER_CALL) / Math.max(1, concurrency.extract)
+
+  // Stage 7's clock. The head is a whole pipeline run synchronously whatever the dispatch
+  // is (§3 stage 7's "2 lessons in real time"), so it is always seconds the user waits; the
+  // tail is either three batch windows or, when there is no runner, the rest of the lessons
+  // at the same per-lesson cost.
+  const perLessonSeconds = P3_SECONDS + P4_SECONDS + P5_SECONDS
+  const headLessons = Math.min(lessons, SYNCHRONOUS_HEAD_LESSONS)
+  const tailLessons = Math.max(0, lessons - headLessons)
+  const expandWaves = input.dispatch === 'batch' && tailLessons > 0 ? EXPANSION_BATCH_WAVES : 0
+  const expandSeconds =
+    (headLessons * perLessonSeconds) / Math.max(1, concurrency.modules) +
+    (expandWaves > 0 ? 0 : tailLessons * perLessonSeconds)
+
+  const syncSeconds = p1Seconds + p2Seconds + expandSeconds
+  const windows = (calls > 0 ? 1 : 0) + expandWaves
   const minutes =
-    input.dispatch === 'batch' && calls > 0
+    input.dispatch === 'batch' && windows > 0
       ? {
-          low: BATCH_MINUTES.low + Math.ceil(p2Seconds / 60),
-          high: BATCH_MINUTES.high + Math.ceil(p2Seconds / 60),
+          low: BATCH_MINUTES.low * windows + Math.ceil((p2Seconds + expandSeconds) / 60),
+          high: BATCH_MINUTES.high * windows + Math.ceil((p2Seconds + expandSeconds) / 60),
         }
       : {
-          low: Math.ceil((p1Seconds + p2Seconds) / 60),
-          high: Math.ceil((2 * (p1Seconds + p2Seconds)) / 60),
+          low: Math.ceil(syncSeconds / 60),
+          high: Math.ceil((2 * syncSeconds) / 60),
         }
 
   return {
     chunks,
     concepts,
     modules,
+    lessons,
     p1,
     p2Outline,
     p2Modules,
+    p3Lessons,
+    p4Activities,
+    p5Flashcards,
     usd,
     lowUsd,
     highUsd,

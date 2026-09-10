@@ -4,7 +4,7 @@ import type { AiBudgetEvent } from './budget'
 import { crossedThresholds, monthKey, startOfMonth } from './budget'
 import type { AiCallMeta } from './cost-log'
 import { sanitizeMeta } from './cost-log'
-import { AiError, redactKey } from './errors'
+import { AiError, redactAiError, redactKey } from './errors'
 import type { AiResultCache, CachedAiResult } from './idempotency'
 import type { FinishReason, InvokeOptions, InvokeOutcome, ProviderInvoker } from './invoker'
 import type { Random, Timers } from './ports'
@@ -352,10 +352,14 @@ export async function runOnce(
         break
       }
 
-      last = outcome.error
+      // Redact before the error goes anywhere: `last` is thrown as the `cause` of
+      // `all_targets_failed`, and the `give-up` branch throws it straight out of this layer
+      // to callers that turn it into a persisted, renderer-visible warning.
+      const failure = redactAiError(outcome.error, apiKey)
+      last = failure
       transport += 1
       const retry = classify(outcome.error, transport)
-      if (retry === 'give-up') throw outcome.error
+      if (retry === 'give-up') throw failure
       if (retry === 'next-target') break
       await deps.timers.sleep(retryDelayMs(deps.random), signal)
     }
