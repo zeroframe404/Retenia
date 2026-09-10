@@ -9,7 +9,10 @@
       "synthesizing": "Construyendo mapa de prerrequisitos",
       "synthesizing_modules": "Proponiendo ruta ({{done}}/{{total}} módulos)",
       "sequencing": "Proponiendo ruta",
-      "persisting": "Guardando el borrador"
+      "persisting": "Guardando el borrador",
+      "expanding_theory": "Escribiendo las lecciones ({{done}}/{{total}})",
+      "expanding_practice": "Escribiendo los ejercicios ({{done}}/{{total}})",
+      "expanding_flashcards": "Creando las tarjetas ({{done}}/{{total}})"
     },
     "status": {
       "queued": "En cola",
@@ -21,7 +24,8 @@
       "completed": "Borrador listo",
       "failed": "Falló",
       "cancelled": "Cancelada",
-      "blocked_budget": "Pausada por presupuesto"
+      "blocked_budget": "Pausada por presupuesto",
+      "expanding": "Escribiendo las lecciones"
     },
     "estimate": {
       "summary": "≈ {{minutes}} min y USD {{usd}}",
@@ -69,7 +73,83 @@
       "module_merged": "El módulo «{{module}}» se unió a «{{into}}».",
       "section_dropped": "La sección «{{section}}» quedó sin módulos y se quitó.",
       "path_too_small": "La ruta tiene solo {{lessons}} lecciones.",
-      "exam_date_overshoot": "Al ritmo elegido hacen falta {{weeks_estimate}} semanas y quedan {{weeks_available}} hasta el {{target_date}}."
+      "exam_date_overshoot": "Al ritmo elegido hacen falta {{weeks_estimate}} semanas y quedan {{weeks_available}} hasta el {{target_date}}.",
+      "lesson_failed": "No se pudo escribir la lección {{lesson}}: {{error}}",
+      "lesson_context_trimmed": "La lección {{lesson}} tenía más fuentes de las que entran: se usaron {{kept}} y se dejaron {{dropped}}.",
+      "expansion_injection_suspected": "La lección {{lesson}} contiene texto que parece dirigido al modelo ({{block}}); se procesó igual.",
+      "citation_unresolved": "La lección {{lesson}} citó fragmentos que no existen ({{ids}}); se quitaron las referencias.",
+      "lesson_block_uncited": "Un bloque de {{block}} de la lección {{lesson}} no pudo citar ninguna fuente: quedó marcado como conocimiento general.",
+      "activity_rejected": "Se descartó un ejercicio de tipo {{type}} de la lección {{lesson}} ({{code}}).",
+      "practice_incomplete": "La práctica de la lección {{lesson}} no cumple «{{rule}}»: {{detail}}.",
+      "flashcard_deduped": "Se descartó una tarjeta repetida de la lección {{lesson}} ({{reason}})."
     }
+  },
+  "wizard": {
+    "step": {
+      "configure": "Configurar",
+      "generating": "Generando"
+    },
+    "goal": "Objetivo",
+    "goalPlaceholder": "ej. Aprobar el parcial de física",
+    "level": "Nivel",
+    "levelPlaceholder": "ej. principiante, B1, universitario",
+    "primarySource": "Fuente principal",
+    "selectSource": "Elegí una fuente…",
+    "pace": "Ritmo (horas/semana)",
+    "examDate": "Fecha del examen (opcional)",
+    "generate": "Generar",
+    "cancel": "Cancelar",
+    "noSources": {
+      "title": "Todavía no hay fuentes listas",
+      "description": "Agregá y terminá de importar al menos una fuente en la Biblioteca antes de generar una ruta."
+    }
+  },
+  "preview": {
+    "loadError": "No se pudo cargar esta versión de la ruta.",
+    "undo": "Deshacer",
+    "redo": "Rehacer",
+    "mergeLessons": "Unir {{count}} lecciones",
+    "freeze": "Confirmar ruta",
+    "frozen": "Ruta confirmada",
+    "primarySource": "Fuente principal",
+    "knownToggle": "Ya lo sé",
+    "moveUp": "Mover arriba",
+    "moveDown": "Mover abajo",
+    "exclude": "Excluir",
+    "deepen": "Profundizar",
+    "deepenTitle": "¿Profundizar esta lección?",
+    "deepenDescription": "Divide esta lección en dos, con más conceptos en cada una. Esto agrega lecciones que costarán más al expandirlas después.",
+    "deepenConfirm": "Profundizar",
+    "deepenApplied": "Lección dividida — costo extra proyectado ≈ USD {{usd}}",
+    "selectLesson": "Seleccionar esta lección para unir"
+  },
+  "completion": {
+    "title": "Tu ruta está lista",
+    "lessons": "Lecciones",
+    "minutes": "Minutos",
+    "modules": "Módulos",
+    "concepts": "Conceptos",
+    "plan": "A este ritmo, lista para el {{date}} en unas {{weeks}} semanas.",
+    "regenerate": "Regenerar ruta",
+    "regenerateDisabledReason": "La regeneración con diff llega en una fase posterior."
+  },
+  "expansion": {
+    "title": "Lecciones",
+    "subtitle": "Las primeras están listas; el resto se escribe en segundo plano.",
+    "empty": "Todavía no hay lecciones para expandir.",
+    "status": {
+      "pending": "En cola",
+      "generating": "Escribiendo",
+      "ready": "Lista",
+      "failed": "Falló"
+    },
+    "counts": "{{activities}} ejercicios · {{flashcards}} tarjetas",
+    "regenerate": "Regenerar",
+    "moreExamples": "Más ejemplos",
+    "reportError": "Reportar error",
+    "reportErrorDisabled": "Esta lección todavía no cita ninguna fuente.",
+    "unmet": "La práctica no cumple: {{rules}}",
+    "expand": "Escribir las lecciones",
+    "expanding": "Escribiendo…"
   }
 }

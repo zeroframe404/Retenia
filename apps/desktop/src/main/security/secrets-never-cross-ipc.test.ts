@@ -103,6 +103,8 @@ const JUSTIFIED: Readonly<Record<string, string>> = {
   keyPreview: 'ai.listProviderCards: the same masked `••••wxyz` shape secrets.get answers with',
   modelKey:
     'the pricing table\'s "<kind>:<modelId>" row id (packages/ai/src/pricing/types.ts) — a catalog key, not a credential',
+  chunk_key:
+    'pathgen source_ref: a chunk dedup identifier (packages/db chunks.chunk_key), not a credential',
 }
 
 function words(name: string): string[] {
@@ -244,6 +246,20 @@ describe('layer 3 — the outputs with a JSON hole are a known, visible set', ()
     'memory.forecast.output',
     'memory.rescheduleNow.output',
     'memory.simulateReschedule.output',
+    // Every one of these carries `warnings[]`, whose `params` is `z.record(...)` (a
+    // generation warning's free-form arguments, e.g. `{ chunk_id, error }`) — the same
+    // "catalog, not a hole" shape as `perMillionUsd` above. Never populated from a secret:
+    // warnings are produced entirely inside `packages/pathgen`, which never reads a key.
+    'pathgen.cancel.output',
+    'pathgen.editDraft.output',
+    'pathgen.expand.output',
+    'pathgen.getLessons.output',
+    'pathgen.getRun.output',
+    'pathgen.getVersion.output',
+    'pathgen.quote.output',
+    'pathgen.regenerateLesson.output',
+    'pathgen.resume.output',
+    'pathgen.start.output',
     'scheduler.optimize.output',
     'session.answer.output',
     'session.next.output',

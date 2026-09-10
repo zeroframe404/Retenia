@@ -1,6 +1,8 @@
 import type { ExtractableChunk, ExtractSource } from '../extract/task'
 import type { PathgenPrompt, PathgenPrompts } from '../prompts'
 import { EXTRACT_CHUNK_SCHEMA_ID, type ExtractChunkOutput } from '../schemas/extraction'
+import { MAKE_FLASHCARDS_SCHEMA_ID } from '../schemas/flashcards'
+import { WRITE_LESSON_SCHEMA_ID } from '../schemas/lesson'
 import { SYNTHESIZE_MODULE_SCHEMA_ID, SYNTHESIZE_OUTLINE_SCHEMA_ID } from '../schemas/outline'
 
 /**
@@ -61,11 +63,45 @@ export const modulePrompt: PathgenPrompt = {
   temperature: 0.3,
 }
 
+export const lessonPrompt: PathgenPrompt = {
+  template: 'Write the lesson.\n\n{{task}}',
+  promptVersion: '1',
+  schemaVersion: WRITE_LESSON_SCHEMA_ID,
+  role: 'smart',
+  temperature: 0.6,
+}
+
+export const activitiesPrompt: PathgenPrompt = {
+  template: 'Write the practice exercises.\n\n{{task}}',
+  promptVersion: '1',
+  schemaVersion: 'make_activities@1',
+  role: 'smart',
+  temperature: 0.7,
+}
+
+export const flashcardsPrompt: PathgenPrompt = {
+  template: 'Write the flashcards.\n\n{{task}}',
+  promptVersion: '1',
+  schemaVersion: MAKE_FLASHCARDS_SCHEMA_ID,
+  role: 'smart',
+  temperature: 0.3,
+}
+
 export const testPrompts: PathgenPrompts = {
   extract: extractPrompt,
   outline: outlinePrompt,
   module: modulePrompt,
-  snapshot: { P1_extract_chunk: '1', P2_synthesize_outline: '1', P2_synthesize_module: '1' },
+  lesson: lessonPrompt,
+  activities: activitiesPrompt,
+  flashcards: flashcardsPrompt,
+  snapshot: {
+    P1_extract_chunk: '1',
+    P2_synthesize_outline: '1',
+    P2_synthesize_module: '1',
+    P3_write_lesson: '1',
+    P4_make_activities: '1',
+    P5_make_flashcards: '1',
+  },
 }
 
 /** A minimal but valid `extract_chunk@1` answer naming the given concepts. */

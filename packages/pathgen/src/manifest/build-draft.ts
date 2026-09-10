@@ -63,5 +63,6 @@ export function buildPathDraft(input: DraftInput): PathDraft {
     excluded: input.excluded.map((entry) => ({ ...entry })),
     stats: input.sequenced.stats,
     warnings: dedupeWarnings(input.warnings),
+    known_node_ids: [],
   }
 }

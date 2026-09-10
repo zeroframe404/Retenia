@@ -27,6 +27,7 @@ export {
   parseGenerationConfig,
 } from './config/generation-config'
 export * from './consolidate'
+export * from './edit'
 export {
   GENERATION_ERROR_CODES,
   GenerationError,
@@ -34,7 +35,9 @@ export {
   isGenerationError,
 } from './errors'
 export * from './estimate'
+export * from './expand'
 export * from './extract'
+export * from './freeze'
 export type { PathgenLogger } from './logger'
 export { silentLogger } from './logger'
 export * from './manifest'
@@ -60,12 +63,40 @@ export {
   extractedConceptSchema,
 } from './schemas/extraction'
 export {
+  FLASHCARD_TYPES,
+  type Flashcard,
+  flashcardSchema,
+  MAKE_FLASHCARDS_SCHEMA_ID,
+  MAKE_FLASHCARDS_SCHEMA_NAME,
+  MAKE_FLASHCARDS_SCHEMA_VERSION,
+  type MakeFlashcardsOutput,
+  makeFlashcardsOutputSchema,
+  PROPOSABLE_IMPORTANCE,
+} from './schemas/flashcards'
+export {
   KNOWLEDGE_GRAPH_SCHEMA_ID,
   KNOWLEDGE_GRAPH_VERSION,
   type KnowledgeGraphDocument,
   knowledgeGraphDocumentSchema,
   toKnowledgeGraphDocument,
 } from './schemas/knowledge-graph'
+export {
+  DIAGRAM_KINDS,
+  isSubstantive,
+  type LessonCitation,
+  type LessonTheory,
+  lessonCitationSchema,
+  lessonTheorySchema,
+  SUBSTANTIVE_BLOCK_TYPES,
+  THEORY_BLOCK_TYPES,
+  type TheoryBlock,
+  theoryBlockSchema,
+  WRITE_LESSON_SCHEMA_ID,
+  WRITE_LESSON_SCHEMA_NAME,
+  WRITE_LESSON_SCHEMA_VERSION,
+  type WriteLessonOutput,
+  writeLessonOutputSchema,
+} from './schemas/lesson'
 export {
   type GenerationManifest,
   generationManifestSchema,
@@ -92,18 +123,26 @@ export {
   synthesizeOutlineOutputSchema,
 } from './schemas/outline'
 export {
+  type CheckpointNode,
+  type CoreLessonNode,
   checkpointNodeSchema,
   coreLessonNodeSchema,
   type DraftMisconception,
   draftMisconceptionSchema,
+  type FinalExamNode,
   finalExamNodeSchema,
+  type ModuleNode,
   moduleNodeSchema,
   PATH_DRAFT_SCHEMA_ID,
   PATH_DRAFT_VERSION,
   type PathDraft,
+  type PathStats,
   pathDraftSchema,
   pathStatsSchema,
+  type ReinforcementNode,
   reinforcementNodeSchema,
+  type SectionNode,
+  type SourceRef,
   sectionNodeSchema,
   sourceRefSchema,
 } from './schemas/path-draft'

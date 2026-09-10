@@ -59,6 +59,7 @@ import type { LibraryService } from '../library/service'
 import { log } from '../logging/log'
 import type { ServedActivity } from '../memory/activity-service'
 import type { MemoryService } from '../memory/service'
+import type { PathgenFacade } from '../pathgen/facade'
 import { getDevMediaSamplePath, getLogsDir } from '../paths'
 import { maskSecret } from '../secrets/store'
 import type { SettingsStore } from '../settings/store'
@@ -147,6 +148,8 @@ export interface HandlerDeps {
   /** Same gate as `jobs.enqueueDemo`/`app.devMediaSampleUrl`: whether `memory.seedReviewDemo`
    *  will seed anything. False in a packaged build. */
   reviewDemoEnabled: boolean
+  /** "Generate with AI" (sub-phase 8.2). `null` when the database did not open. */
+  pathgen: PathgenFacade | null
 }
 
 /** The bridge speaks ISO strings; the use cases speak `Date`. */
@@ -535,7 +538,12 @@ export function createHandlers({
   dbUnavailableReason,
   emitSettingsChanged,
   reviewDemoEnabled,
+  pathgen,
 }: HandlerDeps): Handlers<Contract> {
+  const pathgenOrThrow = (): PathgenFacade => {
+    if (pathgen === null) unavailable('pathgen', dbUnavailableReason)
+    return pathgen
+  }
   return {
     'app.getVersion': () => ({
       app: app.getVersion(),
@@ -612,6 +620,32 @@ export function createHandlers({
     'jobs.retry': ({ id }) => jobs.retry(id),
 
     'jobs.enqueueDemo': (input) => jobs.enqueueDemo(input),
+
+    // --- "Generate with AI": wizard, editable preview, freeze (sub-phase 8.2) ---
+
+    'pathgen.quote': (input) => pathgenOrThrow().quote(input),
+
+    'pathgen.start': (input) => pathgenOrThrow().start(input),
+
+    'pathgen.resume': (input) => pathgenOrThrow().resume(input),
+
+    'pathgen.cancel': (input) => pathgenOrThrow().cancel(input),
+
+    'pathgen.getRun': (input) => pathgenOrThrow().getRun(input),
+
+    'pathgen.getVersion': (input) => pathgenOrThrow().getVersion(input),
+
+    'pathgen.editDraft': (input) => pathgenOrThrow().editDraft(input),
+
+    'pathgen.freeze': (input) => pathgenOrThrow().freeze(input),
+
+    // --- stage 7: lesson expansion (sub-phase 8.3) ---
+
+    'pathgen.expand': (input) => pathgenOrThrow().expand(input),
+
+    'pathgen.getLessons': (input) => pathgenOrThrow().getLessons(input),
+
+    'pathgen.regenerateLesson': (input) => pathgenOrThrow().regenerateLesson(input),
 
     // --- AI batches: the Batch API's tray surface (sub-phase 7.3) ---
 

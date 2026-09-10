@@ -1,10 +1,11 @@
 import type { ProviderRole } from '@retenia/ai'
-import { USER_CONTENT_INSTRUCTIONS } from '@retenia/ai'
 import { EXTRACT_CHUNK_SCHEMA_ID } from './schemas/extraction'
+import { MAKE_FLASHCARDS_SCHEMA_ID } from './schemas/flashcards'
+import { WRITE_LESSON_SCHEMA_ID } from './schemas/lesson'
 import { SYNTHESIZE_MODULE_SCHEMA_ID, SYNTHESIZE_OUTLINE_SCHEMA_ID } from './schemas/outline'
 
 /**
- * The three prompt files this package runs, as the main process hands them in.
+ * The six prompt files this package runs, as the main process hands them in.
  *
  * `@retenia/ai/prompts` is Node-only (it reads `packages/ai/prompts/` from disk), so the
  * pure entry point takes the *loaded* prompts rather than loading them — the same convention
@@ -16,6 +17,9 @@ export const PATHGEN_PROMPT_IDS = {
   extract: 'P1_extract_chunk',
   outline: 'P2_synthesize_outline',
   module: 'P2_synthesize_module',
+  lesson: 'P3_write_lesson',
+  activities: 'P4_make_activities',
+  flashcards: 'P5_make_flashcards',
 } as const
 
 export interface PathgenPrompt {
@@ -33,22 +37,27 @@ export interface PathgenPrompts {
   readonly extract: PathgenPrompt
   readonly outline: PathgenPrompt
   readonly module: PathgenPrompt
+  readonly lesson: PathgenPrompt
+  /**
+   * P4. Its answers are parsed by `@retenia/activity-ai`, not here — this package only
+   * dispatches them — so `assertPathgenPrompts` checks its `{{task}}` placeholder and leaves
+   * the schema-id check to `createActivityAuthor`, which owns the parser.
+   */
+  readonly activities: PathgenPrompt
+  readonly flashcards: PathgenPrompt
   /** `promptVersionSnapshot()` — every registered prompt, for the manifest. */
   readonly snapshot: Readonly<Record<string, string>>
 }
 
 /**
- * The system message of a prompt file: everything above `{{task}}`, plus the paragraph that
- * gives the `<user_content>` envelope its meaning, appended exactly once so `withCache` — which
- * appends it when missing — finds it already there and the cached prefix stays byte-identical
- * between the two call paths.
+ * `systemFor` lives in `@retenia/ai` — `@retenia/activity-ai` needs it too, since P4 builds
+ * its own requests — and is re-exported here so every caller of this package still finds it
+ * where it has always been.
  */
-export function systemFor(template: string): string {
-  const system = template.replace('{{task}}', '').trimEnd()
-  return system.includes(USER_CONTENT_INSTRUCTIONS)
-    ? system
-    : `${system}\n\n${USER_CONTENT_INSTRUCTIONS}`
-}
+export { systemFor } from '@retenia/ai'
+
+/** §9's P5 temperature, with room for a small tuning but not for a writing temperature. */
+export const MAX_FLASHCARD_TEMPERATURE = 0.4
 
 export class PathgenPromptError extends Error {
   override readonly name = 'PathgenPromptError'
@@ -66,13 +75,25 @@ export function assertPathgenPrompts(prompts: PathgenPrompts): PathgenPrompts {
       `${PATHGEN_PROMPT_IDS.extract} must run at temperature 0 (it runs at ${prompts.extract.temperature})`,
     )
   }
-  const expected: ReadonlyArray<readonly [string, PathgenPrompt, string]> = [
+  // §9 puts P5 at 0.3: a flashcard's value is in being minimal and unambiguous, and the twenty
+  // rules of §1.2 are constraints rather than a style to vary. The ceiling is deliberately
+  // loose — it catches a file re-pointed at a writing temperature, not a tuning of 0.3 to 0.35.
+  if (prompts.flashcards.temperature > MAX_FLASHCARD_TEMPERATURE) {
+    throw new PathgenPromptError(
+      `${PATHGEN_PROMPT_IDS.flashcards} must stay near-deterministic (§9 puts P5 at 0.3; ` +
+        `it runs at ${prompts.flashcards.temperature})`,
+    )
+  }
+  const expected: ReadonlyArray<readonly [string, PathgenPrompt, string | null]> = [
     [PATHGEN_PROMPT_IDS.extract, prompts.extract, EXTRACT_CHUNK_SCHEMA_ID],
     [PATHGEN_PROMPT_IDS.outline, prompts.outline, SYNTHESIZE_OUTLINE_SCHEMA_ID],
     [PATHGEN_PROMPT_IDS.module, prompts.module, SYNTHESIZE_MODULE_SCHEMA_ID],
+    [PATHGEN_PROMPT_IDS.lesson, prompts.lesson, WRITE_LESSON_SCHEMA_ID],
+    [PATHGEN_PROMPT_IDS.activities, prompts.activities, null],
+    [PATHGEN_PROMPT_IDS.flashcards, prompts.flashcards, MAKE_FLASHCARDS_SCHEMA_ID],
   ]
   for (const [id, prompt, schema] of expected) {
-    if (prompt.schemaVersion !== schema) {
+    if (schema !== null && prompt.schemaVersion !== schema) {
       throw new PathgenPromptError(
         `${id} declares schema "${prompt.schemaVersion}" but this package parses "${schema}"`,
       )

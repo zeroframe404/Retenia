@@ -2,6 +2,7 @@ import type {
   AiBudgetEvent,
   AiClient,
   AiRegistry,
+  AiResultCache,
   ModelRef,
   PricingTable,
   ProviderInvoker,
@@ -69,6 +70,15 @@ export interface MainAiClientOptions {
    * a network and without this package depending on the SDK it never imports directly.
    */
   invoker?: ProviderInvoker
+  /**
+   * Which profiles and roles this client resolves against. Defaults to the stored ones.
+   *
+   * Overriding the invoker alone is not enough to take a client off the network: role
+   * resolution happens first, and it needs a *profile*, whose key `runOnce` then asks for.
+   * A fresh test profile has none, so every target fails before the fake invoker is reached
+   * ("every provider for the cheap role failed"). `RETENIA_E2E=1` passes both halves.
+   */
+  registry?: () => Promise<AiRegistry>
   /**
    * The merged pricing table this client bills against. Defaults to the shipped table.
    *
@@ -238,10 +248,54 @@ async function maybeAlertBudgetThreshold(
   }
 }
 
+/**
+ * The `ai_results` idempotency store, as an `AiResultCache`
+ * (`docs/spec/04-path-generation.md` §7's "if a result exists, it is not repeated").
+ *
+ * Exported (not inlined into `createMainAiClient`) so `pathgen/bootstrap.ts` (sub-phase 8.2)
+ * can hand a generation run the exact same cache this gateway reads and writes, rather than a
+ * second adapter over the same table — a resumed run and the gateway's own dedup would
+ * otherwise be two callers that happen to agree, instead of provably the same store.
+ */
+export function buildAiResultCache(
+  repos: Pick<MainAiClientRepositories, 'aiResults'>,
+): AiResultCache {
+  return {
+    get: async (customId) => {
+      const row = await repos.aiResults.findByCustomId(customId)
+      return row === undefined
+        ? undefined
+        : {
+            customId: row.customId,
+            output: row.output,
+            model: row.model,
+            provider: row.provider,
+            costUsd: row.costUsd,
+          }
+    },
+    put: async (result) => {
+      await repos.aiResults.put({
+        customId: result.customId,
+        stage: result.stage,
+        provider: result.provider,
+        model: result.model,
+        promptVersion: result.promptVersion ?? null,
+        schemaVersion: result.schemaVersion ?? null,
+        output: result.output,
+        costUsd: result.costUsd,
+        hits: 0,
+        lastHitAt: null,
+        meta: null,
+      })
+    },
+  }
+}
+
 export function createMainAiClient({
   repos,
   secrets,
   invoker,
+  registry,
   pricing,
   onBudgetAlert,
 }: MainAiClientOptions): AiClient {
@@ -254,7 +308,7 @@ export function createMainAiClient({
       invoker ??
       withLocalPolicy(createSdkInvoker(), { timers: realTimers, isOnline: () => net.isOnline() }),
 
-    registry: () => buildRegistry(repos),
+    registry: registry ?? (() => buildRegistry(repos)),
     pricing: pricing ?? SHIPPED_PRICING,
 
     getSecret: (name) => secrets.getSecret(name),
@@ -270,38 +324,10 @@ export function createMainAiClient({
     },
 
     // `docs/spec/04-path-generation.md` §7's "if a result exists, it is not repeated",
-    // wired. The adapter is this thin because the port was designed for it: `findByCustomId`
-    // counts its own hit, and `put` replaces rather than inserts so a forced regeneration
-    // does not leave the answer it was asked to discard sitting in front of the new one.
-    resultCache: {
-      get: async (customId) => {
-        const row = await repos.aiResults.findByCustomId(customId)
-        return row === undefined
-          ? undefined
-          : {
-              customId: row.customId,
-              output: row.output,
-              model: row.model,
-              provider: row.provider,
-              costUsd: row.costUsd,
-            }
-      },
-      put: async (result) => {
-        await repos.aiResults.put({
-          customId: result.customId,
-          stage: result.stage,
-          provider: result.provider,
-          model: result.model,
-          promptVersion: result.promptVersion ?? null,
-          schemaVersion: result.schemaVersion ?? null,
-          output: result.output,
-          costUsd: result.costUsd,
-          hits: 0,
-          lastHitAt: null,
-          meta: null,
-        })
-      },
-    },
+    // wired. `buildAiResultCache` is also what `pathgen/bootstrap.ts` hands a generation run
+    // (sub-phase 8.2), so a resumed run replays through the exact same store this gateway
+    // already reads and writes.
+    resultCache: buildAiResultCache(repos),
 
     spentSinceUsd: (from) => repos.aiCalls.sumCost({ from }),
     monthlyBudgetUsd: () => repos.settings.get('ai.budget.monthlyUsd'),

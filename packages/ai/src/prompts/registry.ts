@@ -34,6 +34,21 @@ import { renderTemplate } from './template'
 export const PROMPTS_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'prompts')
 
 /**
+ * How a prompt file's text is obtained, given its `<id>/<version>.md` path.
+ *
+ * Injectable because `PROMPTS_ROOT` is resolved from `import.meta.url`, which is right when
+ * this package runs from source (vitest, `tsx`) and wrong the moment a bundler inlines it
+ * somewhere else — `apps/desktop` must bundle `@retenia/ai`, since the package ships
+ * TypeScript with no build step. The Electron main process passes the reader from
+ * `@retenia/ai/prompts-bundled`, which carries the files inside the bundle; everything else
+ * gets the disk. `@retenia/db`'s `migrations-bundled` solves the identical problem the
+ * identical way.
+ */
+export type PromptFileReader = (file: string) => string
+
+const readFromDisk: PromptFileReader = (file) => readFileSync(join(PROMPTS_ROOT, file), 'utf-8')
+
+/**
  * Every registered prompt, and the versions of it that exist.
  *
  * Versions are listed oldest first; the last is what `renderPrompt` uses when no version is
@@ -53,6 +68,9 @@ const PROMPTS = {
   P2_synthesize_outline: [1],
   /** The second half of P2: one module's lesson specs over the same cached prefix (8.1). */
   P2_synthesize_module: [1],
+  P3_write_lesson: [1],
+  P4_make_activities: [1],
+  P5_make_flashcards: [1],
 } as const satisfies Record<string, readonly number[]>
 
 export type PromptId = keyof typeof PROMPTS
@@ -110,7 +128,11 @@ export function isPromptId(value: string): value is PromptId {
  * the frontmatter's. A file copied to start a new version and not re-stamped would otherwise
  * report itself as its ancestor, and the idempotency key would reuse the ancestor's answers.
  */
-export function loadPrompt(id: PromptId, version?: number): LoadedPrompt {
+export function loadPrompt(
+  id: PromptId,
+  version?: number,
+  read: PromptFileReader = readFromDisk,
+): LoadedPrompt {
   if (!isPromptId(id)) throw new UnknownPromptError(id)
 
   const wanted = version ?? latestVersion(id)
@@ -118,15 +140,14 @@ export function loadPrompt(id: PromptId, version?: number): LoadedPrompt {
     throw new UnknownPromptError(id, wanted)
   }
 
-  const key = `${id}@${wanted}`
+  // Keyed by reader as well as by prompt: a test that reads the bundle and a caller that
+  // reads the disk must not answer each other's questions from one cache entry.
+  const key = `${id}@${wanted}@${read === readFromDisk ? 'disk' : 'injected'}`
   const hit = cache.get(key)
   if (hit !== undefined) return hit
 
   const file = `prompts/${id}/${wanted}.md`
-  const parsed = parsePromptFile(
-    readFileSync(join(PROMPTS_ROOT, id, `${wanted}.md`), 'utf-8'),
-    file,
-  )
+  const parsed = parsePromptFile(read(`${id}/${wanted}.md`), file)
 
   if (parsed.frontmatter.id !== id) {
     throw new UnknownPromptError(`${id} (the file declares id "${parsed.frontmatter.id}")`, wanted)
@@ -160,8 +181,9 @@ export function renderPrompt(
   id: PromptId,
   variables: TemplateScope = {},
   version?: number,
+  read?: PromptFileReader,
 ): RenderedPrompt {
-  const prompt = loadPrompt(id, version)
+  const prompt = loadPrompt(id, version, read)
   return {
     text: renderTemplate(prompt.template, variables, `${id}@${prompt.promptVersion}`),
     promptVersion: prompt.promptVersion,

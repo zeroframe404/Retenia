@@ -92,3 +92,20 @@ export function wrapUserContent(text: string, label?: string): WrappedUserConten
     injectionSuspected: looksLikeInjection(text),
   }
 }
+
+/**
+ * The system message of a prompt file: everything above `{{task}}`, plus the paragraph that
+ * gives the `<user_content>` envelope its meaning, appended exactly once.
+ *
+ * Appended here rather than left to each caller because the envelope without the paragraph
+ * that explains it is decoration — the control that does the work is the system message
+ * telling the model that everything inside is data. `withCache` appends the same paragraph
+ * when a prompt lacks it, and both must produce the same bytes or a cached prefix written by
+ * one path is a miss on the other.
+ */
+export function systemFor(template: string): string {
+  const system = template.replace('{{task}}', '').trimEnd()
+  return system.includes(USER_CONTENT_INSTRUCTIONS)
+    ? system
+    : `${system}\n\n${USER_CONTENT_INSTRUCTIONS}`
+}

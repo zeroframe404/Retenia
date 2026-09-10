@@ -57,6 +57,7 @@ Packaging note (Windows first): the `.node` binaries of both drivers and `sqlite
 | 12 | `0012_ai_results` | `7f3cd5043ce2` |  |
 | 13 | `0013_ai_batches` | `d9871534bf66` |  |
 | 14 | `0014_generation_runs_and_extractions` | `517d10f33f7d` | `generation_runs` (the "Generate with AI" run ledger: config and its hash, status = stage, progress, estimate, cost and token totals, manifest, warnings) and `extractions` (the validated P1 output per chunk, live-unique on `custom_id`, so a re-run over the same book makes no P1 call). The draft itself is an unfrozen `path_versions` row (`04-path-generation.md` §3 stages 3–5, §7). |
+| 15 | `0015_lesson_expansion` | `cd2d5cb43e0b` |  |
 
 ## Tables
 
@@ -74,7 +75,7 @@ Packaging note (Windows first): the `.node` binaries of both drivers and `sqlite
 | `path_versions` | Learning paths | 13 | 1 | 1 | 8 |
 | `sections` | Learning paths | 12 | 1 | 1 | 6 |
 | `modules` | Learning paths | 14 | 1 | 1 | 8 |
-| `lessons` | Learning paths | 24 | 2 | 3 | 16 |
+| `lessons` | Learning paths | 25 | 2 | 3 | 17 |
 | `activities` | Learning paths | 20 | 1 | 3 | 14 |
 | `generation_runs` | Path generation | 22 | 2 | 2 | 14 |
 | `extractions` | Path generation | 22 | 3 | 4 | 11 |
@@ -509,6 +510,7 @@ Checks:
 | `theory` | text | yes |  |  |
 | `citations` | text | no | `'[]'` |  |
 | `qa` | text | yes |  |  |
+| `expansion` | text | yes |  |  |
 | `remediation` | text | yes |  |  |
 | `unlock_rule` | text | yes |  |  |
 | `xp_reward` | integer | no | `0` |  |
@@ -538,6 +540,7 @@ Checks:
 - `lessons_theory_json`: `theory IS NULL OR (json_valid(theory) AND json_type(theory) = 'object')`
 - `lessons_citations_json`: `json_valid(citations) AND json_type(citations) = 'array'`
 - `lessons_qa_json`: `qa IS NULL OR (json_valid(qa) AND json_type(qa) = 'object')`
+- `lessons_expansion_json`: `expansion IS NULL OR (json_valid(expansion) AND json_type(expansion) = 'object')`
 - `lessons_remediation_json`: `remediation IS NULL OR (json_valid(remediation) AND json_type(remediation) = 'object')`
 - `lessons_unlock_rule_json`: `unlock_rule IS NULL OR (json_valid(unlock_rule) AND json_type(unlock_rule) = 'object')`
 - `lessons_id_uuidv7`: `length(id) = 36 AND substr(id, 15, 1) = '7'`
@@ -630,7 +633,7 @@ Indexes:
 
 Checks:
 
-- `generation_runs_status`: `status IN ('queued', 'extracting', 'consolidating', 'synthesizing', 'sequencing', 'persisting', 'completed', 'failed', 'cancelled', 'blocked_budget')`
+- `generation_runs_status`: `status IN ('queued', 'extracting', 'consolidating', 'synthesizing', 'sequencing', 'persisting', 'expanding', 'completed', 'failed', 'cancelled', 'blocked_budget')`
 - `generation_runs_config_json`: `json_valid(config) AND json_type(config) = 'object'`
 - `generation_runs_config_hash_sha256`: `length(config_hash) = 64`
 - `generation_runs_progress_json`: `progress IS NULL OR (json_valid(progress) AND json_type(progress) = 'object')`

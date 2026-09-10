@@ -8,7 +8,7 @@
 
 export type { ParsedPromptFile, PromptFrontmatter } from './frontmatter'
 export { PromptFrontmatterError, parsePromptFile, promptFrontmatterSchema } from './frontmatter'
-export type { LoadedPrompt, PromptId, RenderedPrompt } from './registry'
+export type { LoadedPrompt, PromptFileReader, PromptId, RenderedPrompt } from './registry'
 export {
   isPromptId,
   loadPrompt,

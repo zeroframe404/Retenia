@@ -1,5 +1,5 @@
 import type { BatchEstimate, ProviderRole } from '@retenia/ai'
-import { approximateTokens, resolveTargets, structuredRequestFor } from '@retenia/ai'
+import { approximateTokens, resolveTargets } from '@retenia/ai'
 import type {
   AbortSignalLike,
   Chunk,
@@ -19,11 +19,8 @@ import {
 } from '../config/generation-config'
 import { consolidateConcepts, DEFAULT_THRESHOLD } from '../consolidate'
 import { GenerationError } from '../errors'
-import {
-  estimateGeneration,
-  estimateWarnings,
-  type GenerationEstimate,
-} from '../estimate/estimate-generation'
+import { estimateWarnings, type GenerationEstimate } from '../estimate/estimate-generation'
+import { loadPlan, quoteFromPlan } from '../estimate/quote-config'
 import { extractChunks, tooManyFailures } from '../extract/extract-chunks'
 import { buildExtractRequest, extractBinding, extractCustomId } from '../extract/request'
 import type { ExtractSource } from '../extract/task'
@@ -33,15 +30,13 @@ import { buildManifest, chunkSetHash, generationSeed } from '../manifest/build-m
 import type { ProgressDetail } from '../progress/reporter'
 import { silentProgress } from '../progress/reporter'
 import type { GenerationStage } from '../progress/stages'
-import { type PathgenPrompt, systemFor } from '../prompts'
-import { extractChunkOutputSchema } from '../schemas/extraction'
+import { systemFor } from '../prompts'
 import { toKnowledgeGraphDocument } from '../schemas/knowledge-graph'
 import {
   type GenerationManifest,
   generationManifestSchema,
   type ManifestStats,
 } from '../schemas/manifest'
-import { synthesizeModuleOutputSchema, synthesizeOutlineOutputSchema } from '../schemas/outline'
 import type { PathDraft } from '../schemas/path-draft'
 import {
   dedupeWarnings,
@@ -54,7 +49,7 @@ import { synthesize } from '../synthesize/synthesize'
 import { addUsage, type StageUsage, ZERO_USAGE } from '../usage'
 import { DEFAULT_GENERATION_CONCURRENCY, type GenerationRunDeps } from './deps'
 import { persistDraft } from './persist-draft'
-import { type ChunkPlan, planChunks } from './plan-chunks'
+import type { ChunkPlan } from './plan-chunks'
 
 /**
  * The "Generate with AI" run, stages 3–5 of `docs/spec/04-path-generation.md` §3 and the
@@ -224,42 +219,11 @@ export function createGenerationRun(deps: GenerationRunDeps): GenerationRunHandl
     }
   }
 
-  const systemTokensOf = (
-    prompt: PathgenPrompt,
-    schema: Parameters<typeof structuredRequestFor>[0]['schema'],
-  ): number =>
-    countTokens(
-      structuredRequestFor({
-        system: systemFor(prompt.template),
-        prompt: '',
-        temperature: 0,
-        schema,
-      }).system ?? '',
-    )
-
-  const quote = async (
+  const quote = (
     plan: ChunkPlan,
     userWaiting: boolean,
     alreadyExtracted: number,
-  ): Promise<GenerationEstimate> => {
-    const [cheap, smart] = await Promise.all([deps.ai.ratesFor('cheap'), deps.ai.ratesFor('smart')])
-    return estimateGeneration({
-      chunks: plan.extractable,
-      alreadyExtracted,
-      rates: {
-        ...(cheap === undefined ? {} : { cheap }),
-        ...(smart === undefined ? {} : { smart }),
-      },
-      systemTokens: {
-        extract: systemTokensOf(deps.prompts.extract, extractChunkOutputSchema),
-        outline: systemTokensOf(deps.prompts.outline, synthesizeOutlineOutputSchema),
-        module: systemTokensOf(deps.prompts.module, synthesizeModuleOutputSchema),
-      },
-      dispatch: !userWaiting && deps.runner !== undefined ? 'batch' : 'sync',
-      countTokens,
-      concurrency,
-    })
-  }
+  ): Promise<GenerationEstimate> => quoteFromPlan(deps, plan, { userWaiting, alreadyExtracted })
 
   /**
    * The batch runner's own quote for the P1 requests that would go through it — the exact
@@ -287,28 +251,6 @@ export function createGenerationRun(deps: GenerationRunDeps): GenerationRunHandl
       )
       return null
     }
-  }
-
-  const loadPlan = async (config: GenerationConfig): Promise<ChunkPlan> => {
-    const ids = orderedSourceIds(config)
-    const sources = await deps.repos.sources.findMany(ids)
-    const found = new Set(sources.map((source) => source.id))
-    const missing = ids.filter((id) => !found.has(id))
-    if (missing.length > 0) {
-      throw new GenerationError('no_sources', `no source found for ${missing.join(', ')}`)
-    }
-    const chunksBySource = new Map<string, readonly Chunk[]>()
-    for (const source of sources) {
-      chunksBySource.set(source.id, await deps.repos.chunks.listBySource(source.id))
-    }
-    const plan = planChunks(sources, chunksBySource, config)
-    if (plan.extractable.length === 0) {
-      throw new GenerationError(
-        'no_chunks',
-        'nothing to read: every chunk is front matter or out of scope',
-      )
-    }
-    return plan
   }
 
   const manifestOf = (attempt: Attempt, stage: GenerationRunStatus): GenerationManifest =>
@@ -725,7 +667,7 @@ export function createGenerationRun(deps: GenerationRunDeps): GenerationRunHandl
     const configHash = hashConfig(config)
     const userWaiting = options.userWaiting ?? true
     const allowOverBudget = options.allowOverBudget === true
-    const plan = await loadPlan(config)
+    const plan = await loadPlan(deps, config)
     const now = deps.clock.now()
 
     const primary = plan.sources.find((source) => source.id === config.primarySourceId)
@@ -856,7 +798,7 @@ export function createGenerationRun(deps: GenerationRunDeps): GenerationRunHandl
 
     const config = parseGenerationConfig(existing.config)
     const configHash = hashConfig(config)
-    const plan = await loadPlan(config)
+    const plan = await loadPlan(deps, config)
     const previous = readProgress(existing)
     const allowOverBudget = options.allowOverBudget === true
     const stored = new Set(

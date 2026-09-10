@@ -104,7 +104,10 @@ export type ActivityStatus = (typeof ACTIVITY_STATUSES)[number]
  * Where a "Generate with AI" run stands (`docs/spec/04-path-generation.md` §3, sub-phase
  * 8.1). The status is the stage. `blocked_budget` is a pause, not an end — the run's own
  * cost cap (or the monthly one) stopped it before the next paid call — and it resumes on
- * "continue anyway". Terminal: `completed`, `failed`, `cancelled`.
+ * "continue anyway". Terminal: `completed`, `failed`, `cancelled`. *
+ * `expanding` is stage 7 (sub-phase 8.3) and runs as a row of its own: the draft's run
+ * finishes at `persisting`, and the user freezes the path — and starts the expansion —
+ * later, possibly days later.
  */
 export const GENERATION_RUN_STATUSES = [
   'queued',
@@ -113,6 +116,7 @@ export const GENERATION_RUN_STATUSES = [
   'synthesizing',
   'sequencing',
   'persisting',
+  'expanding',
   'completed',
   'failed',
   'cancelled',

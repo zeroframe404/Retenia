@@ -41,6 +41,9 @@ importers:
       '@retenia/activities':
         specifier: workspace:*
         version: link:../../packages/activities
+      '@retenia/activity-ai':
+        specifier: workspace:*
+        version: link:../../packages/activity-ai
       '@retenia/activity-schema':
         specifier: workspace:*
         version: link:../../packages/activity-schema
@@ -62,6 +65,9 @@ importers:
       '@retenia/ipc-contract':
         specifier: workspace:*
         version: link:../../packages/ipc-contract
+      '@retenia/pathgen':
+        specifier: workspace:*
+        version: link:../../packages/pathgen
       '@retenia/readers':
         specifier: workspace:*
         version: link:../../packages/readers

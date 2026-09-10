@@ -95,6 +95,15 @@ function withConstraintsInDescription(node: JsonSchemaNode): JsonSchemaNode {
  * throw on cycles and to inline reused subschemas, so a `$ref` reaching here would mean a
  * shape we did not intend to send. It travels through untouched and the provider rejects it,
  * which is a louder failure than quietly flattening something recursive.
+ *
+ * `oneOf` is folded to `anyOf`, which is the one rewrite here that changes meaning rather
+ * than presentation: `oneOf` demands that a value match *exactly* one branch, and Claude's
+ * strict mode does not accept the keyword at all (`docs/spec/04-path-generation.md` §8 lists
+ * `anyOf` among the supported ones and `oneOf` nowhere). Every union we send is discriminated
+ * — zod emits `oneOf` for `z.discriminatedUnion`, and a discriminated union's branches are
+ * mutually exclusive by construction — so the two are equivalent over the values we ask for,
+ * and the zod parse afterwards is what actually enforces the branch. Without this, a family
+ * payload with a union (`cloze`'s segments) is a schema the provider rejects outright.
  */
 export function relaxJsonSchema(schema: unknown): unknown {
   if (Array.isArray(schema)) return schema.map((entry) => relaxJsonSchema(entry))
@@ -103,7 +112,7 @@ export function relaxJsonSchema(schema: unknown): unknown {
   const node = withConstraintsInDescription(schema as JsonSchemaNode)
   const out: JsonSchemaNode = {}
   for (const [key, value] of Object.entries(node)) {
-    out[key] = relaxJsonSchema(value)
+    out[key === 'oneOf' ? 'anyOf' : key] = relaxJsonSchema(value)
   }
   return out
 }

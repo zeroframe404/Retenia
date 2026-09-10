@@ -42,6 +42,11 @@ export interface PathRepository extends CrudRepository<LearningPath> {
   createVersion(
     input: Omit<NewEntity<PathVersion>, 'number'> & { number?: number },
   ): Promise<PathVersion>
+  /** Patches an unfrozen version's own columns (`spec`, `knowledgeGraph`, `manifest`, `diff`)
+   *  — the editable preview's write path (`docs/spec/04-path-generation.md` §13 step 3). Never
+   *  checks `frozenAt` itself: guarding "frozen paths reject structural edits" is the caller's
+   *  job, the same way `freezeVersion` trusts its caller to freeze each version once. */
+  updateVersion(id: string, patch: EntityPatch<PathVersion>): Promise<PathVersion>
   /** Sets `frozenAt`. A frozen version's tree is not edited again — regeneration makes a
    *  new version (`docs/spec/01-decisions.md` §3). */
   freezeVersion(versionId: string, at: Date): Promise<PathVersion>

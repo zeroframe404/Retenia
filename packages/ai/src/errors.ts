@@ -124,6 +124,33 @@ export const MAX_ERROR_CHARS = 500
  * unrelated text, and this process holds the one string that actually matters. The cap is
  * applied after, so a provider that echoes a huge request body cannot fill the column.
  */
+/**
+ * The same redaction, applied to an error *before it escapes this layer*.
+ *
+ * `redactKey` was written for `ai_calls.error`, and for a while that column was the only
+ * place a provider's own message ended up. It is not any more: a failed call becomes a
+ * `lesson_failed` warning, which is persisted in `lessons.expansion` and read back over IPC
+ * into the renderer. A provider that echoes the request URL — Google carries the key in
+ * `?key=`, and fetch-derived errors routinely include the URL — would put the key in all
+ * three. Redacting at the throw site rather than at each sink means a new caller cannot
+ * forget: by the time an error leaves `run`, the key is already gone from it.
+ *
+ * The `cause` is rebuilt as a plain `Error` holding the redacted text, because a logger that
+ * walks the chain would otherwise print the raw message the wrapper was there to hide.
+ */
+export function redactAiError(error: AiError, apiKey: string | undefined): AiError {
+  const message = redactKey(error.message, apiKey)
+  const cause = error.cause
+  const causeText = cause === undefined ? undefined : redactKey(String(cause), apiKey)
+  if (message === error.message && causeText === undefined) return error
+  return new AiError(
+    error.code,
+    message,
+    { profileId: error.profileId, model: error.model, statusCode: error.statusCode },
+    causeText === undefined ? {} : { cause: new Error(causeText) },
+  )
+}
+
 export function redactKey(text: string, apiKey: string | undefined): string {
   const redacted =
     apiKey === undefined || apiKey.length === 0 ? text : text.split(apiKey).join('«redacted»')

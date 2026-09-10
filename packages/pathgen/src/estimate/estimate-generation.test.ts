@@ -1,12 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import {
+  BATCH_MINUTES,
+  EXPANSION_BATCH_WAVES,
   estimateGeneration,
   estimateWarnings,
   expectedConcepts,
   expectedModules,
+  FAMILIES_PER_LESSON,
+  LESSONS_PER_MODULE,
   MODULE_OUTPUT_TOKENS,
   MODULE_TASK_TOKENS,
   P1_OUTPUT_TOKENS_PER_CHUNK,
+  P3_CACHED_PREFIX_TOKENS,
 } from './estimate-generation'
 
 const cheap = {
@@ -30,7 +35,14 @@ function chunks(count: number, tokens = 400) {
   }))
 }
 
-const systemTokens = { extract: 1000, outline: 1500, module: 1200 }
+const systemTokens = {
+  extract: 1000,
+  outline: 1500,
+  module: 1200,
+  lesson: 1800,
+  activities: 1600,
+  flashcards: 1400,
+}
 
 describe('estimateWarnings()', () => {
   it('reports an unpriced role only when there is a cap to enforce', () => {
@@ -100,15 +112,42 @@ describe('estimateGeneration()', () => {
           2 * MODULE_OUTPUT_TOKENS * 10) /
         1e6,
     })
+    // The quote covers every stage the run will be billed for, stage 7 included: §6's table
+    // for a 300-page book puts the lessons row at 1.18 of a 3.4 total, so a quote that
+    // stopped at P2 would understate the bill by most of it.
+    const expand = estimate.p3Lessons.usd + estimate.p4Activities.usd + estimate.p5Flashcards.usd
+    expect(expand).toBeGreaterThan(0)
     expect(estimate.usd).toBeCloseTo(
-      estimate.p1.usd + estimate.p2Outline.usd + estimate.p2Modules.usd,
+      estimate.p1.usd + estimate.p2Outline.usd + estimate.p2Modules.usd + expand,
       6,
     )
-    const p2 = estimate.p2Outline.usd + estimate.p2Modules.usd
-    expect(estimate.lowUsd).toBeCloseTo(estimate.p1.usd * 0.9 + p2 * 0.7, 6)
-    expect(estimate.highUsd).toBeCloseTo(estimate.p1.usd * 1.1 + p2 * 1.3, 6)
-    // Sync minutes: 6 × 4 s / 6 workers + 25 s + 2 × 12 s / 3 = 37 s → 1 minute, twice that at most.
-    expect(estimate.minutes).toEqual({ low: 1, high: 2 })
+    const guessed = estimate.p2Outline.usd + estimate.p2Modules.usd + expand
+    expect(estimate.lowUsd).toBeCloseTo(estimate.p1.usd * 0.9 + guessed * 0.7, 6)
+    expect(estimate.highUsd).toBeCloseTo(estimate.p1.usd * 1.1 + guessed * 1.3, 6)
+  })
+
+  it('quotes stage 7 per lesson, over a path-wide cached head', () => {
+    const estimate = estimateGeneration({
+      chunks: chunks(6),
+      alreadyExtracted: 0,
+      rates: { cheap, smart },
+      systemTokens,
+      dispatch: 'sync',
+    })
+
+    expect(estimate.lessons).toBe(estimate.modules * LESSONS_PER_MODULE)
+    // One P3 call per lesson, one P4 call per family per lesson, one P5 call per lesson.
+    expect(estimate.p3Lessons.calls).toBe(estimate.lessons)
+    expect(estimate.p4Activities.calls).toBe(estimate.lessons * FAMILIES_PER_LESSON)
+    expect(estimate.p5Flashcards.calls).toBe(estimate.lessons)
+    // The head is written once and read by every lesson after it (§6: "5k cached").
+    expect(estimate.p3Lessons.cacheWriteTokens).toBe(systemTokens.lesson + P3_CACHED_PREFIX_TOKENS)
+    expect(estimate.p3Lessons.cachedInputTokens).toBe(
+      (systemTokens.lesson + P3_CACHED_PREFIX_TOKENS) * (estimate.lessons - 1),
+    )
+    // P4 and P5 read the theory in their task, not a shared prefix, so they cache nothing.
+    expect(estimate.p4Activities.cachedInputTokens).toBe(0)
+    expect(estimate.p5Flashcards.cachedInputTokens).toBe(0)
   })
 
   it('halves P1 on the batch path and quotes the batch’s latency instead of the pool’s', () => {
@@ -128,7 +167,14 @@ describe('estimateGeneration()', () => {
     })
     expect(batch.p1.usd).toBeCloseTo(sync.p1.usd / 2, 9)
     expect(batch.p2Outline).toEqual(sync.p2Outline)
-    expect(batch.minutes).toEqual({ low: 11, high: 61 })
+    // Stage 7 is batched too, and its tail is three sequential waves — theory, practice,
+    // cards — so the wait is four Batch API windows, not one.
+    expect(batch.p3Lessons.usd).toBeCloseTo(sync.p3Lessons.usd / 2, 9)
+    const windows = 1 + EXPANSION_BATCH_WAVES
+    expect(batch.minutes.high - batch.minutes.low).toBe(
+      (BATCH_MINUTES.high - BATCH_MINUTES.low) * windows,
+    )
+    expect(batch.minutes.low).toBeGreaterThanOrEqual(BATCH_MINUTES.low * windows)
     const none = estimateGeneration({
       chunks: chunks(10),
       alreadyExtracted: 0,
@@ -173,6 +219,10 @@ describe('estimateGeneration()', () => {
     expect(empty.p1.calls).toBe(0)
     expect(empty.p2Outline.calls).toBe(0)
     expect(empty.p2Modules.calls).toBe(0)
+    expect(empty.lessons).toBe(0)
+    expect(empty.p3Lessons.calls).toBe(0)
+    expect(empty.p4Activities.calls).toBe(0)
+    expect(empty.p5Flashcards.calls).toBe(0)
 
     const done = estimateGeneration({
       chunks: chunks(3),
@@ -184,8 +234,12 @@ describe('estimateGeneration()', () => {
     expect(done.p1.calls).toBe(0)
     expect(done.p1.usd).toBe(0)
     expect(done.p2Outline.calls).toBe(1)
-    // No P1 calls means no batch to wait for.
-    expect(done.minutes.high).toBeLessThan(10)
+    // No P1 calls, but stage 7 still has a tail to batch, so there is still a wait — three
+    // windows rather than four.
+    expect(done.p3Lessons.calls).toBeGreaterThan(0)
+    expect(done.minutes.high - done.minutes.low).toBe(
+      (BATCH_MINUTES.high - BATCH_MINUTES.low) * EXPANSION_BATCH_WAVES,
+    )
   })
 
   it('falls back to the input rate when a rate card has no cache prices', () => {

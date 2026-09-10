@@ -77,6 +77,8 @@ export interface Lesson extends Entity {
   theory: JsonObject | null
   citations: JsonValue[]
   qa: JsonObject | null
+  /** Stage 7's bookkeeping: attempt counters and the practice rules the pool could not meet. */
+  expansion: JsonObject | null
   remediation: JsonObject | null
   unlockRule: JsonObject | null
   xpReward: number

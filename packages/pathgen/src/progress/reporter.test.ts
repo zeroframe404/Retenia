@@ -52,7 +52,7 @@ describe('createThrottledReporter()', () => {
     expect(seen).toEqual([0, 2])
   })
 
-  it('names the stages the wizard shows', () => {
+  it('names the stages the wizard and the completion screen show', () => {
     expect(GENERATION_STAGES).toEqual([
       'reading_sources',
       'extracting',
@@ -61,6 +61,9 @@ describe('createThrottledReporter()', () => {
       'synthesizing_modules',
       'sequencing',
       'persisting',
+      'expanding_theory',
+      'expanding_practice',
+      'expanding_flashcards',
     ])
     expect(() => silentProgress.report(event('sequencing', 1, 1))).not.toThrow()
   })

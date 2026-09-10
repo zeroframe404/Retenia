@@ -47,6 +47,7 @@ export const GENERATION_RUN_STATUSES = [
   'synthesizing',
   'sequencing',
   'persisting',
+  'expanding',
   'completed',
   'failed',
   'cancelled',

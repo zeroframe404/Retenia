@@ -193,24 +193,47 @@ export async function consolidateConcepts(
   if (options.embeddings === undefined) {
     warnings.push(warning('embeddings_unavailable'))
   } else if (occurrences.length > 1) {
-    embeddingModelId = options.embeddings.modelId
+    /**
+     * A provider that is wired but cannot answer today.
+     *
+     * `deps.embeddings` is decided once, at startup, while whether a model is *configured* is
+     * a setting the user changes — so "there is a provider" and "it can embed right now" are
+     * different questions, and only the second one can be asked here. A provider that throws,
+     * or that returns fewer vectors than it was given texts, is not usable for this pass:
+     * indexing past the end would compare `undefined` against `undefined` and take down a
+     * whole generation run over a setting.
+     *
+     * The answer is the one this function already gives for no provider at all — the alias
+     * pass alone, and `embeddings_unavailable` so the manifest says why the path was
+     * consolidated on names.
+     */
     const vectors: Float32Array[] = []
-    for (let start = 0; start < occurrences.length; start += batchSize) {
-      const page = occurrences.slice(start, start + batchSize)
-      vectors.push(
-        ...(await options.embeddings.embed(
-          page.map(
-            (occurrence) => `${occurrence.concept.canonical}: ${occurrence.concept.definition}`,
-          ),
-        )),
-      )
+    let usable = true
+    try {
+      for (let start = 0; start < occurrences.length; start += batchSize) {
+        const page = occurrences.slice(start, start + batchSize)
+        vectors.push(
+          ...(await options.embeddings.embed(
+            page.map(
+              (occurrence) => `${occurrence.concept.canonical}: ${occurrence.concept.definition}`,
+            ),
+          )),
+        )
+      }
+    } catch {
+      usable = false
     }
-    for (const [a, b] of candidatePairs(occurrences, maxPairwise)) {
-      const left = occurrences[a] as Occurrence
-      const right = occurrences[b] as Occurrence
-      if (left.concept.kind !== right.concept.kind) continue
-      if (dot(vectors[a] as Float32Array, vectors[b] as Float32Array) <= threshold) continue
-      if (sets.union(a, b)) mergedByEmbedding += 1
+    if (!usable || vectors.length < occurrences.length) {
+      warnings.push(warning('embeddings_unavailable'))
+    } else {
+      embeddingModelId = options.embeddings.modelId
+      for (const [a, b] of candidatePairs(occurrences, maxPairwise)) {
+        const left = occurrences[a] as Occurrence
+        const right = occurrences[b] as Occurrence
+        if (left.concept.kind !== right.concept.kind) continue
+        if (dot(vectors[a] as Float32Array, vectors[b] as Float32Array) <= threshold) continue
+        if (sets.union(a, b)) mergedByEmbedding += 1
+      }
     }
   }
 
