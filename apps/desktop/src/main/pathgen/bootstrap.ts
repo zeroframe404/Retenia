@@ -94,7 +94,12 @@ export function bootstrapPathgen({
           },
           embed: async (texts) => {
             const answer = await embeddings.embedMany(texts)
-            if (answer === undefined) return []
+            // `undefined` means no model resolved or the host threw. Returning `[]` here read
+            // as "no duplicates found" to every caller, which is the opposite of the truth;
+            // throwing is what the ports' callers already handle.
+            if (answer === undefined) {
+              throw new Error('no embedding model is available')
+            }
             embeddingModelId = answer.modelId
             embeddingDims = answer.vectors[0]?.length ?? embeddingDims
             return answer.vectors

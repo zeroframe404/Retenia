@@ -1,10 +1,15 @@
+import { createActivityAuthor, makeActivitiesOutputSchema } from '@retenia/activity-ai'
 import {
   EXTRACT_CHUNK_SCHEMA_NAME,
   extractChunkOutputSchema,
+  MAKE_FLASHCARDS_SCHEMA_NAME,
+  makeFlashcardsOutputSchema,
   SYNTHESIZE_MODULE_SCHEMA_NAME,
   SYNTHESIZE_OUTLINE_SCHEMA_NAME,
   synthesizeModuleOutputSchema,
   synthesizeOutlineOutputSchema,
+  WRITE_LESSON_SCHEMA_NAME,
+  writeLessonOutputSchema,
 } from '@retenia/pathgen'
 import { describe, expect, it } from 'vitest'
 import { createE2eFakeInvoker, E2E_MODEL_ID, e2eFakeProfile, e2eFakeRegistry } from './e2e-fake-ai'
@@ -17,6 +22,11 @@ import { createE2eFakeInvoker, E2E_MODEL_ID, e2eFakeProfile, e2eFakeRegistry } f
  */
 
 const target = { profile: e2eFakeProfile(), modelId: E2E_MODEL_ID, apiKey: '' }
+
+/** The `citable` block as `theory-task.ts` renders it: the fake reads these ids back out,
+ *  so the citations P3 and P5 return resolve to a fragment that exists. */
+const CITABLE_TASK = `## citable
+- B01 (p. 3) Libro > Cap. 1`
 
 async function invoke(
   invoker: ReturnType<typeof createE2eFakeInvoker>,
@@ -74,6 +84,108 @@ describe('createE2eFakeInvoker()', () => {
       schemaName: SYNTHESIZE_OUTLINE_SCHEMA_NAME,
     })
     expect(() => synthesizeOutlineOutputSchema.parse(answer)).not.toThrow()
+  })
+
+  it('answers write_lesson@1 with theory that cites an id the task actually listed', async () => {
+    const invoker = createE2eFakeInvoker()
+    // The `citable` block as `theory-task.ts` renders it — the fake reads the ids back out so
+    // the citations it returns resolve, which is the whole acceptance criterion of stage 7.
+    const prompt = CITABLE_TASK
+    const answer = await invoke(invoker, {
+      prompt,
+      temperature: 0.6,
+      schemaName: WRITE_LESSON_SCHEMA_NAME,
+    })
+
+    const parsed = writeLessonOutputSchema.parse(answer)
+    const explanation = parsed.blocks.find((block) => block.type === 'explanation')
+    expect(explanation?.citations).toEqual(['B01'])
+    expect(explanation?.content).toContain('[cite:B01]')
+  })
+
+  it('answers make_flashcards@1 with cards that validate and cite', async () => {
+    const invoker = createE2eFakeInvoker()
+    const answer = await invoke(invoker, {
+      prompt: CITABLE_TASK,
+      temperature: 0.3,
+      schemaName: MAKE_FLASHCARDS_SCHEMA_NAME,
+    })
+
+    const parsed = makeFlashcardsOutputSchema.parse(answer)
+    expect(parsed.flashcards.length).toBeGreaterThan(0)
+    expect(parsed.flashcards[0]?.citations).toEqual(['B01'])
+  })
+
+  it('answers make_activities_choice with a candidate the real filter keeps', async () => {
+    const invoker = createE2eFakeInvoker()
+    const answer = await invoke(invoker, {
+      prompt: 'irrelevant',
+      temperature: 0.7,
+      schemaName: 'make_activities_choice',
+    })
+
+    // Parsed with the narrowed family schema P4 is really called with, then run through the
+    // author's own filter. Two of the four options used to carry no feedback, which `mcqIssue`
+    // rejects — so the E2E run composed an empty practice block and nothing said so.
+    const parsed = makeActivitiesOutputSchema('choice', ['mcq_single']).parse(answer)
+    expect(parsed.candidates).toHaveLength(1)
+
+    const author = createActivityAuthor({
+      prompt: {
+        template: '{{task}}',
+        promptVersion: '1',
+        schemaVersion: 'make_activities@1',
+        role: 'smart',
+        temperature: 0.7,
+      },
+    })
+    const [call] = author.plan({
+      lessonSpecId: 'L01',
+      parentCustomId: 'p3-L01',
+      lang: 'es-AR',
+      title: 'Lección',
+      objectives: [{ text: 'Explicar', bloom: 'understand' }],
+      concepts: [{ id: 'e2e-concept', name: 'Concepto', definition: 'Definición.' }],
+      blocks: [{ type: 'explanation', content: 'Texto.' }],
+      misconceptions: [],
+      families: ['choice'],
+      wanted: 4,
+      overGeneration: 2,
+      alreadyGenerated: [],
+      variant: 0,
+    })
+    const collected = author.collect(call as never, parsed as never)
+
+    expect(collected.rejected).toEqual([])
+    expect(collected.activities).toHaveLength(1)
+  })
+
+  it('matches the committed goldens for the three stage-7 prompts', async () => {
+    const invoker = createE2eFakeInvoker()
+    const golden = {
+      P3_write_lesson: await invoke(invoker, {
+        prompt: CITABLE_TASK,
+        temperature: 0.6,
+        schemaName: WRITE_LESSON_SCHEMA_NAME,
+      }),
+      P4_make_activities: await invoke(invoker, {
+        prompt: 'irrelevant',
+        temperature: 0.7,
+        schemaName: 'make_activities_choice',
+      }),
+      P5_make_flashcards: await invoke(invoker, {
+        prompt: CITABLE_TASK,
+        temperature: 0.3,
+        schemaName: MAKE_FLASHCARDS_SCHEMA_NAME,
+      }),
+    }
+
+    // The record step, in the shape `test/fixtures/book/p1-extractions.json` already uses:
+    // `vitest -u` rewrites this, and a diff in it is a change to what every stage-7 test and
+    // the Playwright run are answered with, which somebody has to look at.
+    await expect(JSON.stringify(golden, null, 2)).toMatchFileSnapshot(
+      '../../../test/fixtures/stage-7-answers.json',
+    )
   })
 
   it('answers synthesize_module@1 with the concept ids parsed off the module task prompt', async () => {

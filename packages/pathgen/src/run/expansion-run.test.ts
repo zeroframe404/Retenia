@@ -2,6 +2,7 @@ import type { Clock, GenerationRun, NewEntity } from '@retenia/core'
 import { createUuidV7Generator } from '@retenia/core'
 import { describe, expect, it } from 'vitest'
 import type { ActivityAuthor } from '../expand/activity-author'
+import { SYNCHRONOUS_HEAD_LESSONS } from '../expand/expand-lessons'
 import { silentLogger } from '../logger'
 import type { MakeFlashcardsOutput } from '../schemas/flashcards'
 import type { WriteLessonOutput } from '../schemas/lesson'
@@ -80,8 +81,13 @@ function resolve(request: { prompt: string; schemaName?: string }): string | und
   return undefined
 }
 
-function setUp() {
-  const world = expandWorld(clock, { lessons: 4 })
+function setUp(
+  options: {
+    lessons?: number
+    onLesson?: (event: { specId: string; status: string }) => void
+  } = {},
+) {
+  const world = expandWorld(clock, { lessons: options.lessons ?? 4 })
   const harness = createAiHarness({ resolve, clock, batch: false, pollsBeforeDone: 1 })
   const repos = createExpandRepos(clock, world.rows)
   const ids = createUuidV7Generator(clock)
@@ -139,6 +145,7 @@ function setUp() {
     clock,
     timers: harness.timers,
     logger: silentLogger,
+    ...(options.onLesson === undefined ? {} : { onLesson: options.onLesson }),
   })
 
   return { handle, harness, repos, rows, world }
@@ -199,6 +206,59 @@ describe('createExpansionRun()', () => {
     expect(again.stage.expanded).toBe(0)
     expect(set.harness.replay.calls.length).toBe(paid)
     expect(set.repos.rows.knowledgeItems).toHaveLength(4)
+  })
+
+  it('resumes a run the app died in the middle of, and pays for no lesson twice', async () => {
+    // The kill fires the moment the synchronous head is written, so the batched tail is left
+    // untouched and its lessons stay `pending` — the state a process that dies mid-run really
+    // leaves behind, and the one the `custom_id`s and the `expanding` row exist to recover
+    // from. The two "second run" tests above never reach it: every lesson is already `ready`,
+    // so they take the early return before any replay or batch re-await happens.
+    const kill = new AbortController()
+    const ready: string[] = []
+    const set = setUp({
+      lessons: 6,
+      onLesson: (event) => {
+        if (event.status !== 'ready') return
+        ready.push(event.specId)
+        if (ready.length === SYNCHRONOUS_HEAD_LESSONS) kill.abort()
+      },
+    })
+
+    const first = await set.handle.expand(set.world.pathVersionId, { signal: kill.signal })
+
+    const answeredBeforeTheKill = [...set.harness.replay.answered]
+    expect(answeredBeforeTheKill.length).toBeGreaterThan(0)
+    expect(first.status).toBe('cancelled')
+    expect(set.repos.rows.lessons.filter((lesson) => lesson.status === 'ready')).toHaveLength(
+      SYNCHRONOUS_HEAD_LESSONS,
+    )
+
+    // A process that is killed never gets to write its terminal status, so the row it leaves
+    // behind is still `expanding`; an abort *does* record `cancelled`, which is right for the
+    // Cancelar button and wrong for a crash. Putting the row back is how the difference is
+    // modelled here — and it is what makes the startup sweep find it.
+    const row = set.rows.find((entry) => entry.id === first.runId) as GenerationRun
+    set.rows[set.rows.indexOf(row)] = { ...row, status: 'expanding', finishedAt: null }
+
+    const adopted = await set.handle.active()
+    expect(adopted.map((entry) => entry.id)).toEqual([first.runId])
+
+    const second = await set.handle.resume(first.runId)
+
+    expect(second.status).toBe('completed')
+    expect(second.stage.expanded + second.stage.reused).toBe(6)
+    expect(set.repos.rows.lessons.every((lesson) => lesson.status === 'ready')).toBe(true)
+
+    // The property the `custom_id`s exist for: nothing the first attempt already paid for is
+    // asked again. Asserted as disjoint sets rather than as a call count, because a count also
+    // passes when the second attempt repeats one call and happens to skip another.
+    const answeredAfter = set.harness.replay.answered.slice(answeredBeforeTheKill.length)
+    expect(answeredAfter.filter((id) => answeredBeforeTheKill.includes(id))).toEqual([])
+
+    // One knowledge item per lesson, not two: the lessons the first attempt finished must not
+    // re-create the cards they already have, which is what would throw away their FSRS state.
+    expect(set.repos.rows.knowledgeItems).toHaveLength(6)
   })
 
   it('lists only the rows a startup sweep should adopt', async () => {

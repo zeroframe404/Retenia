@@ -17,6 +17,7 @@ const fragment: CitableFragment = {
   headingPath: 'Libro > Cap. 2',
   locator: 'p. 8',
   text: 'La memoria de trabajo retiene unos cuatro elementos.',
+  truncated: false,
   origin: 'mapped',
 }
 
@@ -24,7 +25,7 @@ const context: LessonContext = {
   citable: [fragment],
   previous: [],
   glossary: [],
-  sourceTokens: 0,
+  budgetedTokens: 0,
   trimmed: 0,
   warnings: [],
 }
@@ -106,6 +107,16 @@ describe('toMemoryItems()', () => {
     expect(result.warnings.map((entry) => entry.code)).toEqual(['flashcard_deduped'])
   })
 
+  it('says when a card cites nothing that resolves, and keeps it anyway', () => {
+    const { drafts, warnings } = toMemoryItems(input([card({ citations: ['B99'] })]))
+    // Rule 18 wants a `source_id` and a locator on every card; this one can have neither, so
+    // "Reportar error" has nowhere to open and 8.4's gates have nothing to check it against.
+    expect(drafts).toHaveLength(1)
+    expect(drafts[0]?.item.sourceId).toBeNull()
+    expect(drafts[0]?.item.locator).toBeNull()
+    expect(warnings.map((entry) => entry.code)).toContain('flashcard_uncited')
+  })
+
   it('folds case and accents before comparing, so two spellings are one card', () => {
     const first = card({ front: 'La memoria de trabajo' })
     const second = card({ front: 'la MEMORIA de trabajo.' })
@@ -124,6 +135,27 @@ describe('effectiveImportance()', () => {
 })
 
 describe('dedupeByEmbedding()', () => {
+  it('keeps every card and says so when the provider cannot answer', async () => {
+    // A wired provider with no model downloaded throws. Failing the lesson over it would mean
+    // a fresh install cannot expand a path at all; the honest degradation is the exact pass
+    // alone, which is what no provider at all already gives.
+    const drafts = toMemoryItems(input([card()])).drafts
+    const pass = await dedupeByEmbedding(
+      drafts,
+      new Map(),
+      {
+        embed: async () => {
+          throw new Error('no embedding model is available')
+        },
+      },
+      'L01',
+    )
+
+    expect(pass.kept).toEqual(drafts)
+    expect(pass.deduped).toBe(0)
+    expect(pass.warnings.map((entry) => entry.code)).toEqual(['embeddings_unavailable'])
+  })
+
   const unit = (values: readonly number[]): Float32Array => {
     const norm = Math.hypot(...values)
     return Float32Array.from(values.map((value) => value / norm))

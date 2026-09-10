@@ -159,6 +159,7 @@ export function createExpansionRun(deps: ExpansionRunDeps): ExpansionRunHandle {
       goal: draft.goal,
       level: draft.level,
       lessonLanguage: draft.language,
+      targetLanguage: draft.target_language,
       sourceIds,
       primarySourceId: primary,
       // `forExam` is the exam's date, not a flag: it is what raises every flashcard this path

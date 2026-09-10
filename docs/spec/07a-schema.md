@@ -58,6 +58,7 @@ Packaging note (Windows first): the `.node` binaries of both drivers and `sqlite
 | 13 | `0013_ai_batches` | `d9871534bf66` |  |
 | 14 | `0014_generation_runs_and_extractions` | `517d10f33f7d` | `generation_runs` (the "Generate with AI" run ledger: config and its hash, status = stage, progress, estimate, cost and token totals, manifest, warnings) and `extractions` (the validated P1 output per chunk, live-unique on `custom_id`, so a re-run over the same book makes no P1 call). The draft itself is an unfrozen `path_versions` row (`04-path-generation.md` §3 stages 3–5, §7). |
 | 15 | `0015_lesson_expansion` | `cd2d5cb43e0b` |  |
+| 16 | `0016_lesson_qa_status` | `e71c52ae8e7e` |  |
 
 ## Tables
 
@@ -530,7 +531,7 @@ Indexes:
 Checks:
 
 - `lessons_kind`: `kind IN ('core', 'remediation', 'reinforcement', 'checkpoint')`
-- `lessons_status`: `status IN ('pending', 'generating', 'ready', 'failed')`
+- `lessons_status`: `status IN ('pending', 'generating', 'qa', 'ready', 'failed')`
 - `lessons_ordinal_nonnegative`: `ordinal >= 0`
 - `lessons_estimated_minutes_positive`: `estimated_minutes IS NULL OR estimated_minutes >= 0`
 - `lessons_xp_nonnegative`: `xp_reward >= 0`

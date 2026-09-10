@@ -72,9 +72,9 @@
     "backHome": "Back to Today"
   },
   "aiBatches": {
-    "label": "Batch {{done}}/{{total}} {{what}}",
-    "costEstimate": "~USD {{usd}}",
-    "cost": "USD {{usd}}",
+    "label": "Batch {done}/{total} {what}",
+    "costEstimate": "~USD {usd}",
+    "cost": "USD {usd}",
     "purpose": {
       "expand_lesson": "lessons",
       "item_bank": "items",

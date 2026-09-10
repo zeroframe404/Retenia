@@ -73,6 +73,8 @@ export const generationConfigInputSchema = z
     goal: z.string().trim().min(1).max(500),
     level: z.string().trim().min(1).max(60),
     lessonLanguage: bcp47.optional(),
+    /** Set only for a path that *teaches* a language; `null`/absent for every other path. */
+    targetLanguage: bcp47.nullable().optional(),
     forExam: z.object({ date: isoDate }).nullable().optional(),
     paceHoursPerWeek: z.number().min(0.5).max(60).optional(),
     primarySourceId: z.string().min(1),
@@ -255,6 +257,10 @@ export const pathDraftDtoSchema = z.object({
   kind: z.literal('draft'),
   title: z.string(),
   language: z.string(),
+  /** The language the path *teaches*, for a language path; `null` for every other one. Zod
+   *  strips what it does not declare, so leaving it out would make the preview unable to show
+   *  a field the wizard collects — the draft on disk keeps it either way. */
+  target_language: z.string().nullable(),
   level: z.string(),
   goal: z.string(),
   target_date: z.string().nullable(),
@@ -345,8 +351,9 @@ export const generationResultDtoSchema = z.object({
 })
 export type GenerationResultDto = z.infer<typeof generationResultDtoSchema>
 
-/** How far one lesson's expansion has got — `lessons.status`, mirrored for the renderer. */
-export const LESSON_STATUSES = ['pending', 'generating', 'ready', 'failed'] as const
+/** How far one lesson's expansion has got — `lessons.status`, mirrored for the renderer.
+ *  `qa` is written but not yet through §5's gates; sub-phase 8.4 is what sets it. */
+export const LESSON_STATUSES = ['pending', 'generating', 'qa', 'ready', 'failed'] as const
 export const lessonStatusDtoSchema = z.enum(LESSON_STATUSES)
 export type LessonStatusDto = z.infer<typeof lessonStatusDtoSchema>
 
@@ -370,9 +377,21 @@ export const lessonSummaryDtoSchema = z.object({
   /** The practice rules the generated pool could not satisfy, for the quiet note. */
   unmet: z.array(z.object({ rule: z.string(), detail: z.string() })),
   warnings: z.array(generationWarningDtoSchema),
-  /** Where to open the source at, for "Reportar error". */
+  /**
+   * Where to open the source at, for "Reportar error".
+   *
+   * `locator` is the display label the parser produced (`p. 8`, `12:30–13:45`) and cannot be
+   * parsed back into a position, so `page` carries the number the reader route actually takes;
+   * it is `null` for a source that has no pages at all, and the link then opens the source at
+   * its start.
+   */
   firstCitation: z
-    .object({ sourceId: z.uuid(), locator: z.string(), blockIds: z.array(z.string()) })
+    .object({
+      sourceId: z.uuid(),
+      locator: z.string(),
+      page: z.int().positive().nullable(),
+      blockIds: z.array(z.string()),
+    })
     .nullable(),
 })
 export type LessonSummaryDto = z.infer<typeof lessonSummaryDtoSchema>

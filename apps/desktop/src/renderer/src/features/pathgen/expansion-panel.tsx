@@ -18,9 +18,13 @@ import { useExpand, useLessons, useRegenerateLesson } from './use-pathgen'
  * panel that tried would be a second renderer to keep in step with it.
  */
 
+// `qa` — written, not yet through §5's gates — is sub-phase 8.4's to set; it is rendered here
+// so that landing the gates is a change to one stage rather than to the whole column of
+// migration, contract, badge and translations that showing a new state otherwise costs.
 const STATUS_VARIANT: Record<LessonSummaryDto['status'], NonNullable<BadgeProps['variant']>> = {
   pending: 'neutral',
   generating: 'brand',
+  qa: 'brand',
   ready: 'correct',
   failed: 'incorrect',
 }
@@ -28,7 +32,12 @@ const STATUS_VARIANT: Record<LessonSummaryDto['status'], NonNullable<BadgeProps[
 export interface ExpansionPanelProps {
   pathVersionId: string
   /** Where "Reportar error" sends the learner. */
-  onOpenSource?: (input: { sourceId: string; locator: string }) => void
+  onOpenSource?: (input: {
+    sourceId: string
+    locator: string
+    page: number | null
+    blockIds: readonly string[]
+  }) => void
 }
 
 export function ExpansionPanel({ pathVersionId, onOpenSource }: ExpansionPanelProps) {
@@ -118,6 +127,8 @@ export function ExpansionPanel({ pathVersionId, onOpenSource }: ExpansionPanelPr
                   onOpenSource?.({
                     sourceId: lesson.firstCitation.sourceId,
                     locator: lesson.firstCitation.locator,
+                    page: lesson.firstCitation.page,
+                    blockIds: lesson.firstCitation.blockIds,
                   })
                 }}
               >

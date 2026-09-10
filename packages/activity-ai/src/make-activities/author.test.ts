@@ -30,7 +30,11 @@ const request = {
   variant: 0,
 }
 
-type Choiceish = { payload: { sets: { options: { feedback?: string }[] }[] } }
+type Choiceish = {
+  payload: {
+    sets: { options: { id: string; text: string; correct: boolean; feedback?: string }[] }[]
+  }
+}
 
 /** §4 requires per-option feedback of an AI-authored MCQ; the shared fixture has none. */
 function withOptionFeedback<T>(draft: T): T {
@@ -42,6 +46,25 @@ function withOptionFeedback<T>(draft: T): T {
   }
   return copy
 }
+
+/** §4 also requires four of them; `sampleChoice` is a three-option question, which is a fine
+ *  hand-written MCQ and not a shape P4 may return. */
+function withFourOptions<T>(draft: T): T {
+  const copy = structuredClone(draft) as T & Choiceish
+  for (const set of copy.payload.sets) {
+    while (set.options.length < 4) {
+      set.options.push({
+        id: `pad${set.options.length}`,
+        text: `Distractor ${set.options.length}`,
+        correct: false,
+      })
+    }
+  }
+  return copy
+}
+
+/** Both §4 MCQ shape rules, which every valid candidate in this file has to satisfy. */
+const validMcq = <T>(draft: T): T => withOptionFeedback(withFourOptions(draft))
 
 describe('createActivityAuthor()', () => {
   it('refuses a prompt file pointed at another schema version', () => {
@@ -81,7 +104,7 @@ describe('createActivityAuthor()', () => {
   it('collects a valid candidate into a row and an option', () => {
     const author = createActivityAuthor({ prompt })
     const [call] = author.plan(request)
-    const draft = withOptionFeedback(toActivityDraft(sampleChoice()))
+    const draft = validMcq(toActivityDraft(sampleChoice()))
     const collected = author.collect(call as never, {
       candidates: [{ activity: draft, bloom: 'apply', misconception_ids: ['X001'] }],
       notes: [],
@@ -102,7 +125,7 @@ describe('createActivityAuthor()', () => {
     const author = createActivityAuthor({ prompt })
     const [call] = author.plan(request)
     const draft = toActivityDraft(sampleChoice())
-    const twoKeys = structuredClone(withOptionFeedback(draft)) as typeof draft & {
+    const twoKeys = structuredClone(validMcq(draft)) as typeof draft & {
       payload: { sets: { options: { correct: boolean }[] }[] }
     }
     for (const option of twoKeys.payload.sets[0]?.options ?? []) option.correct = true
@@ -130,7 +153,11 @@ describe('the MCQ rules the shipped envelope cannot carry (§4)', () => {
     const [call] = author.plan(request)
     const collected = author.collect(call as never, {
       candidates: [
-        { activity: toActivityDraft(sampleChoice()), bloom: 'apply', misconception_ids: ['X001'] },
+        {
+          activity: withFourOptions(toActivityDraft(sampleChoice())),
+          bloom: 'apply',
+          misconception_ids: ['X001'],
+        },
       ],
       notes: [],
     })
@@ -139,13 +166,34 @@ describe('the MCQ rules the shipped envelope cannot carry (§4)', () => {
     expect(collected.rejected[0]?.code).toBe('mcq_option_feedback_missing')
   })
 
+  it('rejects an MCQ that does not have four options', () => {
+    const author = createActivityAuthor({ prompt })
+    const [call] = author.plan(request)
+    // `sampleChoice` is a three-option question. The shared validator accepts it, and should:
+    // a hand-written MCQ may have three. §4's "4 options" is a rule about what P4 may *return*,
+    // and over-generation means throwing this candidate away costs nothing.
+    const collected = author.collect(call as never, {
+      candidates: [
+        {
+          activity: withOptionFeedback(toActivityDraft(sampleChoice())),
+          bloom: 'apply',
+          misconception_ids: ['X001'],
+        },
+      ],
+      notes: [],
+    })
+
+    expect(collected.activities).toEqual([])
+    expect(collected.rejected[0]?.code).toBe('mcq_option_count')
+  })
+
   it('rejects an MCQ that names no misconception when the lesson listed some', () => {
     const author = createActivityAuthor({ prompt })
     const [call] = author.plan(request)
     const collected = author.collect(call as never, {
       candidates: [
         {
-          activity: withOptionFeedback(toActivityDraft(sampleChoice())),
+          activity: validMcq(toActivityDraft(sampleChoice())),
           bloom: 'apply',
           misconception_ids: [],
         },
@@ -163,7 +211,7 @@ describe('the MCQ rules the shipped envelope cannot carry (§4)', () => {
     const collected = author.collect(call as never, {
       candidates: [
         {
-          activity: withOptionFeedback(toActivityDraft(sampleChoice())),
+          activity: validMcq(toActivityDraft(sampleChoice())),
           bloom: 'apply',
           misconception_ids: [],
         },

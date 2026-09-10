@@ -346,6 +346,24 @@ describe('expandLessons()', () => {
     expect(set.harness.replayBatch.submitted.length).toBeGreaterThan(0)
   })
 
+  it('announces a lesson as generating before it is finished, not only when it is', async () => {
+    const seen: { specId: string; status: string }[] = []
+    await expandLessons(
+      {
+        ...depsOf(set),
+        onLesson: (event) => seen.push({ specId: event.specId, status: event.status }),
+      },
+      inputOf(set),
+    )
+
+    // Only `ready` and `failed` were ever pushed, so a panel watching `pathgen.lessonStatus`
+    // held a lesson at "En cola" until it was done — and the batched tail looked stalled for
+    // however long the batch took.
+    const first = seen.filter((event) => event.specId === seen[0]?.specId)
+    expect(first[0]?.status).toBe('generating')
+    expect(first.at(-1)?.status).toBe('ready')
+  })
+
   it('replays a second run entirely from what it already wrote', async () => {
     await expandLessons(depsOf(set), inputOf(set))
     const paid = set.harness.replay.calls.length
@@ -358,6 +376,78 @@ describe('expandLessons()', () => {
     expect(set.harness.replay.calls.length).toBe(paid)
     expect(set.harness.replayBatch.submitted.length).toBe(submitted)
     expect(set.repos.rows.knowledgeItems).toHaveLength(8)
+  })
+})
+
+describe('"Regenerar" and "Más ejemplos"', () => {
+  let set: Harnessed
+
+  beforeEach(() => {
+    set = setUp()
+  })
+
+  const firstSpecId = (): string => {
+    const specId = set.repos.rows.lessons[0]?.specId
+    if (specId === undefined) throw new Error('the world has no lessons')
+    return specId
+  }
+
+  it('rewrites one lesson without touching the rest, and without asking for them again', async () => {
+    await expandLessons(depsOf(set), inputOf(set))
+    const answeredFirstTime = [...set.harness.replay.answered]
+    const target = firstSpecId()
+
+    const again = await expandLessons(
+      depsOf(set),
+      inputOf(set, { onlyLessonIds: [target], regenerate: true, userWaiting: true }),
+    )
+
+    expect(again.expanded).toBe(1)
+    // `revision` is part of P3's `custom_id` and so of P4's and P5's through it, which is what
+    // makes the second press ask a real question instead of replaying the first answer.
+    const asked = set.harness.replay.answered.slice(answeredFirstTime.length)
+    expect(asked.length).toBeGreaterThan(0)
+    expect(asked.filter((id) => answeredFirstTime.includes(id))).toEqual([])
+    expect(set.repos.rows.lessons.every((lesson) => lesson.status === 'ready')).toBe(true)
+  })
+
+  it('keeps the memory items a regenerated lesson already had, FSRS state and all', async () => {
+    await expandLessons(depsOf(set), inputOf(set))
+    const target = firstSpecId()
+    const lessonId = set.repos.rows.lessons[0]?.id
+    const before = set.repos.rows.knowledgeItems.filter((item) => item.lessonId === lessonId)
+    expect(before).toHaveLength(1)
+
+    await expandLessons(
+      depsOf(set),
+      inputOf(set, { onlyLessonIds: [target], regenerate: true, userWaiting: true }),
+    )
+
+    // The guard this covers is the one that makes "created exactly once per flashcard" a
+    // property of the stage rather than of a happy path: a card the learner has already
+    // reviewed carries stability and difficulty, and rewriting the theory is no reason to
+    // throw those away (§11's remediation policy takes the same line).
+    const after = set.repos.rows.knowledgeItems.filter((item) => item.lessonId === lessonId)
+    expect(after).toHaveLength(1)
+    expect(after[0]?.id).toBe(before[0]?.id)
+    expect(set.repos.rows.knowledgeItems).toHaveLength(8)
+  })
+
+  it('adds to the practice block rather than replacing it when asked for more examples', async () => {
+    const author = fakeAuthor()
+    await expandLessons({ ...depsOf(set), author }, inputOf(set))
+    const target = firstSpecId()
+    const lessonId = set.repos.rows.lessons[0]?.id
+    const before = set.repos.rows.activities.filter((row) => row.lessonId === lessonId).length
+    expect(before).toBeGreaterThan(0)
+
+    await expandLessons(
+      { ...depsOf(set), author },
+      inputOf(set, { onlyLessonIds: [target], moreExamples: true, userWaiting: true }),
+    )
+
+    const after = set.repos.rows.activities.filter((row) => row.lessonId === lessonId).length
+    expect(after).toBeGreaterThan(before)
   })
 })
 
@@ -411,6 +501,49 @@ describe('expandLessons() when something goes wrong', () => {
     expect(set.repos.rows.knowledgeItems).toHaveLength(8)
   })
 
+  it('tells P3 the target language when the path teaches one, and stays quiet when it does not', async () => {
+    const set = setUp()
+    await expandLessons(
+      depsOf(set),
+      inputOf(set, {
+        config: parseGenerationConfig({
+          goal: 'Aprender inglés',
+          level: 'B1',
+          lessonLanguage: 'es-AR',
+          targetLanguage: 'en-GB',
+          sourceIds: ['src-book'],
+          primarySourceId: 'src-book',
+        }),
+      }),
+    )
+
+    const theory = set.harness.replay.calls.filter((call) =>
+      call.prompt.includes('lesson_language:'),
+    )
+    expect(theory.length).toBeGreaterThan(0)
+    // §7: the lesson is written in `lesson_language`, the material being learned is not
+    // translated into it. This line used to be unreachable — `targetLanguageOf` compared two
+    // values that are the same by construction, so it always answered `null`.
+    expect(theory.every((call) => call.prompt.includes('target_language: en-GB'))).toBe(true)
+
+    const plain = setUp()
+    await expandLessons(depsOf(plain), inputOf(plain))
+    expect(
+      plain.harness.replay.calls.some((call) => call.prompt.includes('target_language:')),
+    ).toBe(false)
+  })
+
+  it('says when a lesson lands under the three cards §4 asks for, without padding it', async () => {
+    const set = setUp()
+    const result = await expandLessons(depsOf(set), inputOf(set))
+
+    // The scripted P5 answers one card per lesson. That is a legitimate answer — §1.3 material
+    // yields few or none, and padding to a quota is §14 pitfall 4 — so the run keeps the card
+    // and reports the shortfall rather than asking again for two more.
+    expect(result.warnings.map((entry) => entry.code)).toContain('flashcards_thin')
+    expect(set.repos.rows.knowledgeItems).toHaveLength(8)
+  })
+
   it('says once when no embedding provider is wired for the flashcard dedupe', async () => {
     const set = setUp()
     const result = await expandLessons(depsOf(set), inputOf(set))
@@ -449,5 +582,28 @@ describe('the fronts the path already has', () => {
     // The pre-existing front reached the provider. Seeding its vector as `null` — which is
     // what this did — leaves `dedupeByEmbedding` nothing to compare against.
     expect(embedded.some((batch) => batch.some((text) => text.includes('anterior')))).toBe(true)
+  })
+
+  it('says so when the provider answers with no vectors instead of throwing', async () => {
+    const set = setUp()
+    const lesson = set.repos.rows.lessons[0]
+    if (lesson === undefined) throw new Error('the world has no lessons')
+    set.repos.rows.knowledgeItems.push({
+      ...(set.repos.rows.knowledgeItems[0] ?? {}),
+      id: '01900000-0000-7000-8000-0000000000fe',
+      lessonId: lesson.id,
+      fields: { front: 'Una formulación anterior', context_cue: null, cloze_text: null },
+      deletedAt: null,
+    } as (typeof set.repos.rows.knowledgeItems)[number])
+
+    // The shape a desktop adapter used to produce for "no model downloaded": resolves, empty.
+    // It leaves every front on `null`, so the cosine pass compares nothing — and used to do it
+    // in silence, because only a `throw` was reported.
+    const result = await expandLessons(
+      { ...depsOf(set), embeddings: { embed: async () => [] } },
+      inputOf(set),
+    )
+
+    expect(result.warnings.map((entry) => entry.code)).toContain('embeddings_unavailable')
   })
 })

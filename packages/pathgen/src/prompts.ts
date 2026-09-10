@@ -59,6 +59,16 @@ export { systemFor } from '@retenia/ai'
 /** §9's P5 temperature, with room for a small tuning but not for a writing temperature. */
 export const MAX_FLASHCARD_TEMPERATURE = 0.4
 
+/**
+ * §9 puts P4 at 0.7, and the band around it is what "varied pool" means operationally.
+ *
+ * Below the floor the two-to-three-times over-generation stops paying for itself — twenty
+ * near-identical candidates filter down to the same four — and above the ceiling the
+ * distractors stop being the misconceptions they are supposed to be derived from. Wide enough
+ * to tune, narrow enough to catch a file re-pointed at another prompt's temperature.
+ */
+export const P4_TEMPERATURE_RANGE = Object.freeze({ min: 0.5, max: 1 })
+
 export class PathgenPromptError extends Error {
   override readonly name = 'PathgenPromptError'
 }
@@ -82,6 +92,13 @@ export function assertPathgenPrompts(prompts: PathgenPrompts): PathgenPrompts {
     throw new PathgenPromptError(
       `${PATHGEN_PROMPT_IDS.flashcards} must stay near-deterministic (§9 puts P5 at 0.3; ` +
         `it runs at ${prompts.flashcards.temperature})`,
+    )
+  }
+  const { temperature } = prompts.activities
+  if (temperature < P4_TEMPERATURE_RANGE.min || temperature > P4_TEMPERATURE_RANGE.max) {
+    throw new PathgenPromptError(
+      `${PATHGEN_PROMPT_IDS.activities} must stay near §9's 0.7 (it runs at ${temperature}, ` +
+        `outside ${P4_TEMPERATURE_RANGE.min}–${P4_TEMPERATURE_RANGE.max})`,
     )
   }
   const expected: ReadonlyArray<readonly [string, PathgenPrompt, string | null]> = [

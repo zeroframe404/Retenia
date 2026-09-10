@@ -24,7 +24,9 @@ import {
  * completes end to end and produces a draft worth previewing and freezing.
  *
  * Stage 7's three calls (sub-phase 8.3) are answered the same way, with one deliberate gap:
- * P4 only knows how to write a `choice` exercise. Every other family gets the empty object
+ * P4 only knows how to write a `choice` exercise — a whole one, four options with feedback on
+ * every one, so it survives `mcqIssue` and the E2E run really does compose a practice block.
+ * Every other family gets the empty object
  * below, which fails validation and is reported as a rejected candidate — so the E2E run
  * exercises the *real* over-generation filter, including what it does with a thin pool, rather
  * than a path where every family happens to succeed. Teaching this fake all ten MVP payload
@@ -227,8 +229,18 @@ function activitiesAnswer() {
                     correct: false,
                     feedback: 'La fuente dice lo opuesto.',
                   },
-                  { id: 'c', text: 'Algo sin relación', correct: false },
-                  { id: 'd', text: 'Nada de lo anterior', correct: false },
+                  {
+                    id: 'c',
+                    text: 'Algo que la fuente no dice',
+                    correct: false,
+                    feedback: 'No aparece en la fuente.',
+                  },
+                  {
+                    id: 'd',
+                    text: 'Una versión exagerada de lo mismo',
+                    correct: false,
+                    feedback: 'Va más lejos de lo que la fuente afirma.',
+                  },
                 ],
               },
             ],

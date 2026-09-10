@@ -36,6 +36,7 @@ function draft(overrides: Record<string, unknown> = {}) {
     kind: 'draft' as const,
     title: 'Física I',
     language: 'es-AR',
+    target_language: null,
     level: 'beginner',
     goal: 'Aprobar',
     target_date: null,

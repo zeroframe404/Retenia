@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { BCP47 } from '../config/generation-config'
 import { objectiveSchema } from './outline'
 import { generationWarningSchema } from './warnings'
 
@@ -124,6 +125,10 @@ export const pathDraftSchema = z.object({
    *  turns each into `lessons.completed_at`; real FSRS low-priority seeding needs the memory
    *  system's item creation and stays a `seed_memory` TODO for the diagnostic (8.5). */
   known_node_ids: z.array(z.string()).default([]),
+  /** The language the path *teaches*, when it teaches one (`docs/spec/04-path-generation.md`
+   *  §7); `null` otherwise. Additive like `known_node_ids`: a draft frozen before this field
+   *  existed reads back as `null`, which is what it always meant. */
+  target_language: z.string().regex(BCP47).nullable().default(null),
 })
 
 export type PathDraft = z.infer<typeof pathDraftSchema>

@@ -44,6 +44,7 @@ export function buildPathDraft(input: DraftInput): PathDraft {
     kind: 'draft',
     title: draftTitle(input.config, input.sources),
     language: input.config.lessonLanguage,
+    target_language: input.config.targetLanguage,
     level: input.config.level,
     goal: input.config.goal,
     target_date: input.config.forExam === null ? null : input.config.forExam.date,

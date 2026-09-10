@@ -28,7 +28,8 @@
     "contrast:check": "node tooling/scripts/contrast-check.mjs",
     "sidecars:install": "node tooling/download-sidecars.ts --install --models",
     "sidecars:manifest": "node tooling/download-sidecars.ts --write-manifest",
-    "evals": "node tooling/evals/run-evals.mjs"
+    "evals": "node tooling/evals/run-evals.mjs",
+    "first-lesson": "pnpm --filter @retenia/evals run first-lesson"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.11",

@@ -60,6 +60,7 @@ export function buildDraft(overrides: Partial<PathDraft> = {}): PathDraft {
     kind: 'draft',
     title: 'Curso de prueba',
     language: 'es-AR',
+    target_language: null,
     level: 'beginner',
     goal: 'Aprender la materia',
     target_date: null,

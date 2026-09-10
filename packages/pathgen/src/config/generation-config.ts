@@ -13,7 +13,7 @@ import { z } from 'zod'
  */
 
 /** A BCP-47 language tag, loosely: `es`, `es-AR`, `en-GB`, `pt-BR`. */
-const BCP47 = /^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/
+export const BCP47 = /^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 
 /** The separator the chunker writes into `chunks.heading_path` (`Book > Chapter 3 > 3.2`). */
@@ -43,6 +43,16 @@ export const generationConfigSchema = z
     level: z.string().trim().min(1).max(60),
     /** The language the path is written in. Sources may be in another. */
     lessonLanguage: z.string().regex(BCP47).default('es-AR'),
+    /**
+     * The language being *learned*, when the path teaches one — §7's "to learn English, the
+     * lesson goes in Spanish and the items in English".
+     *
+     * `null` for every other path, which is the common case: a physics path is written in
+     * `lessonLanguage` and so is everything in it. When it is set, P3 keeps the prose in
+     * `lessonLanguage` and leaves the material being learned in this one, rather than
+     * translating the very thing the learner is supposed to acquire.
+     */
+    targetLanguage: z.string().regex(BCP47).nullable().default(null),
     forExam: z
       .object({ date: z.string().regex(ISO_DATE) })
       .nullable()

@@ -18,7 +18,7 @@ import { resolveCitations } from './citations'
 import { buildLessonContext, type LessonContext } from './context'
 import { DEFAULT_EXPAND_CONCURRENCY, type ExpandDeps } from './deps'
 import { familiesFor } from './families'
-import { dedupeByEmbedding, frontKey, toMemoryItems } from './flashcards'
+import { dedupeByEmbedding, frontKey, MIN_FLASHCARDS_PER_LESSON, toMemoryItems } from './flashcards'
 import { markLesson, persistFlashcards, persistPractice, persistTheory } from './persist'
 import {
   type ConceptFacts,
@@ -163,9 +163,18 @@ function accrue(totals: Totals, wave: WaveResult): void {
   for (const model of wave.modelsUsed) totals.models.add(model)
 }
 
-/** The path's language pair, when it teaches one (§7's "lesson in Spanish, items in English"). */
+/**
+ * The path's language pair, when it teaches one (§7's "lesson in Spanish, items in English").
+ *
+ * This used to compare `draft.language` against `config.lessonLanguage`, which are the same
+ * value by construction — `configOf` builds the config *from* the draft, and the draft's
+ * language is the config's lesson language — so it always answered `null` and P3's
+ * `target_language` rule could never fire. A path that teaches a language now says so
+ * directly, in one field, rather than being inferred from two that cannot disagree.
+ */
 function targetLanguageOf(config: GenerationConfig, draft: PathDraft): string | null {
-  return draft.language === config.lessonLanguage ? null : draft.language
+  const target = config.targetLanguage ?? draft.target_language
+  return target === null || target === config.lessonLanguage ? null : target
 }
 
 export async function expandLessons(
@@ -284,17 +293,27 @@ export async function expandLessons(
   // in lesson 9 is the case the threshold exists for, and it is the case a string match misses.
   if (deps.embeddings !== undefined && existingFronts.size > 0) {
     const keys = [...existingFronts.keys()]
+    let embedded = 0
     try {
       const vectors = await deps.embeddings.embed(keys)
       for (const [index, key] of keys.entries()) {
         const vector = vectors[index]
-        if (vector !== undefined) existingFronts.set(key, vector)
+        if (vector !== undefined) {
+          existingFronts.set(key, vector)
+          embedded += 1
+        }
       }
     } catch {
       // A provider that cannot answer is not a reason to fail an expansion: the dedupe falls
       // back to the exact front, which is what an unwired provider gives, and the run says so.
-      warnings.push(warning('embeddings_unavailable', { stage: 'expand' }))
+      embedded = 0
     }
+    // Throwing is not the only way a provider fails. One that answers with fewer vectors than
+    // it was asked for — an adapter that turns "no model downloaded" into an empty array, say —
+    // leaves every front on `null`, which makes `dedupeByEmbedding` skip every comparison and
+    // silently demotes rule 11's cosine to the exact string match it exists to beat. Reporting
+    // only the `throw` meant that failure was the one nothing said a word about.
+    if (embedded === 0) warnings.push(warning('embeddings_unavailable', { stage: 'expand' }))
   }
   if (deps.embeddings === undefined) {
     warnings.push(warning('embeddings_unavailable', { stage: 'expand' }))
@@ -760,6 +779,22 @@ export async function expandLessons(
           if (!existingFronts.has(draft.key)) existingFronts.set(draft.key, null)
         }
 
+        // §4 item 9 asks for three to eight. The floor is not enforced — padding to a quota is
+        // §14 pitfall 4, and §1.3's material legitimately yields none — but a lesson that gives
+        // the memory system almost nothing is worth saying out loud, because the two innocent
+        // causes (a lesson of pure procedure, a lesson whose cards the path already had) and
+        // the one bad cause (P5 gave up) are indistinguishable from the row count alone.
+        if (drafts.length < MIN_FLASHCARDS_PER_LESSON) {
+          warnings.push(
+            warning('flashcards_thin', {
+              lesson: entry.plan.specId,
+              kept: drafts.length,
+              generated: value.flashcards.length,
+              deduped,
+            }),
+          )
+        }
+
         entry.plan.expansion.p5 = {
           custom_id: (requests[index] as (typeof requests)[number]).customId,
           at: deps.clock.now().toISOString(),
@@ -806,6 +841,11 @@ export async function expandLessons(
   /** P3, then P4, then P5, for one group of lessons. */
   const runGroup = async (entries: readonly Prepared[], userWaiting: boolean): Promise<void> => {
     if (entries.length === 0 || stopped()) return
+    // The row moves to `generating` when P3 starts (`persistTheory`), but only `ready` and
+    // `failed` were ever pushed — so a panel watching `pathgen.lessonStatus` showed a lesson as
+    // queued right up until it was finished, and the tail of a batched path looked stalled for
+    // as long as the batch took. Announced here rather than per stage: one event per lesson.
+    for (const entry of entries) await reportLesson(entry.plan, 'generating')
     await runTheory(entries, userWaiting)
     if (stopped()) return
     await runPractice(entries, userWaiting)

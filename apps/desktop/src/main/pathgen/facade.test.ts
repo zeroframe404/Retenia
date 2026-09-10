@@ -263,6 +263,9 @@ function makeRepos(
     knowledgeItems: {
       listByLesson: vi.fn(async () => []),
     },
+    chunks: {
+      findById: vi.fn(async () => undefined),
+    },
     updateVersion,
   }
 }
