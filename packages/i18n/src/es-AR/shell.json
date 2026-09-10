@@ -72,9 +72,9 @@
     "backHome": "Volver a Hoy"
   },
   "aiBatches": {
-    "label": "Lote {{done}}/{{total}} {{what}}",
-    "costEstimate": "~USD {{usd}}",
-    "cost": "USD {{usd}}",
+    "label": "Lote {done}/{total} {what}",
+    "costEstimate": "~USD {usd}",
+    "cost": "USD {usd}",
     "purpose": {
       "expand_lesson": "lecciones",
       "item_bank": "ítems",
