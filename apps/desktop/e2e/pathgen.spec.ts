@@ -7,7 +7,9 @@ import { type callApi, callApiWith, expect, gotoReady, test } from './fixtures'
  * `createGenerationRun` orchestrator, answered by the deterministic in-process fake wired in
  * under `RETENIA_E2E=1` (`src/main/pathgen/e2e-fake-ai.ts`) — never a mock of `pathgen.*`
  * itself. Wizard → preview (rename, reorder, exclude) → freeze, then confirms a frozen
- * version rejects a further edit.
+ * version rejects a further edit, then expands the lessons (sub-phase 8.3) and regenerates
+ * one — the batch dispatch, the over-generation filter and the memory-item write, over the
+ * real IPC and the real Electron stack rather than over the pure stage's fakes.
  */
 
 test.setTimeout(60_000)
@@ -155,4 +157,74 @@ test('generates, edits and freezes a path against the e2e fake provider', async 
     { pathVersionId, sectionId },
   )
   expect(editAfterFreeze.ok).toBe(false)
+
+  // --- stage 7 (sub-phase 8.3) -------------------------------------------------------------
+  // Freezing is what makes the lessons expandable, so this is where the expansion begins. It
+  // runs through the same `pathgen.expand` the panel calls, against the same fake, so the
+  // batch dispatch, the P4 filter and the memory-item write are all real here.
+  const expanded = await callApiWith(
+    window,
+    ({ api, arg }) => api.pathgen.expand({ pathVersionId: arg }),
+    pathVersionId,
+  )
+  expect(expanded.ok).toBe(true)
+  if (!expanded.ok) throw new Error('pathgen.expand failed')
+  expect(
+    expanded.data.run.status,
+    `${expanded.data.run.error ?? '(no error recorded)'} — ` +
+      JSON.stringify(expanded.data.run.warnings),
+  ).toBe('completed')
+
+  const lessons = await callApiWith(
+    window,
+    ({ api, arg }) => api.pathgen.getLessons({ pathVersionId: arg }),
+    pathVersionId,
+  )
+  expect(lessons.ok).toBe(true)
+  if (!lessons.ok) throw new Error('pathgen.getLessons failed')
+  expect(lessons.data.lessons.length).toBeGreaterThan(0)
+  expect(
+    lessons.data.lessons.every((lesson) => lesson.status === 'ready'),
+    JSON.stringify({
+      lessons: lessons.data.lessons.map((lesson) => ({
+        specId: lesson.specId,
+        status: lesson.status,
+        activities: lesson.activities,
+        flashcards: lesson.flashcards,
+      })),
+      run: expanded.data.run.warnings,
+      error: expanded.data.run.error,
+    }),
+  ).toBe(true)
+
+  const first = lessons.data.lessons[0] as (typeof lessons.data.lessons)[number]
+  // The acceptance criterion, over the real stack: a lesson that cites a block a deep link can
+  // open. `firstCitation` is what "Reportar error" navigates with.
+  expect(first.firstCitation).not.toBeNull()
+  expect(first.firstCitation?.blockIds.length).toBeGreaterThan(0)
+  // P4's `choice` candidate survives the real filter, so the practice block is not empty.
+  expect(first.activities).toBeGreaterThan(0)
+  expect(first.flashcards).toBeGreaterThan(0)
+
+  // "Regenerar" rewrites one lesson and leaves its memory items alone.
+  const before = first.flashcards
+  const regenerated = await callApiWith(
+    window,
+    ({ api, arg }) => api.pathgen.regenerateLesson({ lessonId: arg, mode: 'regenerate' }),
+    first.id,
+  )
+  expect(regenerated.ok).toBe(true)
+  if (!regenerated.ok) throw new Error('pathgen.regenerateLesson failed')
+  expect(regenerated.data.run.status).toBe('completed')
+
+  const after = await callApiWith(
+    window,
+    ({ api, arg }) => api.pathgen.getLessons({ pathVersionId: arg }),
+    pathVersionId,
+  )
+  expect(after.ok).toBe(true)
+  if (!after.ok) throw new Error('pathgen.getLessons failed after regenerate')
+  const regeneratedLesson = after.data.lessons.find((lesson) => lesson.id === first.id)
+  expect(regeneratedLesson?.status).toBe('ready')
+  expect(regeneratedLesson?.flashcards).toBe(before)
 })

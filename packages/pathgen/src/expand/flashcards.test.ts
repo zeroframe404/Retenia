@@ -134,6 +134,27 @@ describe('effectiveImportance()', () => {
 })
 
 describe('dedupeByEmbedding()', () => {
+  it('keeps every card and says so when the provider cannot answer', async () => {
+    // A wired provider with no model downloaded throws. Failing the lesson over it would mean
+    // a fresh install cannot expand a path at all; the honest degradation is the exact pass
+    // alone, which is what no provider at all already gives.
+    const drafts = toMemoryItems(input([card()])).drafts
+    const pass = await dedupeByEmbedding(
+      drafts,
+      new Map(),
+      {
+        embed: async () => {
+          throw new Error('no embedding model is available')
+        },
+      },
+      'L01',
+    )
+
+    expect(pass.kept).toEqual(drafts)
+    expect(pass.deduped).toBe(0)
+    expect(pass.warnings.map((entry) => entry.code)).toEqual(['embeddings_unavailable'])
+  })
+
   const unit = (values: readonly number[]): Float32Array => {
     const norm = Math.hypot(...values)
     return Float32Array.from(values.map((value) => value / norm))

@@ -379,6 +379,78 @@ describe('expandLessons()', () => {
   })
 })
 
+describe('"Regenerar" and "Más ejemplos"', () => {
+  let set: Harnessed
+
+  beforeEach(() => {
+    set = setUp()
+  })
+
+  const firstSpecId = (): string => {
+    const specId = set.repos.rows.lessons[0]?.specId
+    if (specId === undefined) throw new Error('the world has no lessons')
+    return specId
+  }
+
+  it('rewrites one lesson without touching the rest, and without asking for them again', async () => {
+    await expandLessons(depsOf(set), inputOf(set))
+    const answeredFirstTime = [...set.harness.replay.answered]
+    const target = firstSpecId()
+
+    const again = await expandLessons(
+      depsOf(set),
+      inputOf(set, { onlyLessonIds: [target], regenerate: true, userWaiting: true }),
+    )
+
+    expect(again.expanded).toBe(1)
+    // `revision` is part of P3's `custom_id` and so of P4's and P5's through it, which is what
+    // makes the second press ask a real question instead of replaying the first answer.
+    const asked = set.harness.replay.answered.slice(answeredFirstTime.length)
+    expect(asked.length).toBeGreaterThan(0)
+    expect(asked.filter((id) => answeredFirstTime.includes(id))).toEqual([])
+    expect(set.repos.rows.lessons.every((lesson) => lesson.status === 'ready')).toBe(true)
+  })
+
+  it('keeps the memory items a regenerated lesson already had, FSRS state and all', async () => {
+    await expandLessons(depsOf(set), inputOf(set))
+    const target = firstSpecId()
+    const lessonId = set.repos.rows.lessons[0]?.id
+    const before = set.repos.rows.knowledgeItems.filter((item) => item.lessonId === lessonId)
+    expect(before).toHaveLength(1)
+
+    await expandLessons(
+      depsOf(set),
+      inputOf(set, { onlyLessonIds: [target], regenerate: true, userWaiting: true }),
+    )
+
+    // The guard this covers is the one that makes "created exactly once per flashcard" a
+    // property of the stage rather than of a happy path: a card the learner has already
+    // reviewed carries stability and difficulty, and rewriting the theory is no reason to
+    // throw those away (§11's remediation policy takes the same line).
+    const after = set.repos.rows.knowledgeItems.filter((item) => item.lessonId === lessonId)
+    expect(after).toHaveLength(1)
+    expect(after[0]?.id).toBe(before[0]?.id)
+    expect(set.repos.rows.knowledgeItems).toHaveLength(8)
+  })
+
+  it('adds to the practice block rather than replacing it when asked for more examples', async () => {
+    const author = fakeAuthor()
+    await expandLessons({ ...depsOf(set), author }, inputOf(set))
+    const target = firstSpecId()
+    const lessonId = set.repos.rows.lessons[0]?.id
+    const before = set.repos.rows.activities.filter((row) => row.lessonId === lessonId).length
+    expect(before).toBeGreaterThan(0)
+
+    await expandLessons(
+      { ...depsOf(set), author },
+      inputOf(set, { onlyLessonIds: [target], moreExamples: true, userWaiting: true }),
+    )
+
+    const after = set.repos.rows.activities.filter((row) => row.lessonId === lessonId).length
+    expect(after).toBeGreaterThan(before)
+  })
+})
+
 describe('expandLessons() when something goes wrong', () => {
   it('fails one lesson and finishes the rest', async () => {
     // The policy P1 already applies to a chunk: what could be written is written, and the

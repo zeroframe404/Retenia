@@ -3,17 +3,21 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "The AI layer's quality evals (docs/spec/06-ai-providers.md §6): promptfoo-driven checks for the smart/cheap roles, run with pnpm evals — real API spend, skipped in CI.",
+  "description": "The AI layer's quality evals (docs/spec/06-ai-providers.md \u00a76): promptfoo-driven checks for the smart/cheap roles, run with pnpm evals \u2014 real API spend, skipped in CI.",
   "scripts": {
-    "test": "vitest run",
-    "lint": "biome check ."
+    "first-lesson": "tsx first-lesson.mjs",
+    "lint": "biome check .",
+    "test": "vitest run"
   },
   "dependencies": {
-    "@retenia/ai": "workspace:*"
+    "@retenia/activity-ai": "workspace:*",
+    "@retenia/ai": "workspace:*",
+    "@retenia/pathgen": "workspace:*"
   },
   "devDependencies": {
     "@retenia/config": "workspace:*",
     "promptfoo": "0.122.2",
+    "tsx": "4.23.13",
     "vitest": "4.1.11"
   }
 }

@@ -20,6 +20,7 @@
       "!**/*.local.json",
       "!**/routeTree.gen.ts",
       "!**/migrations/meta",
+      "!apps/desktop/test/fixtures",
       "!packages/core/test/fixtures",
       "!packages/pathgen/test/fixtures",
       "!packages/readers/src/epub/vendor/foliate-js"

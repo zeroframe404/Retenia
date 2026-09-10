@@ -221,7 +221,23 @@ export async function dedupeByEmbedding(
 ): Promise<EmbeddingDedupeResult> {
   if (drafts.length === 0) return { kept: [], vectors: new Map(), deduped: 0, warnings: [] }
 
-  const fresh = await embeddings.embed(drafts.map((draft) => draft.key))
+  // A provider that cannot answer today is not a reason to fail a lesson. `deps.embeddings`
+  // is decided once at startup, while whether a *model* is downloaded is a setting the user
+  // changes — so the two questions are different, and only the second one can be asked here.
+  // The answer is the one this function already gives for no provider at all: keep every card
+  // and let the exact pass be the whole dedupe, with `embeddings_unavailable` saying why.
+  // `consolidate` takes the same line for the same reason.
+  let fresh: readonly (Float32Array | undefined)[]
+  try {
+    fresh = await embeddings.embed(drafts.map((draft) => draft.key))
+  } catch {
+    return {
+      kept: drafts,
+      vectors: new Map(),
+      deduped: 0,
+      warnings: [warning('embeddings_unavailable', { stage: 'expand' })],
+    }
+  }
   const known = [...existing.entries()].flatMap(([key, vector]) =>
     vector === null ? [] : [[key, vector] as const],
   )

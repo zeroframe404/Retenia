@@ -1,0 +1,119 @@
+{
+  "P3_write_lesson": {
+    "blocks": [
+      {
+        "type": "hook",
+        "content": "Al terminar vas a poder explicar el concepto de esta lección.",
+        "citations": [],
+        "diagram": null,
+        "misconception_id": null
+      },
+      {
+        "type": "explanation",
+        "content": "El concepto se explica en la fuente [cite:B01].",
+        "citations": [
+          "B01"
+        ],
+        "diagram": null,
+        "misconception_id": null
+      },
+      {
+        "type": "summary",
+        "content": "- Un punto\n- Otro punto\n- Un tercero",
+        "citations": [
+          "B01"
+        ],
+        "diagram": null,
+        "misconception_id": null
+      }
+    ],
+    "glossary": [],
+    "word_count": 700,
+    "warnings": []
+  },
+  "P4_make_activities": {
+    "candidates": [
+      {
+        "bloom": "understand",
+        "misconception_ids": [],
+        "activity": {
+          "schemaVersion": 1,
+          "type": "mcq_single",
+          "family": "choice",
+          "lang": "es-AR",
+          "prompt": "¿Qué afirma la lección?",
+          "skills": [
+            "e2e-concept"
+          ],
+          "difficulty": 2,
+          "grading": {
+            "method": "det"
+          },
+          "review": {
+            "eligible": true,
+            "ratingStrategy": "binary",
+            "expectedSeconds": 12
+          },
+          "explanation": "La primera opción es la que la lección explica.",
+          "payload": {
+            "family": "choice",
+            "sets": [
+              {
+                "id": "s1",
+                "multiple": false,
+                "options": [
+                  {
+                    "id": "a",
+                    "text": "Lo que la fuente dice",
+                    "correct": true,
+                    "feedback": "Correcto."
+                  },
+                  {
+                    "id": "b",
+                    "text": "Lo contrario",
+                    "correct": false,
+                    "feedback": "La fuente dice lo opuesto."
+                  },
+                  {
+                    "id": "c",
+                    "text": "Algo que la fuente no dice",
+                    "correct": false,
+                    "feedback": "No aparece en la fuente."
+                  },
+                  {
+                    "id": "d",
+                    "text": "Una versión exagerada de lo mismo",
+                    "correct": false,
+                    "feedback": "Va más lejos de lo que la fuente afirma."
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      }
+    ],
+    "notes": []
+  },
+  "P5_make_flashcards": {
+    "flashcards": [
+      {
+        "type": "basic",
+        "front": "¿Qué explica esta lección?",
+        "back": "El concepto de la fuente",
+        "cloze_text": null,
+        "context_cue": null,
+        "concept_ids": [
+          "e2e-concept"
+        ],
+        "importance": "normal",
+        "interference_group": null,
+        "as_of": null,
+        "citations": [
+          "B01"
+        ]
+      }
+    ],
+    "skipped": []
+  }
+}
