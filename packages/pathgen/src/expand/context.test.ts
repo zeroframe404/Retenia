@@ -114,7 +114,47 @@ describe('buildLessonContext()', () => {
     // The two mapped chunks are 800 tokens on their own and stay; the hit does not fit.
     expect(context.citable.map((fragment) => fragment.chunkId)).toEqual(['ch1', 'ch2'])
     expect(context.trimmed).toBe(1)
-    expect(context.warnings.map((entry) => entry.code)).toEqual(['lesson_context_trimmed'])
+    // Over budget *and* trimming: the mapped pair alone already passed 500, which is the case
+    // the budget cannot fix by dropping hits, so both are reported.
+    expect(context.warnings.map((entry) => entry.code)).toEqual([
+      'lesson_context_over_budget',
+      'lesson_context_trimmed',
+    ])
+  })
+
+  it('says when the mapped chunks alone are over budget, and still keeps every one of them', () => {
+    const context = buildLessonContext(
+      { lesson, chunks, retrieved: [], previous: [], glossary: [] },
+      { countTokens, budgetTokens: 500 },
+    )
+    // Nothing is dropped — the point of the warning is that trimming is the wrong answer here
+    // and the call is going to run long anyway, so something has to say so.
+    expect(context.citable.map((fragment) => fragment.chunkId)).toEqual(['ch1', 'ch2'])
+    expect(context.trimmed).toBe(0)
+    expect(context.warnings.map((entry) => entry.code)).toEqual(['lesson_context_over_budget'])
+  })
+
+  it('charges the previous-lesson summary and the glossary to the same budget', () => {
+    const extra = chunk('ch9', 'c'.repeat(400), ['b9'])
+    const framing = {
+      previous: [{ specId: 'L01', title: 'x'.repeat(50), objective: 'y'.repeat(50) }],
+      glossary: [{ conceptId: 'c1', name: 'z'.repeat(50), definition: 'w'.repeat(50) }],
+    }
+    // 800 mapped + 400 retrieved fits a 1_200 budget exactly. The framing is 200 more tokens
+    // of the same call, and leaving it uncounted was how a lesson went over a budget it had
+    // already checked.
+    expect(
+      buildLessonContext(
+        { lesson, chunks, retrieved: [hit(extra)], previous: [], glossary: [] },
+        { countTokens, budgetTokens: 1_200 },
+      ).trimmed,
+    ).toBe(0)
+    expect(
+      buildLessonContext(
+        { lesson, chunks, retrieved: [hit(extra)], ...framing },
+        { countTokens, budgetTokens: 1_200 },
+      ).trimmed,
+    ).toBe(1)
   })
 
   it('adds a retrieved chunk when the budget allows it, and never twice', () => {

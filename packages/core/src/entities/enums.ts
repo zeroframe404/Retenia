@@ -56,7 +56,7 @@ export type PathStatus = (typeof PATH_STATUSES)[number]
 export const LESSON_KINDS = ['core', 'remediation', 'reinforcement', 'checkpoint'] as const
 export type LessonKind = (typeof LESSON_KINDS)[number]
 
-export const LESSON_STATUSES = ['pending', 'generating', 'ready', 'failed'] as const
+export const LESSON_STATUSES = ['pending', 'generating', 'qa', 'ready', 'failed'] as const
 export type LessonStatus = (typeof LESSON_STATUSES)[number]
 
 export const BLOOM_LEVELS = [

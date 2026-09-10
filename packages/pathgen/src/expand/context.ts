@@ -138,6 +138,16 @@ export function buildLessonContext(
     tokens += count(fragment.text)
   }
 
+  // The framing travels in the same call as the fragments, so it spends the same budget. It is
+  // charged first: what is left over is what retrieval may fill, and counting it afterwards
+  // would let a long glossary push the call over a ceiling that had already passed its check.
+  const framing =
+    input.previous.reduce(
+      (sum, lesson) => sum + count(lesson.title) + count(lesson.objective ?? ''),
+      0,
+    ) + input.glossary.reduce((sum, term) => sum + count(term.name) + count(term.definition), 0)
+  tokens += framing
+
   // 1. The mapped chunks, in the draft's order. Never trimmed: they are what sequencing
   //    decided this lesson is about, and a budget that could drop one would make the lesson's
   //    sources depend on how big its neighbours are.
@@ -145,6 +155,21 @@ export function buildLessonContext(
     const chunk = input.chunks.get(ref.chunk_id)
     if (chunk === undefined) continue
     push(chunk, 'mapped')
+  }
+
+  // Which leaves the case the budget cannot fix: the mapped chunks alone are already over it.
+  // Dropping one is still the wrong answer, so this reports instead of trimming — otherwise a
+  // lesson mapped to half a chapter runs long, costs more than §6's table budgets for it, and
+  // risks `finishReason === 'length'` (§14 pitfalls 12 and 15) with nothing naming the cause.
+  if (tokens > budget) {
+    warnings.push(
+      warning('lesson_context_over_budget', {
+        lesson: input.lesson.id,
+        tokens,
+        budget,
+        mapped: citable.length,
+      }),
+    )
   }
 
   // 2. Retrieval fills what is left, best first.

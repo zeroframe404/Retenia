@@ -18,7 +18,7 @@ import { resolveCitations } from './citations'
 import { buildLessonContext, type LessonContext } from './context'
 import { DEFAULT_EXPAND_CONCURRENCY, type ExpandDeps } from './deps'
 import { familiesFor } from './families'
-import { dedupeByEmbedding, frontKey, toMemoryItems } from './flashcards'
+import { dedupeByEmbedding, frontKey, MIN_FLASHCARDS_PER_LESSON, toMemoryItems } from './flashcards'
 import { markLesson, persistFlashcards, persistPractice, persistTheory } from './persist'
 import {
   type ConceptFacts,
@@ -779,6 +779,22 @@ export async function expandLessons(
           if (!existingFronts.has(draft.key)) existingFronts.set(draft.key, null)
         }
 
+        // §4 item 9 asks for three to eight. The floor is not enforced — padding to a quota is
+        // §14 pitfall 4, and §1.3's material legitimately yields none — but a lesson that gives
+        // the memory system almost nothing is worth saying out loud, because the two innocent
+        // causes (a lesson of pure procedure, a lesson whose cards the path already had) and
+        // the one bad cause (P5 gave up) are indistinguishable from the row count alone.
+        if (drafts.length < MIN_FLASHCARDS_PER_LESSON) {
+          warnings.push(
+            warning('flashcards_thin', {
+              lesson: entry.plan.specId,
+              kept: drafts.length,
+              generated: value.flashcards.length,
+              deduped,
+            }),
+          )
+        }
+
         entry.plan.expansion.p5 = {
           custom_id: (requests[index] as (typeof requests)[number]).customId,
           at: deps.clock.now().toISOString(),
@@ -825,6 +841,11 @@ export async function expandLessons(
   /** P3, then P4, then P5, for one group of lessons. */
   const runGroup = async (entries: readonly Prepared[], userWaiting: boolean): Promise<void> => {
     if (entries.length === 0 || stopped()) return
+    // The row moves to `generating` when P3 starts (`persistTheory`), but only `ready` and
+    // `failed` were ever pushed — so a panel watching `pathgen.lessonStatus` showed a lesson as
+    // queued right up until it was finished, and the tail of a batched path looked stalled for
+    // as long as the batch took. Announced here rather than per stage: one event per lesson.
+    for (const entry of entries) await reportLesson(entry.plan, 'generating')
     await runTheory(entries, userWaiting)
     if (stopped()) return
     await runPractice(entries, userWaiting)

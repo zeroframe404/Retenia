@@ -40,8 +40,15 @@ export type PathStatus = (typeof PATH_STATUSES)[number]
 export const LESSON_KINDS = ['core', 'remediation', 'reinforcement', 'checkpoint'] as const
 export type LessonKind = (typeof LESSON_KINDS)[number]
 
-/** Expansion progress of a lesson (stage 7 runs in batch; the first two are synchronous). */
-export const LESSON_STATUSES = ['pending', 'generating', 'ready', 'failed'] as const
+/**
+ * Expansion progress of a lesson (stage 7 runs in batch; the first two are synchronous).
+ *
+ * `qa` sits between `generating` and `ready`: the lesson is written but has not cleared §5's
+ * gates. Nothing sets it yet — sub-phase 8.4 is what runs those gates — but it is part of the
+ * state set stage 7 reports, so the panel can render it the day 8.4 writes it rather than
+ * needing a migration, a contract change and a translation first.
+ */
+export const LESSON_STATUSES = ['pending', 'generating', 'qa', 'ready', 'failed'] as const
 export type LessonStatus = (typeof LESSON_STATUSES)[number]
 
 /** Revised Bloom levels (docs/spec/04-path-generation.md §1.4). */

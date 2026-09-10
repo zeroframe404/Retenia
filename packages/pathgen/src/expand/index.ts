@@ -49,6 +49,7 @@ export {
   frontKey,
   frontOf,
   type MemoryItemDraft,
+  MIN_FLASHCARDS_PER_LESSON,
   toMemoryItems,
 } from './flashcards'
 export {

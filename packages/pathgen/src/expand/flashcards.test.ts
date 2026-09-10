@@ -106,6 +106,16 @@ describe('toMemoryItems()', () => {
     expect(result.warnings.map((entry) => entry.code)).toEqual(['flashcard_deduped'])
   })
 
+  it('says when a card cites nothing that resolves, and keeps it anyway', () => {
+    const { drafts, warnings } = toMemoryItems(input([card({ citations: ['B99'] })]))
+    // Rule 18 wants a `source_id` and a locator on every card; this one can have neither, so
+    // "Reportar error" has nowhere to open and 8.4's gates have nothing to check it against.
+    expect(drafts).toHaveLength(1)
+    expect(drafts[0]?.item.sourceId).toBeNull()
+    expect(drafts[0]?.item.locator).toBeNull()
+    expect(warnings.map((entry) => entry.code)).toContain('flashcard_uncited')
+  })
+
   it('folds case and accents before comparing, so two spellings are one card', () => {
     const first = card({ front: 'La memoria de trabajo' })
     const second = card({ front: 'la MEMORIA de trabajo.' })

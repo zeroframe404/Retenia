@@ -346,6 +346,24 @@ describe('expandLessons()', () => {
     expect(set.harness.replayBatch.submitted.length).toBeGreaterThan(0)
   })
 
+  it('announces a lesson as generating before it is finished, not only when it is', async () => {
+    const seen: { specId: string; status: string }[] = []
+    await expandLessons(
+      {
+        ...depsOf(set),
+        onLesson: (event) => seen.push({ specId: event.specId, status: event.status }),
+      },
+      inputOf(set),
+    )
+
+    // Only `ready` and `failed` were ever pushed, so a panel watching `pathgen.lessonStatus`
+    // held a lesson at "En cola" until it was done — and the batched tail looked stalled for
+    // however long the batch took.
+    const first = seen.filter((event) => event.specId === seen[0]?.specId)
+    expect(first[0]?.status).toBe('generating')
+    expect(first.at(-1)?.status).toBe('ready')
+  })
+
   it('replays a second run entirely from what it already wrote', async () => {
     await expandLessons(depsOf(set), inputOf(set))
     const paid = set.harness.replay.calls.length
@@ -441,6 +459,17 @@ describe('expandLessons() when something goes wrong', () => {
     expect(
       plain.harness.replay.calls.some((call) => call.prompt.includes('target_language:')),
     ).toBe(false)
+  })
+
+  it('says when a lesson lands under the three cards §4 asks for, without padding it', async () => {
+    const set = setUp()
+    const result = await expandLessons(depsOf(set), inputOf(set))
+
+    // The scripted P5 answers one card per lesson. That is a legitimate answer — §1.3 material
+    // yields few or none, and padding to a quota is §14 pitfall 4 — so the run keeps the card
+    // and reports the shortfall rather than asking again for two more.
+    expect(result.warnings.map((entry) => entry.code)).toContain('flashcards_thin')
+    expect(set.repos.rows.knowledgeItems).toHaveLength(8)
   })
 
   it('says once when no embedding provider is wired for the flashcard dedupe', async () => {

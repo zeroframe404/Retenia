@@ -80,4 +80,23 @@ describe('assertPathgenPrompts()', () => {
       }),
     ).toThrow('no {{task}} placeholder')
   })
+
+  it('pins P4 near §9’s 0.7, the way it already pins P1 and P5', () => {
+    // P4's answers are parsed in `@retenia/activity-ai`, so this file checks no schema id for
+    // it — which left its temperature as the one §9 number nothing guarded. At 0 the 2–3x
+    // over-generation returns near-identical candidates; well above 1 the distractors stop
+    // coming from the misconceptions they are supposed to be derived from.
+    expect(() =>
+      assertPathgenPrompts({
+        ...testPrompts,
+        activities: { ...testPrompts.activities, temperature: 0 },
+      }),
+    ).toThrow('must stay near')
+    expect(() =>
+      assertPathgenPrompts({
+        ...testPrompts,
+        activities: { ...testPrompts.activities, temperature: 1.4 },
+      }),
+    ).toThrow('must stay near')
+  })
 })

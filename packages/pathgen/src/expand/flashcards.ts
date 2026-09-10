@@ -33,6 +33,11 @@ import type { CitableFragment, LessonContext } from './context'
 /** §1.2's "dedupe by embeddings, cosine > 0.92 merges", and §5's gate 5. */
 export const DUPLICATE_COSINE = 0.92
 
+/** §4 item 9's "3–8 per lesson, maximum 12". The ceiling is the schema's; this is the floor,
+ *  and it is a *reporting* threshold rather than a quota — §1.3 lists material that should
+ *  not become a card at all, so a lesson made of it honestly yields fewer (§14 pitfall 4). */
+export const MIN_FLASHCARDS_PER_LESSON = 3
+
 export interface MemoryItemDraft {
   readonly item: Omit<NewEntity<KnowledgeItem>, 'lessonId'>
   readonly card: Omit<NewEntity<Card>, 'itemId'>
@@ -129,6 +134,14 @@ export function toMemoryItems(input: FlashcardPersistInput): FlashcardPersistRes
     const fragments = card.citations
       .map((id) => byCiteId.get(id))
       .filter((fragment): fragment is CitableFragment => fragment !== undefined)
+
+    // §1.2 rule 18: "each card stores `source_id` + a locator". A card whose cite ids resolve
+    // to nothing stores neither, so "Reportar error" has nowhere to go and the QA gates of
+    // 8.4 have nothing to check the claim against. Kept rather than dropped — the card may
+    // still be a good one — but no longer silent.
+    if (fragments.length === 0) {
+      warnings.push(warning('flashcard_uncited', { lesson: input.lessonSpecId, front: key }))
+    }
 
     drafts.push({
       key,

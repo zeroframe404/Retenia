@@ -95,6 +95,19 @@ function firstError(issues: readonly Issue[]): Issue | undefined {
   return issues.find((issue) => issue.severity === 'error')
 }
 
+/**
+ * §4's MCQ rule: "4 options, one unambiguously correct".
+ *
+ * A *generation* rule rather than a property of every MCQ that can exist — a hand-written
+ * three-option question is fine and `validateChoice` is right not to refuse it — so it lives
+ * here, where over-generation makes rejecting a candidate cost nothing, rather than in the
+ * shared validator where it would also judge the fixture corpus and anything the user writes.
+ */
+const MCQ_OPTIONS = 4
+/** The types §4's sentence is about. `true_false` has its own two-option rule in the validator,
+ *  and the burst types are a different shape entirely. */
+const MCQ_TYPES: ReadonlySet<string> = new Set(['mcq_single', 'mcq_multi'])
+
 /** §4: an MCQ ships with per-option feedback and with the misconception its distractors came from. */
 export function mcqIssue(
   draft: ActivityDraft,
@@ -103,6 +116,14 @@ export function mcqIssue(
 ): { readonly code: string; readonly message: string } | null {
   if (draft.payload.family !== 'choice') return null
   for (const set of draft.payload.sets) {
+    if (MCQ_TYPES.has(draft.type) && set.options.length !== MCQ_OPTIONS) {
+      return {
+        code: 'mcq_option_count',
+        message:
+          `an MCQ has ${MCQ_OPTIONS} options, got ${set.options.length}; ` +
+          'fewer makes the answer guessable and more is a list to read rather than a question',
+      }
+    }
     const bare = set.options.filter(
       (option) => option.feedback === undefined || option.feedback.trim() === '',
     )

@@ -347,8 +347,9 @@ export const generationResultDtoSchema = z.object({
 })
 export type GenerationResultDto = z.infer<typeof generationResultDtoSchema>
 
-/** How far one lesson's expansion has got — `lessons.status`, mirrored for the renderer. */
-export const LESSON_STATUSES = ['pending', 'generating', 'ready', 'failed'] as const
+/** How far one lesson's expansion has got — `lessons.status`, mirrored for the renderer.
+ *  `qa` is written but not yet through §5's gates; sub-phase 8.4 is what sets it. */
+export const LESSON_STATUSES = ['pending', 'generating', 'qa', 'ready', 'failed'] as const
 export const lessonStatusDtoSchema = z.enum(LESSON_STATUSES)
 export type LessonStatusDto = z.infer<typeof lessonStatusDtoSchema>
 

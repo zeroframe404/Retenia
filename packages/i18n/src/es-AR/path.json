@@ -81,7 +81,10 @@
       "lesson_block_uncited": "Un bloque de {{block}} de la lección {{lesson}} no pudo citar ninguna fuente: quedó marcado como conocimiento general.",
       "activity_rejected": "Se descartó un ejercicio de tipo {{type}} de la lección {{lesson}} ({{code}}).",
       "practice_incomplete": "La práctica de la lección {{lesson}} no cumple «{{rule}}»: {{detail}}.",
-      "flashcard_deduped": "Se descartó una tarjeta repetida de la lección {{lesson}} ({{reason}})."
+      "flashcard_deduped": "Se descartó una tarjeta repetida de la lección {{lesson}} ({{reason}}).",
+      "lesson_context_over_budget": "Las fuentes de la lección {{lesson}} superan el presupuesto ({{tokens}} de {{budget}} tokens): se usaron todas igual.",
+      "flashcards_thin": "La lección {{lesson}} dejó {{kept}} tarjetas, menos de las tres habituales.",
+      "flashcard_uncited": "Una tarjeta de la lección {{lesson}} no pudo citar ninguna fuente: se guardó sin origen."
     }
   },
   "wizard": {
@@ -143,6 +146,7 @@
     "status": {
       "pending": "En cola",
       "generating": "Escribiendo",
+      "qa": "Revisando",
       "ready": "Lista",
       "failed": "Falló"
     },
