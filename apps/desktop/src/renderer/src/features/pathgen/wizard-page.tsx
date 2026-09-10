@@ -52,6 +52,7 @@ export function WizardPage({ onGenerated }: WizardPageProps) {
   const [paceHoursPerWeek, setPaceHoursPerWeek] = useState(3)
   const [primarySourceId, setPrimarySourceId] = useState('')
   const [forExamDate, setForExamDate] = useState('')
+  const [targetLanguage, setTargetLanguage] = useState('')
   const [runId, setRunId] = useState<string | undefined>(undefined)
 
   const progress = useGenerationProgress(runId)
@@ -76,8 +77,11 @@ export function WizardPage({ onGenerated }: WizardPageProps) {
             primarySourceId,
             sourceIds,
             ...(forExamDate === '' ? {} : { forExam: { date: forExamDate } }),
+            // Empty means "this path does not teach a language", which is most of them; the
+            // field is `null` rather than absent so a cleared box clears the config too.
+            ...(targetLanguage.trim() === '' ? {} : { targetLanguage: targetLanguage.trim() }),
           },
-    [goal, level, paceHoursPerWeek, primarySourceId, sourceIds, forExamDate],
+    [goal, level, paceHoursPerWeek, primarySourceId, sourceIds, forExamDate, targetLanguage],
   )
   const debouncedConfig = useDebounced(config, 400)
 
@@ -187,6 +191,21 @@ export function WizardPage({ onGenerated }: WizardPageProps) {
               onChange={(event) => setForExamDate(event.target.value)}
               data-testid="wizard-exam-date"
             />
+          </label>
+
+          {/* §7: "to learn English, the lesson goes in Spanish and the items in English".
+              Left empty for a path *about* something rather than a path that teaches a
+              language, which is the ordinary case. */}
+          <label className="flex flex-col gap-1 text-sm" htmlFor="wizard-target-language-input">
+            {t('wizard.targetLanguage')}
+            <Input
+              id="wizard-target-language-input"
+              value={targetLanguage}
+              onChange={(event) => setTargetLanguage(event.target.value)}
+              placeholder={t('wizard.targetLanguagePlaceholder')}
+              data-testid="wizard-target-language"
+            />
+            <span className="text-muted text-xs">{t('wizard.targetLanguageHint')}</span>
           </label>
 
           <div className="flex items-center gap-3">

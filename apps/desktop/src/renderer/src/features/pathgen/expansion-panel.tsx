@@ -28,7 +28,12 @@ const STATUS_VARIANT: Record<LessonSummaryDto['status'], NonNullable<BadgeProps[
 export interface ExpansionPanelProps {
   pathVersionId: string
   /** Where "Reportar error" sends the learner. */
-  onOpenSource?: (input: { sourceId: string; locator: string }) => void
+  onOpenSource?: (input: {
+    sourceId: string
+    locator: string
+    page: number | null
+    blockIds: readonly string[]
+  }) => void
 }
 
 export function ExpansionPanel({ pathVersionId, onOpenSource }: ExpansionPanelProps) {
@@ -118,6 +123,8 @@ export function ExpansionPanel({ pathVersionId, onOpenSource }: ExpansionPanelPr
                   onOpenSource?.({
                     sourceId: lesson.firstCitation.sourceId,
                     locator: lesson.firstCitation.locator,
+                    page: lesson.firstCitation.page,
+                    blockIds: lesson.firstCitation.blockIds,
                   })
                 }}
               >

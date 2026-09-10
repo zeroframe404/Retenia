@@ -1,4 +1,5 @@
 import type {
+  ChunkRepository,
   Clock,
   GenerationRunRepository,
   JsonObject,
@@ -6,6 +7,7 @@ import type {
   Lesson,
   PathRepository,
 } from '@retenia/core'
+import { parseSourceLocator } from '@retenia/core'
 import type {
   GenerationEstimateDto,
   GenerationResultDto,
@@ -26,6 +28,7 @@ import {
   freezePath,
   type GenerationConfigInput,
   type GenerationRunHandle,
+  lessonCitationSchema,
   pathDraftSchema,
 } from '@retenia/pathgen'
 import {
@@ -65,6 +68,8 @@ export interface PathgenFacadeRepos {
   >
   readonly generationRuns: Pick<GenerationRunRepository, 'findById' | 'findLatestByPath'>
   readonly knowledgeItems: Pick<KnowledgeItemRepository, 'listByLesson'>
+  /** For "Reportar error": a citation stores a display label, the reader route wants a page. */
+  readonly chunks: Pick<ChunkRepository, 'findById'>
 }
 
 export interface PathgenFacadeDeps {
@@ -130,19 +135,38 @@ async function loadVersion(repos: PathgenFacadeRepos, pathVersionId: string) {
   return { path, version, draft: pathDraftSchema.parse(version.spec) }
 }
 
-/** One lesson plus the two counts the panel shows, which are one query each. */
+/**
+ * The page "Reportar error" opens the source at.
+ *
+ * `lessons.citations[].locator` is what the parser called the position — `p. 8`, `12:30–13:45`,
+ * a heading — so it renders but does not navigate. The chunk it names still carries the
+ * structured locator, and `parseSourceLocator` is the same reader `buildLessonContext` used to
+ * write the label in the first place. A source with no pages resolves to `null` and the link
+ * opens it at its start, which beats not opening it at all.
+ */
+async function citedPage(deps: PathgenFacadeDeps, lesson: Lesson): Promise<number | null> {
+  const citation = lessonCitationSchema.safeParse(lesson.citations[0])
+  if (!citation.success) return null
+  const chunk = await deps.repos.chunks.findById(citation.data.chunk_id)
+  if (chunk === undefined) return null
+  return parseSourceLocator(chunk).page ?? null
+}
+
+/** One lesson plus the counts the panel shows, which are one query each. */
 async function summarize(
   deps: PathgenFacadeDeps,
   lesson: Lesson,
   moduleTitle: string,
 ): Promise<LessonSummaryDto> {
-  const [activities, items] = await Promise.all([
+  const [activities, items, page] = await Promise.all([
     deps.repos.paths.listActivities(lesson.id),
     deps.repos.knowledgeItems.listByLesson(lesson.id),
+    citedPage(deps, lesson),
   ])
   return toLessonSummaryDto(lesson, moduleTitle, {
     activities: activities.length,
     flashcards: items.length,
+    page,
   })
 }
 

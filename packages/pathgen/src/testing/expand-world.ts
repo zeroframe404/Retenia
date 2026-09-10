@@ -128,6 +128,7 @@ export function expandWorld(clock: Clock, options: ExpandWorldOptions = {}): Exp
     kind: 'draft',
     title: 'Memoria',
     language: 'es-AR',
+    target_language: null,
     level: 'beginner',
     goal: 'Entender la memoria de trabajo',
     target_date: null,

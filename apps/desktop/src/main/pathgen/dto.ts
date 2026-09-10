@@ -160,7 +160,12 @@ export function toEditOp(dto: PathEditOpDto): PathEditOp {
 export function toLessonSummaryDto(
   lesson: Lesson,
   moduleTitle: string,
-  counts: { readonly activities: number; readonly flashcards: number },
+  counts: {
+    readonly activities: number
+    readonly flashcards: number
+    /** Resolved from the cited chunk by the caller — `lessons.citations` stores a label. */
+    readonly page?: number | null
+  },
 ): LessonSummaryDto {
   const expansion = lessonExpansionSchema.safeParse(lesson.expansion)
   const citation = lessonCitationSchema.safeParse(lesson.citations[0])
@@ -178,6 +183,7 @@ export function toLessonSummaryDto(
       ? {
           sourceId: citation.data.source_id,
           locator: citation.data.locator,
+          page: counts.page ?? null,
           blockIds: [...citation.data.block_ids],
         }
       : null,

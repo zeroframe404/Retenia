@@ -163,9 +163,18 @@ function accrue(totals: Totals, wave: WaveResult): void {
   for (const model of wave.modelsUsed) totals.models.add(model)
 }
 
-/** The path's language pair, when it teaches one (§7's "lesson in Spanish, items in English"). */
+/**
+ * The path's language pair, when it teaches one (§7's "lesson in Spanish, items in English").
+ *
+ * This used to compare `draft.language` against `config.lessonLanguage`, which are the same
+ * value by construction — `configOf` builds the config *from* the draft, and the draft's
+ * language is the config's lesson language — so it always answered `null` and P3's
+ * `target_language` rule could never fire. A path that teaches a language now says so
+ * directly, in one field, rather than being inferred from two that cannot disagree.
+ */
 function targetLanguageOf(config: GenerationConfig, draft: PathDraft): string | null {
-  return draft.language === config.lessonLanguage ? null : draft.language
+  const target = config.targetLanguage ?? draft.target_language
+  return target === null || target === config.lessonLanguage ? null : target
 }
 
 export async function expandLessons(
@@ -284,17 +293,27 @@ export async function expandLessons(
   // in lesson 9 is the case the threshold exists for, and it is the case a string match misses.
   if (deps.embeddings !== undefined && existingFronts.size > 0) {
     const keys = [...existingFronts.keys()]
+    let embedded = 0
     try {
       const vectors = await deps.embeddings.embed(keys)
       for (const [index, key] of keys.entries()) {
         const vector = vectors[index]
-        if (vector !== undefined) existingFronts.set(key, vector)
+        if (vector !== undefined) {
+          existingFronts.set(key, vector)
+          embedded += 1
+        }
       }
     } catch {
       // A provider that cannot answer is not a reason to fail an expansion: the dedupe falls
       // back to the exact front, which is what an unwired provider gives, and the run says so.
-      warnings.push(warning('embeddings_unavailable', { stage: 'expand' }))
+      embedded = 0
     }
+    // Throwing is not the only way a provider fails. One that answers with fewer vectors than
+    // it was asked for — an adapter that turns "no model downloaded" into an empty array, say —
+    // leaves every front on `null`, which makes `dedupeByEmbedding` skip every comparison and
+    // silently demotes rule 11's cosine to the exact string match it exists to beat. Reporting
+    // only the `throw` meant that failure was the one nothing said a word about.
+    if (embedded === 0) warnings.push(warning('embeddings_unavailable', { stage: 'expand' }))
   }
   if (deps.embeddings === undefined) {
     warnings.push(warning('embeddings_unavailable', { stage: 'expand' }))

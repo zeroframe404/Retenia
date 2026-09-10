@@ -1,4 +1,5 @@
 import { Button, ErrorState, StatTile } from '@retenia/ui'
+import { useNavigate } from '@tanstack/react-router'
 import { useT } from '../../i18n/use-t'
 import { ExpansionPanel } from './expansion-panel'
 import { usePathVersion } from './use-pathgen'
@@ -18,6 +19,7 @@ export interface CompletionPageProps {
 
 export function CompletionPage({ pathVersionId }: CompletionPageProps) {
   const t = useT('path')
+  const navigate = useNavigate()
   const version = usePathVersion(pathVersionId)
 
   if (version.isLoading) return null
@@ -49,7 +51,17 @@ export function CompletionPage({ pathVersionId }: CompletionPageProps) {
           {t('completion.regenerate')}
         </Button>
       </div>
-      <ExpansionPanel pathVersionId={pathVersionId} />
+      {/* §13 step 5's "Reportar error (abre la cita)": the reader route of sub-phase 6.6 is
+          the destination, the same one "Ver en la fuente" and "Continuar donde estaba" use. */}
+      <ExpansionPanel
+        pathVersionId={pathVersionId}
+        onOpenSource={({ sourceId, page }) =>
+          navigate({
+            to: '/library',
+            search: { sourceId, ...(page === null ? {} : { page }) },
+          })
+        }
+      />
     </div>
   )
 }

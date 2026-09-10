@@ -411,6 +411,38 @@ describe('expandLessons() when something goes wrong', () => {
     expect(set.repos.rows.knowledgeItems).toHaveLength(8)
   })
 
+  it('tells P3 the target language when the path teaches one, and stays quiet when it does not', async () => {
+    const set = setUp()
+    await expandLessons(
+      depsOf(set),
+      inputOf(set, {
+        config: parseGenerationConfig({
+          goal: 'Aprender inglés',
+          level: 'B1',
+          lessonLanguage: 'es-AR',
+          targetLanguage: 'en-GB',
+          sourceIds: ['src-book'],
+          primarySourceId: 'src-book',
+        }),
+      }),
+    )
+
+    const theory = set.harness.replay.calls.filter((call) =>
+      call.prompt.includes('lesson_language:'),
+    )
+    expect(theory.length).toBeGreaterThan(0)
+    // §7: the lesson is written in `lesson_language`, the material being learned is not
+    // translated into it. This line used to be unreachable — `targetLanguageOf` compared two
+    // values that are the same by construction, so it always answered `null`.
+    expect(theory.every((call) => call.prompt.includes('target_language: en-GB'))).toBe(true)
+
+    const plain = setUp()
+    await expandLessons(depsOf(plain), inputOf(plain))
+    expect(
+      plain.harness.replay.calls.some((call) => call.prompt.includes('target_language:')),
+    ).toBe(false)
+  })
+
   it('says once when no embedding provider is wired for the flashcard dedupe', async () => {
     const set = setUp()
     const result = await expandLessons(depsOf(set), inputOf(set))
@@ -449,5 +481,28 @@ describe('the fronts the path already has', () => {
     // The pre-existing front reached the provider. Seeding its vector as `null` — which is
     // what this did — leaves `dedupeByEmbedding` nothing to compare against.
     expect(embedded.some((batch) => batch.some((text) => text.includes('anterior')))).toBe(true)
+  })
+
+  it('says so when the provider answers with no vectors instead of throwing', async () => {
+    const set = setUp()
+    const lesson = set.repos.rows.lessons[0]
+    if (lesson === undefined) throw new Error('the world has no lessons')
+    set.repos.rows.knowledgeItems.push({
+      ...(set.repos.rows.knowledgeItems[0] ?? {}),
+      id: '01900000-0000-7000-8000-0000000000fe',
+      lessonId: lesson.id,
+      fields: { front: 'Una formulación anterior', context_cue: null, cloze_text: null },
+      deletedAt: null,
+    } as (typeof set.repos.rows.knowledgeItems)[number])
+
+    // The shape a desktop adapter used to produce for "no model downloaded": resolves, empty.
+    // It leaves every front on `null`, so the cosine pass compares nothing — and used to do it
+    // in silence, because only a `throw` was reported.
+    const result = await expandLessons(
+      { ...depsOf(set), embeddings: { embed: async () => [] } },
+      inputOf(set),
+    )
+
+    expect(result.warnings.map((entry) => entry.code)).toContain('embeddings_unavailable')
   })
 })

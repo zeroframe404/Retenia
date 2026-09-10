@@ -97,6 +97,9 @@
     "selectSource": "Choose a source…",
     "pace": "Pace (hours/week)",
     "examDate": "Exam date (optional)",
+    "targetLanguage": "Language being learned (optional)",
+    "targetLanguagePlaceholder": "e.g. en-GB, pt-BR",
+    "targetLanguageHint": "Language paths only: the lesson is written in the path’s language and the material stays in this one.",
     "generate": "Generate",
     "cancel": "Cancel",
     "noSources": {

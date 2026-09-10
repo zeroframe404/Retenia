@@ -97,6 +97,9 @@
     "selectSource": "Elegí una fuente…",
     "pace": "Ritmo (horas/semana)",
     "examDate": "Fecha del examen (opcional)",
+    "targetLanguage": "Idioma que se aprende (opcional)",
+    "targetLanguagePlaceholder": "ej. en-GB, pt-BR",
+    "targetLanguageHint": "Solo para rutas de idiomas: la lección se escribe en el idioma de la ruta y el material queda en este.",
     "generate": "Generar",
     "cancel": "Cancelar",
     "noSources": {
