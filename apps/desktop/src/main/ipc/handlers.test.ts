@@ -451,6 +451,7 @@ function makeDeps(overrides: Partial<HandlerDeps> = {}): HandlerDeps {
     dbUnavailableReason: 'the database did not open',
     emitSettingsChanged: vi.fn(),
     reviewDemoEnabled: true,
+    pathgen: null,
     ...overrides,
   }
 }

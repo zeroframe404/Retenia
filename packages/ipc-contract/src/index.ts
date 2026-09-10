@@ -6,6 +6,7 @@ import { backupsChannels } from './channels/backups'
 import { jobsChannels } from './channels/jobs'
 import { libraryChannels } from './channels/library'
 import { memoryChannels } from './channels/memory'
+import { pathgenChannels } from './channels/pathgen'
 import { schedulerChannels } from './channels/scheduler'
 import { secretsChannels } from './channels/secrets'
 import { sessionChannels } from './channels/session'
@@ -15,6 +16,7 @@ import { aiEvents } from './events/ai'
 import { aiSettingsEvents } from './events/ai-settings'
 import { appEvents } from './events/app'
 import { jobsEvents } from './events/jobs'
+import { pathgenEvents } from './events/pathgen'
 import { settingsEvents } from './events/settings'
 
 export type {
@@ -128,6 +130,49 @@ export {
   URGENT_MODE_HOURS,
   urgentModeHoursSchema,
 } from './channels/memory'
+export type {
+  CheckpointNodeDto,
+  CoreLessonNodeDto,
+  GenerationConfigInputDto,
+  GenerationEstimateDto,
+  GenerationResultDto,
+  GenerationRunDto,
+  GenerationRunStatusDto,
+  GenerationScopeDto,
+  GenerationStageDto,
+  GenerationWarningDto,
+  ModuleNodeDto,
+  PathDraftDto,
+  PathDto,
+  PathEditOpDto,
+  PathStatsDto,
+  PathVersionDto,
+  ReinforcementNodeDto,
+  SectionNodeDto,
+} from './channels/pathgen'
+export {
+  checkpointNodeDtoSchema,
+  coreLessonNodeDtoSchema,
+  finalExamNodeDtoSchema,
+  GENERATION_RUN_STATUSES,
+  GENERATION_STAGES,
+  generationConfigInputSchema,
+  generationEstimateDtoSchema,
+  generationResultDtoSchema,
+  generationRunDtoSchema,
+  generationRunStatusSchema,
+  generationScopeDtoSchema,
+  generationStageSchema,
+  generationWarningDtoSchema,
+  moduleNodeDtoSchema,
+  pathDraftDtoSchema,
+  pathDtoSchema,
+  pathEditOpDtoSchema,
+  pathStatsDtoSchema,
+  pathVersionDtoSchema,
+  reinforcementNodeDtoSchema,
+  sectionNodeDtoSchema,
+} from './channels/pathgen'
 export {
   evaluationSchema,
   LEECH_ACTIONS,
@@ -194,6 +239,8 @@ export type { DeepLink, UpdateStatus } from './events/app'
 export { updateStatusSchema } from './events/app'
 export type { JobProgressEvent } from './events/jobs'
 export { jobProgressSchema } from './events/jobs'
+export type { PathgenProgressEvent } from './events/pathgen'
+export { pathgenProgressSchema } from './events/pathgen'
 
 /**
  * Every main<->renderer request/response channel. Merge one object per domain; the
@@ -206,6 +253,7 @@ export const contract = {
   ...jobsChannels,
   ...libraryChannels,
   ...memoryChannels,
+  ...pathgenChannels,
   ...schedulerChannels,
   ...secretsChannels,
   ...sessionChannels,
@@ -220,6 +268,7 @@ export const events = {
   ...aiSettingsEvents,
   ...appEvents,
   ...jobsEvents,
+  ...pathgenEvents,
   ...settingsEvents,
 }
 

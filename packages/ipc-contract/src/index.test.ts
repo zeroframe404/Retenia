@@ -89,6 +89,14 @@ describe('contract', () => {
       'memory.seedReviewDemo',
       'memory.simulateReschedule',
       'memory.startUrgentMode',
+      'pathgen.cancel',
+      'pathgen.editDraft',
+      'pathgen.freeze',
+      'pathgen.getRun',
+      'pathgen.getVersion',
+      'pathgen.quote',
+      'pathgen.resume',
+      'pathgen.start',
       'scheduler.applyOptimization',
       'scheduler.optimize',
       'scheduler.setLevel',
@@ -116,6 +124,7 @@ describe('contract', () => {
       'app.themeChanged',
       'app.updateStatus',
       'jobs.progress',
+      'pathgen.progress',
       'settings.changed',
     ])
   })

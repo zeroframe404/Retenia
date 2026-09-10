@@ -30,3 +30,12 @@ export {
   SYNC_SECONDS_PER_CALL,
   TOC_TOKENS_PER_CHUNK,
 } from './estimate-generation'
+export {
+  loadPlan,
+  type QuoteDeps,
+  type QuoteOptions,
+  type QuotePlanRepos,
+  type QuoteResult,
+  quoteConfig,
+  quoteFromPlan,
+} from './quote-config'

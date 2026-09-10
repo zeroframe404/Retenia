@@ -27,6 +27,7 @@ export {
   parseGenerationConfig,
 } from './config/generation-config'
 export * from './consolidate'
+export * from './edit'
 export {
   GENERATION_ERROR_CODES,
   GenerationError,
@@ -35,6 +36,7 @@ export {
 } from './errors'
 export * from './estimate'
 export * from './extract'
+export * from './freeze'
 export type { PathgenLogger } from './logger'
 export { silentLogger } from './logger'
 export * from './manifest'
@@ -92,18 +94,26 @@ export {
   synthesizeOutlineOutputSchema,
 } from './schemas/outline'
 export {
+  type CheckpointNode,
+  type CoreLessonNode,
   checkpointNodeSchema,
   coreLessonNodeSchema,
   type DraftMisconception,
   draftMisconceptionSchema,
+  type FinalExamNode,
   finalExamNodeSchema,
+  type ModuleNode,
   moduleNodeSchema,
   PATH_DRAFT_SCHEMA_ID,
   PATH_DRAFT_VERSION,
   type PathDraft,
+  type PathStats,
   pathDraftSchema,
   pathStatsSchema,
+  type ReinforcementNode,
   reinforcementNodeSchema,
+  type SectionNode,
+  type SourceRef,
   sectionNodeSchema,
   sourceRefSchema,
 } from './schemas/path-draft'

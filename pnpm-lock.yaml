@@ -62,6 +62,9 @@ importers:
       '@retenia/ipc-contract':
         specifier: workspace:*
         version: link:../../packages/ipc-contract
+      '@retenia/pathgen':
+        specifier: workspace:*
+        version: link:../../packages/pathgen
       '@retenia/readers':
         specifier: workspace:*
         version: link:../../packages/readers

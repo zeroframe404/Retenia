@@ -391,6 +391,8 @@ export function createPathRepository(ctx: RepositoryContext): PathRepository {
 
     findVersion: versions.findById,
 
+    updateVersion: versions.update,
+
     findVersionByNumber: async (pathId, number) =>
       (
         await versions.findWhere(

@@ -71,5 +71,54 @@
       "path_too_small": "The path has only {{lessons}} lessons.",
       "exam_date_overshoot": "At the chosen pace {{weeks_estimate}} weeks are needed and {{weeks_available}} remain until {{target_date}}."
     }
+  },
+  "wizard": {
+    "step": {
+      "configure": "Configure",
+      "generating": "Generating"
+    },
+    "goal": "Goal",
+    "goalPlaceholder": "e.g. Pass the physics midterm",
+    "level": "Level",
+    "levelPlaceholder": "e.g. beginner, B1, undergraduate",
+    "primarySource": "Primary source",
+    "selectSource": "Choose a source…",
+    "pace": "Pace (hours/week)",
+    "examDate": "Exam date (optional)",
+    "generate": "Generate",
+    "cancel": "Cancel",
+    "noSources": {
+      "title": "No sources ready yet",
+      "description": "Add and finish importing at least one source in the Library before generating a path."
+    }
+  },
+  "preview": {
+    "loadError": "Could not load this path version.",
+    "undo": "Undo",
+    "redo": "Redo",
+    "mergeLessons": "Merge {{count}} lessons",
+    "freeze": "Confirm path",
+    "frozen": "Path confirmed",
+    "primarySource": "Primary source",
+    "knownToggle": "I already know this",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "exclude": "Exclude",
+    "deepen": "Go deeper",
+    "deepenTitle": "Go deeper into this lesson?",
+    "deepenDescription": "Splits this lesson into two, with more concepts in each. This adds lessons that will cost more to expand later.",
+    "deepenConfirm": "Go deeper",
+    "deepenApplied": "Lesson split — projected extra cost ≈ USD {{usd}}",
+    "selectLesson": "Select this lesson to merge"
+  },
+  "completion": {
+    "title": "Your path is ready",
+    "lessons": "Lessons",
+    "minutes": "Minutes",
+    "modules": "Modules",
+    "concepts": "Concepts",
+    "plan": "At this pace, ready by {{date}} in about {{weeks}} weeks.",
+    "regenerate": "Regenerate path",
+    "regenerateDisabledReason": "Diff-based regeneration arrives in a later phase."
   }
 }

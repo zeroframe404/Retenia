@@ -30,6 +30,7 @@ export default defineConfig({
           '@retenia/activity-schema',
           '@retenia/ingest',
           '@retenia/ai',
+          '@retenia/pathgen',
           'zod',
         ],
       },

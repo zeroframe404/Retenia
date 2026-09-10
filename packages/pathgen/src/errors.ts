@@ -17,6 +17,10 @@ export const GENERATION_ERROR_CODES = [
   /** The run is already completed, failed or cancelled. */
   'run_not_resumable',
   'path_not_found',
+  /** No `path_versions` row with that id (freeze/edit, sub-phase 8.2). */
+  'version_not_found',
+  /** `frozen_at` is already set: "frozen paths reject structural edits". */
+  'already_frozen',
 ] as const
 
 export type GenerationErrorCode = (typeof GENERATION_ERROR_CODES)[number]

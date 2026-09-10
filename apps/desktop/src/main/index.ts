@@ -5,6 +5,7 @@ import { contract, type DeepLink } from '@retenia/ipc-contract'
 import * as Sentry from '@sentry/electron/main'
 import type { OpenDialogOptions } from 'electron'
 import { app, dialog, protocol } from 'electron'
+import { buildRegistry, createMainAiClient } from './ai/client'
 import {
   createBackupService,
   shouldRunDailyBackup,
@@ -22,6 +23,9 @@ import { bootstrapJobs } from './jobs/bootstrap'
 import { initLogging, log } from './logging/log'
 import { createMemoryService, type MemoryService } from './memory/service'
 import { initSentryMain } from './observability/sentry'
+import { bootstrapPathgen } from './pathgen/bootstrap'
+import { createE2eFakeInvoker, e2eFakeRegistry } from './pathgen/e2e-fake-ai'
+import type { PathgenFacade } from './pathgen/facade'
 import { getBackupsRoot, getBlobsRoot, getDatabasePath, getSettingsPath } from './paths'
 import { APP_SCHEME_PRIVILEGES, handleAppProtocol } from './protocol/app-protocol'
 import { handleMediaProtocol, MEDIA_SCHEME_PRIVILEGES } from './protocol/media-protocol'
@@ -188,6 +192,31 @@ if (gotLock) {
       })
     }
 
+    // "Generate with AI" (sub-phase 8.2): shares `database` and `jobs.ai` rather than opening
+    // a second connection or building a second client (`docs/spec/07-architecture.md` §5).
+    //
+    // Under `RETENIA_E2E=1` a real generation still has nowhere to send its P1/P2 calls — no
+    // key is configured in a fresh test profile — so this builds a second, disposable client
+    // over the same repositories with a deterministic in-process invoker instead of the real
+    // SDK one, and a registry that routes both text roles at it. Same gate as
+    // `jobs.enqueueDemo`/`app.devMediaSampleUrl`: never true in a packaged build.
+    const isE2e = process.env.RETENIA_E2E === '1'
+    const pathgen: PathgenFacade | null =
+      database && jobs.ai && jobs.secrets
+        ? bootstrapPathgen({
+            database,
+            ai: isE2e
+              ? createMainAiClient({
+                  repos: database.repos,
+                  secrets: jobs.secrets,
+                  invoker: createE2eFakeInvoker(),
+                })
+              : jobs.ai,
+            registry: isE2e ? async () => e2eFakeRegistry() : () => buildRegistry(database.repos),
+            emit: (event) => broadcast('pathgen.progress', event),
+          })
+        : null
+
     const syncedFolderWarning = isPathInSyncedFolder(app.getPath('userData'))
     if (syncedFolderWarning) {
       log.warn(
@@ -282,6 +311,7 @@ if (gotLock) {
       emitSettingsChanged: (key, value) => broadcast('settings.changed', { key, value }),
       // Same gate as `jobs.enqueueDemo`: nothing in the shipped product seeds review data.
       reviewDemoEnabled: is.dev || process.env.RETENIA_E2E === '1',
+      pathgen,
       reportRendererError: (error) => {
         log.error('[renderer]', error.name, error.message, error.stack)
         // Re-checked per call rather than captured once at startup: `Sentry.init` only

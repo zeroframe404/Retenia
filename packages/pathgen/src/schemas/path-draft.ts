@@ -118,7 +118,21 @@ export const pathDraftSchema = z.object({
   excluded: z.array(z.object({ heading_path: z.string(), reason: z.string() })),
   stats: pathStatsSchema,
   warnings: z.array(generationWarningSchema),
+  /** Section/module ids the preview marked "ya lo sé" (sub-phase 8.2,
+   *  `docs/spec/04-path-generation.md` §13 step 3). Additive to the schema 8.1 shipped:
+   *  absent (defaults to empty) on any draft produced before this field existed. Freezing
+   *  turns each into `lessons.completed_at`; real FSRS low-priority seeding needs the memory
+   *  system's item creation and stays a `seed_memory` TODO for the diagnostic (8.5). */
+  known_node_ids: z.array(z.string()).default([]),
 })
 
 export type PathDraft = z.infer<typeof pathDraftSchema>
 export type DraftMisconception = z.infer<typeof draftMisconceptionSchema>
+export type SectionNode = z.infer<typeof sectionNodeSchema>
+export type ModuleNode = z.infer<typeof moduleNodeSchema>
+export type CoreLessonNode = z.infer<typeof coreLessonNodeSchema>
+export type ReinforcementNode = z.infer<typeof reinforcementNodeSchema>
+export type CheckpointNode = z.infer<typeof checkpointNodeSchema>
+export type FinalExamNode = z.infer<typeof finalExamNodeSchema>
+export type SourceRef = z.infer<typeof sourceRefSchema>
+export type PathStats = z.infer<typeof pathStatsSchema>
