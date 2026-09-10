@@ -38,6 +38,24 @@ describe('sanitizeString()', () => {
     expect(result).not.toContain('evil.example')
   })
 
+  it('does not let a nest deeper than the pass budget reassemble a live tag', () => {
+    // Each layer of `<scri…pt>` wrapping needs its own pass to unwind, so a nest deep
+    // enough outruns the loop's own pass budget and would still be mid-reassembly when it
+    // gives up — this is exactly that case, past `MAX_SANITIZE_PASSES`, caught only by the
+    // escape pass that runs after the loop.
+    const layers = 60
+    const nested =
+      '<scri'.repeat(layers) +
+      '<script>a</script>' +
+      'pt>'.repeat(layers - 1) +
+      'pt src="https://evil.example/x.js">'
+    const result = sanitizeString(nested, DEFAULT_SANITIZE_LIMITS)
+    expect(result).not.toContain('<script')
+    // The attribute text survives as inert prose by design (the escape pass neutralizes the
+    // tag rather than deleting it); what must not survive is a live tag.
+    expect(result).not.toMatch(/<\s*script/i)
+  })
+
   it('does not reassemble a live tag out of a doubly-nested opener', () => {
     const nested = '<ifr<ifr<iframe></iframe>ame></iframe>ame src="https://evil.example/">'
     const result = sanitizeString(nested, DEFAULT_SANITIZE_LIMITS)
