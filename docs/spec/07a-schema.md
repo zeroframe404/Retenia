@@ -36,7 +36,7 @@ Packaging note (Windows first): the `.node` binaries of both drivers and `sqlite
 
 ## Migrations
 
-`packages/db/migrations/NNNN_name.sql` — `drizzle-kit generate` output for the Drizzle tables, plus hand-written files (`drizzle-kit generate --custom`) for what Drizzle cannot express. `migrate(db)` (`src/migrator.ts`) runs on every app start: it creates `_migrations` if needed, applies each pending file inside its own transaction (a failing statement rolls the whole file back) and records `name`, `sha256`, `applied_at`, `duration_ms`.
+`packages/db/migrations/NNNN_name.sql` — `drizzle-kit generate` output for the Drizzle tables, plus hand-written files (`drizzle-kit generate --custom`) for what Drizzle cannot express. `migrate(db)` (`src/migrator.ts`) runs on every app start: it creates `_migrations` if needed, applies each pending file inside its own transaction (a failing statement rolls the whole file back) and records `name`, `sha256`, `applied_at`, `duration_ms`. Foreign-key enforcement is switched off around each file — SQLite ignores that pragma inside a transaction, and a table rebuild drops a table other rows still point at — and `PRAGMA foreign_key_check` runs before the commit instead, so a file that really leaves a dangling reference still rolls back.
 
 **Applied migrations are immutable.** The migrator compares every recorded hash with the file on disk and refuses to start if one changed, refuses a database migrated further than the build knows (no silent downgrade), and refuses a pending file that sorts before an applied one. To change the schema, add a new file — never edit or delete an existing one (`docs/spec/00-conventions.md`; the repo's Claude hooks block edits under `migrations/`).
 

@@ -246,7 +246,7 @@ export function renderSchemaDoc(): string {
     line('## Migrations')
     line()
     line(
-      '`packages/db/migrations/NNNN_name.sql` — `drizzle-kit generate` output for the Drizzle tables, plus hand-written files (`drizzle-kit generate --custom`) for what Drizzle cannot express. `migrate(db)` (`src/migrator.ts`) runs on every app start: it creates `_migrations` if needed, applies each pending file inside its own transaction (a failing statement rolls the whole file back) and records `name`, `sha256`, `applied_at`, `duration_ms`.',
+      '`packages/db/migrations/NNNN_name.sql` — `drizzle-kit generate` output for the Drizzle tables, plus hand-written files (`drizzle-kit generate --custom`) for what Drizzle cannot express. `migrate(db)` (`src/migrator.ts`) runs on every app start: it creates `_migrations` if needed, applies each pending file inside its own transaction (a failing statement rolls the whole file back) and records `name`, `sha256`, `applied_at`, `duration_ms`. Foreign-key enforcement is switched off around each file — SQLite ignores that pragma inside a transaction, and a table rebuild drops a table other rows still point at — and `PRAGMA foreign_key_check` runs before the commit instead, so a file that really leaves a dangling reference still rolls back.',
     )
     line()
     line(

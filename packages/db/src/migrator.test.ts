@@ -8,6 +8,7 @@ import {
   hashMigration,
   loadMigrations,
   MIGRATIONS_TABLE,
+  type Migration,
   MigrationError,
   migrate,
   pendingMigrations,
@@ -427,5 +428,102 @@ describe('migrate()', () => {
          VALUES ('${id('6')}', '${id('98')}', ${audit})`,
       ),
     ).toThrow(/FOREIGN KEY constraint failed/)
+  })
+
+  /**
+   * The upgrade of a collection that already has lessons with activities, cards and a
+   * remediation, through `0015` and `0016` — both rebuild `lessons`, which every one of those
+   * rows points at. With foreign keys enforced inside the file's transaction, the `DROP` of
+   * the old table failed at commit; the migrator now follows SQLite's rebuild procedure.
+   */
+  it.each(['0015_lesson_expansion', '0016_lesson_qa_status'])(
+    'carries lessons with activities, cards and remediations through the rebuild of %s',
+    (name) => {
+      opened = openDatabase(IN_MEMORY)
+      const shipped = loadMigrations()
+      const at = shipped.findIndex((m) => m.name === name)
+      expect(at).toBeGreaterThan(0)
+      migrate(opened, { migrations: shipped.slice(0, at) })
+
+      const now = Date.now()
+      const id = (n: string) => `0199aaaa-bbbb-7ccc-8ddd-${n.padStart(12, '0')}`
+      const audit = `${now}, ${now}, 'test-device', 1`
+      const exec = (sql: string) => opened.sqlite.exec(sql)
+      exec(
+        `INSERT INTO paths (id, title, language, created_at, updated_at, device_id, version)
+         VALUES ('${id('1')}', 'Curso', 'es', ${audit})`,
+      )
+      exec(
+        `INSERT INTO path_versions (id, path_id, number, spec, created_at, updated_at, device_id, version)
+         VALUES ('${id('2')}', '${id('1')}', 1, '{}', ${audit})`,
+      )
+      exec(
+        `INSERT INTO sections (id, path_version_id, ordinal, spec_id, title, created_at, updated_at, device_id, version)
+         VALUES ('${id('3')}', '${id('2')}', 0, 'S01', 'Sección', ${audit})`,
+      )
+      exec(
+        `INSERT INTO modules (id, section_id, ordinal, spec_id, title, created_at, updated_at, device_id, version)
+         VALUES ('${id('4')}', '${id('3')}', 0, 'M01', 'Módulo', ${audit})`,
+      )
+      exec(
+        `INSERT INTO lessons (id, module_id, ordinal, spec_id, title, created_at, updated_at, device_id, version)
+         VALUES ('${id('5')}', '${id('4')}', 0, 'L01', 'Lección', ${audit})`,
+      )
+      exec(
+        `INSERT INTO lessons (id, module_id, ordinal, spec_id, kind, parent_lesson_id, title, created_at, updated_at, device_id, version)
+         VALUES ('${id('6')}', '${id('4')}', 1, 'L01.r1', 'remediation', '${id('5')}', 'Refuerzo', ${audit})`,
+      )
+      exec(
+        `INSERT INTO activities (id, lesson_id, type, family, lang, config, grading, created_at, updated_at, device_id, version)
+         VALUES ('${id('7')}', '${id('5')}', 'mcq_single', 'choice', 'es', '{}', '{}', ${audit})`,
+      )
+      exec(
+        `INSERT INTO knowledge_items (id, lesson_id, kind, fields, created_at, updated_at, device_id, version)
+         VALUES ('${id('8')}', '${id('5')}', 'fact', '{}', ${audit})`,
+      )
+
+      migrate(opened)
+
+      expect(
+        opened.sqlite.prepare('SELECT id, parent_lesson_id FROM lessons ORDER BY ordinal').all(),
+      ).toEqual([
+        { id: id('5'), parent_lesson_id: null },
+        { id: id('6'), parent_lesson_id: id('5') },
+      ])
+      expect(opened.sqlite.prepare('SELECT lesson_id FROM activities').all()).toEqual([
+        { lesson_id: id('5') },
+      ])
+      expect(opened.sqlite.prepare('SELECT lesson_id FROM knowledge_items').all()).toEqual([
+        { lesson_id: id('5') },
+      ])
+      expect(opened.sqlite.pragma('foreign_key_check')).toEqual([])
+      expect(opened.sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
+      // The rebuilt table is still a foreign-key target that bites.
+      expect(() =>
+        exec(
+          `INSERT INTO activities (id, lesson_id, type, family, lang, config, grading, created_at, updated_at, device_id, version)
+           VALUES ('${id('9')}', '${id('99')}', 'mcq_single', 'choice', 'es', '{}', '{}', ${audit})`,
+        ),
+      ).toThrow(/FOREIGN KEY constraint failed/)
+    },
+  )
+
+  it('rolls back a migration that leaves a dangling reference, with enforcement back on', () => {
+    opened = openDatabase(IN_MEMORY)
+    const shipped = loadMigrations()
+    migrate(opened, { migrations: shipped })
+    const now = Date.now()
+    const dangling: Migration = {
+      name: `${String(shipped.length).padStart(4, '0')}_dangling_reference`,
+      sql: `INSERT INTO activities (id, lesson_id, type, family, lang, config, grading, created_at, updated_at, device_id, version)
+            VALUES ('0199aaaa-bbbb-7ccc-8ddd-000000000001', '0199aaaa-bbbb-7ccc-8ddd-000000000999', 'mcq_single', 'choice', 'es', '{}', '{}', ${now}, ${now}, 'test-device', 1);`,
+    }
+
+    expect(() => migrate(opened, { migrations: [...shipped, dangling] })).toThrow(
+      /foreign-key violation/,
+    )
+    expect(opened.sqlite.prepare('SELECT count(*) AS n FROM activities').get()).toEqual({ n: 0 })
+    expect(appliedMigrations(opened).map((row) => row.name)).not.toContain(dangling.name)
+    expect(opened.sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
   })
 })

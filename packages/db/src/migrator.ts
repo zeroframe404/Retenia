@@ -224,8 +224,25 @@ export function migrate(target: MigrationTarget, options: MigrateOptions = {}): 
   const applied: string[] = []
   for (const migration of pending) {
     const startedAt = now()
+    // A table rebuild — create `__new_x`, copy, `DROP`, `RENAME`, the only way SQLite widens a
+    // CHECK — drops a table other rows still point at. With `foreign_keys` on, that fails at
+    // commit however the file defers its checks (`defer_foreign_keys` only moves the check to
+    // the commit), so upgrading any collection with such rows would fail. SQLite's own
+    // procedure (lang_altertable.html, "making other kinds of table schema changes"): switch
+    // enforcement off *outside* the transaction — inside one the pragma is a silent no-op —
+    // run the file, then `foreign_key_check` before commit, so a migration that really does
+    // leave a dangling reference still fails and rolls back.
+    const enforced = sqlite.pragma('foreign_keys', { simple: true }) === 1
+    if (enforced) sqlite.pragma('foreign_keys = OFF')
     const apply = sqlite.transaction(() => {
       sqlite.exec(migration.sql)
+      const violations = sqlite.pragma('foreign_key_check') as unknown[]
+      if (violations.length > 0) {
+        throw new Error(
+          `it leaves ${violations.length} foreign-key violation(s), e.g. ` +
+            JSON.stringify(violations.slice(0, 3)),
+        )
+      }
       record.run(migration.name, hashMigration(migration.sql), startedAt, now() - startedAt)
     })
     try {
@@ -236,6 +253,8 @@ export function migrate(target: MigrationTarget, options: MigrateOptions = {}): 
         migration.name,
         { cause: error },
       )
+    } finally {
+      if (enforced) sqlite.pragma('foreign_keys = ON')
     }
     applied.push(migration.name)
   }
