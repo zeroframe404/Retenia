@@ -228,11 +228,18 @@ function ItemBankNotice({
     )
   }
 
+  // A settled bank without a single diagnostic question cannot place anyone: §10's loop would
+  // have nothing to ask, so "Ya sé parte" waits for a rebuild instead of quietly becoming a
+  // self-assessment alone.
   if (bank.diagnosticItems === 0) {
     return (
-      <p className="text-muted text-sm" data-testid="diagnostic-bank-no-items">
-        {t('diagnostic.bank.noItems')}
-      </p>
+      <ErrorState
+        data-testid="diagnostic-bank-no-items"
+        title={t('diagnostic.bank.noItems')}
+        description={t('diagnostic.bank.noItemsHint')}
+        retryLabel={t('diagnostic.bank.retry')}
+        {...(retrying ? {} : { onRetry })}
+      />
     )
   }
 
@@ -269,8 +276,11 @@ function DiagnosticEntry({
   })
   const build = useBuildItemBank(pathVersionId)
   const bank = polled.data ?? seededBank
-  // "Desde cero" never needs the bank; only the adaptive loop waits for its questions.
-  const canBegin = bank.state === 'ready' || bank.state === 'partial'
+  // "Desde cero" never needs the bank; only the adaptive loop waits for its questions — and a
+  // bank that settled without a single diagnostic question cannot start it at all.
+  const pending = isItemBankPending(bank)
+  const noQuestions = !pending && bank.diagnosticItems === 0
+  const canBegin = !pending && bank.diagnosticItems > 0
 
   // A step change replaces the whole screen, so keyboard focus moves to its heading rather
   // than being left on a button that no longer exists.
@@ -325,7 +335,7 @@ function DiagnosticEntry({
               title={t('diagnostic.entry.partial')}
               hint={t('diagnostic.entry.partialHint')}
               onClick={() => setStep('self')}
-              disabled={starting}
+              disabled={starting || noQuestions}
             />
           </div>
           {notice}
@@ -362,9 +372,7 @@ function DiagnosticEntry({
             >
               {t('diagnostic.self.begin')}
             </Button>
-            {isItemBankPending(bank) && (
-              <span className="text-muted text-sm">{t('diagnostic.self.waiting')}</span>
-            )}
+            {pending && <span className="text-muted text-sm">{t('diagnostic.self.waiting')}</span>}
           </footer>
         </>
       )}

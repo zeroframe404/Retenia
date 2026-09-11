@@ -48,18 +48,19 @@ export function DiagnosticModuleRow({
   const t = useT('path')
   const canRevert = onRevert !== undefined && isRevertible(module)
   const applied = module.status === 'known' && !module.reverted && !module.reopened
+  // The badge says what the module is now, so it agrees with the counts above it; what the
+  // diagnostic had concluded stays visible underneath, as history.
+  const status = effectiveStatus(module)
 
   return (
     <article
       className="border-border flex flex-col gap-2 rounded-lg border p-4"
       data-testid={`diagnostic-module-${module.specId}`}
-      data-status={module.status}
+      data-status={status}
     >
       <header className="flex flex-wrap items-center gap-2">
         <h3 className="grow text-sm font-semibold">{module.title}</h3>
-        <Badge variant={STATUS_VARIANT[module.status]}>
-          {t(`diagnostic.result.status.${module.status}`)}
-        </Badge>
+        <Badge variant={STATUS_VARIANT[status]}>{t(`diagnostic.result.status.${status}`)}</Badge>
         {module.reverted && (
           <Badge variant="outline" data-testid={`diagnostic-module-reverted-${module.specId}`}>
             {t('diagnostic.result.reverted')}
@@ -92,6 +93,14 @@ export function DiagnosticModuleRow({
 
       {module.source !== 'diagnostic' && (
         <p className="text-muted text-xs">{t(`diagnostic.result.source.${module.source}`)}</p>
+      )}
+
+      {status !== module.status && (
+        <p className="text-muted text-xs" data-testid={`diagnostic-module-was-${module.specId}`}>
+          {t('diagnostic.result.wasStatus', {
+            status: t(`diagnostic.result.status.${module.status}`),
+          })}
+        </p>
       )}
 
       {module.reopened && module.reopenReason !== null && (

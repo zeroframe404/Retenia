@@ -399,6 +399,42 @@ describe('DiagnosticPage', () => {
     expect(await screen.findByTestId('diagnostic-bank-waiting')).toBeInTheDocument()
   })
 
+  it('keeps "Ya sé parte" closed when the bank settled without a diagnostic question', async () => {
+    const user = userEvent.setup()
+    const api = stubApi({
+      state: null,
+      itemBank: bank({ state: 'partial', diagnosticItems: 0 }),
+      polledBank: bank({ state: 'building', diagnosticItems: 0 }),
+    })
+    renderPage()
+
+    const notice = await screen.findByTestId('diagnostic-bank-no-items')
+    expect(notice).toHaveTextContent('Esta ruta todavía no tiene preguntas de diagnóstico.')
+    expect(notice).toHaveTextContent('podés volver a intentar armarlas o empezar desde cero')
+    expect(screen.getByRole('button', { name: 'Ya sé parte' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Desde cero' })).toBeEnabled()
+
+    await user.click(within(notice).getByRole('button', { name: 'Volver a intentar' }))
+
+    await waitFor(() =>
+      expect(api.pathgen.buildItemBank).toHaveBeenCalledWith({ pathVersionId: PATH_VERSION_ID }),
+    )
+    // Building again: the self-assessment can be filled in while the questions are written.
+    expect(await screen.findByTestId('diagnostic-bank-waiting')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Ya sé parte' })).toBeEnabled()
+  })
+
+  it('lets the diagnostic begin from the questions a bank kept, even after a failed rebuild', async () => {
+    const user = userEvent.setup()
+    stubApi({ state: null, itemBank: bank({ state: 'failed', diagnosticItems: 5, error: 'boom' }) })
+    renderPage()
+
+    expect(await screen.findByTestId('diagnostic-bank-failed')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Ya sé parte' }))
+
+    expect(screen.getByRole('button', { name: 'Empezar diagnóstico' })).toBeEnabled()
+  })
+
   it('"Terminar ahora" asks first, then finishes and opens the result', async () => {
     const user = userEvent.setup()
     const api = stubApi({ state: inProgress(ATTEMPT_1, { asked: 5, remaining: 3 }) })

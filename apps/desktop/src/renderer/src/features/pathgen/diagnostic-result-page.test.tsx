@@ -221,6 +221,14 @@ describe('DiagnosticResultPage', () => {
     const reopened = screen.getByTestId('diagnostic-module-S03M1')
     expect(reopened).toHaveTextContent('Reabierto por repasos fallidos')
     expect(within(reopened).queryByRole('button')).not.toBeInTheDocument()
+    // The badge agrees with the counts: a reopened module is "Por estudiar" again, and what the
+    // diagnostic had said stays underneath as history.
+    expect(reopened).toHaveAttribute('data-status', 'unknown')
+    expect(within(reopened).getByText('Por estudiar')).toBeInTheDocument()
+    expect(screen.getByTestId('diagnostic-module-was-S03M1')).toHaveTextContent(
+      'El diagnóstico lo había marcado como «Ya lo sabés».',
+    )
+    expect(screen.queryByTestId('diagnostic-module-was-S01M1')).not.toBeInTheDocument()
   })
 
   it('keeps the Elo values hidden until "Avanzado" is switched on', async () => {
@@ -258,6 +266,8 @@ describe('DiagnosticResultPage', () => {
     )
     const row = screen.getByTestId('diagnostic-module-S01M1')
     await waitFor(() => expect(within(row).getByText('Deshecho')).toBeInTheDocument())
+    expect(within(row).getByText('Por estudiar')).toBeInTheDocument()
+    expect(screen.getByTestId('diagnostic-stat-known')).toHaveTextContent('1')
     expect(within(row).queryByRole('button')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Deshacer «Tiro oblicuo»' })).toBeInTheDocument()
   })

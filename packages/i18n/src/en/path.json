@@ -281,7 +281,8 @@
       "failed": "Could not prepare the diagnostic questions.",
       "failedHint": "You can try again or start from scratch.",
       "retry": "Try again",
-      "noItems": "This path has no diagnostic questions: only your self-assessment will be used."
+      "noItems": "This path has no diagnostic questions yet.",
+      "noItemsHint": "Without questions there is no diagnostic: you can try building them again or start from scratch."
     },
     "self": {
       "title": "How much do you know of each section?",
@@ -392,6 +393,7 @@
       "revert": "Undo",
       "revertModule": "Undo “{title}”",
       "reverted": "Undone",
+      "wasStatus": "The diagnostic had marked it as “{status}”.",
       "revertError": "Could not undo. Try again.",
       "revertAll": "Undo all",
       "revertAllTitle": "Undo everything the diagnostic marked?",

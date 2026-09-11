@@ -281,7 +281,8 @@
       "failed": "No se pudieron preparar las preguntas del diagnóstico.",
       "failedHint": "Podés volver a intentarlo o empezar desde cero.",
       "retry": "Volver a intentar",
-      "noItems": "Esta ruta no tiene preguntas de diagnóstico: se va a usar solo tu autoevaluación."
+      "noItems": "Esta ruta todavía no tiene preguntas de diagnóstico.",
+      "noItemsHint": "Sin preguntas no hay diagnóstico: podés volver a intentar armarlas o empezar desde cero."
     },
     "self": {
       "title": "¿Cuánto sabés de cada sección?",
@@ -392,6 +393,7 @@
       "revert": "Deshacer",
       "revertModule": "Deshacer «{title}»",
       "reverted": "Deshecho",
+      "wasStatus": "El diagnóstico lo había marcado como «{status}».",
       "revertError": "No se pudo deshacer. Probá de nuevo.",
       "revertAll": "Deshacer todo",
       "revertAllTitle": "¿Deshacer todo lo que marcó el diagnóstico?",

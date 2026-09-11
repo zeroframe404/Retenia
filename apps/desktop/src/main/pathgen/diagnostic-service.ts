@@ -442,6 +442,11 @@ export function createDiagnosticService(deps: DiagnosticServiceDeps): Diagnostic
       const done =
         applied.modules[entry.moduleId] ??
         (entry.source === 'self_declared' ? previewApplied?.modules[entry.moduleId] : undefined)
+      // The module's reinforcement and checkpoint nodes are completed with it, but the summary
+      // counts lessons the way the rest of the path does — the core ones the learner sees.
+      const coreLessons = new Set(
+        info.module.lessons.filter((lesson) => lesson.kind === 'core').map((lesson) => lesson.id),
+      )
       modules.push({
         moduleId: entry.moduleId,
         specId: info.module.specId,
@@ -454,7 +459,8 @@ export function createDiagnosticService(deps: DiagnosticServiceDeps): Diagnostic
         answered: entry.answered,
         inferred: entry.inferred,
         quickReview: entry.quickReview,
-        lessonsCompleted: done?.completedLessonIds.length ?? 0,
+        lessonsCompleted: (done?.completedLessonIds ?? []).filter((id) => coreLessons.has(id))
+          .length,
         seededCards: done?.seeded.length ?? 0,
         pendingSeedLessons: done?.pendingSeedLessonIds.length ?? 0,
         reverted: done?.revertedAt != null,

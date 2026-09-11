@@ -523,6 +523,10 @@ describe('createDiagnosticService', () => {
     const m01 = done.result?.modules.find((module) => module.specId === 'M01')
     expect(m01?.status).toBe('known')
     expect(m01?.seededCards).toBe(1)
+    // Every lesson row of the module is completed, its reinforcement node included, but the
+    // summary counts the one core lesson the learner sees — as the completion screen does.
+    expect((w.lessonIds.M01 as string[]).length).toBeGreaterThan(1)
+    expect(m01?.lessonsCompleted).toBe(1)
     for (const lessonId of w.lessonIds.M01 as string[]) {
       expect((await w.repos.paths.findLesson(lessonId))?.completedAt).not.toBeNull()
     }
