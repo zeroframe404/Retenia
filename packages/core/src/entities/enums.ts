@@ -171,6 +171,31 @@ export const ITEM_USAGES = [
 ] as const
 export type ItemUsage = (typeof ITEM_USAGES)[number]
 
+// --- prior-knowledge diagnostic -------------------------------------------------------
+
+/** A diagnostic session's lifecycle (`docs/spec/04-path-generation.md` §10, sub-phase 8.5).
+ *  There is no `abandoned` status: walking away is one of `DIAGNOSTIC_STOP_REASONS`. */
+export const DIAGNOSTIC_SESSION_STATUSES = ['in_progress', 'completed'] as const
+export type DiagnosticSessionStatus = (typeof DIAGNOSTIC_SESSION_STATUSES)[number]
+
+/** How the user came in: "desde cero" (`scratch`), "ya sé parte" (`partial`), or the path
+ *  preview's "ya lo sé" (`preview`) — the last recorded as an already-completed session, so
+ *  what it marked can be undone the same way as a diagnostic's result. */
+export const DIAGNOSTIC_ENTRIES = ['scratch', 'partial', 'preview'] as const
+export type DiagnosticEntry = (typeof DIAGNOSTIC_ENTRIES)[number]
+
+/** Why a diagnostic stopped: §10 step 7's limits, plus `from_scratch` (nothing was ever going
+ *  to be asked) and `no_items` (the bank had nothing left that would not repeat a concept). */
+export const DIAGNOSTIC_STOP_REASONS = [
+  'from_scratch',
+  'all_classified',
+  'no_items',
+  'max_items',
+  'time_limit',
+  'abandoned',
+] as const
+export type DiagnosticStopReason = (typeof DIAGNOSTIC_STOP_REASONS)[number]
+
 // --- memory ---------------------------------------------------------------------------
 
 /** `ts-fsrs` `State`: 0 New, 1 Learning, 2 Review, 3 Relearning. */

@@ -8,10 +8,13 @@ import type {
   PathRepository,
 } from '@retenia/core'
 import type {
+  DiagnosticSectionDto,
+  DiagnosticStateDto,
   GenerationEstimateDto,
   GenerationResultDto,
   GenerationRunDto,
   GenerationWarningDto,
+  ItemBankStatusDto,
   LessonRegenerateModeDto,
   LessonSummaryDto,
   PathDraftDto,
@@ -32,6 +35,12 @@ import {
   lessonCitationSchema,
   pathDraftSchema,
 } from '@retenia/pathgen'
+import { log } from '../logging/log'
+import type {
+  DiagnosticAnswerInput,
+  DiagnosticService,
+  DiagnosticStartInput,
+} from './diagnostic-service'
 import {
   citationsOf,
   citedPageOf,
@@ -45,6 +54,7 @@ import {
   toPathVersionDto,
   toQaReportLessonDto,
 } from './dto'
+import type { ItemBankService } from './item-bank-service'
 
 /**
  * What the `pathgen.*` IPC handlers call. A thin seam over `createGenerationRun`'s handle plus
@@ -89,6 +99,10 @@ export interface PathgenFacadeDeps {
   quote(
     input: GenerationConfigInput,
   ): Promise<{ estimate: GenerationEstimateDto; warnings: GenerationWarningDto[] }>
+  /** Stage 9 (sub-phase 8.5). Optional so the facade's older tests need not build one. */
+  readonly itemBank?: ItemBankService
+  /** The prior-knowledge diagnostic (sub-phase 8.5). */
+  readonly diagnostics?: DiagnosticService
 }
 
 export interface PathgenFacade {
@@ -128,6 +142,20 @@ export interface PathgenFacade {
     lessonId: string
     mode: LessonRegenerateModeDto
   }): Promise<{ run: GenerationRunDto; lesson: LessonSummaryDto | null }>
+  buildItemBank(input: {
+    pathVersionId: string
+    allowOverBudget?: boolean
+  }): Promise<ItemBankStatusDto>
+  getItemBank(input: { pathVersionId: string }): Promise<ItemBankStatusDto>
+  diagnosticGet(input: { pathVersionId: string }): Promise<{
+    sections: DiagnosticSectionDto[]
+    state: DiagnosticStateDto | null
+    itemBank: ItemBankStatusDto
+  }>
+  diagnosticStart(input: DiagnosticStartInput): Promise<DiagnosticStateDto>
+  diagnosticAnswer(input: DiagnosticAnswerInput): Promise<DiagnosticStateDto>
+  diagnosticFinish(input: { sessionId: string }): Promise<DiagnosticStateDto>
+  diagnosticRevert(input: { sessionId: string; moduleId?: string }): Promise<DiagnosticStateDto>
 }
 
 async function loadVersion(repos: PathgenFacadeRepos, pathVersionId: string) {
@@ -360,11 +388,67 @@ export function createPathgenFacade(deps: PathgenFacadeDeps): PathgenFacade {
     freeze: async ({ pathVersionId }) => {
       const { draft } = await loadVersion(deps.repos, pathVersionId)
       const result = await freezePath({ repos: deps.repos, clock: deps.clock }, { pathVersionId })
+      // The preview's "ya lo sé" gets the diagnostic's seeding (8.5), and the item bank starts
+      // building right away so the diagnostic can begin while the lessons are written. Neither
+      // may undo a freeze that already happened, so a failure is logged, not thrown.
+      if (deps.diagnostics !== undefined) {
+        await deps.diagnostics
+          .recordPreviewKnown(pathVersionId)
+          .catch((error: unknown) =>
+            log.warn('[pathgen] seeding the preview’s known modules failed:', error),
+          )
+      }
+      if (deps.itemBank !== undefined) {
+        void deps.itemBank
+          .build(pathVersionId)
+          .catch((error: unknown) =>
+            log.warn('[pathgen] the item bank could not be started after the freeze:', error),
+          )
+      }
       return {
         path: toPathDto(result.path),
         version: toPathVersionDto(result.version),
         stats: draft.stats,
       }
     },
+
+    // `async` throughout: a missing dependency must reach the IPC layer as a rejection, never
+    // as a synchronous throw from inside the handler call.
+    buildItemBank: async ({ pathVersionId, allowOverBudget }) =>
+      itemBankOrThrow().build(
+        pathVersionId,
+        allowOverBudget === undefined ? {} : { allowOverBudget },
+      ),
+
+    getItemBank: async ({ pathVersionId }) => itemBankOrThrow().status(pathVersionId),
+
+    diagnosticGet: async ({ pathVersionId }) => {
+      const bank = itemBankOrThrow()
+      let itemBank = await bank.status(pathVersionId)
+      // Never built (a version frozen before 8.5, or a build lost to a restart mid-way with
+      // nothing written): start it now, so the screen that needs it is what asks for it.
+      if (itemBank.state === 'empty') itemBank = await bank.build(pathVersionId)
+      const { sections, state } = await diagnosticsOrThrow().get(pathVersionId)
+      return { sections, state, itemBank }
+    },
+
+    diagnosticStart: async (input) => diagnosticsOrThrow().start(input),
+
+    diagnosticAnswer: async (input) => diagnosticsOrThrow().answer(input),
+
+    diagnosticFinish: async ({ sessionId }) => diagnosticsOrThrow().finish(sessionId),
+
+    diagnosticRevert: async ({ sessionId, moduleId }) =>
+      diagnosticsOrThrow().revert(sessionId, moduleId),
+  }
+
+  function itemBankOrThrow(): ItemBankService {
+    if (deps.itemBank === undefined) throw new Error('pathgen: the item bank is not available')
+    return deps.itemBank
+  }
+
+  function diagnosticsOrThrow(): DiagnosticService {
+    if (deps.diagnostics === undefined) throw new Error('pathgen: the diagnostic is not available')
+    return deps.diagnostics
   }
 }

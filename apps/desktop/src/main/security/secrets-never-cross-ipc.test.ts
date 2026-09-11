@@ -261,6 +261,18 @@ describe('layer 3 — the outputs with a JSON hole are a known, visible set', ()
     'pathgen.regenerateLesson.output',
     'pathgen.resume.output',
     'pathgen.start.output',
+    // Stage 9 (sub-phase 8.5): the item bank's status carries the same `warnings[]` catalog.
+    'pathgen.buildItemBank.output',
+    'pathgen.getItemBank.output',
+    // The diagnostic's state carries the served item's `activity` (`z.json()`, the envelope the
+    // host renders — the same hole as `session.next`), and `diagnosticGet` the bank's
+    // warnings too. The envelope is an `item_bank` activity P9 wrote from the learner's own
+    // sources; main never populates it from a secret.
+    'pathgen.diagnosticAnswer.output',
+    'pathgen.diagnosticFinish.output',
+    'pathgen.diagnosticGet.output',
+    'pathgen.diagnosticRevert.output',
+    'pathgen.diagnosticStart.output',
     'scheduler.optimize.output',
     'session.answer.output',
     'session.next.output',

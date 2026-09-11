@@ -19,6 +19,7 @@ import { createBlobRepository } from './blobs'
 import { createCardRepository } from './cards'
 import { createChunkRepository } from './chunks'
 import { auditValues, type RepositoryContext } from './context'
+import { createDiagnosticSessionRepository } from './diagnostic-sessions'
 import { createExamRepository, createItemBankRepository } from './exams'
 import { createExtractionRepository } from './extractions'
 import { createGamificationRepository } from './gamification'
@@ -107,6 +108,7 @@ export function createRepositories(opened: OpenedDatabase, options: RepositoryOp
     blobs: createBlobRepository(ctx),
     cards: createCardRepository(ctx),
     chunks: createChunkRepository(ctx),
+    diagnosticSessions: createDiagnosticSessionRepository(ctx),
     exams: createExamRepository(ctx),
     extractions: createExtractionRepository(ctx),
     gamification: createGamificationRepository(ctx),

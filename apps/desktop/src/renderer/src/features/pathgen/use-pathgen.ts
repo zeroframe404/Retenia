@@ -1,5 +1,9 @@
 import type {
+  Contract,
+  DiagnosticStateDto,
   GenerationConfigInputDto,
+  InferOutput,
+  ItemBankStatusDto,
   LessonSummaryDto,
   PathEditOpDto,
 } from '@retenia/ipc-contract'
@@ -161,4 +165,103 @@ export function useRegenerateLesson(pathVersionId: string) {
       void client.invalidateQueries({ queryKey: LESSONS_KEY(pathVersionId) })
     },
   })
+}
+
+// --- stage 9 and the prior-knowledge diagnostic (sub-phase 8.5) ------------------------------
+
+/** How often the diagnostic screen re-reads a bank that is still being built. */
+export const ITEM_BANK_POLL_MS = 2_000
+
+const ITEM_BANK_KEY = (pathVersionId: string) => ['pathgen.getItemBank', { pathVersionId }]
+const DIAGNOSTIC_KEY = (pathVersionId: string) => ['pathgen.diagnosticGet', { pathVersionId }]
+
+export type DiagnosticReadDto = InferOutput<Contract, 'pathgen.diagnosticGet'>
+
+/** A bank still on its way: the freeze started it (`empty` is the instant before it does). */
+export function isItemBankPending(bank: Pick<ItemBankStatusDto, 'state'>): boolean {
+  return bank.state === 'empty' || bank.state === 'building'
+}
+
+/**
+ * The item bank of a frozen version, re-read every {@link ITEM_BANK_POLL_MS} for as long as it is
+ * still building and left alone once it settles — `ready`, `partial` or `failed` do not move on
+ * their own, and a build is re-started only by `useBuildItemBank`.
+ */
+export function useItemBank(
+  pathVersionId: string | undefined,
+  options: { enabled?: boolean } = {},
+) {
+  return useIpcQuery(
+    'pathgen.getItemBank',
+    { pathVersionId: pathVersionId ?? '' },
+    {
+      enabled: pathVersionId !== undefined && (options.enabled ?? true),
+      refetchInterval: (query) => {
+        const bank = query.state.data
+        return bank === undefined || isItemBankPending(bank) ? ITEM_BANK_POLL_MS : false
+      },
+    },
+  )
+}
+
+/** "Volver a intentar" on a failed bank. Answers at once with `building`; the poll does the rest. */
+export function useBuildItemBank(pathVersionId: string) {
+  const client = useQueryClient()
+  return useIpcMutation('pathgen.buildItemBank', {
+    onSuccess: (bank) => {
+      client.setQueryData(ITEM_BANK_KEY(pathVersionId), bank)
+      void client.invalidateQueries({ queryKey: DIAGNOSTIC_KEY(pathVersionId) })
+    },
+  })
+}
+
+/** The diagnostic screen's first read: sections, the session to resume, the bank. */
+export function useDiagnostic(pathVersionId: string | undefined) {
+  return useIpcQuery(
+    'pathgen.diagnosticGet',
+    { pathVersionId: pathVersionId ?? '' },
+    { enabled: pathVersionId !== undefined },
+  )
+}
+
+/**
+ * Every diagnostic write answers with the session's next state. That state goes straight into
+ * the `diagnosticGet` cache — the next item has to be on screen the moment main serves it, not
+ * one refetch later — and the query is then invalidated like every other pathgen mutation, so
+ * main stays the source of truth. The in-flight read is cancelled first so a slower answer to
+ * an older read cannot land on top of the newer state.
+ */
+function useWriteDiagnosticState(pathVersionId: string) {
+  const client = useQueryClient()
+  return useCallback(
+    async (state: DiagnosticStateDto) => {
+      const queryKey = DIAGNOSTIC_KEY(pathVersionId)
+      await client.cancelQueries({ queryKey })
+      client.setQueryData(queryKey, (previous: DiagnosticReadDto | undefined) =>
+        previous === undefined ? previous : { ...previous, state },
+      )
+      void client.invalidateQueries({ queryKey })
+    },
+    [client, pathVersionId],
+  )
+}
+
+export function useDiagnosticStart(pathVersionId: string) {
+  const write = useWriteDiagnosticState(pathVersionId)
+  return useIpcMutation('pathgen.diagnosticStart', { onSuccess: (state) => write(state) })
+}
+
+export function useDiagnosticAnswer(pathVersionId: string) {
+  const write = useWriteDiagnosticState(pathVersionId)
+  return useIpcMutation('pathgen.diagnosticAnswer', { onSuccess: (state) => write(state) })
+}
+
+export function useDiagnosticFinish(pathVersionId: string) {
+  const write = useWriteDiagnosticState(pathVersionId)
+  return useIpcMutation('pathgen.diagnosticFinish', { onSuccess: (state) => write(state) })
+}
+
+export function useDiagnosticRevert(pathVersionId: string) {
+  const write = useWriteDiagnosticState(pathVersionId)
+  return useIpcMutation('pathgen.diagnosticRevert', { onSuccess: (state) => write(state) })
 }

@@ -39,10 +39,10 @@ export interface StoreRepositories {
     | 'overrideImportance'
     | 'clearExpiredOverrides'
   >
-  knowledgeItems: Pick<KnowledgeItemRepository, 'findById' | 'findMany'>
+  knowledgeItems: Pick<KnowledgeItemRepository, 'findById' | 'findMany' | 'listByLesson' | 'update'>
   reviewLogs: Pick<
     ReviewLogRepository,
-    'append' | 'findById' | 'listSince' | 'medianDurationMs' | 'softDeleteById'
+    'append' | 'findById' | 'listSince' | 'medianDurationMs' | 'softDeleteById' | 'countByCard'
   >
   reviewSessions: Pick<
     ReviewSessionRepository,
@@ -262,6 +262,30 @@ export function createInMemoryReviewStore(
       findById: async (id, findOptions) => live(items.get(id), findOptions),
       findMany: async (ids, findOptions) =>
         ids.map((id) => live(items.get(id), findOptions)).filter((item) => item !== undefined),
+      /** The diagnostic's `seed_memory` reads a lesson's items (sub-phase 8.5). */
+      listByLesson: async (lessonId, listOptions) =>
+        applyList(
+          [...items.values()]
+            .filter((item) => item.deletedAt === null && item.lessonId === lessonId)
+            .sort((a, b) => a.id.localeCompare(b.id)),
+          listOptions,
+        ),
+      update: async (id, patch: EntityPatch<KnowledgeItem>) => {
+        const item = live(items.get(id))
+        if (item === undefined) throw new EntityNotFoundError('knowledge_items', id)
+        if (patch.version !== undefined && patch.version !== item.version) {
+          throw new OptimisticConcurrencyError('knowledge_items', id, patch.version, item.version)
+        }
+        const { version: _token, ...fields } = patch
+        const next: KnowledgeItem = {
+          ...item,
+          ...(fields as Partial<KnowledgeItem>),
+          updatedAt: clock.now(),
+          version: item.version + 1,
+        }
+        items.set(id, next)
+        return next
+      },
     },
     activityStats: {
       find: async (activityType) => pace.get(activityType),
@@ -282,6 +306,8 @@ export function createInMemoryReviewStore(
         return log
       },
       findById: async (id) => logs.get(id),
+      countByCard: async (cardId) =>
+        [...logs.values()].filter((log) => log.cardId === cardId && log.deletedAt === null).length,
       listSince: async (from, to, listOptions) =>
         applyList(
           [...logs.values()]

@@ -224,8 +224,32 @@ export function migrate(target: MigrationTarget, options: MigrateOptions = {}): 
   const applied: string[] = []
   for (const migration of pending) {
     const startedAt = now()
+    // A table rebuild — create `__new_x`, copy, `DROP`, `RENAME`, the only way SQLite widens a
+    // CHECK — drops a table other rows still point at. With `foreign_keys` on, that fails at
+    // commit however the file defers its checks (`defer_foreign_keys` only moves the check to
+    // the commit), so upgrading any collection with such rows would fail. SQLite's own
+    // procedure (lang_altertable.html, "making other kinds of table schema changes"): switch
+    // enforcement off *outside* the transaction — inside one the pragma is a silent no-op —
+    // run the file, then `foreign_key_check` before commit, so a migration that really does
+    // leave a dangling reference still fails and rolls back. Only what the file *adds* counts:
+    // a reference already broken before it ran (a restored or hand-edited collection) is not
+    // its doing, and must not keep every later migration — and so the app — from starting.
+    const enforced = sqlite.pragma('foreign_keys', { simple: true }) === 1
+    if (enforced) sqlite.pragma('foreign_keys = OFF')
     const apply = sqlite.transaction(() => {
+      const before = violationCounts(sqlite)
       sqlite.exec(migration.sql)
+      const introduced = [...violationCounts(sqlite)].filter(
+        ([pair, count]) => count > (before.get(pair) ?? 0),
+      )
+      if (introduced.length > 0) {
+        throw new Error(
+          `it leaves new foreign-key violations: ${introduced
+            .slice(0, 3)
+            .map(([pair, count]) => `${count - (before.get(pair) ?? 0)} in ${pair}`)
+            .join(', ')}`,
+        )
+      }
       record.run(migration.name, hashMigration(migration.sql), startedAt, now() - startedAt)
     })
     try {
@@ -236,9 +260,31 @@ export function migrate(target: MigrationTarget, options: MigrateOptions = {}): 
         migration.name,
         { cause: error },
       )
+    } finally {
+      if (enforced) sqlite.pragma('foreign_keys = ON')
     }
     applied.push(migration.name)
   }
 
   return { applied, alreadyApplied }
+}
+
+/** One row of `PRAGMA foreign_key_check`. */
+interface ForeignKeyViolation {
+  readonly table: string
+  readonly parent: string
+}
+
+/**
+ * `PRAGMA foreign_key_check`, counted per child → parent table pair. Counted rather than
+ * listed by rowid because a table rebuild renumbers its rows: the same old violation would
+ * otherwise read as a new one.
+ */
+function violationCounts(sqlite: { pragma(source: string): unknown }): Map<string, number> {
+  const counts = new Map<string, number>()
+  for (const row of sqlite.pragma('foreign_key_check') as ForeignKeyViolation[]) {
+    const pair = `${row.table} → ${row.parent}`
+    counts.set(pair, (counts.get(pair) ?? 0) + 1)
+  }
+  return counts
 }

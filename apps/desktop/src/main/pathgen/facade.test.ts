@@ -12,6 +12,11 @@ import { pathDraftSchema } from '@retenia/pathgen'
 import { describe, expect, it, vi } from 'vitest'
 import { createPathgenFacade, type PathgenFacadeRepos } from './facade'
 
+// The facade logs the freeze hook's failures (8.5), and the logger pulls in Electron.
+vi.mock('../logging/log', () => ({
+  log: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+}))
+
 /**
  * `PathgenFacade`'s own wiring — the frozen-version guard, the `deepenLesson` cost-rate
  * lookup, and the DTO round trip — not `applyEdit`/`freezePath`'s internal correctness,

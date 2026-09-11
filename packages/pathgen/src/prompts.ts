@@ -28,6 +28,7 @@ export const PATHGEN_PROMPT_IDS = {
   faithfulness: 'P6_faithfulness',
   judge: 'P7_pedagogy_judge',
   edit: 'P8_edit',
+  items: 'P9_items',
 } as const
 
 export interface PathgenPrompt {
@@ -59,6 +60,11 @@ export interface PathgenPrompts {
   readonly judge: PathgenPrompt
   /** P8 — stage 8's critic-editor. */
   readonly edit: PathgenPrompt
+  /**
+   * P9 — stage 9's item bank. Parsed by `@retenia/activity-ai`'s `createItemAuthor`, like P4,
+   * so its schema id is checked there and only its placeholder and temperature here.
+   */
+  readonly items: PathgenPrompt
   /** `promptVersionSnapshot()` — every registered prompt, for the manifest. */
   readonly snapshot: Readonly<Record<string, string>>
 }
@@ -108,12 +114,18 @@ export function assertPathgenPrompts(prompts: PathgenPrompts): PathgenPrompts {
         `it runs at ${prompts.flashcards.temperature})`,
     )
   }
-  const { temperature } = prompts.activities
-  if (temperature < P4_TEMPERATURE_RANGE.min || temperature > P4_TEMPERATURE_RANGE.max) {
-    throw new PathgenPromptError(
-      `${PATHGEN_PROMPT_IDS.activities} must stay near §9's 0.7 (it runs at ${temperature}, ` +
-        `outside ${P4_TEMPERATURE_RANGE.min}–${P4_TEMPERATURE_RANGE.max})`,
-    )
+  // §9 puts P9 at 0.7 too, for the same reason: over-generate a varied pool, keep what passes.
+  for (const [id, prompt] of [
+    [PATHGEN_PROMPT_IDS.activities, prompts.activities],
+    [PATHGEN_PROMPT_IDS.items, prompts.items],
+  ] as const) {
+    const { temperature } = prompt
+    if (temperature < P4_TEMPERATURE_RANGE.min || temperature > P4_TEMPERATURE_RANGE.max) {
+      throw new PathgenPromptError(
+        `${id} must stay near §9's 0.7 (it runs at ${temperature}, ` +
+          `outside ${P4_TEMPERATURE_RANGE.min}–${P4_TEMPERATURE_RANGE.max})`,
+      )
+    }
   }
   // §7 and §9: the verifier and the judge are deterministic — a threshold of 0.9 or of 3
   // means nothing over an answer that varies between runs.
@@ -146,6 +158,7 @@ export function assertPathgenPrompts(prompts: PathgenPrompts): PathgenPrompts {
     [PATHGEN_PROMPT_IDS.faithfulness, prompts.faithfulness, FAITHFULNESS_SCHEMA_ID],
     [PATHGEN_PROMPT_IDS.judge, prompts.judge, PEDAGOGY_JUDGE_SCHEMA_ID],
     [PATHGEN_PROMPT_IDS.edit, prompts.edit, EDIT_LESSON_SCHEMA_ID],
+    [PATHGEN_PROMPT_IDS.items, prompts.items, null],
   ]
   for (const [id, prompt, schema] of expected) {
     if (schema !== null && prompt.schemaVersion !== schema) {

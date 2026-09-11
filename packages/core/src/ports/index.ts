@@ -63,6 +63,7 @@ export type {
 } from './chunk-repository'
 export type { Clock } from './clock'
 export { systemClock } from './clock'
+export type { DiagnosticSessionRepository } from './diagnostic-session-repository'
 export type {
   DomainEvent,
   DomainEventOf,
@@ -85,6 +86,14 @@ export type {
   ImportanceLevelPatch,
   ImportanceLevelRepository,
 } from './importance-level-repository'
+export type {
+  AuthoredItem,
+  ItemAuthorCell,
+  ItemAuthorCollected,
+  ItemAuthorRequest,
+  ItemCellKind,
+} from './item-author'
+export { ITEM_CELL_KINDS } from './item-author'
 export type { ItemBankRepository } from './item-bank-repository'
 export type { EnqueueOptions, JobRepository } from './job-repository'
 export type { KnowledgeItemRepository } from './knowledge-item-repository'

@@ -314,7 +314,94 @@ function editAnswer() {
   return { changes: [], notes: [] }
 }
 
+/**
+ * P9 (sub-phase 8.5): one valid item per slot the cell asks for, read off the task header —
+ * every NBME rule satisfied (a real question, four homogeneous options with feedback, no
+ * absolute terms, each distractor mapped to a listed misconception) and a stem unique per
+ * cell and slot, so the bank's dedupe keeps them all.
+ */
+function itemsAnswer(request: TextGenerationRequest) {
+  const header = (name: string) =>
+    new RegExp(`^${name}: (.*)$`, 'm').exec(request.prompt)?.[1] ?? ''
+  const cell = header('cell')
+  const bloom = header('bloom') || 'understand'
+  const difficulties = header('target_difficulties')
+    .split(', ')
+    .map(Number)
+    .filter((value) => Number.isInteger(value) && value >= 1 && value <= 5)
+  const forms = header('forms').startsWith('none') ? [null] : (['A', 'B'] as const)
+  // One concept per item, rotating through the cell's list: the diagnostic never asks a concept
+  // twice (§10 step 5), so a cell whose items all named the first concept could only ever be
+  // asked once and no module could reach "known".
+  const concepts = [...request.prompt.matchAll(/<concept id="([^"]+)"/g)].map(
+    (match) => match[1] as string,
+  )
+  const conceptAt = (slot: number) =>
+    concepts.length === 0 ? 'e2e-concept' : (concepts[slot % concepts.length] as string)
+  const misconception = /<misconception id="([^"]+)"/.exec(request.prompt)?.[1] ?? null
+  const items = difficulties.flatMap((difficulty, index) =>
+    forms.map((form, formIndex) => ({
+      bloom,
+      form,
+      misconception_ids: misconception === null ? [] : [misconception],
+      option_misconceptions:
+        misconception === null
+          ? []
+          : ['b', 'c', 'd'].map((option_id) => ({ option_id, misconception_id: misconception })),
+      activity: {
+        schemaVersion: 1,
+        type: 'mcq_single',
+        family: 'choice',
+        lang: 'es-AR',
+        prompt: `¿Qué explica la fuente sobre el punto ${index + 1}${form ?? ''} de ${cell}?`,
+        skills: [conceptAt(index * forms.length + formIndex)],
+        difficulty,
+        grading: { method: 'det' },
+        review: { eligible: true, ratingStrategy: 'binary', expectedSeconds: 12 },
+        explanation: 'La primera opción es la que la fuente explica.',
+        payload: {
+          family: 'choice',
+          sets: [
+            {
+              id: 's1',
+              multiple: false,
+              options: [
+                {
+                  id: 'a',
+                  text: 'La idea que la fuente explica',
+                  correct: true,
+                  feedback: 'Correcto.',
+                },
+                {
+                  id: 'b',
+                  text: 'Una idea que la fuente descarta',
+                  correct: false,
+                  feedback: 'La fuente la descarta.',
+                },
+                {
+                  id: 'c',
+                  text: 'Una idea que la fuente omite',
+                  correct: false,
+                  feedback: 'La fuente no la trata.',
+                },
+                {
+                  id: 'd',
+                  text: 'Una idea que la fuente exagera',
+                  correct: false,
+                  feedback: 'Va más lejos que la fuente.',
+                },
+              ],
+            },
+          ],
+        },
+      },
+    })),
+  )
+  return { items, notes: [] }
+}
+
 function answerFor(request: TextGenerationRequest): object {
+  if (request.schemaName === 'make_items') return itemsAnswer(request)
   if (request.schemaName === EXTRACT_CHUNK_SCHEMA_NAME) return extractionAnswer()
   if (request.schemaName === SYNTHESIZE_OUTLINE_SCHEMA_NAME) return outlineAnswer(request)
   if (request.schemaName === SYNTHESIZE_MODULE_SCHEMA_NAME) return moduleAnswer(request)

@@ -143,6 +143,9 @@ export async function quoteFromPlan(
       ),
       judge: systemTokensOf(countTokens, deps.prompts.judge, pedagogyJudgeOutputSchema),
       edit: systemTokensOf(countTokens, deps.prompts.edit, editLessonOutputSchema),
+      // P9's schema, like P4's, is `@retenia/activity-ai`'s; the lesson schema stands in for
+      // its weight for the same reason.
+      items: systemTokensOf(countTokens, deps.prompts.items, writeLessonOutputSchema),
     },
     dispatch: !userWaiting && deps.runner !== undefined ? 'batch' : 'sync',
     countTokens,

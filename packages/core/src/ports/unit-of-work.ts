@@ -7,6 +7,7 @@ import type { AttemptRepository } from './attempt-repository'
 import type { BlobRepository } from './blob-repository'
 import type { CardRepository } from './card-repository'
 import type { ChunkRepository } from './chunk-repository'
+import type { DiagnosticSessionRepository } from './diagnostic-session-repository'
 import type { ExamRepository } from './exam-repository'
 import type { ExtractionRepository } from './extraction-repository'
 import type { GamificationRepository } from './gamification-repository'
@@ -38,6 +39,8 @@ export interface Repositories {
   blobs: BlobRepository
   cards: CardRepository
   chunks: ChunkRepository
+  /** The prior-knowledge diagnostic's sessions: answer log, result, what it wrote (8.5). */
+  diagnosticSessions: DiagnosticSessionRepository
   exams: ExamRepository
   /** The validated P1 extraction per chunk, keyed by custom id (sub-phase 8.1). */
   extractions: ExtractionRepository

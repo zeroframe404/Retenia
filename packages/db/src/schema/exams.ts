@@ -114,6 +114,13 @@ export const itemBank = sqliteTable(
     exposure: integer('exposure').notNull().default(0),
     /** `{ n, p_correct, mean_time_ms, point_biserial }`. */
     stats: jsonColumn('stats').$type<JsonObject>().notNull().default(sql`'{}'`),
+    /**
+     * What P9 said about the item when it was authored: `{ cell_key, kind, form, difficulty,
+     * stem, concept_ids, misconception_by_option }`. `cell_key` is the build's idempotency
+     * key — a rebuild that finds a live row with the same key reuses it instead of paying for
+     * the item again. `{}` on rows written before migration 0017.
+     */
+    authoring: jsonColumn('authoring').$type<JsonObject>().notNull().default(sql`'{}'`),
     ...auditColumns(),
   },
   (t) => [
@@ -123,6 +130,7 @@ export const itemBank = sqliteTable(
     check('item_bank_exposure_nonnegative', atLeast(t.exposure, 0)),
     check('item_bank_usage_json', jsonArray(t.usage)),
     check('item_bank_stats_json', jsonObject(t.stats)),
+    check('item_bank_authoring_json', jsonObject(t.authoring)),
     ...standardChecks('item_bank', t),
   ],
 )

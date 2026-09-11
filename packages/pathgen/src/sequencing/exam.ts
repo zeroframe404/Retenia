@@ -4,7 +4,8 @@ import type { FinalExamNode, SequencingLimits } from './types'
 /**
  * The final exam by blueprint — `docs/spec/04-path-generation.md` §3 stage 5. Each module's
  * weight is its total importance times how much of it the lessons cover (`coverageOf` is 1
- * until sub-phase 8.4's coverage gate measures it), normalised and rounded to hundredths by
+ * here, before a lesson exists; the item bank re-weights by the coverage stage 8 measured
+ * once the lessons settle, `item-bank/coverage.ts`), normalised and rounded to hundredths by
  * largest remainder so the weights sum to exactly one and the item bank of 8.5 can allocate
  * items without a rounding hole.
  */

@@ -17,6 +17,7 @@ export {
   blobsContract,
   cardsContract,
   chunksContract,
+  diagnosticSessionsContract,
   extractionsContract,
   generationRunsContract,
   importanceLevelsContract,

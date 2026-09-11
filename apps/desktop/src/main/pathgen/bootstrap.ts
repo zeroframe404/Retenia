@@ -1,4 +1,4 @@
-import { createActivityAuthor } from '@retenia/activity-ai'
+import { createActivityAuthor, createItemAuthor } from '@retenia/activity-ai'
 import type { AiClient, AiRegistry, BatchRunner } from '@retenia/ai'
 import { realTimers } from '@retenia/ai'
 import { bundledPromptReader } from '@retenia/ai/prompts-bundled'
@@ -6,19 +6,27 @@ import type { Clock, EmbeddingProvider } from '@retenia/core'
 import { detectLanguage } from '@retenia/ingest'
 import type { PathgenLessonStatusEvent, PathgenProgressEvent } from '@retenia/ipc-contract'
 import {
+  buildItemBank,
   createExpansionRun,
   createGenerationRun,
   createQaPipeline,
+  examCellsDue,
   type GenerationConfigInput,
   type PathgenLogger,
   quoteConfig as quoteGenerationConfig,
+  reconcileItemBank,
 } from '@retenia/pathgen'
 import { loadPathgenPrompts } from '@retenia/pathgen/node'
 import { buildAiResultCache } from '../ai/client'
 import type { AppDatabase } from '../db/open'
 import type { EmbeddingService } from '../library/embedding-service'
 import { log } from '../logging/log'
+import { createDiagnosticService, type DiagnosticMemory } from './diagnostic-service'
 import { createPathgenFacade, type PathgenFacade } from './facade'
+import { createItemBankService } from './item-bank-service'
+
+/** §10's deferred verification runs daily: at startup, then every 24 hours while open. */
+const VERIFY_EVERY_MS = 24 * 60 * 60 * 1000
 
 /**
  * Wires `createGenerationRun` (sub-phase 8.1's orchestrator) and the wizard's quote against
@@ -44,6 +52,8 @@ export interface BootstrapPathgenOptions {
   readonly batches?: BatchRunner | null
   /** Retrieval and the flashcard dedupe. Absent means mapped chunks only and exact fronts. */
   readonly embeddings?: EmbeddingService | null
+  /** The memory service, for the diagnostic's seeding and its deferred verification (8.5). */
+  readonly memory?: DiagnosticMemory | null
   readonly clock?: Clock
 }
 
@@ -60,6 +70,7 @@ export function bootstrapPathgen({
   emitLesson,
   batches,
   embeddings,
+  memory = null,
   clock = { now: () => new Date() },
 }: BootstrapPathgenOptions): PathgenFacade {
   // The bundled reader, not the disk one: `@retenia/ai` is inlined into `out/main/index.js`
@@ -152,6 +163,51 @@ export function bootstrapPathgen({
   })
 
   /**
+   * Stage 9 (sub-phase 8.5): the item bank over the same client, cache, runner and embedding
+   * port, and the diagnostic over the memory service. The vectors map is shared by every
+   * reconcile of the process, so a stem is embedded once however many lessons land.
+   */
+  const bankVectors = new Map<string, Float32Array | null>()
+  const itemAuthor = createItemAuthor({ prompt: prompts.items })
+  const itemBank = createItemBankService({
+    repos: { itemBank: repos.itemBank },
+    build: (input) =>
+      buildItemBank(
+        {
+          ai,
+          ...(batches === null || batches === undefined ? {} : { runner: batches }),
+          resultCache,
+          author: itemAuthor,
+          repos: {
+            paths: repos.paths,
+            itemBank: repos.itemBank,
+            chunks: repos.chunks,
+            exams: repos.exams,
+            transaction: (work) => repos.transaction((tx) => work(tx)),
+          },
+          prompts,
+          ...(embeddingPort === undefined ? {} : { embeddings: embeddingPort }),
+          clock,
+          timers: realTimers,
+          logger: pathgenLogger,
+        },
+        input,
+      ),
+    reconcile: (input) =>
+      reconcileItemBank(
+        {
+          repos: { paths: repos.paths, itemBank: repos.itemBank },
+          ...(embeddingPort === undefined ? {} : { embeddings: embeddingPort }),
+          vectors: bankVectors,
+        },
+        input,
+      ),
+    examDue: (pathVersionId) =>
+      examCellsDue({ paths: repos.paths, itemBank: repos.itemBank }, pathVersionId),
+  })
+  const diagnostics = createDiagnosticService({ repos, memory, clock })
+
+  /**
    * Stage 7 (sub-phase 8.3): the same client, cache and runner, plus the three things only
    * expansion needs — the activity author, retrieval and the embedding port — and, since
    * 8.4, the gates that decide when a lesson is `ready`.
@@ -199,8 +255,68 @@ export function bootstrapPathgen({
             }),
       })
     },
-    ...(emitLesson === undefined ? {} : { onLesson: (lesson) => emitLesson(lesson) }),
+    onLesson: (lesson) => {
+      emitLesson?.(lesson)
+      // A finished lesson is where stage 9 meets stage 7 (8.5): the lesson wins over any bank
+      // item that repeats one of its exercises, and a lesson of a module marked known gets
+      // its freshly written cards seeded. Both are fire-and-forget and log their own failures.
+      if (lesson.status === 'ready') {
+        void itemBank.reconcileLesson({
+          pathVersionId: lesson.pathVersionId,
+          lessonId: lesson.lessonId,
+          lessonSpecId: lesson.specId,
+        })
+        void diagnostics
+          .onLessonExpanded(lesson.pathVersionId, lesson.lessonId)
+          .catch((error: unknown) =>
+            log.warn(
+              `[pathgen] seeding lesson ${lesson.specId} from the diagnostic failed:`,
+              error,
+            ),
+          )
+      }
+      // The exam's items wait for every lesson (their weights carry the measured coverage):
+      // the last one to settle, whether it passed or failed, is what starts them.
+      if (lesson.status === 'ready' || lesson.status === 'failed') {
+        void itemBank.onLessonSettled(lesson.pathVersionId)
+      }
+    },
   })
+
+  /**
+   * Stage 9's exam cells after a restart: the build the last settled lesson started may have
+   * been cut short — the app closed, the budget ran out — and nothing else would ask again
+   * until another lesson settles, which for a finished path is never. Cheap when there is
+   * nothing to do: `examCellsDue` answers from the rows.
+   */
+  void (async () => {
+    for (const path of await repos.paths.listByStatus('active')) {
+      if (path.activeVersion === null) continue
+      const version = await repos.paths.findVersionByNumber(path.id, path.activeVersion)
+      if (version?.frozenAt != null) await itemBank.onLessonSettled(version.id)
+    }
+  })().catch((error: unknown) =>
+    log.warn('[pathgen] the item bank’s startup sweep for exam items failed:', error),
+  )
+
+  /**
+   * The diagnostic's two sweeps: cards written while the app was closed for a module marked
+   * known, and §10's deferred verification — daily, as a timer that never holds the process
+   * open. Main runs them rather than the job worker because both write the database, and the
+   * worker's `utilityProcess` never does.
+   */
+  void diagnostics
+    .sweepPendingSeeds()
+    .catch((error: unknown) => log.warn('[pathgen] the pending-seed sweep failed:', error))
+  const verify = () =>
+    diagnostics
+      .verifyKnownModules()
+      .then(({ reopened }) => {
+        if (reopened > 0) log.info(`[pathgen] re-opened ${reopened} module(s) marked known`)
+      })
+      .catch((error: unknown) => log.warn('[pathgen] the deferred verification failed:', error))
+  void verify()
+  setInterval(() => void verify(), VERIFY_EVERY_MS).unref()
 
   /**
    * The startup resume sweep `generationRuns.listActive()` was written for and nothing ever
@@ -226,6 +342,8 @@ export function bootstrapPathgen({
     expansion,
     repos,
     clock,
+    itemBank,
+    diagnostics,
     quote: async (config: GenerationConfigInput) => {
       const { estimate } = await quoteGenerationConfig({ ai, repos, prompts }, config)
       return { estimate, warnings: [] }

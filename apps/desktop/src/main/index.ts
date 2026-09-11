@@ -239,6 +239,8 @@ if (gotLock) {
             // own suites, over the replay fakes; what E2E is for is the app's wiring.
             batches: isE2e ? null : jobs.batches,
             embeddings: jobs.embeddings,
+            // Sub-phase 8.5: the diagnostic seeds known modules and verifies them later.
+            memory,
           })
         : null
 

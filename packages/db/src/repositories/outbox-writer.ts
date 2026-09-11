@@ -38,6 +38,10 @@ export const SYNCABLE_TABLES: ReadonlySet<string> = new Set([
   'blobs',
   'cards',
   'chunks',
+  // Unlike a generation run, a diagnostic is the learner's own evidence, and what it wrote —
+  // lessons marked complete, cards seeded — syncs; its record has to travel with them so the
+  // result can be undone on another device.
+  'diagnostic_sessions',
   'exam_attempts',
   'exam_items',
   'exams',

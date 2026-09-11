@@ -77,6 +77,8 @@ const PROMPTS = {
   P7_pedagogy_judge: [1],
   /** P8 of §9 — the critic-editor that applies the listed edits and nothing else (8.4). */
   P8_edit: [1],
+  /** P9 of §9 — the item bank, one call per blueprint cell, NBME rules, forms A/B (8.5). */
+  P9_items: [1],
 } as const satisfies Record<string, readonly number[]>
 
 export type PromptId = keyof typeof PROMPTS

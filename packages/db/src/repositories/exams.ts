@@ -198,6 +198,7 @@ const itemBankCodec: TableCodec<
     discriminationHint: toNumberOrNull(row.discriminationHint),
     exposure: toNumber(row.exposure),
     stats: toJsonObject(row.stats),
+    authoring: toJsonObject(row.authoring),
     createdAt: toDate(row.createdAt),
     updatedAt: toDate(row.updatedAt),
     deletedAt: toDateOrNull(row.deletedAt),
@@ -214,6 +215,7 @@ const itemBankCodec: TableCodec<
       discriminationHint: input.discriminationHint ?? null,
       exposure: input.exposure,
       stats: input.stats,
+      authoring: input.authoring,
     }),
   toUpdate: (patch) =>
     defined({
@@ -225,6 +227,7 @@ const itemBankCodec: TableCodec<
       discriminationHint: patch.discriminationHint,
       exposure: patch.exposure,
       stats: patch.stats,
+      authoring: patch.authoring,
     }),
 }
 

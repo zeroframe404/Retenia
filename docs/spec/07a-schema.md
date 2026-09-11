@@ -36,7 +36,7 @@ Packaging note (Windows first): the `.node` binaries of both drivers and `sqlite
 
 ## Migrations
 
-`packages/db/migrations/NNNN_name.sql` — `drizzle-kit generate` output for the Drizzle tables, plus hand-written files (`drizzle-kit generate --custom`) for what Drizzle cannot express. `migrate(db)` (`src/migrator.ts`) runs on every app start: it creates `_migrations` if needed, applies each pending file inside its own transaction (a failing statement rolls the whole file back) and records `name`, `sha256`, `applied_at`, `duration_ms`.
+`packages/db/migrations/NNNN_name.sql` — `drizzle-kit generate` output for the Drizzle tables, plus hand-written files (`drizzle-kit generate --custom`) for what Drizzle cannot express. `migrate(db)` (`src/migrator.ts`) runs on every app start: it creates `_migrations` if needed, applies each pending file inside its own transaction (a failing statement rolls the whole file back) and records `name`, `sha256`, `applied_at`, `duration_ms`. Foreign-key enforcement is switched off around each file — SQLite ignores that pragma inside a transaction, and a table rebuild drops a table other rows still point at — and `PRAGMA foreign_key_check` runs before the commit instead, so a file that really leaves a dangling reference still rolls back.
 
 **Applied migrations are immutable.** The migrator compares every recorded hash with the file on disk and refuses to start if one changed, refuses a database migrated further than the build knows (no silent downgrade), and refuses a pending file that sorts before an applied one. To change the schema, add a new file — never edit or delete an existing one (`docs/spec/00-conventions.md`; the repo's Claude hooks block edits under `migrations/`).
 
@@ -59,6 +59,7 @@ Packaging note (Windows first): the `.node` binaries of both drivers and `sqlite
 | 14 | `0014_generation_runs_and_extractions` | `517d10f33f7d` | `generation_runs` (the "Generate with AI" run ledger: config and its hash, status = stage, progress, estimate, cost and token totals, manifest, warnings) and `extractions` (the validated P1 output per chunk, live-unique on `custom_id`, so a re-run over the same book makes no P1 call). The draft itself is an unfrozen `path_versions` row (`04-path-generation.md` §3 stages 3–5, §7). |
 | 15 | `0015_lesson_expansion` | `cd2d5cb43e0b` |  |
 | 16 | `0016_lesson_qa_status` | `e71c52ae8e7e` |  |
+| 17 | `0017_diagnostic_sessions` | `c3bc1ac98ddc` | `diagnostic_sessions` (the prior-knowledge diagnostic of `04-path-generation.md` §10: self-assessment, the answer log a resume replays, the item being served, the result, and what the result wrote so it can be undone) and `item_bank.authoring` (what P9 said about each item; `cell_key` is the item build's idempotency key). The column is added with `ALTER TABLE … ADD COLUMN … CHECK` rather than drizzle-kit's table rebuild, which cannot commit while `exam_items` rows reference `item_bank`. |
 
 ## Tables
 
@@ -80,10 +81,11 @@ Packaging note (Windows first): the `.node` binaries of both drivers and `sqlite
 | `activities` | Learning paths | 20 | 1 | 3 | 14 |
 | `generation_runs` | Path generation | 22 | 2 | 2 | 14 |
 | `extractions` | Path generation | 22 | 3 | 4 | 11 |
-| `exams` | Exams and item bank | 17 | 1 | 2 | 12 |
-| `item_bank` | Exams and item bank | 14 | 3 | 3 | 6 |
-| `exam_items` | Exams and item bank | 14 | 3 | 2 | 7 |
-| `exam_attempts` | Exams and item bank | 15 | 1 | 1 | 10 |
+| `exams` | Exams, item bank and diagnostic | 17 | 1 | 2 | 12 |
+| `item_bank` | Exams, item bank and diagnostic | 15 | 3 | 3 | 7 |
+| `exam_items` | Exams, item bank and diagnostic | 14 | 3 | 2 | 7 |
+| `exam_attempts` | Exams, item bank and diagnostic | 15 | 1 | 1 | 10 |
+| `diagnostic_sessions` | Exams, item bank and diagnostic | 17 | 1 | 2 | 12 |
 | `importance_levels` | Memory system | 14 | 0 | 1 | 11 |
 | `scheduler_profiles` | Memory system | 20 | 0 | 1 | 11 |
 | `knowledge_items` | Memory system | 18 | 3 | 5 | 10 |
@@ -697,9 +699,9 @@ Checks:
 - `extractions_version_positive`: `version >= 1`
 - `extractions_updated_after_created`: `updated_at >= created_at`
 
-## Exams and item bank
+## Exams, item bank and diagnostic
 
-Dated/mock/final/diagnostic exams, their items and attempts, and the generated item bank (`src/schema/exams.ts`).
+Dated/mock/final/diagnostic exams, their items and attempts, and the generated item bank (`src/schema/exams.ts`); the prior-knowledge diagnostic that draws on the bank (`src/schema/diagnostics.ts`).
 
 ### `exams`
 
@@ -761,6 +763,7 @@ Checks:
 | `deleted_at` | integer | yes |  |  |
 | `device_id` | text | no |  |  |
 | `version` | integer | no | `1` |  |
+| `authoring` | text | no | `'{}'` |  |
 
 Indexes:
 
@@ -770,6 +773,7 @@ Indexes:
 
 Checks:
 
+- `item_bank_authoring_json`: `json_valid("authoring") AND json_type("authoring") = 'object'`
 - `item_bank_exposure_nonnegative`: `exposure >= 0`
 - `item_bank_usage_json`: `json_valid(usage) AND json_type(usage) = 'array'`
 - `item_bank_stats_json`: `json_valid(stats) AND json_type(stats) = 'object'`
@@ -847,6 +851,48 @@ Checks:
 - `exam_attempts_id_uuidv7`: `length(id) = 36 AND substr(id, 15, 1) = '7'`
 - `exam_attempts_version_positive`: `version >= 1`
 - `exam_attempts_updated_after_created`: `updated_at >= created_at`
+
+### `diagnostic_sessions`
+
+| Column | Type | Null | Default | Key |
+|---|---|---|---|---|
+| `id` | text | no |  | PK |
+| `path_version_id` | text | no |  | → `path_versions.id` |
+| `status` | text | no | `'in_progress'` |  |
+| `entry` | text | no |  |  |
+| `self_assessment` | text | no | `'{}'` |  |
+| `answers` | text | no | `'[]'` |  |
+| `pending` | text | yes |  |  |
+| `result` | text | yes |  |  |
+| `applied` | text | no | `'{}'` |  |
+| `stop_reason` | text | yes |  |  |
+| `started_at` | integer | no |  |  |
+| `finished_at` | integer | yes |  |  |
+| `created_at` | integer | no |  |  |
+| `updated_at` | integer | no |  |  |
+| `deleted_at` | integer | yes |  |  |
+| `device_id` | text | no |  |  |
+| `version` | integer | no | `1` |  |
+
+Indexes:
+
+- `diagnostic_sessions_active` (`path_version_id`) WHERE `status = 'in_progress' AND deleted_at IS NULL`
+- `diagnostic_sessions_version` (`path_version_id`)
+
+Checks:
+
+- `diagnostic_sessions_status`: `status IN ('in_progress', 'completed')`
+- `diagnostic_sessions_entry`: `entry IN ('scratch', 'partial', 'preview')`
+- `diagnostic_sessions_stop_reason`: `stop_reason IS NULL OR stop_reason IN ('from_scratch', 'all_classified', 'no_items', 'max_items', 'time_limit', 'abandoned')`
+- `diagnostic_sessions_finished_after_started`: `finished_at IS NULL OR finished_at >= started_at`
+- `diagnostic_sessions_self_assessment_json`: `json_valid(self_assessment) AND json_type(self_assessment) = 'object'`
+- `diagnostic_sessions_answers_json`: `json_valid(answers) AND json_type(answers) = 'array'`
+- `diagnostic_sessions_pending_json`: `pending IS NULL OR (json_valid(pending) AND json_type(pending) = 'object')`
+- `diagnostic_sessions_result_json`: `result IS NULL OR (json_valid(result) AND json_type(result) = 'object')`
+- `diagnostic_sessions_applied_json`: `json_valid(applied) AND json_type(applied) = 'object'`
+- `diagnostic_sessions_id_uuidv7`: `length(id) = 36 AND substr(id, 15, 1) = '7'`
+- `diagnostic_sessions_version_positive`: `version >= 1`
+- `diagnostic_sessions_updated_after_created`: `updated_at >= created_at`
 
 ## Memory system
 

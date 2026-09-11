@@ -44,7 +44,8 @@
         "p6": "QA: fidelidad",
         "p7": "QA: juez pedagógico",
         "p8": "QA: correcciones",
-        "regenerate": "QA: reescrituras"
+        "regenerate": "QA: reescrituras",
+        "p9": "Banco de preguntas"
       }
     },
     "warning": {
@@ -115,7 +116,13 @@
       "edit_rejected": "{count} correcciones de la lección {lesson} tocaban una cita verificada y se descartaron.",
       "lesson_regenerated": "La lección {lesson} quedó por debajo del umbral y se volvió a escribir una vez.",
       "lesson_below_threshold": "La lección {lesson} sigue por debajo del umbral de calidad: revisala en el informe de QA.",
-      "qa_failed": "No se pudo completar la verificación ({gate}) de la lección {lesson}: {error}"
+      "qa_failed": "No se pudo completar la verificación ({gate}) de la lección {lesson}: {error}",
+      "item_rejected": "Se descartó una pregunta del banco ({cell}, {type}): no cumple la regla {code}.",
+      "item_duplicate": "Se descartó una pregunta del banco ({cell}) porque repite otra ya existente ({reason}).",
+      "item_bank_cell_short": "La celda {cell} del banco quedó con {kept} de {wanted} preguntas.",
+      "item_bank_cell_failed": "No se pudieron generar las preguntas de la celda {cell}: {error}",
+      "item_bank_injection_suspected": "Las fuentes de la celda {cell} contienen texto que parece una instrucción; se trató como contenido.",
+      "item_bank_reconciled": "La lección {lesson} ya pregunta lo mismo que la pregunta {item} del banco ({action})."
     }
   },
   "wizard": {
@@ -253,6 +260,151 @@
       "glossary_term_mixed": "Término mezclado",
       "judge_edit": "Sugerencia del juez",
       "edit_rejected": "Corrección descartada"
+    }
+  },
+  "diagnostic": {
+    "title": "¿Cómo empezás?",
+    "subtitle": "Empezá desde cero o contanos qué ya sabés: un diagnóstico corto (12–15 min) marca lo que no hace falta repetir.",
+    "loadError": "No se pudo cargar el diagnóstico.",
+    "retry": "Reintentar",
+    "startError": "No se pudo empezar el diagnóstico. Probá de nuevo.",
+    "entry": {
+      "scratch": "Desde cero",
+      "scratchHint": "Todo queda para estudiar, en el orden de la ruta.",
+      "partial": "Ya sé parte",
+      "partialHint": "Marcá qué conocés y respondé algunas preguntas para saltear lo que ya sabés."
+    },
+    "bank": {
+      "building": "Preparando las preguntas…",
+      "progress": "{done} de {total} grupos listos · {count, plural, one {# pregunta lista} other {# preguntas listas}}",
+      "hint": "Mientras tanto podés completar la autoevaluación o empezar desde cero.",
+      "failed": "No se pudieron preparar las preguntas del diagnóstico.",
+      "failedHint": "Podés volver a intentarlo o empezar desde cero.",
+      "retry": "Volver a intentar",
+      "noItems": "Esta ruta todavía no tiene preguntas de diagnóstico.",
+      "noItemsHint": "Sin preguntas no hay diagnóstico: podés volver a intentar armarlas o empezar desde cero."
+    },
+    "self": {
+      "title": "¿Cuánto sabés de cada sección?",
+      "hint": "Las secciones que marques como «Nunca lo vi» no se preguntan: quedan para estudiar.",
+      "level": {
+        "never": "Nunca lo vi",
+        "familiar": "Me suena",
+        "know": "Lo sé",
+        "master": "Lo domino"
+      },
+      "modules": "{count, plural, one {# módulo} other {# módulos}}",
+      "selfDeclaredHeading": "Ya marcadas como sabidas",
+      "selfDeclared": "Marcado como sabido en la vista previa",
+      "back": "Volver",
+      "begin": "Empezar diagnóstico",
+      "waiting": "Esperá a que estén listas las preguntas."
+    },
+    "loop": {
+      "title": "Diagnóstico",
+      "remaining": "{count, plural, one {Queda ~# pregunta} other {Quedan ~# preguntas}}",
+      "progressLabel": "Avance del diagnóstico",
+      "elapsed": "Tiempo transcurrido",
+      "itemLabel": "Pregunta {number}",
+      "saving": "Guardando tu respuesta…",
+      "saved": "Respuesta guardada",
+      "saveError": "No se pudo guardar la respuesta.",
+      "retry": "Reintentar",
+      "unparseable": "Esta pregunta no se puede mostrar.",
+      "skipItem": "Saltar esta pregunta",
+      "noItem": "No hay más preguntas por ahora.",
+      "finish": "Terminar ahora",
+      "finishTitle": "¿Terminar el diagnóstico ahora?",
+      "finishDescription": "Se guarda lo que ya respondiste. Lo que no llegamos a preguntar queda para estudiar.",
+      "finishConfirm": "Terminar",
+      "finishCancel": "Seguir respondiendo",
+      "finishError": "No se pudo terminar el diagnóstico. Probá de nuevo."
+    },
+    "activity": {
+      "check": "Responder",
+      "skip": "Saltar",
+      "grading": "Guardando…",
+      "gradeFailed": "No se pudo registrar la respuesta. Probá de nuevo.",
+      "elapsed": "Tiempo",
+      "timeUp": "Se terminó el tiempo.",
+      "deferredFeedback": "Sin correcciones: el diagnóstico solo ubica tu punto de partida.",
+      "confidenceHeading": "¿Qué tan seguro estás?",
+      "confidence": {
+        "sure": "Seguro",
+        "unsure": "Probable",
+        "guessed": "Adiviné"
+      },
+      "loadingRenderer": "Cargando la pregunta…",
+      "unsupportedType": "Este tipo de pregunta todavía no se puede mostrar.",
+      "gapLabel": "Espacio {n}",
+      "yourAnswer": "Tu respuesta",
+      "answerAreaHeading": "Tu respuesta",
+      "unplacedHeading": "Disponibles",
+      "dragKeyboardHint": "Arrastrá, o apretá Enter para tomar, las flechas para elegir un lugar y Enter para soltar.",
+      "pickUp": "Tomar",
+      "drop": "Soltar acá",
+      "removePlacement": "Quitar",
+      "moveUp": "Subir",
+      "moveDown": "Bajar",
+      "pickedUpAnnouncement": "«{item}» tomado",
+      "placedAnnouncement": "«{item}» ubicado en {zone}",
+      "cancelledAnnouncement": "«{item}» devuelto",
+      "removedAnnouncement": "«{item}» quitado de {zone}",
+      "movedAnnouncement": "«{item}» movido a la posición {position} de {total}",
+      "playAudio": "Reproducir audio",
+      "audioUnavailable": "El audio todavía no está disponible."
+    },
+    "result": {
+      "title": "Tu punto de partida",
+      "empty": "Todavía no hay un resultado del diagnóstico.",
+      "stats": {
+        "known": "Módulos conocidos",
+        "partial": "Módulos parciales",
+        "unknown": "Módulos por estudiar",
+        "asked": "Preguntas respondidas",
+        "time": "Tiempo"
+      },
+      "status": {
+        "known": "Ya lo sabés",
+        "partial": "Repaso rápido",
+        "unknown": "Por estudiar"
+      },
+      "stopReason": {
+        "all_classified": "Terminamos cuando todos los módulos quedaron ubicados.",
+        "max_items": "Llegamos al máximo de preguntas del diagnóstico.",
+        "time_limit": "Llegamos al tiempo máximo del diagnóstico.",
+        "abandoned": "Terminaste antes: se usó lo que ya habías respondido.",
+        "no_items": "No había preguntas para esta ruta: se usó tu autoevaluación.",
+        "from_scratch": "Empezaste desde cero: todo queda para estudiar."
+      },
+      "completed": "{lessons, plural, one {# lección marcada como completada} other {# lecciones marcadas como completadas}} · {cards, plural, one {# tarjeta sembrada} other {# tarjetas sembradas}}",
+      "pendingSeed": "{count, plural, one {# lección espera sus tarjetas} other {# lecciones esperan sus tarjetas}}",
+      "source": {
+        "diagnostic": "Según tus respuestas",
+        "never_seen": "Lo marcaste como «Nunca lo vi»",
+        "from_scratch": "Empezaste desde cero",
+        "self_declared": "Marcado como sabido en la vista previa",
+        "unevidenced": "Sin preguntas suficientes: queda para estudiar"
+      },
+      "reopened": {
+        "lapses": "Reabierto por repasos fallidos",
+        "low_retention": "Reabierto por baja retención"
+      },
+      "revert": "Deshacer",
+      "revertModule": "Deshacer «{title}»",
+      "reverted": "Deshecho",
+      "wasStatus": "El diagnóstico lo había marcado como «{status}».",
+      "revertError": "No se pudo deshacer. Probá de nuevo.",
+      "revertAll": "Deshacer todo",
+      "revertAllTitle": "¿Deshacer todo lo que marcó el diagnóstico?",
+      "revertAllDescription": "Las lecciones marcadas vuelven a quedar pendientes y se quitan las tarjetas sembradas.",
+      "cancel": "Cancelar",
+      "remediations": "{count, plural, one {Detectamos # idea a reforzar; se agregará un refuerzo a tu ruta.} other {Detectamos # ideas a reforzar; se agregarán refuerzos a tu ruta.}}",
+      "advanced": "Avanzado",
+      "theta": "θ {value}",
+      "probability": "P {percent} %",
+      "evidence": "{answered} respondidas / {inferred} inferidas",
+      "continue": "Continuar"
     }
   }
 }

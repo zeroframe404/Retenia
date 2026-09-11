@@ -153,6 +153,8 @@ export const generationEstimateDtoSchema = z.object({
   p7Judge: stageEstimateDtoSchema.default(ZERO_STAGE_DTO),
   p8Edit: stageEstimateDtoSchema.default(ZERO_STAGE_DTO),
   qaRegenerate: stageEstimateDtoSchema.default(ZERO_STAGE_DTO),
+  /** Stage 9 (sub-phase 8.5): the item bank. Defaults for the stored-row reason above. */
+  p9Items: stageEstimateDtoSchema.default(ZERO_STAGE_DTO),
   usd: z.number().min(0),
   lowUsd: z.number().min(0),
   highUsd: z.number().min(0),
@@ -521,6 +523,155 @@ export const LESSON_REGENERATE_MODES = ['regenerate', 'more_examples'] as const
 export const lessonRegenerateModeSchema = z.enum(LESSON_REGENERATE_MODES)
 export type LessonRegenerateModeDto = z.infer<typeof lessonRegenerateModeSchema>
 
+// --- stage 9 and the prior-knowledge diagnostic (sub-phase 8.5) ------------------------------
+
+/** `ItemBankItem.v1.usage` (`docs/spec/04-path-generation.md` §8). */
+export const ITEM_USAGE_DTOS = [
+  'diagnostic',
+  'reinforcement',
+  'final_exam_A',
+  'final_exam_B',
+  'remediation',
+  'mock',
+] as const
+export const itemUsageDtoSchema = z.enum(ITEM_USAGE_DTOS)
+export type ItemUsageDto = z.infer<typeof itemUsageDtoSchema>
+
+const count = z.int().min(0)
+
+/**
+ * The item bank of one frozen version. `building` while a build runs; `ready` when every
+ * blueprint cell has its items; `partial` when some cell failed or came short (the diagnostic
+ * still runs on what exists); `failed` when the build itself threw.
+ */
+export const itemBankStatusDtoSchema = z.object({
+  pathVersionId: z.uuid(),
+  state: z.enum(['empty', 'building', 'ready', 'partial', 'failed']),
+  items: count,
+  diagnosticItems: count,
+  byUsage: z.object({
+    diagnostic: count,
+    reinforcement: count,
+    final_exam_A: count,
+    final_exam_B: count,
+    remediation: count,
+    mock: count,
+  }),
+  cells: z.object({ total: count, built: count, short: count, failed: count }),
+  warnings: z.array(generationWarningDtoSchema),
+  error: z.string().max(2_000).nullable(),
+})
+export type ItemBankStatusDto = z.infer<typeof itemBankStatusDtoSchema>
+
+/** §10 step 1's four levels, per section. `never` is never asked. */
+export const SELF_ASSESSMENT_LEVEL_DTOS = ['never', 'familiar', 'know', 'master'] as const
+export const selfAssessmentLevelDtoSchema = z.enum(SELF_ASSESSMENT_LEVEL_DTOS)
+export type SelfAssessmentLevelDto = z.infer<typeof selfAssessmentLevelDtoSchema>
+
+export const diagnosticEntryDtoSchema = z.enum(['scratch', 'partial'])
+export type DiagnosticEntryDto = z.infer<typeof diagnosticEntryDtoSchema>
+
+export const diagnosticStopReasonDtoSchema = z.enum([
+  'from_scratch',
+  'all_classified',
+  'no_items',
+  'max_items',
+  'time_limit',
+  'abandoned',
+])
+export type DiagnosticStopReasonDto = z.infer<typeof diagnosticStopReasonDtoSchema>
+
+export const diagnosticConfidenceDtoSchema = z.enum(['sure', 'unsure', 'guessed'])
+export type DiagnosticConfidenceDto = z.infer<typeof diagnosticConfidenceDtoSchema>
+
+export const diagnosticModuleStatusDtoSchema = z.enum(['known', 'partial', 'unknown'])
+export type DiagnosticModuleStatusDto = z.infer<typeof diagnosticModuleStatusDtoSchema>
+
+export const diagnosticSectionDtoSchema = z.object({
+  id: z.uuid(),
+  specId: z.string().max(64),
+  title: z.string().max(1_000),
+  modules: z.array(
+    z.object({ id: z.uuid(), specId: z.string().max(64), title: z.string().max(1_000) }),
+  ),
+  /** Already "ya lo sé" in the preview: shown as known, never asked. */
+  selfDeclared: z.boolean(),
+})
+export type DiagnosticSectionDto = z.infer<typeof diagnosticSectionDtoSchema>
+
+/** The item on screen. `activity` is the `ActivityBase` envelope the host renders. */
+export const diagnosticItemDtoSchema = z.object({
+  itemBankId: z.uuid(),
+  attemptId: z.uuid(),
+  activityId: z.uuid(),
+  type: z.string().min(1).max(64),
+  activity: z.json(),
+  /** The seed the host derives its option shuffle from, so a re-render is stable. */
+  seed: z.string().max(200),
+})
+export type DiagnosticItemDto = z.infer<typeof diagnosticItemDtoSchema>
+
+export const diagnosticModuleResultDtoSchema = z.object({
+  moduleId: z.uuid(),
+  specId: z.string().max(64),
+  title: z.string().max(1_000),
+  sectionTitle: z.string().max(1_000),
+  status: diagnosticModuleStatusDtoSchema,
+  source: z.enum(['diagnostic', 'never_seen', 'from_scratch', 'self_declared', 'unevidenced']),
+  /** The "avanzado" values: θ, P = σ(θ), and the evidence counts. */
+  theta: z.number(),
+  p: z.number().min(0).max(1),
+  answered: count,
+  inferred: count,
+  quickReview: z.boolean(),
+  lessonsCompleted: count,
+  seededCards: count,
+  /** Lessons of a known module still waiting for their cards to be written. */
+  pendingSeedLessons: count,
+  reverted: z.boolean(),
+  reopened: z.boolean(),
+  reopenReason: z.enum(['lapses', 'low_retention']).nullable(),
+})
+export type DiagnosticModuleResultDto = z.infer<typeof diagnosticModuleResultDtoSchema>
+
+export const diagnosticResultDtoSchema = z.object({
+  stopReason: diagnosticStopReasonDtoSchema,
+  asked: count,
+  elapsedMs: count,
+  modules: z.array(diagnosticModuleResultDtoSchema),
+  /** `insert_remediation`, recorded for sub-phase 8.6's P11. */
+  remediations: z.array(
+    z.object({
+      moduleId: z.uuid(),
+      conceptIds: z.array(z.string().max(128)).max(16),
+      misconceptionId: z.string().max(64).nullable(),
+    }),
+  ),
+})
+export type DiagnosticResultDto = z.infer<typeof diagnosticResultDtoSchema>
+
+export const diagnosticStateDtoSchema = z.object({
+  session: z.object({
+    id: z.uuid(),
+    pathVersionId: z.uuid(),
+    status: z.enum(['in_progress', 'completed']),
+    entry: z.enum(['scratch', 'partial', 'preview']),
+    startedAt: z.iso.datetime(),
+    finishedAt: z.iso.datetime().nullable(),
+    stopReason: diagnosticStopReasonDtoSchema.nullable(),
+  }),
+  progress: z.object({
+    asked: count,
+    /** "Quedan ~N". An estimate: the bar says "~". */
+    remaining: count,
+    elapsedMs: count,
+    maxItems: count,
+  }),
+  item: diagnosticItemDtoSchema.nullable(),
+  result: diagnosticResultDtoSchema.nullable(),
+})
+export type DiagnosticStateDto = z.infer<typeof diagnosticStateDtoSchema>
+
 export const pathgenChannels = defineContract({
   /** The wizard's step-1 live estimate — never writes anything (§13 step 1). */
   'pathgen.quote': {
@@ -629,5 +780,87 @@ export const pathgenChannels = defineContract({
       version: pathVersionDtoSchema,
       stats: pathStatsDtoSchema,
     }),
+  },
+
+  /**
+   * Stage 9 (sub-phase 8.5): builds — or resumes building — the item bank of a frozen version.
+   * Started by the freeze itself; this is the retry. Returns at once with `state: 'building'`;
+   * poll `pathgen.getItemBank` for the outcome.
+   */
+  'pathgen.buildItemBank': {
+    input: z.object({ pathVersionId: z.uuid(), allowOverBudget: z.boolean().optional() }),
+    output: itemBankStatusDtoSchema,
+  },
+
+  'pathgen.getItemBank': {
+    input: z.object({ pathVersionId: z.uuid() }),
+    output: itemBankStatusDtoSchema,
+  },
+
+  /** The diagnostic screen's first read: the sections to self-assess and any session to resume. */
+  'pathgen.diagnosticGet': {
+    input: z.object({ pathVersionId: z.uuid() }),
+    output: z.object({
+      sections: z.array(diagnosticSectionDtoSchema),
+      state: diagnosticStateDtoSchema.nullable(),
+      itemBank: itemBankStatusDtoSchema,
+    }),
+  },
+
+  /**
+   * §10 step 1. `scratch` finishes at once (everything unknown, nothing asked); `partial`
+   * starts the adaptive loop and serves the first item. Resumes an open session instead of
+   * starting a second one.
+   */
+  'pathgen.diagnosticStart': {
+    input: z.object({
+      pathVersionId: z.uuid(),
+      entry: diagnosticEntryDtoSchema,
+      selfAssessment: z
+        .record(z.string().min(1).max(64), selfAssessmentLevelDtoSchema)
+        .refine((levels) => Object.keys(levels).length <= 200, 'at most 200 sections'),
+    }),
+    output: diagnosticStateDtoSchema,
+  },
+
+  /**
+   * §10 step 3. Main grades the answer itself from `response` — the host's choice response,
+   * `{ sets: [{ selected: [optionId] }] }` — rather than trusting a verdict from the renderer.
+   * Serves the next item, or finishes the diagnostic and applies its result.
+   */
+  'pathgen.diagnosticAnswer': {
+    input: z.object({
+      sessionId: z.uuid(),
+      attemptId: z.uuid(),
+      skipped: z.boolean(),
+      // Exactly the choice host's response shape, bounded: extra fields are stripped and a
+      // payload of any other size or depth never reaches main.
+      response: z
+        .object({
+          sets: z
+            .array(z.object({ selected: z.array(z.string().min(1).max(64)).max(8) }))
+            .min(1)
+            .max(4),
+        })
+        .optional(),
+      confidence: diagnosticConfidenceDtoSchema.nullable(),
+      timeMs: z.int().min(0).max(3_600_000),
+    }),
+    output: diagnosticStateDtoSchema,
+  },
+
+  /** "Terminar ahora" (§10 step 7, abandonment): stop with what is known and apply it. */
+  'pathgen.diagnosticFinish': {
+    input: z.object({ sessionId: z.uuid() }),
+    output: diagnosticStateDtoSchema,
+  },
+
+  /**
+   * The summary's one-click undo (§13 step 4, "reversible"): one module's `mark_completed` and
+   * `seed_memory` taken back, or every module's when `moduleId` is absent.
+   */
+  'pathgen.diagnosticRevert': {
+    input: z.object({ sessionId: z.uuid(), moduleId: z.uuid().optional() }),
+    output: diagnosticStateDtoSchema,
   },
 })

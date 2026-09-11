@@ -116,6 +116,14 @@ export const editPrompt: PathgenPrompt = {
   temperature: 0.3,
 }
 
+export const itemsPrompt: PathgenPrompt = {
+  template: 'Write the cell’s items under the NBME rules.\n\n{{task}}',
+  promptVersion: '1',
+  schemaVersion: 'make_items@1',
+  role: 'smart',
+  temperature: 0.7,
+}
+
 export const testPrompts: PathgenPrompts = {
   extract: extractPrompt,
   outline: outlinePrompt,
@@ -126,7 +134,9 @@ export const testPrompts: PathgenPrompts = {
   faithfulness: faithfulnessPrompt,
   judge: judgePrompt,
   edit: editPrompt,
+  items: itemsPrompt,
   snapshot: {
+    P9_items: '1',
     P1_extract_chunk: '1',
     P2_synthesize_outline: '1',
     P2_synthesize_module: '1',

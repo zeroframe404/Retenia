@@ -81,8 +81,9 @@ export interface SequencingOptions {
   readonly seed: string
   /** From the `Clock` port; read only for the exam-date check. */
   readonly now: Date
-  /** How much of a module's concepts the lessons actually cover, 0–1. `1` until sub-phase
-   *  8.4's coverage gate plugs in. */
+  /** How much of a module's concepts the lessons actually cover, 0–1. `1` by default: no
+   *  lesson is written at sequencing time. The item bank applies the measured coverage to
+   *  the exam once the lessons settle (`item-bank/coverage.ts`). */
   readonly coverageOf?: (moduleId: string) => number
   readonly limits?: Partial<SequencingLimits>
   /** The ceiling merged modules keep their objectives under; defaults to the lesson limit. */

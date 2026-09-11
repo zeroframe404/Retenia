@@ -29,6 +29,7 @@ import type {
   SchedulingOptions,
   SchedulingPolicyInput,
   SchedulingPreview,
+  SeededCard,
   SessionAnswerInput,
   SessionAnswerResult,
   SessionEntry,
@@ -63,10 +64,13 @@ import {
   createLoadBalancer,
   createRescheduleNow,
   createReviewCard,
+  createSeedKnownItems,
   createSimulateReschedule,
   createStartSession,
   createStartUrgentMode,
   createStatsQueries,
+  createUndoReview,
+  createUnseedItems,
   DEFAULT_DAY_START_HOUR,
   DEFAULT_TIME_ZONE,
   disperseSiblingDueDates,
@@ -181,6 +185,20 @@ export interface MemoryService {
   setLevel(level: ImportanceLevel, patch: ImportanceLevelPatch): Promise<boolean>
   /** Sub-phase 4.6's "disperse siblings" (§4): spread one item's cards onto different days. */
   disperseSiblings(itemId: string): Promise<number>
+
+  // --- the prior-knowledge diagnostic (sub-phase 8.5) ---
+
+  /**
+   * `seed_memory` (`docs/spec/04-path-generation.md` §10 step 8): every never-reviewed card of
+   * these lessons graded Good once — through the scheduler, with the learning steps skipped
+   * so the card lands in Review — its item moved to "maintenance", the log `context =
+   * 'diagnostic'`. Idempotent.
+   */
+  seedKnown(lessonIds: readonly string[]): Promise<SeededCard[]>
+  /** The summary's undo: each seeded review rolled back, each item's importance restored. */
+  unseed(records: readonly SeededCard[]): Promise<number>
+  /** R now, for the diagnostic's deferred verification (§10: "mean R < 0.7"). */
+  retrievability(card: Card, at: Date): number
 }
 
 /** The `scheduler_profiles` columns the settings screen may write. `w` is not among them:
@@ -416,6 +434,34 @@ export async function createMemoryService(options: MemoryServiceOptions): Promis
     events,
   })
 
+  /**
+   * The diagnostic's seeding review (sub-phase 8.5): the same `reviewCard`, over the same live
+   * resolution, with one difference — no learning steps. A Good on a New card then graduates
+   * it straight to Review at the interval the level's retention gives, which is what "seeded
+   * with a state equivalent to a Good" means; with the steps it would sit in a ten-minute
+   * learning step and come back today, for a module the learner just showed they know.
+   * S and D are still the scheduler's to compute (`fsrs-rules`).
+   */
+  const withoutLearningSteps = (resolved: SchedulingOptions): SchedulingOptions => ({
+    ...resolved,
+    learningSteps: [],
+  })
+  const seedReviewCard: ReviewCard = createReviewCard({
+    uow: repos,
+    scheduler,
+    policy: { optionsFor: (input) => withoutLearningSteps(current.resolve(input).options) },
+    resolve: (input) => {
+      const resolution = current.resolve(input)
+      return { ...resolution, options: withoutLearningSteps(resolution.options) }
+    },
+    events,
+  })
+  const seedKnownItems = createSeedKnownItems({ repos, reviewCard: seedReviewCard })
+  const unseedItems = createUnseedItems({
+    repos,
+    undoReview: createUndoReview({ uow: repos, scheduler }),
+  })
+
   const compose: ComposeSessionQuery = createComposeSession({
     repos,
     scheduler,
@@ -520,6 +566,17 @@ export async function createMemoryService(options: MemoryServiceOptions): Promis
     },
 
     resolve: (input) => current.resolve(input),
+
+    seedKnown: async (lessonIds) => {
+      const seeded = await seedKnownItems({ lessonIds })
+      if (seeded.length > 0)
+        log.info(`[memory] seeded ${seeded.length} card(s) from the diagnostic`)
+      return seeded
+    },
+
+    unseed: (records) => unseedItems(records),
+
+    retrievability: (card, at) => scheduler.retrievability(card, at),
 
     optimizerStatus: () => optimizer.status(),
 

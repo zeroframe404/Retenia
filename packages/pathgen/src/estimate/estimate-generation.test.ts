@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { buildBlueprint, FIXED_CELLS_PER_MODULE } from '../item-bank/blueprint'
 import {
   BATCH_MINUTES,
   EXPANSION_BATCH_WAVES,
@@ -15,6 +16,10 @@ import {
   P6_INPUT_TOKENS_PER_LESSON,
   P6_OUTPUT_TOKENS,
   P8_SHARE,
+  P9_CALLS_PER_MODULE,
+  P9_EXAM_CELLS_PER_MODULE,
+  P9_INPUT_TOKENS_PER_MODULE,
+  P9_OUTPUT_TOKENS_PER_MODULE,
   QA_BATCH_WAVES,
   REGENERATE_SHARE,
 } from './estimate-generation'
@@ -144,7 +149,8 @@ describe('estimateGeneration()', () => {
       estimate.p6Faithfulness.usd +
       estimate.p7Judge.usd +
       estimate.p8Edit.usd +
-      estimate.qaRegenerate.usd
+      estimate.qaRegenerate.usd +
+      estimate.p9Items.usd
     expect(expand).toBeGreaterThan(0)
     expect(estimate.usd).toBeCloseTo(
       estimate.p1.usd + estimate.p2Outline.usd + estimate.p2Modules.usd + expand,
@@ -257,6 +263,7 @@ describe('estimateGeneration()', () => {
     expect(empty.p7Judge.calls).toBe(0)
     expect(empty.p8Edit.calls).toBe(0)
     expect(empty.qaRegenerate.calls).toBe(0)
+    expect(empty.p9Items.calls).toBe(0)
 
     const done = estimateGeneration({
       chunks: chunks(3),
@@ -377,5 +384,77 @@ describe('stage 8 rows (sub-phase 8.4)', () => {
     expect(noJudge.p7Judge.calls).toBe(noJudge.lessons)
     expect(noJudge.p7Judge.usd).toBe(0)
     expect(noJudge.priced.judge).toBe(false)
+  })
+})
+
+describe('stage 9 row (sub-phase 8.5)', () => {
+  const withItems = { ...systemTokens, items: 900 }
+  const quote = (dispatch: 'sync' | 'batch') =>
+    estimateGeneration({
+      chunks: chunks(6),
+      alreadyExtracted: 0,
+      rates: { cheap, smart, judge },
+      systemTokens: withItems,
+      dispatch,
+    })
+
+  it('prices one P9 call per blueprint cell on the smart role, at §6’s 12.5k / 5k a module', () => {
+    const sync = quote('sync')
+    expect(sync.p9Items.calls).toBe(sync.modules * P9_CALLS_PER_MODULE)
+    expect(sync.p9Items.inputTokens).toBe(
+      Math.round(sync.p9Items.calls * (900 + P9_INPUT_TOKENS_PER_MODULE / P9_CALLS_PER_MODULE)),
+    )
+    expect(sync.p9Items.outputTokens).toBe(sync.modules * P9_OUTPUT_TOKENS_PER_MODULE)
+    expect(sync.p9Items.cachedInputTokens).toBe(0)
+    expect(sync.p9Items.usd).toBeCloseTo(
+      (sync.p9Items.inputTokens * 2 + sync.p9Items.outputTokens * 10) / 1e6,
+      6,
+    )
+    // §6: ≈ 100k in and 40k out for the eight modules of a 300-page book.
+    expect((P9_INPUT_TOKENS_PER_MODULE * 8) / 1000).toBe(100)
+    expect((P9_OUTPUT_TOKENS_PER_MODULE * 8) / 1000).toBe(40)
+  })
+
+  it('keeps the diagnostic’s cells synchronous and lets the exam’s take the batch rate', () => {
+    const sync = quote('sync')
+    const batch = quote('batch')
+    expect(batch.p9Items.calls).toBe(sync.p9Items.calls)
+    const fixedShare = FIXED_CELLS_PER_MODULE / P9_CALLS_PER_MODULE
+    expect(batch.p9Items.usd).toBeCloseTo(
+      sync.p9Items.usd * fixedShare + (sync.p9Items.usd * (1 - fixedShare)) / 2,
+      6,
+    )
+  })
+
+  it('counts the cells `buildBlueprint` writes for a module with five exam items a form', () => {
+    const modules = Array.from({ length: 8 }, (_, i) => ({
+      id: `M${String(i + 1).padStart(2, '0')}`,
+      objectiveBlooms: ['understand' as const],
+      conceptBlooms: [],
+    }))
+    const topics = modules.map((module) => ({ module_id: module.id, weight: 1 }))
+    expect(buildBlueprint({ modules, topics, examItemCount: 8 * 5 }).cells).toHaveLength(
+      8 * P9_CALLS_PER_MODULE,
+    )
+    expect(buildBlueprint({ modules, topics, examItemCount: 0 }).cells).toHaveLength(
+      8 * FIXED_CELLS_PER_MODULE,
+    )
+    expect(P9_CALLS_PER_MODULE).toBe(FIXED_CELLS_PER_MODULE + P9_EXAM_CELLS_PER_MODULE)
+  })
+
+  it('falls back to P4’s system weight when the caller does not measure P9’s', () => {
+    const estimate = estimateGeneration({
+      chunks: chunks(6),
+      alreadyExtracted: 0,
+      rates: { smart },
+      systemTokens,
+      dispatch: 'sync',
+    })
+    expect(estimate.p9Items.inputTokens).toBe(
+      Math.round(
+        estimate.p9Items.calls *
+          (systemTokens.activities + P9_INPUT_TOKENS_PER_MODULE / P9_CALLS_PER_MODULE),
+      ),
+    )
   })
 })
