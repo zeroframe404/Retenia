@@ -1,4 +1,5 @@
 import type {
+  AiGrader,
   ChunkRepository,
   Clock,
   GenerationRunRepository,
@@ -133,9 +134,20 @@ export interface PathgenFacadeDeps {
   readonly affected?: (pathVersionId: string) => Promise<AffectedResult>
   /** A diagnostic stopped: its confident misconceptions become remediation triggers (§11). */
   readonly onDiagnosticCompleted?: (sessionId: string) => Promise<void>
+  /**
+   * P10's grader (`docs/spec/04-path-generation.md` §9), constructed in `bootstrap.ts` beside
+   * the P9/P11 authors — see its own doc comment there. Exposed as a plain value rather than a
+   * method: nothing in this facade calls it yet (no `pathgen.*`/`session.*` channel carries a
+   * `long_text` answer to main for AI grading today), so this is only what makes it a real,
+   * reachable dependency of the running app until that round-trip is built.
+   */
+  readonly longTextGrader?: AiGrader
 }
 
 export interface PathgenFacade {
+  /** P10's grader (`docs/spec/04-path-generation.md` §9), or `null` when none was built —
+   *  see `PathgenFacadeDeps.longTextGrader`'s doc comment for what still routes nothing to it. */
+  readonly longTextGrader: AiGrader | null
   quote(input: {
     config: GenerationConfigInput
   }): Promise<{ estimate: GenerationEstimateDto; warnings: GenerationWarningDto[] }>
@@ -275,6 +287,8 @@ export function createPathgenFacade(deps: PathgenFacadeDeps): PathgenFacade {
     return state
   }
   return {
+    longTextGrader: deps.longTextGrader ?? null,
+
     quote: ({ config }) => deps.quote(config),
 
     start: async ({ config, pathId, userWaiting, allowOverBudget }) => {
