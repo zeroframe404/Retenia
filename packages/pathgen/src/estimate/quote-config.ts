@@ -9,12 +9,18 @@ import {
 } from '../config/generation-config'
 import { GenerationError } from '../errors'
 import { type PathgenPrompt, type PathgenPrompts, systemFor } from '../prompts'
+import type { QaMode } from '../qa/lesson-qa'
 import { DEFAULT_GENERATION_CONCURRENCY, type GenerationConcurrency } from '../run/deps'
 import { type ChunkPlan, planChunks } from '../run/plan-chunks'
 import { extractChunkOutputSchema } from '../schemas/extraction'
 import { makeFlashcardsOutputSchema } from '../schemas/flashcards'
 import { writeLessonOutputSchema } from '../schemas/lesson'
 import { synthesizeModuleOutputSchema, synthesizeOutlineOutputSchema } from '../schemas/outline'
+import {
+  editLessonOutputSchema,
+  faithfulnessOutputSchema,
+  pedagogyJudgeOutputSchema,
+} from '../schemas/qa'
 import { estimateGeneration, type GenerationEstimate } from './estimate-generation'
 
 /**
@@ -45,6 +51,8 @@ export interface QuoteOptions {
   readonly userWaiting?: boolean
   /** Chunks that would cost nothing — already extracted by a previous attempt. */
   readonly alreadyExtracted?: number
+  /** Stage 8's depth (sub-phase 8.4); `quoteConfig` takes it from the config. Defaults to `full`. */
+  readonly qaMode?: QaMode
 }
 
 /**
@@ -104,14 +112,20 @@ export async function quoteFromPlan(
   const userWaiting = options.userWaiting ?? true
   const countTokens = deps.countTokens ?? approximateTokens
   const concurrency = { ...DEFAULT_GENERATION_CONCURRENCY, ...deps.concurrency }
-  const [cheap, smart] = await Promise.all([deps.ai.ratesFor('cheap'), deps.ai.ratesFor('smart')])
+  const [cheap, smart, judge] = await Promise.all([
+    deps.ai.ratesFor('cheap'),
+    deps.ai.ratesFor('smart'),
+    deps.ai.ratesFor('judge'),
+  ])
   return estimateGeneration({
     chunks: plan.extractable,
     alreadyExtracted: options.alreadyExtracted ?? 0,
     rates: {
       ...(cheap === undefined ? {} : { cheap }),
       ...(smart === undefined ? {} : { smart }),
+      ...(judge === undefined ? {} : { judge }),
     },
+    qaMode: options.qaMode ?? 'full',
     systemTokens: {
       extract: systemTokensOf(countTokens, deps.prompts.extract, extractChunkOutputSchema),
       outline: systemTokensOf(countTokens, deps.prompts.outline, synthesizeOutlineOutputSchema),
@@ -122,6 +136,13 @@ export async function quoteFromPlan(
       // one of these calls weighs.
       activities: systemTokensOf(countTokens, deps.prompts.activities, writeLessonOutputSchema),
       flashcards: systemTokensOf(countTokens, deps.prompts.flashcards, makeFlashcardsOutputSchema),
+      faithfulness: systemTokensOf(
+        countTokens,
+        deps.prompts.faithfulness,
+        faithfulnessOutputSchema,
+      ),
+      judge: systemTokensOf(countTokens, deps.prompts.judge, pedagogyJudgeOutputSchema),
+      edit: systemTokensOf(countTokens, deps.prompts.edit, editLessonOutputSchema),
     },
     dispatch: !userWaiting && deps.runner !== undefined ? 'batch' : 'sync',
     countTokens,
@@ -144,6 +165,6 @@ export async function quoteConfig(
 ): Promise<QuoteResult> {
   const config = parseGenerationConfig(input)
   const plan = await loadPlan(deps, config)
-  const estimate = await quoteFromPlan(deps, plan, options)
+  const estimate = await quoteFromPlan(deps, plan, { ...options, qaMode: config.qaMode })
   return { config, plan, estimate }
 }

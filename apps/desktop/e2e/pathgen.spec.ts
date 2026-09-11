@@ -206,6 +206,28 @@ test('generates, edits and freezes a path against the e2e fake provider', async 
   expect(first.activities).toBeGreaterThan(0)
   expect(first.flashcards).toBeGreaterThan(0)
 
+  // --- stage 8 (sub-phase 8.4) -------------------------------------------------------------
+  // The gates ran over every lesson the fake wrote — `ready` is their verdict now — and the
+  // report lists each with its citations resolved.
+  expect(
+    lessons.data.lessons.every((lesson) => lesson.qa?.reviewed === true),
+    JSON.stringify(
+      lessons.data.lessons.map((lesson) => ({ specId: lesson.specId, qa: lesson.qa })),
+    ),
+  ).toBe(true)
+  expect(first.qa?.faithfulness).toBe(1)
+  expect(first.qa?.pedagogyScore).toBe(4)
+  const report = await callApiWith(
+    window,
+    ({ api, arg }) => api.pathgen.getQaReport({ pathVersionId: arg }),
+    pathVersionId,
+  )
+  expect(report.ok).toBe(true)
+  if (!report.ok) throw new Error('pathgen.getQaReport failed')
+  expect(report.data.lessons).toHaveLength(lessons.data.lessons.length)
+  expect(report.data.totals.reviewed).toBe(lessons.data.lessons.length)
+  expect(report.data.totals.flagged).toBe(0)
+
   // "Regenerar" rewrites one lesson and leaves its memory items alone.
   const before = first.flashcards
   const regenerated = await callApiWith(

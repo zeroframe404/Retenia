@@ -31,6 +31,7 @@ import type { ProgressDetail } from '../progress/reporter'
 import { silentProgress } from '../progress/reporter'
 import type { GenerationStage } from '../progress/stages'
 import { systemFor } from '../prompts'
+import type { QaMode } from '../qa/lesson-qa'
 import { toKnowledgeGraphDocument } from '../schemas/knowledge-graph'
 import {
   type GenerationManifest,
@@ -223,7 +224,9 @@ export function createGenerationRun(deps: GenerationRunDeps): GenerationRunHandl
     plan: ChunkPlan,
     userWaiting: boolean,
     alreadyExtracted: number,
-  ): Promise<GenerationEstimate> => quoteFromPlan(deps, plan, { userWaiting, alreadyExtracted })
+    qaMode: QaMode,
+  ): Promise<GenerationEstimate> =>
+    quoteFromPlan(deps, plan, { userWaiting, alreadyExtracted, qaMode })
 
   /**
    * The batch runner's own quote for the P1 requests that would go through it — the exact
@@ -697,7 +700,7 @@ export function createGenerationRun(deps: GenerationRunDeps): GenerationRunHandl
     }
 
     const [estimate, runnerQuote, cheap, smart] = await Promise.all([
-      quote(plan, userWaiting, 0),
+      quote(plan, userWaiting, 0, config.qaMode),
       batchQuote(plan.extractable, plan.sources, userWaiting),
       resolveTarget('cheap'),
       resolveTarget('smart'),
@@ -749,7 +752,7 @@ export function createGenerationRun(deps: GenerationRunDeps): GenerationRunHandl
       targets: { cheap, smart },
       seed,
       batchIds: [],
-      warnings: estimateWarnings(estimate, config.budgetCapUsd),
+      warnings: estimateWarnings(estimate, config.budgetCapUsd, config.qaMode),
       usage: ZERO_USAGE,
       calls: 0,
       cacheHits: 0,
@@ -812,7 +815,7 @@ export function createGenerationRun(deps: GenerationRunDeps): GenerationRunHandl
       (chunk) => !stored.has(extractCustomId(chunk, deps.prompts.extract)),
     )
     const [estimate, runnerQuote, cheap, smart] = await Promise.all([
-      quote(plan, previous.userWaiting, plan.extractable.length - pending.length),
+      quote(plan, previous.userWaiting, plan.extractable.length - pending.length, config.qaMode),
       batchQuote(pending, plan.sources, previous.userWaiting),
       resolveTarget('cheap'),
       resolveTarget('smart'),

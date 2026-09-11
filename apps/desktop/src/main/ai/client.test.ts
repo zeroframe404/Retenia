@@ -2,6 +2,7 @@ import { AiError, DEFAULT_PROFILES, DEFAULT_ROLES, ZERO_USAGE } from '@retenia/a
 import { createScriptedInvoker } from '@retenia/ai/testing'
 import type { AiCall, AiResult, NewEntity, SettingsMap } from '@retenia/core'
 import { describe, expect, it, vi } from 'vitest'
+import { settleJudgeAssignment } from './client'
 
 // `vi.mock` here is the repo's usual reason for it: making the `electron` specifier
 // resolve outside a real Electron process. `redactPaths` reads these paths to build its
@@ -356,5 +357,82 @@ describe('the budget-alert latch', () => {
     }).textGenerator({ role: 'cheap', purpose: 'x' })({ prompt: 'y', temperature: 0 })
 
     expect(alerts.length).toBeGreaterThan(0)
+  })
+})
+
+describe('buildRegistry: the judge role (docs/spec/04-path-generation.md §5 gate 9)', () => {
+  it('resolves the default judge to Gemini, the complement of the Sonnet 5 generator', async () => {
+    const registry = await buildRegistry(harness().deps.repos)
+    expect(registry.roles.judge?.primary).toEqual({
+      profileId: 'google',
+      modelId: 'gemini-3.7-flash',
+    })
+    // Nothing to derive on the defaults: the very same map, so identity checks elsewhere hold.
+    expect(registry.roles).toBe(DEFAULT_ROLES)
+  })
+
+  it('re-derives the judge when a stored smart override lands on its model', async () => {
+    const h = harness({
+      'ai.roles': {
+        smart: { primary: { profileId: 'google', modelId: 'gemini-3.7-flash' }, fallbacks: [] },
+      },
+    })
+    const registry = await buildRegistry(h.deps.repos)
+    expect(registry.roles.judge?.primary).toEqual({
+      profileId: 'anthropic',
+      modelId: 'claude-sonnet-5',
+    })
+  })
+
+  it('keeps a stored judge that differs from the generator', async () => {
+    const h = harness({
+      'ai.roles': {
+        judge: { primary: { profileId: 'anthropic', modelId: 'claude-haiku-4-5' }, fallbacks: [] },
+      },
+    })
+    const registry = await buildRegistry(h.deps.repos)
+    expect(registry.roles.judge?.primary).toEqual({
+      profileId: 'anthropic',
+      modelId: 'claude-haiku-4-5',
+    })
+  })
+})
+
+describe('settleJudgeAssignment()', () => {
+  const gemini = { profileId: 'google', modelId: 'gemini-3.7-flash' }
+  const sonnet = { profileId: 'anthropic', modelId: 'claude-sonnet-5' }
+
+  it('stores a judge that differs from the generator as submitted', () => {
+    const submitted = {
+      smart: { primary: sonnet, fallbacks: [] },
+      judge: { primary: gemini, fallbacks: [] },
+    }
+    expect(settleJudgeAssignment(gemini, submitted)).toEqual({ stored: submitted, error: null })
+  })
+
+  it('drops a colliding judge the panel merely echoed back, so the registry re-derives it', () => {
+    // The user moved `smart` onto Gemini; the panel resubmitted the judge it was shown (Gemini).
+    const settled = settleJudgeAssignment(gemini, {
+      smart: { primary: gemini, fallbacks: [] },
+      judge: { primary: gemini, fallbacks: [] },
+    })
+    expect(settled.error).toBeNull()
+    expect(settled.stored).toEqual({ smart: { primary: gemini, fallbacks: [] } })
+  })
+
+  it('refuses a judge the user chose onto the generator', () => {
+    const settled = settleJudgeAssignment(gemini, {
+      smart: { primary: sonnet, fallbacks: [] },
+      judge: { primary: sonnet, fallbacks: [] },
+    })
+    expect(settled.error).toMatch(/must not run on the model that writes the lessons/)
+  })
+
+  it('has nothing to settle when either role is unassigned', () => {
+    const submitted = {
+      smart: { primary: null, fallbacks: [] },
+      judge: { primary: gemini, fallbacks: [] },
+    }
+    expect(settleJudgeAssignment(null, submitted).error).toBeNull()
   })
 })

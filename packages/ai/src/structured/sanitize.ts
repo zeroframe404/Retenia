@@ -87,12 +87,21 @@ const EVENT_HANDLER_ATTRIBUTE = /\son[a-z]{3,20}\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]
 /**
  * Every pass only removes or shortens text (`DANGEROUS_URL`'s replacement, `blocked:`, is
  * shorter than any string the pattern matches), so the string's length is a strictly
- * decreasing — or, once clean, constant — quantity across iterations, and this many passes
- * is far more than any realistic nesting depth needs to reach a fixed point. It is a
- * safety ceiling against a pathological input looping forever, not a number expected to be
- * hit in practice.
+ * decreasing — or, once clean, constant — quantity across iterations. This many passes is
+ * plenty for anything an honest completion produces; it is a bound on *work done*, not on
+ * *safety* — see the escape pass right below the loop for that.
  */
 const MAX_SANITIZE_PASSES = 50
+
+/**
+ * Neutralize a still-live match by escaping its own angle brackets rather than deleting
+ * them — turning `<script src=…>` into `&lt;script src=…&gt;`, degrading to visible text
+ * instead of vanishing (which is how deleting it could reassemble a *different* live tag
+ * out of whatever surrounds it).
+ */
+function escapeMatch(match: string): string {
+  return match.replaceAll('<', '&lt;').replaceAll('>', '&gt;')
+}
 
 export function sanitizeString(value: string, limits: SanitizeLimits): string {
   let stripped = value
@@ -104,6 +113,15 @@ export function sanitizeString(value: string, limits: SanitizeLimits): string {
     if (next === stripped) break
     stripped = next
   }
+  // A pathologically deep nest (each layer needs its own pass to unwind) can still be
+  // reassembling when the loop above hits its pass budget, leaving one live tag behind —
+  // reachable because the threat model here is a model faithfully reproducing whatever a
+  // malicious source handed it, which can be arbitrarily deeply nested. This one extra,
+  // non-iterated pass cannot itself create a new match (it only replaces `<`/`>` inside
+  // spans this same pattern already found, never deletes or concatenates anything), so it
+  // closes the gap regardless of how much nesting the loop above did not have the budget
+  // to finish unwinding.
+  stripped = stripped.replace(EXECUTABLE_PATTERN, escapeMatch)
   return stripped.length <= limits.maxStringChars
     ? stripped
     : `${stripped.slice(0, limits.maxStringChars - 1)}…`

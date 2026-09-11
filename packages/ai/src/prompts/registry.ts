@@ -71,6 +71,12 @@ const PROMPTS = {
   P3_write_lesson: [1],
   P4_make_activities: [1],
   P5_make_flashcards: [1],
+  /** P6 of §9 — per-claim faithfulness against the cited fragments, stage 8 of §3 (8.4). */
+  P6_faithfulness: [1],
+  /** P7 of §9 — the anchored 1–5 pedagogy judge, on a model different from P3's (8.4). */
+  P7_pedagogy_judge: [1],
+  /** P8 of §9 — the critic-editor that applies the listed edits and nothing else (8.4). */
+  P8_edit: [1],
 } as const satisfies Record<string, readonly number[]>
 
 export type PromptId = keyof typeof PROMPTS

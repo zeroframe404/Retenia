@@ -3,14 +3,14 @@
     "blocks": [
       {
         "type": "hook",
-        "content": "Al terminar vas a poder explicar el concepto de esta lección.",
+        "content": "Al terminar vas a poder explicar el concepto de esta lección. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos. Esta lección explica el concepto con calma y con ejemplos.",
         "citations": [],
         "diagram": null,
         "misconception_id": null
       },
       {
         "type": "explanation",
-        "content": "El concepto se explica en la fuente [cite:B01].",
+        "content": "El concepto principal y el concepto secundario se explican en la fuente [cite:B01].",
         "citations": [
           "B01"
         ],
@@ -115,5 +115,60 @@
       }
     ],
     "skipped": []
+  },
+  "P6_faithfulness": {
+    "claims": [
+      {
+        "id": "c01",
+        "verdict": "supported",
+        "citation_id": null,
+        "sources_differ": false,
+        "differing_citation_ids": [],
+        "note": ""
+      },
+      {
+        "id": "c02",
+        "verdict": "supported",
+        "citation_id": null,
+        "sources_differ": false,
+        "differing_citation_ids": [],
+        "note": ""
+      }
+    ]
+  },
+  "P7_pedagogy_judge": {
+    "criteria": [
+      {
+        "id": "clarity",
+        "score": 4,
+        "rationale": "Respuesta del proveedor falso de e2e."
+      },
+      {
+        "id": "examples_correct",
+        "score": 4,
+        "rationale": "Respuesta del proveedor falso de e2e."
+      },
+      {
+        "id": "cognitive_load",
+        "score": 4,
+        "rationale": "Respuesta del proveedor falso de e2e."
+      },
+      {
+        "id": "alignment",
+        "score": 4,
+        "rationale": "Respuesta del proveedor falso de e2e."
+      },
+      {
+        "id": "misconceptions",
+        "score": 4,
+        "rationale": "Respuesta del proveedor falso de e2e."
+      }
+    ],
+    "overall": 4,
+    "edits": []
+  },
+  "P8_edit": {
+    "changes": [],
+    "notes": []
   }
 }

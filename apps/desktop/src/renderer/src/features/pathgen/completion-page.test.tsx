@@ -136,6 +136,7 @@ function stubApi(firstCitation: Record<string, unknown> | null) {
               unmet: [],
               warnings: [],
               firstCitation,
+              qa: null,
             },
           ],
         }),

@@ -64,6 +64,13 @@ export const generationConfigSchema = z
     sourceIds: z.array(z.string().min(1)).min(1).max(50),
     /** The run's own cost cap in USD. `0` means no cap, the same reading as the monthly one. */
     budgetCapUsd: z.number().min(0).max(1000).default(0),
+    /**
+     * Stage 8's depth (sub-phase 8.4). `full` runs the ten gates of §5; `light` — "QA
+     * ligera" — runs gates (a)–(h) only, skipping the pedagogy judge and the editor to save
+     * the two mid-tier calls per lesson. The < 0.7 faithfulness floor still regenerates in
+     * both.
+     */
+    qaMode: z.enum(['full', 'light']).default('full'),
     /** The path's title; defaults to the primary source's title when absent. */
     title: z.string().trim().min(1).max(200).optional(),
   })
@@ -119,7 +126,7 @@ export function isChunkInScope(
  * shape: `sourceIds` are ordered primary-first and the keys are fixed, so two wizards that
  * produce the same choices in a different order hash the same.
  *
- * `budgetCapUsd` and `title` are deliberately excluded — neither reaches the model, and a
+ * `budgetCapUsd`, `title` and `qaMode` are deliberately excluded — none reaches P2, and a
  * user raising their cap to resume a run must find the outline it was already paying for.
  */
 export function configHash(config: GenerationConfig): string {

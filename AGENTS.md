@@ -57,7 +57,7 @@ first). When the workflow changes, the step list in that script changes with it.
 - `packages/editor` — note/content editor
 - `packages/readers` — document/media readers (PDF, EPUB, …)
 - `packages/ai` — AI provider adapters, behind ports (AI SDK 7)
-- `packages/pathgen` — path generation stages 3–5: P1 extraction, concept consolidation, P2 graph/outline synthesis, deterministic sequencing, manifest and estimator (pure orchestration over ports; wired in main)
+- `packages/pathgen` — path generation stages 3–8: P1 extraction, concept consolidation, P2 graph/outline synthesis, deterministic sequencing, manifest and estimator, P3–P5 lesson expansion, and the QA gates (P6 faithfulness, P7 pedagogy judge on a different model, P8 edit) (pure orchestration over ports; wired in main)
 - `packages/ingest` — content ingestion pipelines
 - `packages/importers` — external format importers
 - `packages/i18n` — i18n resources (`es-AR` default, `en` second)

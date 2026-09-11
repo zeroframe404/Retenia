@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Learning-path generation, stages 3–5 of docs/spec/04-path-generation.md §3: P1 extraction per chunk through the batch runner, concept consolidation, P2 knowledge-graph and outline synthesis (skeleton first), deterministic sequencing, the generation manifest and the cost estimator. Pure orchestration over ports — the main process wires it, and it never reads a file or a database itself.",
+  "description": "Learning-path generation, stages 3–8 of docs/spec/04-path-generation.md §3: P1 extraction per chunk through the batch runner, concept consolidation, P2 knowledge-graph and outline synthesis (skeleton first), deterministic sequencing, the generation manifest and the cost estimator, P3–P5 lesson expansion in batch, and the QA gates (P6 faithfulness, P7 pedagogy judge, P8 edit). Pure orchestration over ports — the main process wires it, and it never reads a file or a database itself.",
   "exports": {
     ".": "./src/index.ts",
     "./node": "./src/node.ts"

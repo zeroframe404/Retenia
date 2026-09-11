@@ -19,6 +19,8 @@ import type {
   PathEditOpDto,
   PathStatsDto,
   PathVersionDto,
+  QaReportDto,
+  QaReportLessonDto,
 } from '@retenia/ipc-contract'
 import {
   type ApplyEditOptions,
@@ -31,14 +33,17 @@ import {
   pathDraftSchema,
 } from '@retenia/pathgen'
 import {
+  citationsOf,
   citedPageOf,
   perLessonUsdOf,
+  type ResolvedCitationDto,
   toEditOp,
   toGenerationResultDto,
   toGenerationRunDto,
   toLessonSummaryDto,
   toPathDto,
   toPathVersionDto,
+  toQaReportLessonDto,
 } from './dto'
 
 /**
@@ -117,6 +122,8 @@ export interface PathgenFacade {
     allowOverBudget?: boolean
   }): Promise<{ run: GenerationRunDto }>
   getLessons(input: { pathVersionId: string }): Promise<{ lessons: LessonSummaryDto[] }>
+  /** Stage 8's report (sub-phase 8.4): every core lesson's verdict and flagged sentences. */
+  getQaReport(input: { pathVersionId: string }): Promise<QaReportDto>
   regenerateLesson(input: {
     lessonId: string
     mode: LessonRegenerateModeDto
@@ -262,6 +269,68 @@ export function createPathgenFacade(deps: PathgenFacadeDeps): PathgenFacade {
         }
       }
       return { lessons }
+    },
+
+    /**
+     * The QA report (`docs/spec/04-path-generation.md` §13 step 5's "QA indicators", as a
+     * screen): read straight off `lessons.qa`, with every finding's citations resolved to a
+     * page the way `firstCitation` is, so "abrir fuente" is one click and not a lookup.
+     */
+    getQaReport: async ({ pathVersionId }) => {
+      const tree = await deps.repos.paths.loadTree(pathVersionId)
+      const lessons: QaReportLessonDto[] = []
+      if (tree === undefined) {
+        return { totals: { lessons: 0, reviewed: 0, flagged: 0, meanFaithfulness: null }, lessons }
+      }
+      // One chunk read per distinct chunk across the path, not per finding.
+      const pages = new Map<string, Promise<number | null>>()
+      const pageOf = (citation: {
+        source_id: string
+        chunk_id: string
+      }): Promise<number | null> => {
+        const cached = pages.get(citation.chunk_id)
+        if (cached !== undefined) return cached
+        const promise = deps.repos.chunks
+          .findById(citation.chunk_id)
+          .then((chunk) => citedPageOf(citation, chunk))
+        pages.set(citation.chunk_id, promise)
+        return promise
+      }
+      for (const section of tree.sections) {
+        for (const module of section.modules) {
+          for (const lesson of module.lessons) {
+            if (lesson.kind !== 'core') continue
+            const citations = citationsOf(lesson)
+            const resolved = new Map<string, ResolvedCitationDto>()
+            for (const [id, citation] of citations) {
+              resolved.set(id, {
+                id,
+                sourceId: citation.source_id,
+                locator: citation.locator,
+                page: await pageOf(citation),
+                blockIds: [...citation.block_ids],
+              })
+            }
+            lessons.push(toQaReportLessonDto(lesson, module.title, (id) => resolved.get(id)))
+          }
+        }
+      }
+      const scored = lessons.flatMap((lesson) =>
+        lesson.qa?.faithfulness === null || lesson.qa === null ? [] : [lesson.qa.faithfulness],
+      )
+      return {
+        totals: {
+          lessons: lessons.length,
+          reviewed: lessons.filter((lesson) => lesson.qa?.reviewed === true).length,
+          flagged: lessons.filter((lesson) => lesson.qa?.verdict === 'flagged').length,
+          meanFaithfulness:
+            scored.length === 0
+              ? null
+              : Math.round((scored.reduce((sum, value) => sum + value, 0) / scored.length) * 1000) /
+                1000,
+        },
+        lessons,
+      }
     },
 
     regenerateLesson: async ({ lessonId, mode }) => {

@@ -45,8 +45,16 @@ export const GENERATION_STAGES = [
   'expanding_theory',
   'expanding_practice',
   'expanding_flashcards',
+  'qa_faithfulness',
+  'qa_judge',
+  'qa_edit',
 ] as const
 export const generationStageSchema = z.enum(GENERATION_STAGES)
+
+/** Mirrors `QA_MODES` in `packages/pathgen/src/qa/lesson-qa.ts` (sub-phase 8.4). */
+export const QA_MODES = ['full', 'light'] as const
+export const qaModeSchema = z.enum(QA_MODES)
+export type QaModeDto = z.infer<typeof qaModeSchema>
 export type GenerationStageDto = z.infer<typeof generationStageSchema>
 
 const HEADING_PATH_SEPARATOR_LEN = 500
@@ -81,6 +89,8 @@ export const generationConfigInputSchema = z
     scope: generationScopeDtoSchema.optional(),
     sourceIds: z.array(z.string().min(1)).min(1).max(50),
     budgetCapUsd: z.number().min(0).max(1000).optional(),
+    /** "QA ligera": gates (a)–(h) only, no judge and no editor. Absent means `full`. */
+    qaMode: qaModeSchema.optional(),
     title: z.string().trim().min(1).max(200).optional(),
   })
   .superRefine((config, ctx) => {
@@ -138,12 +148,18 @@ export const generationEstimateDtoSchema = z.object({
   p3Lessons: stageEstimateDtoSchema.default(ZERO_STAGE_DTO),
   p4Activities: stageEstimateDtoSchema.default(ZERO_STAGE_DTO),
   p5Flashcards: stageEstimateDtoSchema.default(ZERO_STAGE_DTO),
+  /** Stage 8 (sub-phase 8.4): the verifier, the judge, the editor and the regenerations. */
+  p6Faithfulness: stageEstimateDtoSchema.default(ZERO_STAGE_DTO),
+  p7Judge: stageEstimateDtoSchema.default(ZERO_STAGE_DTO),
+  p8Edit: stageEstimateDtoSchema.default(ZERO_STAGE_DTO),
+  qaRegenerate: stageEstimateDtoSchema.default(ZERO_STAGE_DTO),
   usd: z.number().min(0),
   lowUsd: z.number().min(0),
   highUsd: z.number().min(0),
   minutes: z.object({ low: z.number().min(0), high: z.number().min(0) }),
   dispatch: z.enum(['sync', 'batch']),
-  priced: z.object({ cheap: z.boolean(), smart: z.boolean() }),
+  /** `judge` defaults for the same stored-row reason the stage-8 rows do. */
+  priced: z.object({ cheap: z.boolean(), smart: z.boolean(), judge: z.boolean().default(false) }),
 })
 export type GenerationEstimateDto = z.infer<typeof generationEstimateDtoSchema>
 
@@ -274,6 +290,10 @@ export const pathDraftDtoSchema = z.object({
   stats: pathStatsDtoSchema,
   warnings: z.array(generationWarningDtoSchema),
   known_node_ids: z.array(z.string()),
+  /** Stage 8's depth, chosen in the wizard and frozen with the draft (sub-phase 8.4). Defaults
+   *  here — unlike `known_node_ids` — because main parses the stored spec with pathgen's own
+   *  schema, which fills it, and a draft frozen before the field existed means `full`. */
+  qa_mode: qaModeSchema.default('full'),
 })
 export type PathDraftDto = z.infer<typeof pathDraftDtoSchema>
 
@@ -352,10 +372,48 @@ export const generationResultDtoSchema = z.object({
 export type GenerationResultDto = z.infer<typeof generationResultDtoSchema>
 
 /** How far one lesson's expansion has got — `lessons.status`, mirrored for the renderer.
- *  `qa` is written but not yet through §5's gates; sub-phase 8.4 is what sets it. */
+ *  `qa` is written but not yet through §5's gates; `ready` is the gates' verdict (8.4). */
 export const LESSON_STATUSES = ['pending', 'generating', 'qa', 'ready', 'failed'] as const
 export const lessonStatusDtoSchema = z.enum(LESSON_STATUSES)
 export type LessonStatusDto = z.infer<typeof lessonStatusDtoSchema>
+
+/** Mirrors `QA_VERDICTS` / `QA_GATES` in `packages/pathgen/src/qa/lesson-qa.ts`. */
+export const QA_VERDICTS = ['pass', 'fixed', 'regenerated', 'flagged'] as const
+export const qaVerdictSchema = z.enum(QA_VERDICTS)
+export type QaVerdictDto = z.infer<typeof qaVerdictSchema>
+export const QA_GATES = [
+  'schema',
+  'citations',
+  'faithfulness',
+  'coverage',
+  'duplicates',
+  'variety',
+  'length',
+  'language',
+  'judge',
+  'edit',
+] as const
+export const qaGateSchema = z.enum(QA_GATES)
+export type QaGateDto = z.infer<typeof qaGateSchema>
+
+/**
+ * What a badge needs of `lessons.qa` (`docs/spec/04-path-generation.md` §13 step 5: *"QA
+ * indicators (fidelity, sources)"*) — mirrors pathgen's `LessonQaSummary`. The findings
+ * themselves travel on `pathgen.getQaReport`, not here: the panel shows a chip, not a report.
+ */
+export const lessonQaSummaryDtoSchema = z.object({
+  /** supported ÷ evaluated claims, 0–1; `null` when the lesson made no cited claim. */
+  faithfulness: z.number().min(0).max(1).nullable(),
+  /** The mean of the judge's criteria, 1–5; `null` in light mode or when it did not run. */
+  pedagogyScore: z.number().min(1).max(5).nullable(),
+  coverageOk: z.boolean(),
+  verdict: qaVerdictSchema,
+  /** Every gate ran to a conclusion — "revisado". A flagged lesson is reviewed too. */
+  reviewed: z.boolean(),
+  sourcesCount: z.number().int().min(0),
+  findings: z.number().int().min(0),
+})
+export type LessonQaSummaryDto = z.infer<typeof lessonQaSummaryDtoSchema>
 
 /**
  * One row of the expansion panel (sub-phase 8.3, `docs/spec/04-path-generation.md` §13 step
@@ -393,8 +451,70 @@ export const lessonSummaryDtoSchema = z.object({
       blockIds: z.array(z.string()),
     })
     .nullable(),
+  /** The gates' verdict, once there is one (sub-phase 8.4); `null` until the lesson is `ready`. */
+  qa: lessonQaSummaryDtoSchema.nullable(),
 })
 export type LessonSummaryDto = z.infer<typeof lessonSummaryDtoSchema>
+
+/**
+ * One flagged thing of the QA report (§13 step 5's "Report an error (opens the citation)",
+ * applied to what the gates found): the sentence, which gate said what, and the citations it
+ * carries resolved to something the reader route can open — `page` for a paged source, the
+ * source's start otherwise, exactly as `firstCitation` above.
+ */
+/** Mirrors `MAX_FINDINGS` in `packages/pathgen/src/qa/lesson-qa.ts`: what a lesson's row holds. */
+export const QA_MAX_FINDINGS = 50
+/** A theory block cites at most 12 ids (`lessonTheorySchema`); a finding never carries more. */
+export const QA_MAX_FINDING_CITATIONS = 12
+
+export const qaFindingDtoSchema = z.object({
+  gate: qaGateSchema,
+  kind: z.string().min(1).max(40),
+  blockIndex: z.number().int().min(0).nullable(),
+  sentence: z.string().max(300),
+  detail: z.string().max(300),
+  citations: z
+    .array(
+      z.object({
+        id: z.string().max(64),
+        sourceId: z.uuid(),
+        locator: z.string().max(1_000),
+        page: z.int().positive().nullable(),
+        blockIds: z.array(z.string().max(256)).max(256),
+      }),
+    )
+    .max(QA_MAX_FINDING_CITATIONS),
+})
+export type QaFindingDto = z.infer<typeof qaFindingDtoSchema>
+
+export const qaReportLessonDtoSchema = z.object({
+  lessonId: z.uuid(),
+  specId: z.string().max(64),
+  moduleTitle: z.string().max(1_000),
+  title: z.string().max(1_000),
+  status: lessonStatusDtoSchema,
+  qa: lessonQaSummaryDtoSchema.nullable(),
+  gates: z
+    .array(
+      z.object({ gate: qaGateSchema, outcome: z.enum(['pass', 'fix', 'regenerate', 'skipped']) }),
+    )
+    .max(QA_GATES.length),
+  findings: z.array(qaFindingDtoSchema).max(QA_MAX_FINDINGS),
+  warnings: z.array(generationWarningDtoSchema),
+})
+export type QaReportLessonDto = z.infer<typeof qaReportLessonDtoSchema>
+
+export const qaReportDtoSchema = z.object({
+  totals: z.object({
+    lessons: z.number().int().min(0),
+    reviewed: z.number().int().min(0),
+    flagged: z.number().int().min(0),
+    /** Over the lessons that have one; `null` when none does. */
+    meanFaithfulness: z.number().min(0).max(1).nullable(),
+  }),
+  lessons: z.array(qaReportLessonDtoSchema),
+})
+export type QaReportDto = z.infer<typeof qaReportDtoSchema>
 
 /** What "Regenerar" and "Más ejemplos" mean, as one closed choice. */
 export const LESSON_REGENERATE_MODES = ['regenerate', 'more_examples'] as const
@@ -479,6 +599,16 @@ export const pathgenChannels = defineContract({
   'pathgen.getLessons': {
     input: z.object({ pathVersionId: z.uuid() }),
     output: z.object({ lessons: z.array(lessonSummaryDtoSchema) }),
+  },
+
+  /**
+   * Stage 8's report for one path version (sub-phase 8.4): every core lesson with its verdict
+   * and the sentences the gates flagged, each with its citations resolved to something the
+   * reader can open. Read-only; the gates themselves run inside `pathgen.expand`.
+   */
+  'pathgen.getQaReport': {
+    input: z.object({ pathVersionId: z.uuid() }),
+    output: qaReportDtoSchema,
   },
 
   /**

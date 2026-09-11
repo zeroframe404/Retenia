@@ -1,5 +1,5 @@
+import { relativeDistance } from '@retenia/core'
 import { DEFAULT_MAX_RELATIVE_EDIT_DISTANCE } from '../constants'
-import { relativeDistance } from './distance'
 import { type NormalizeOptions, normalizeText } from './normalize'
 
 /**

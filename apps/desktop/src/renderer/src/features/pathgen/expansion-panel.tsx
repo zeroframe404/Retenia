@@ -1,6 +1,6 @@
 import type { LessonSummaryDto } from '@retenia/ipc-contract'
 import type { BadgeProps } from '@retenia/ui'
-import { Badge, Button, EmptyState } from '@retenia/ui'
+import { Badge, Button, EmptyState, QaBadges } from '@retenia/ui'
 import { useEffect } from 'react'
 import { useT } from '../../i18n/use-t'
 import { useExpand, useLessons, useRegenerateLesson } from './use-pathgen'
@@ -18,9 +18,8 @@ import { useExpand, useLessons, useRegenerateLesson } from './use-pathgen'
  * panel that tried would be a second renderer to keep in step with it.
  */
 
-// `qa` — written, not yet through §5's gates — is sub-phase 8.4's to set; it is rendered here
-// so that landing the gates is a change to one stage rather than to the whole column of
-// migration, contract, badge and translations that showing a new state otherwise costs.
+// `qa` — written, not yet through §5's gates (sub-phase 8.4) — is a lesson the learner can
+// already open: its theory, practice and cards are on the row; the badges land with the verdict.
 const STATUS_VARIANT: Record<LessonSummaryDto['status'], NonNullable<BadgeProps['variant']>> = {
   pending: 'neutral',
   generating: 'brand',
@@ -88,6 +87,21 @@ export function ExpansionPanel({ pathVersionId, onOpenSource }: ExpansionPanelPr
                   flashcards: lesson.flashcards,
                 })}
               </span>
+              {lesson.qa !== null && (
+                <QaBadges
+                  faithfulness={lesson.qa.faithfulness}
+                  sourcesCount={lesson.qa.sourcesCount}
+                  verdict={lesson.qa.verdict}
+                  reviewed={lesson.qa.reviewed}
+                  labels={{
+                    fidelity: (percent) => t('qa.fidelity', { percent }),
+                    sources: (count) => t('qa.sources', { count }),
+                    reviewed: t('qa.reviewed'),
+                    review: t('qa.review'),
+                    unreviewed: t('qa.unreviewed'),
+                  }}
+                />
+              )}
             </div>
 
             {lesson.unmet.length > 0 && (
@@ -110,7 +124,11 @@ export function ExpansionPanel({ pathVersionId, onOpenSource }: ExpansionPanelPr
               <Button
                 size="sm"
                 variant="ghost"
-                disabled={regenerate.isPending || lesson.status !== 'ready'}
+                // A lesson under review already has its practice block: more examples are
+                // welcome while the gates read the theory.
+                disabled={
+                  regenerate.isPending || (lesson.status !== 'ready' && lesson.status !== 'qa')
+                }
                 onClick={() => regenerate.mutate({ lessonId: lesson.id, mode: 'more_examples' })}
               >
                 {t('expansion.moreExamples')}

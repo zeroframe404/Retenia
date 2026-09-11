@@ -36,6 +36,7 @@ function lessonRow(overrides: Record<string, unknown> = {}) {
       page: 8,
       blockIds: ['b1', 'b2'],
     },
+    qa: null,
     ...overrides,
   }
 }
@@ -112,6 +113,55 @@ describe('ExpansionPanel', () => {
         mode: 'more_examples',
       }),
     )
+  })
+
+  it('shows the fidelity, the sources and the verdict once the gates are done (sub-phase 8.4)', async () => {
+    stubApi([
+      lessonRow({
+        qa: {
+          faithfulness: 0.93,
+          pedagogyScore: 4.2,
+          coverageOk: true,
+          verdict: 'pass' as const,
+          reviewed: true,
+          sourcesCount: 2,
+          findings: 0,
+        },
+      }),
+    ])
+    render(<ExpansionPanel pathVersionId={PATH_VERSION_ID} />, { wrapper })
+
+    expect(await screen.findByTestId('qa-fidelity')).toHaveTextContent('93')
+    expect(screen.getByTestId('qa-sources')).toHaveTextContent('2')
+    expect(screen.getByTestId('qa-status')).toHaveTextContent('Revisado')
+  })
+
+  it('shows "Revisar" for a lesson the gates flagged, and nothing before they ran', async () => {
+    stubApi([
+      lessonRow({
+        qa: {
+          faithfulness: 0.5,
+          pedagogyScore: null,
+          coverageOk: false,
+          verdict: 'flagged' as const,
+          reviewed: true,
+          sourcesCount: 1,
+          findings: 3,
+        },
+      }),
+      lessonRow({
+        id: '019213cd-0000-7000-8000-000000000021',
+        specId: 'L02',
+        status: 'qa' as const,
+      }),
+    ])
+    render(<ExpansionPanel pathVersionId={PATH_VERSION_ID} />, { wrapper })
+
+    expect(await screen.findByTestId('qa-status')).toHaveTextContent('Revisar')
+    expect(screen.getAllByTestId('qa-badges')).toHaveLength(1)
+    // A lesson under review already has its practice block: "Más ejemplos" stays available.
+    const more = screen.getAllByRole('button', { name: 'Más ejemplos' })
+    expect(more[1]).toBeEnabled()
   })
 
   it('starts the expansion itself when the frozen path arrives with pending lessons', async () => {

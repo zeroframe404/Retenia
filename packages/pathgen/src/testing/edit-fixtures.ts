@@ -85,6 +85,7 @@ export function buildDraft(overrides: Partial<PathDraft> = {}): PathDraft {
     },
     warnings: [],
     known_node_ids: [],
+    qa_mode: 'full',
     ...overrides,
   }
 }

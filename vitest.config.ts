@@ -97,6 +97,16 @@ export default defineConfig({
           branches: 100,
           statements: 100,
         },
+        // The QA gates are the "code validates" half of `docs/spec/04-path-generation.md` §5
+        // ("the AI proposes, the code validates"): the thresholds, the citation-stripping and
+        // the edit invariant are what stand between a model's answer and the learner. The
+        // pipeline that dispatches them is orchestration and stays under the global gate.
+        'packages/pathgen/src/qa/gates/**': {
+          lines: 100,
+          functions: 100,
+          branches: 100,
+          statements: 100,
+        },
       },
     },
   },

@@ -113,6 +113,8 @@ export {
   ProgressTrack,
   ProgressValue,
 } from './components/progress'
+export type { QaBadgesLabels, QaBadgesProps, QaVerdict } from './components/qa-badges'
+export { FIDELITY_BANDS, fidelityVariant, QaBadges } from './components/qa-badges'
 export { ScrollArea } from './components/scroll-area'
 export type { SecretInputProps } from './components/secret-input'
 export { SecretInput } from './components/secret-input'

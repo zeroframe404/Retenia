@@ -77,6 +77,8 @@ export interface WaveAnswer<T> {
   readonly model: string
   /** `cache` was replayed from `ai_results`; `call` was paid for now. */
   readonly how: 'cache' | 'call'
+  /** What this one answer cost — zero for a replay — so a caller can bill per lesson. */
+  readonly usage: StageUsage
 }
 
 export type WaveStatus = 'completed' | 'cancelled' | 'blocked_budget'
@@ -134,11 +136,17 @@ export async function runWave<T>(
   const perCallUsd = input.perCallEstimateUsd ?? 0
   const budget = input.allowOverBudget ? undefined : input.budget
 
-  const settle = async (index: number, value: T, model: string, how: WaveAnswer<T>['how']) => {
+  const settle = async (
+    index: number,
+    value: T,
+    model: string,
+    how: WaveAnswer<T>['how'],
+    spent: StageUsage = ZERO_USAGE,
+  ) => {
     settled.add(index)
     if (model !== '') modelsUsed.add(model)
     if (how === 'cache') cacheHits += 1
-    await onAnswer({ index, value, model, how })
+    await onAnswer({ index, value, model, how, usage: spent })
   }
 
   /** A completion that arrived as text: from `ai_results` or from the runner's own results. */
@@ -147,6 +155,7 @@ export async function runWave<T>(
     text: string,
     model: string,
     how: WaveAnswer<T>['how'],
+    spent: StageUsage = ZERO_USAGE,
   ): Promise<boolean> => {
     const request = at(index)
     const outcome = validateStructuredCompletion(
@@ -161,7 +170,7 @@ export async function runWave<T>(
       )
       return false
     }
-    await settle(index, outcome.value, model, how)
+    await settle(index, outcome.value, model, how, spent)
     return true
   }
 
@@ -203,7 +212,7 @@ export async function runWave<T>(
           const spent = usageOf(result.usage)
           usage = addUsage(usage, spent)
           budget?.add(spent.usd)
-          await settle(index, result.value, result.model, 'call')
+          await settle(index, result.value, result.model, 'call', spent)
         } catch (error) {
           const interruption = interruptionOf(error, input.signal)
           if (interruption === 'cancelled') cancelled = true
@@ -263,8 +272,15 @@ export async function runWave<T>(
         const index = byId.get(answered.customId)
         if (index === undefined) continue
         calls += 1
-        usage = addUsage(usage, usageOf(answered.result.usage))
-        const ok = await settleText(index, answered.result.text, answered.result.model, 'call')
+        const spent = usageOf(answered.result.usage)
+        usage = addUsage(usage, spent)
+        const ok = await settleText(
+          index,
+          answered.result.text,
+          answered.result.model,
+          'call',
+          spent,
+        )
         if (!ok) fallback.push(index)
       }
 
@@ -304,8 +320,11 @@ export async function runWave<T>(
             continue
           }
           calls += 1
-          usage = addUsage(usage, { ...ZERO_USAGE, usd: cached.costUsd })
-          if (!(await settleText(index, cached.output, cached.model, 'call'))) fallback.push(index)
+          const spent = { ...ZERO_USAGE, usd: cached.costUsd }
+          usage = addUsage(usage, spent)
+          if (!(await settleText(index, cached.output, cached.model, 'call', spent))) {
+            fallback.push(index)
+          }
         }
       }
 

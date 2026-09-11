@@ -21,6 +21,10 @@ export const GENERATION_STAGES = [
   'expanding_theory',
   'expanding_practice',
   'expanding_flashcards',
+  // Stage 8 (sub-phase 8.4): the three waves that need a model, in the order §5 runs them.
+  'qa_faithfulness',
+  'qa_judge',
+  'qa_edit',
 ] as const
 
 export type GenerationStage = (typeof GENERATION_STAGES)[number]

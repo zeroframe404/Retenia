@@ -12,7 +12,10 @@
       "persisting": "Guardando el borrador",
       "expanding_theory": "Escribiendo las lecciones ({done}/{total})",
       "expanding_practice": "Escribiendo los ejercicios ({done}/{total})",
-      "expanding_flashcards": "Creando las tarjetas ({done}/{total})"
+      "expanding_flashcards": "Creando las tarjetas ({done}/{total})",
+      "qa_faithfulness": "Verificando las citas ({done}/{total})",
+      "qa_judge": "Evaluando la pedagogía ({done}/{total})",
+      "qa_edit": "Aplicando correcciones ({done}/{total})"
     },
     "status": {
       "queued": "En cola",
@@ -31,7 +34,18 @@
       "summary": "≈ {minutes} min y USD {usd}",
       "range": "entre USD {low} y USD {high}",
       "batchLatency": "En modo económico los resultados pueden tardar hasta una hora.",
-      "unpriced": "No hay precio para el modelo del rol {role}: el costo no se puede estimar."
+      "unpriced": "No hay precio para el modelo del rol {role}: el costo no se puede estimar.",
+      "breakdown": {
+        "p1": "Lectura de las fuentes",
+        "p2": "Ruta",
+        "p3": "Lecciones",
+        "p4": "Ejercicios",
+        "p5": "Tarjetas",
+        "p6": "QA: fidelidad",
+        "p7": "QA: juez pedagógico",
+        "p8": "QA: correcciones",
+        "regenerate": "QA: reescrituras"
+      }
     },
     "warning": {
       "chunk_failed": "No se pudo leer el fragmento {chunk_id}: {error}",
@@ -85,7 +99,23 @@
       "lesson_context_over_budget": "Las fuentes de la lección {lesson} superan el presupuesto ({tokens} de {budget} tokens): se usaron todas igual.",
       "flashcards_thin": "La lección {lesson} dejó {kept} tarjetas, menos de las tres habituales.",
       "flashcard_uncited": "Una tarjeta de la lección {lesson} no pudo citar ninguna fuente: se guardó sin origen.",
-      "lesson_fragment_truncated": "Un fragmento de la lección {lesson} se recortó a {chars} caracteres ({fragments}): la cita puede apuntar a texto que el modelo no leyó."
+      "lesson_fragment_truncated": "Un fragmento de la lección {lesson} se recortó a {chars} caracteres ({fragments}): la cita puede apuntar a texto que el modelo no leyó.",
+      "citation_span_mismatch": "En la lección {lesson}, {sentences} oraciones citan un pasaje que no está en la fuente; se quitaron esas citas.",
+      "sources_differ": "En la lección {lesson} las fuentes difieren ({citations}); se muestran ambas.",
+      "faithfulness_needs_review": "La lección {lesson} tiene una fidelidad de {faithfulness} ({supported} de {evaluated} afirmaciones respaldadas): conviene revisarla.",
+      "concept_uncovered": "La lección {lesson} no menciona conceptos importantes que debía enseñar: {concept_ids}",
+      "activity_duplicate": "Un ejercicio de la lección {lesson} repite uno de {other} ({reason}).",
+      "flashcard_duplicate": "Una tarjeta de la lección {lesson} repite una de {other} ({reason}).",
+      "module_bloom_variety": "La práctica del módulo {module} solo cubre estos niveles de Bloom: {levels}.",
+      "theory_length": "La teoría de la lección {lesson} tiene {words} palabras; el rango es {min}–{max}.",
+      "language_mismatch": "La lección {lesson} parece escrita en «{detected}» y la ruta está en «{expected}».",
+      "glossary_term_mixed": "La lección {lesson} usa «{source_term}» donde el glosario dice «{term}».",
+      "judge_same_as_generator": "El juez pedagógico sería el mismo modelo que escribió la lección {lesson} ({model}); se omitió la evaluación.",
+      "judge_unavailable": "No hay un modelo configurado para el rol de juez; la lección {lesson} no tiene evaluación pedagógica.",
+      "edit_rejected": "{count} correcciones de la lección {lesson} tocaban una cita verificada y se descartaron.",
+      "lesson_regenerated": "La lección {lesson} quedó por debajo del umbral y se volvió a escribir una vez.",
+      "lesson_below_threshold": "La lección {lesson} sigue por debajo del umbral de calidad: revisala en el informe de QA.",
+      "qa_failed": "No se pudo completar la verificación ({gate}) de la lección {lesson}: {error}"
     }
   },
   "wizard": {
@@ -109,7 +139,9 @@
     "noSources": {
       "title": "Todavía no hay fuentes listas",
       "description": "Agregá y terminá de importar al menos una fuente en la Biblioteca antes de generar una ruta."
-    }
+    },
+    "qaLight": "QA ligera",
+    "qaLightHint": "Solo los controles básicos (citas, fidelidad, cobertura, duplicados, variedad, extensión e idioma), sin juez pedagógico ni corrector, para gastar menos."
   },
   "preview": {
     "loadError": "No se pudo cargar esta versión de la ruta.",
@@ -138,7 +170,8 @@
     "concepts": "Conceptos",
     "plan": "A este ritmo, lista para el {date} en unas {weeks} semanas.",
     "regenerate": "Regenerar ruta",
-    "regenerateDisabledReason": "La regeneración con diff llega en una fase posterior."
+    "regenerateDisabledReason": "La regeneración con diff llega en una fase posterior.",
+    "qaReport": "Ver informe de QA"
   },
   "expansion": {
     "title": "Lecciones",
@@ -159,5 +192,67 @@
     "unmet": "La práctica no cumple: {rules}",
     "expand": "Escribir las lecciones",
     "expanding": "Escribiendo…"
+  },
+  "qa": {
+    "fidelity": "{percent} % fiel",
+    "sources": "{count, plural, one {# fuente} other {# fuentes}}",
+    "reviewed": "Revisado",
+    "review": "Revisar",
+    "unreviewed": "Sin revisar",
+    "reportTitle": "Informe de QA",
+    "reportEmpty": "Todavía no hay lecciones revisadas.",
+    "back": "Volver al resumen",
+    "totals": "{reviewed} de {lessons} lecciones revisadas · {flagged} para revisar",
+    "meanFidelity": "fidelidad media {percent} %",
+    "pedagogy": "pedagogía {score}/5",
+    "noFindings": "Sin observaciones.",
+    "openSource": "Abrir {id} ({locator})",
+    "column": {
+      "gate": "Control",
+      "sentence": "Oración",
+      "detail": "Detalle",
+      "source": "Fuente"
+    },
+    "verdict": {
+      "pass": "Aprobada",
+      "fixed": "Corregida por el editor",
+      "regenerated": "Reescrita una vez y aprobada",
+      "flagged": "Para revisar"
+    },
+    "outcome": {
+      "pass": "ok",
+      "fix": "con observaciones",
+      "regenerate": "reescribir",
+      "skipped": "omitido"
+    },
+    "gate": {
+      "schema": "esquema",
+      "citations": "citas",
+      "faithfulness": "fidelidad",
+      "coverage": "cobertura",
+      "duplicates": "duplicados",
+      "variety": "variedad",
+      "length": "extensión",
+      "language": "idioma",
+      "judge": "juez",
+      "edit": "edición"
+    },
+    "kind": {
+      "citation_missing": "Cita inexistente",
+      "citation_span_mismatch": "Pasaje citado no está en la fuente",
+      "claim_unsupported": "Afirmación sin respaldo",
+      "claim_contradicts": "Afirmación contradice la fuente",
+      "sources_differ": "Las fuentes difieren",
+      "concept_uncovered": "Concepto no cubierto",
+      "activity_duplicate": "Ejercicio repetido",
+      "flashcard_duplicate": "Tarjeta repetida",
+      "variety_rule": "Regla de variedad",
+      "module_bloom_variety": "Variedad Bloom del módulo",
+      "theory_length": "Extensión",
+      "language_mismatch": "Idioma",
+      "glossary_term_mixed": "Término mezclado",
+      "judge_edit": "Sugerencia del juez",
+      "edit_rejected": "Corrección descartada"
+    }
   }
 }

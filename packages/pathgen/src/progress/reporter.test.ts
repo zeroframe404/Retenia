@@ -64,6 +64,9 @@ describe('createThrottledReporter()', () => {
       'expanding_theory',
       'expanding_practice',
       'expanding_flashcards',
+      'qa_faithfulness',
+      'qa_judge',
+      'qa_edit',
     ])
     expect(() => silentProgress.report(event('sequencing', 1, 1))).not.toThrow()
   })

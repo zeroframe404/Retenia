@@ -180,6 +180,7 @@ export function expandWorld(clock: Clock, options: ExpandWorldOptions = {}): Exp
     },
     warnings: [],
     known_node_ids: [],
+    qa_mode: 'full',
   }
 
   const path: LearningPath = {
@@ -246,7 +247,17 @@ export function expandWorld(clock: Clock, options: ExpandWorldOptions = {}): Exp
     },
     draft,
     concepts: new Map<string, ConceptFacts>([
-      ['c1', { id: 'c1', name: 'Memoria de trabajo', definition: 'Retén breve.', kind: 'concept' }],
+      [
+        'c1',
+        {
+          id: 'c1',
+          name: 'Memoria de trabajo',
+          definition: 'Retén breve.',
+          kind: 'concept',
+          aliases: ['memoria operativa'],
+          importance: 0.9,
+        },
+      ],
     ]),
     pathId,
     pathVersionId: versionId,

@@ -1,12 +1,15 @@
+import type { GenerationEstimateDto } from '@retenia/ipc-contract'
 import {
   Button,
   CostBadge,
+  type CostLineItem,
   EmptyState,
   Input,
   Progress,
   ProgressIndicator,
   ProgressTrack,
   Stepper,
+  Switch,
 } from '@retenia/ui'
 import { useEffect, useMemo, useState } from 'react'
 import { useT } from '../../i18n/use-t'
@@ -31,6 +34,39 @@ export interface WizardPageProps {
 
 const STEP_IDS = ['configure', 'generating'] as const
 
+/**
+ * The estimate's rows as the cost badge's tooltip lines, stages 7 and 8 included: §13 step
+ * 1's "live estimate of time and cost" is honest only if the QA gates' share is in it, and
+ * the tooltip is what lets a user see what "QA ligera" actually saves.
+ */
+const BREAKDOWN_ROWS = [
+  ['p1', 'p1'],
+  ['p2', 'p2Outline'],
+  ['p2', 'p2Modules'],
+  ['p3', 'p3Lessons'],
+  ['p4', 'p4Activities'],
+  ['p5', 'p5Flashcards'],
+  ['p6', 'p6Faithfulness'],
+  ['p7', 'p7Judge'],
+  ['p8', 'p8Edit'],
+  ['regenerate', 'qaRegenerate'],
+] as const satisfies readonly (readonly [string, keyof GenerationEstimateDto])[]
+
+function breakdownOf(
+  estimate: GenerationEstimateDto,
+  label: (key: string) => string,
+): CostLineItem[] {
+  const lines = new Map<string, number>()
+  for (const [key, row] of BREAKDOWN_ROWS) {
+    const stage = estimate[row]
+    if (typeof stage !== 'object' || stage === null || !('usd' in stage)) continue
+    lines.set(key, (lines.get(key) ?? 0) + stage.usd)
+  }
+  return [...lines.entries()]
+    .filter(([, usd]) => usd > 0)
+    .map(([key, usd]) => ({ label: label(key), amountUsd: usd }))
+}
+
 function useDebounced<T>(value: T, ms: number): T {
   const [debounced, setDebounced] = useState(value)
   useEffect(() => {
@@ -53,6 +89,8 @@ export function WizardPage({ onGenerated }: WizardPageProps) {
   const [primarySourceId, setPrimarySourceId] = useState('')
   const [forExamDate, setForExamDate] = useState('')
   const [targetLanguage, setTargetLanguage] = useState('')
+  // "QA ligera" (sub-phase 8.4): gates (a)–(h) only, no judge and no editor.
+  const [qaLight, setQaLight] = useState(false)
   const [runId, setRunId] = useState<string | undefined>(undefined)
 
   const progress = useGenerationProgress(runId)
@@ -80,8 +118,18 @@ export function WizardPage({ onGenerated }: WizardPageProps) {
             // Empty means "this path does not teach a language", which is most of them; the
             // field is `null` rather than absent so a cleared box clears the config too.
             ...(targetLanguage.trim() === '' ? {} : { targetLanguage: targetLanguage.trim() }),
+            qaMode: qaLight ? ('light' as const) : ('full' as const),
           },
-    [goal, level, paceHoursPerWeek, primarySourceId, sourceIds, forExamDate, targetLanguage],
+    [
+      goal,
+      level,
+      paceHoursPerWeek,
+      primarySourceId,
+      sourceIds,
+      forExamDate,
+      targetLanguage,
+      qaLight,
+    ],
   )
   const debouncedConfig = useDebounced(config, 400)
 
@@ -208,10 +256,26 @@ export function WizardPage({ onGenerated }: WizardPageProps) {
             <span className="text-muted text-xs">{t('wizard.targetLanguageHint')}</span>
           </label>
 
+          <label className="flex items-center gap-3 text-sm" htmlFor="wizard-qa-light">
+            <Switch
+              id="wizard-qa-light"
+              checked={qaLight}
+              onCheckedChange={(checked) => setQaLight(checked)}
+              data-testid="wizard-qa-light"
+            />
+            <span className="flex flex-col">
+              {t('wizard.qaLight')}
+              <span className="text-muted text-xs">{t('wizard.qaLightHint')}</span>
+            </span>
+          </label>
+
           <div className="flex items-center gap-3">
             {estimate && (
               <CostBadge
                 amountUsd={estimate.usd}
+                breakdown={breakdownOf(estimate, (key) =>
+                  t(`generation.estimate.breakdown.${key}`),
+                )}
                 data-testid="wizard-estimate"
                 aria-label={t('generation.estimate.summary', {
                   minutes: estimate.minutes.high,

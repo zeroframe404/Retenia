@@ -151,4 +151,33 @@ describe('WizardPage', () => {
       }),
     )
   })
+
+  it('sends "QA ligera" as qaMode: light, and full by default (sub-phase 8.4)', async () => {
+    const user = userEvent.setup()
+    const api = stubApi()
+    render(<WizardPage onGenerated={vi.fn()} />, { wrapper })
+
+    await user.type(await screen.findByTestId('wizard-goal'), 'Aprobar el parcial')
+    await user.type(screen.getByTestId('wizard-level'), 'principiante')
+    await user.selectOptions(screen.getByTestId('wizard-primary-source'), SOURCE_READY.id)
+    await waitFor(() => expect(api.pathgen.quote).toHaveBeenCalled(), { timeout: 2000 })
+    expect(api.pathgen.quote).toHaveBeenLastCalledWith({
+      config: expect.objectContaining({ qaMode: 'full' }),
+    })
+
+    await user.click(screen.getByTestId('wizard-qa-light'))
+    await waitFor(
+      () =>
+        expect(api.pathgen.quote).toHaveBeenLastCalledWith({
+          config: expect.objectContaining({ qaMode: 'light' }),
+        }),
+      { timeout: 2000 },
+    )
+    await user.click(screen.getByTestId('wizard-generate'))
+    await waitFor(() =>
+      expect(api.pathgen.start).toHaveBeenCalledWith({
+        config: expect.objectContaining({ qaMode: 'light' }),
+      }),
+    )
+  })
 })

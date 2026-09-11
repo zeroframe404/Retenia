@@ -6,6 +6,10 @@ import {
   generationConfigInputSchema,
   pathDraftDtoSchema,
   pathEditOpDtoSchema,
+  QA_MAX_FINDING_CITATIONS,
+  QA_MAX_FINDINGS,
+  qaFindingDtoSchema,
+  qaReportLessonDtoSchema,
 } from './pathgen'
 
 const baseConfig = {
@@ -50,6 +54,9 @@ describe('generation run vocabulary', () => {
       'expanding_theory',
       'expanding_practice',
       'expanding_flashcards',
+      'qa_faithfulness',
+      'qa_judge',
+      'qa_edit',
     ])
   })
 })
@@ -173,3 +180,41 @@ function minimalDraft() {
     known_node_ids: [],
   }
 }
+
+describe('the QA report DTO', () => {
+  const finding = {
+    gate: 'faithfulness',
+    kind: 'claim_unsupported',
+    blockIndex: 1,
+    sentence: 'x',
+    detail: 'y',
+    citations: [],
+  }
+
+  it('holds at most the findings a lesson row can carry', () => {
+    const list = qaReportLessonDtoSchema.shape.findings
+    expect(list.safeParse(Array.from({ length: QA_MAX_FINDINGS }, () => finding)).success).toBe(
+      true,
+    )
+    expect(list.safeParse(Array.from({ length: QA_MAX_FINDINGS + 1 }, () => finding)).success).toBe(
+      false,
+    )
+    expect(QA_MAX_FINDINGS).toBe(50)
+  })
+
+  it('bounds a finding’s citations to what a theory block can cite', () => {
+    const citation = {
+      id: 'B01',
+      sourceId: '019213cd-0000-7000-8000-000000000002',
+      locator: 'p. 1',
+      page: 1,
+      blockIds: [],
+    }
+    expect(
+      qaFindingDtoSchema.safeParse({
+        ...finding,
+        citations: Array.from({ length: QA_MAX_FINDING_CITATIONS + 1 }, () => citation),
+      }).success,
+    ).toBe(false)
+  })
+})

@@ -1,7 +1,7 @@
 import { Button, EmptyState } from '@retenia/ui'
 import { createFileRoute } from '@tanstack/react-router'
 import { z } from 'zod'
-import { CompletionPage, PreviewPage, WizardPage } from '../features/pathgen'
+import { CompletionPage, PreviewPage, QaReportPage, WizardPage } from '../features/pathgen'
 import { useT } from '../i18n/use-t'
 
 /**
@@ -13,7 +13,8 @@ import { useT } from '../i18n/use-t'
  */
 
 const pathSearchSchema = z.object({
-  view: z.enum(['generate', 'preview', 'summary']).optional(),
+  /** `qa` is stage 8's report for the frozen version (sub-phase 8.4). */
+  view: z.enum(['generate', 'preview', 'summary', 'qa']).optional(),
   pathVersionId: z.uuid().optional(),
   runId: z.uuid().optional(),
 })
@@ -65,8 +66,22 @@ function PathView() {
     )
   }
 
+  if (view === 'qa') {
+    return (
+      <QaReportPage
+        pathVersionId={pathVersionId}
+        onBack={() => navigate({ search: { view: 'summary', pathVersionId } })}
+      />
+    )
+  }
+
   if (view === 'summary') {
-    return <CompletionPage pathVersionId={pathVersionId} />
+    return (
+      <CompletionPage
+        pathVersionId={pathVersionId}
+        onOpenQaReport={() => navigate({ search: { view: 'qa', pathVersionId } })}
+      />
+    )
   }
 
   return (

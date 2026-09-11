@@ -22,6 +22,7 @@ describe('provider role vocabulary', () => {
     expect([...PROVIDER_ROLE_VALUES]).toEqual([
       'smart',
       'cheap',
+      'judge',
       'vision',
       'audio',
       'embed',

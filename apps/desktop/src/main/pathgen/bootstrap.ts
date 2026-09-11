@@ -3,10 +3,12 @@ import type { AiClient, AiRegistry, BatchRunner } from '@retenia/ai'
 import { realTimers } from '@retenia/ai'
 import { bundledPromptReader } from '@retenia/ai/prompts-bundled'
 import type { Clock, EmbeddingProvider } from '@retenia/core'
+import { detectLanguage } from '@retenia/ingest'
 import type { PathgenLessonStatusEvent, PathgenProgressEvent } from '@retenia/ipc-contract'
 import {
   createExpansionRun,
   createGenerationRun,
+  createQaPipeline,
   type GenerationConfigInput,
   type PathgenLogger,
   quoteConfig as quoteGenerationConfig,
@@ -131,8 +133,28 @@ export function bootstrapPathgen({
   })
 
   /**
+   * Stage 8 (sub-phase 8.4): the QA gates, over the same client, cache and runner. The
+   * language detector is `@retenia/ingest`'s own — the one that labelled the sources — so a
+   * lesson and the document it was written from are judged by the same ear.
+   */
+  const qa = createQaPipeline({
+    ai,
+    registry,
+    ...(batches === null || batches === undefined ? {} : { runner: batches }),
+    resultCache,
+    prompts,
+    repos: { paths: repos.paths, chunks: repos.chunks, knowledgeItems: repos.knowledgeItems },
+    ...(embeddingPort === undefined ? {} : { embeddings: embeddingPort }),
+    detectLanguage,
+    clock,
+    timers: realTimers,
+    logger: pathgenLogger,
+  })
+
+  /**
    * Stage 7 (sub-phase 8.3): the same client, cache and runner, plus the three things only
-   * expansion needs — the activity author, retrieval and the embedding port.
+   * expansion needs — the activity author, retrieval and the embedding port — and, since
+   * 8.4, the gates that decide when a lesson is `ready`.
    */
   const expansion = createExpansionRun({
     ai,
@@ -140,6 +162,7 @@ export function bootstrapPathgen({
     ...(batches === null || batches === undefined ? {} : { runner: batches }),
     resultCache,
     author: createActivityAuthor({ prompt: prompts.activities }),
+    qa,
     repos: {
       paths: repos.paths,
       chunks: repos.chunks,

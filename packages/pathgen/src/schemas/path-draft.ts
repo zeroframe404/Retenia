@@ -129,6 +129,10 @@ export const pathDraftSchema = z.object({
    *  §7); `null` otherwise. Additive like `known_node_ids`: a draft frozen before this field
    *  existed reads back as `null`, which is what it always meant. */
   target_language: z.string().regex(BCP47).nullable().default(null),
+  /** Stage 8's depth for this path (sub-phase 8.4): the wizard's "QA ligera" choice, kept on
+   *  the draft because expansion re-derives its config from the frozen draft, not from the
+   *  run that wrote it. Additive like the two above: an older draft reads as `full`. */
+  qa_mode: z.enum(['full', 'light']).default('full'),
 })
 
 export type PathDraft = z.infer<typeof pathDraftSchema>

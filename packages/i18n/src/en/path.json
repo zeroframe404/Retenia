@@ -12,7 +12,10 @@
       "persisting": "Saving the draft",
       "expanding_theory": "Writing the lessons ({done}/{total})",
       "expanding_practice": "Writing the exercises ({done}/{total})",
-      "expanding_flashcards": "Making the flashcards ({done}/{total})"
+      "expanding_flashcards": "Making the flashcards ({done}/{total})",
+      "qa_faithfulness": "Checking the citations ({done}/{total})",
+      "qa_judge": "Judging the pedagogy ({done}/{total})",
+      "qa_edit": "Applying the edits ({done}/{total})"
     },
     "status": {
       "queued": "Queued",
@@ -31,7 +34,18 @@
       "summary": "≈ {minutes} min and USD {usd}",
       "range": "between USD {low} and USD {high}",
       "batchLatency": "In economy mode the results can take up to an hour.",
-      "unpriced": "No price for the model of the {role} role: the cost cannot be estimated."
+      "unpriced": "No price for the model of the {role} role: the cost cannot be estimated.",
+      "breakdown": {
+        "p1": "Reading the sources",
+        "p2": "Path",
+        "p3": "Lessons",
+        "p4": "Exercises",
+        "p5": "Flashcards",
+        "p6": "QA: faithfulness",
+        "p7": "QA: pedagogy judge",
+        "p8": "QA: edits",
+        "regenerate": "QA: rewrites"
+      }
     },
     "warning": {
       "chunk_failed": "Fragment {chunk_id} could not be read: {error}",
@@ -85,7 +99,23 @@
       "lesson_context_over_budget": "Lesson {lesson}’s sources are over budget ({tokens} of {budget} tokens); all of them were used anyway.",
       "flashcards_thin": "Lesson {lesson} produced {kept} cards, fewer than the usual three.",
       "flashcard_uncited": "A card from lesson {lesson} could not cite any source, so it was stored without one.",
-      "lesson_fragment_truncated": "A fragment of lesson {lesson} was cut to {chars} characters ({fragments}); its citation may point at text the model never read."
+      "lesson_fragment_truncated": "A fragment of lesson {lesson} was cut to {chars} characters ({fragments}); its citation may point at text the model never read.",
+      "citation_span_mismatch": "In lesson {lesson}, {sentences} sentences quote a passage that is not in the source; those citations were removed.",
+      "sources_differ": "In lesson {lesson} the sources differ ({citations}); both are shown.",
+      "faithfulness_needs_review": "Lesson {lesson} has a faithfulness of {faithfulness} ({supported} of {evaluated} claims supported): worth a look.",
+      "concept_uncovered": "Lesson {lesson} never names important concepts it was meant to teach: {concept_ids}",
+      "activity_duplicate": "An exercise of lesson {lesson} repeats one from {other} ({reason}).",
+      "flashcard_duplicate": "A card of lesson {lesson} repeats one from {other} ({reason}).",
+      "module_bloom_variety": "The practice of module {module} only covers these Bloom levels: {levels}.",
+      "theory_length": "The theory of lesson {lesson} has {words} words; the range is {min}–{max}.",
+      "language_mismatch": "Lesson {lesson} reads as “{detected}” while the path is in “{expected}”.",
+      "glossary_term_mixed": "Lesson {lesson} uses “{source_term}” where the glossary says “{term}”.",
+      "judge_same_as_generator": "The pedagogy judge would be the very model that wrote lesson {lesson} ({model}); the evaluation was skipped.",
+      "judge_unavailable": "No model is configured for the judge role; lesson {lesson} has no pedagogy score.",
+      "edit_rejected": "{count} edits of lesson {lesson} touched a verified citation and were discarded.",
+      "lesson_regenerated": "Lesson {lesson} fell under the threshold and was rewritten once.",
+      "lesson_below_threshold": "Lesson {lesson} is still under the quality threshold: check it in the QA report.",
+      "qa_failed": "The check ({gate}) of lesson {lesson} could not complete: {error}"
     }
   },
   "wizard": {
@@ -109,7 +139,9 @@
     "noSources": {
       "title": "No sources ready yet",
       "description": "Add and finish importing at least one source in the Library before generating a path."
-    }
+    },
+    "qaLight": "Light QA",
+    "qaLightHint": "Only the basic checks (citations, faithfulness, coverage, duplicates, variety, length and language), with no pedagogy judge and no editor, to spend less."
   },
   "preview": {
     "loadError": "Could not load this path version.",
@@ -138,7 +170,8 @@
     "concepts": "Concepts",
     "plan": "At this pace, ready by {date} in about {weeks} weeks.",
     "regenerate": "Regenerate path",
-    "regenerateDisabledReason": "Diff-based regeneration arrives in a later phase."
+    "regenerateDisabledReason": "Diff-based regeneration arrives in a later phase.",
+    "qaReport": "See the QA report"
   },
   "expansion": {
     "title": "Lessons",
@@ -159,5 +192,67 @@
     "unmet": "The practice does not meet: {rules}",
     "expand": "Write the lessons",
     "expanding": "Writing…"
+  },
+  "qa": {
+    "fidelity": "{percent} % faithful",
+    "sources": "{count, plural, one {# source} other {# sources}}",
+    "reviewed": "Reviewed",
+    "review": "Review",
+    "unreviewed": "Unreviewed",
+    "reportTitle": "QA report",
+    "reportEmpty": "No lesson has been reviewed yet.",
+    "back": "Back to summary",
+    "totals": "{reviewed} of {lessons} lessons reviewed · {flagged} to review",
+    "meanFidelity": "mean fidelity {percent} %",
+    "pedagogy": "pedagogy {score}/5",
+    "noFindings": "No findings.",
+    "openSource": "Open {id} ({locator})",
+    "column": {
+      "gate": "Check",
+      "sentence": "Sentence",
+      "detail": "Detail",
+      "source": "Source"
+    },
+    "verdict": {
+      "pass": "Passed",
+      "fixed": "Fixed by the editor",
+      "regenerated": "Rewritten once and passed",
+      "flagged": "To review"
+    },
+    "outcome": {
+      "pass": "ok",
+      "fix": "with findings",
+      "regenerate": "rewrite",
+      "skipped": "skipped"
+    },
+    "gate": {
+      "schema": "schema",
+      "citations": "citations",
+      "faithfulness": "faithfulness",
+      "coverage": "coverage",
+      "duplicates": "duplicates",
+      "variety": "variety",
+      "length": "length",
+      "language": "language",
+      "judge": "judge",
+      "edit": "edit"
+    },
+    "kind": {
+      "citation_missing": "Missing citation",
+      "citation_span_mismatch": "Quoted passage not in the source",
+      "claim_unsupported": "Unsupported claim",
+      "claim_contradicts": "Claim contradicts the source",
+      "sources_differ": "The sources differ",
+      "concept_uncovered": "Concept not covered",
+      "activity_duplicate": "Duplicate exercise",
+      "flashcard_duplicate": "Duplicate card",
+      "variety_rule": "Variety rule",
+      "module_bloom_variety": "Module Bloom variety",
+      "theory_length": "Length",
+      "language_mismatch": "Language",
+      "glossary_term_mixed": "Mixed term",
+      "judge_edit": "Judge suggestion",
+      "edit_rejected": "Edit discarded"
+    }
   }
 }

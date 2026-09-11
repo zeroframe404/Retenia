@@ -2,6 +2,7 @@ import type { PerMillionRates, TokenCounter } from '@retenia/ai'
 import { approximateTokens } from '@retenia/ai'
 import type { Chunk } from '@retenia/core'
 import { SYNCHRONOUS_HEAD_LESSONS } from '../expand/expand-lessons'
+import type { QaMode } from '../qa/lesson-qa'
 import { type GenerationWarning, warning } from '../schemas/warnings'
 import { OUTLINE_MAX_OUTPUT_TOKENS } from '../synthesize/tasks'
 
@@ -71,6 +72,33 @@ export const P5_SECONDS = 8
  * one `BudgetGuard` could each clear the cap check before either had charged.
  */
 export const EXPANSION_BATCH_WAVES = 3
+/**
+ * Stage 8 (sub-phase 8.4), fitted to §6's two QA rows for the same 40-lesson book:
+ * *"Faithfulness + dedupe + variety: Haiku 4.5, 340k / 40k"* — 8.5k in, 1k out per lesson on
+ * the cheap role — and *"Critic-editor on ≈ 30 % of lessons: Sonnet 5, 170k / 50k"* — 14k
+ * in, 4k out per edited lesson. The judge has no row in §6 (its table predates gate 9 having
+ * a model of its own); it reads the lesson and its spec and answers five rationales and up to
+ * twelve edits, which is what the P7 figures size.
+ */
+export const P6_INPUT_TOKENS_PER_LESSON = 8_500
+export const P6_OUTPUT_TOKENS = 1_000
+export const P7_INPUT_TOKENS_PER_LESSON = 6_000
+export const P7_OUTPUT_TOKENS = 1_200
+/** §6: the critic-editor runs on about a third of the lessons. */
+export const P8_SHARE = 0.3
+export const P8_INPUT_TOKENS_PER_LESSON = 14_000
+export const P8_OUTPUT_TOKENS = 4_000
+/** Lessons the gates send back to P3 — at most once each; a tenth is the planning figure. */
+export const REGENERATE_SHARE = 0.1
+export const P6_SECONDS = 8
+export const P7_SECONDS = 12
+export const P8_SECONDS = 15
+/**
+ * The QA waves of the batched tail: P6, P7, P8 and the one P6 re-run after the edit —
+ * sequential, for the same budget-guard reason the expansion waves are — in full mode, and
+ * P6 alone in light mode.
+ */
+export const QA_BATCH_WAVES = Object.freeze({ full: 4, light: 1 })
 
 export const P1_TOLERANCE = 0.1
 export const P2_TOLERANCE = 0.3
@@ -89,7 +117,12 @@ export interface EstimateInput {
   readonly chunks: readonly EstimateChunk[]
   /** Chunks whose extraction already exists; they cost nothing. */
   readonly alreadyExtracted: number
-  readonly rates: { readonly cheap?: PerMillionRates; readonly smart?: PerMillionRates }
+  readonly rates: {
+    readonly cheap?: PerMillionRates
+    readonly smart?: PerMillionRates
+    /** The pedagogy judge's model — a different one from `smart` by rule (§5 gate 9). */
+    readonly judge?: PerMillionRates
+  }
   /** Tokens of each prompt's system message, output instruction included. */
   readonly systemTokens: {
     readonly extract: number
@@ -98,7 +131,12 @@ export interface EstimateInput {
     readonly lesson: number
     readonly activities: number
     readonly flashcards: number
+    readonly faithfulness: number
+    readonly judge: number
+    readonly edit: number
   }
+  /** Stage 8's depth. `light` prices no judge and no editor. Defaults to `full`. */
+  readonly qaMode?: QaMode
   readonly dispatch: 'sync' | 'batch'
   /** The cheap model's Batch API discount, when `dispatch` is `batch`; `0` for a model without one. */
   readonly batchDiscount?: number
@@ -128,6 +166,11 @@ export interface GenerationEstimate {
   readonly p3Lessons: StageEstimate
   readonly p4Activities: StageEstimate
   readonly p5Flashcards: StageEstimate
+  /** Stage 8 (sub-phase 8.4): the verifier, the judge, the editor and the regenerations. */
+  readonly p6Faithfulness: StageEstimate
+  readonly p7Judge: StageEstimate
+  readonly p8Edit: StageEstimate
+  readonly qaRegenerate: StageEstimate
   /** The midpoint; `lowUsd`/`highUsd` are the band the wizard should render. */
   readonly usd: number
   readonly lowUsd: number
@@ -135,7 +178,7 @@ export interface GenerationEstimate {
   readonly minutes: { readonly low: number; readonly high: number }
   readonly dispatch: 'sync' | 'batch'
   /** Whether each role could be priced; an unpriced role contributes 0 and the wizard says so. */
-  readonly priced: { readonly cheap: boolean; readonly smart: boolean }
+  readonly priced: { readonly cheap: boolean; readonly smart: boolean; readonly judge: boolean }
 }
 
 const PER_MILLION = 1_000_000
@@ -182,11 +225,16 @@ function priceOf(
 export function estimateWarnings(
   estimate: Pick<GenerationEstimate, 'priced'>,
   budgetCapUsd: number,
+  qaMode: QaMode = 'full',
 ): GenerationWarning[] {
   if (budgetCapUsd <= 0) return []
   const out: GenerationWarning[] = []
   if (!estimate.priced.cheap) out.push(warning('estimate_unpriced', { role: 'cheap' }))
   if (!estimate.priced.smart) out.push(warning('estimate_unpriced', { role: 'smart' }))
+  // The judge only spends in full mode; an unpriced judge on a light run enforces nothing.
+  if (qaMode === 'full' && !estimate.priced.judge) {
+    out.push(warning('estimate_unpriced', { role: 'judge' }))
+  }
   return out
 }
 
@@ -312,10 +360,74 @@ export function estimateGeneration(input: EstimateInput): GenerationEstimate {
           usd: priceOf(input.rates.smart, p5Tokens, 1 - discount),
         }
 
+  // Stage 8 — the gates that need a model (sub-phase 8.4). P6 on every lesson, P7 and P8
+  // only in full mode, and the regenerations §5's thresholds send back to P3 priced at what
+  // a lesson costs to write.
+  const qaMode = input.qaMode ?? 'full'
+  const p6Tokens = {
+    inputTokens: lessons * (input.systemTokens.faithfulness + P6_INPUT_TOKENS_PER_LESSON),
+    cachedInputTokens: 0,
+    cacheWriteTokens: 0,
+    outputTokens: lessons * P6_OUTPUT_TOKENS,
+  }
+  const p6Faithfulness: StageEstimate =
+    lessons === 0
+      ? ZERO_STAGE
+      : { calls: lessons, ...p6Tokens, usd: priceOf(input.rates.cheap, p6Tokens, 1 - discount) }
+
+  const judged = qaMode === 'full' ? lessons : 0
+  const p7Tokens = {
+    inputTokens: judged * (input.systemTokens.judge + P7_INPUT_TOKENS_PER_LESSON),
+    cachedInputTokens: 0,
+    cacheWriteTokens: 0,
+    outputTokens: judged * P7_OUTPUT_TOKENS,
+  }
+  const p7Judge: StageEstimate =
+    judged === 0
+      ? ZERO_STAGE
+      : { calls: judged, ...p7Tokens, usd: priceOf(input.rates.judge, p7Tokens, 1 - discount) }
+
+  const edited = qaMode === 'full' ? Math.round(lessons * P8_SHARE) : 0
+  const p8Tokens = {
+    inputTokens: edited * (input.systemTokens.edit + P8_INPUT_TOKENS_PER_LESSON),
+    cachedInputTokens: 0,
+    cacheWriteTokens: 0,
+    outputTokens: edited * P8_OUTPUT_TOKENS,
+  }
+  const p8Edit: StageEstimate =
+    edited === 0
+      ? ZERO_STAGE
+      : { calls: edited, ...p8Tokens, usd: priceOf(input.rates.smart, p8Tokens, 1 - discount) }
+
+  const regenerated = Math.round(lessons * REGENERATE_SHARE)
+  const qaRegenerate: StageEstimate =
+    regenerated === 0
+      ? ZERO_STAGE
+      : {
+          calls: regenerated,
+          inputTokens: Math.round(
+            (p3Tokens.inputTokens + p4Tokens.inputTokens + p5Tokens.inputTokens) * REGENERATE_SHARE,
+          ),
+          cachedInputTokens: Math.round(p3Tokens.cachedInputTokens * REGENERATE_SHARE),
+          cacheWriteTokens: 0,
+          outputTokens: Math.round(
+            (p3Tokens.outputTokens + p4Tokens.outputTokens + p5Tokens.outputTokens) *
+              REGENERATE_SHARE,
+          ),
+          usd: round((p3Lessons.usd + p4Activities.usd + p5Flashcards.usd) * REGENERATE_SHARE),
+        }
+
   const p2Usd = p2Outline.usd + p2Modules.usd
-  // Stage 7 shares P2's tolerance: its token counts are the same kind of guess — what a
-  // lesson weighs before one has been written — rather than a measured chunk length.
-  const expandUsd = p3Lessons.usd + p4Activities.usd + p5Flashcards.usd
+  // Stages 7 and 8 share P2's tolerance: their token counts are the same kind of guess —
+  // what a lesson weighs before one has been written — rather than a measured chunk length.
+  const expandUsd =
+    p3Lessons.usd +
+    p4Activities.usd +
+    p5Flashcards.usd +
+    p6Faithfulness.usd +
+    p7Judge.usd +
+    p8Edit.usd +
+    qaRegenerate.usd
   const usd = round(p1.usd + p2Usd + expandUsd)
   const lowUsd = round(p1.usd * (1 - P1_TOLERANCE) + (p2Usd + expandUsd) * (1 - P2_TOLERANCE))
   const highUsd = round(p1.usd * (1 + P1_TOLERANCE) + (p2Usd + expandUsd) * (1 + P2_TOLERANCE))
@@ -326,20 +438,23 @@ export function estimateGeneration(input: EstimateInput): GenerationEstimate {
       : OUTLINE_SECONDS + (modules * MODULE_SECONDS) / Math.max(1, concurrency.modules)
   const p1Seconds = (calls * SYNC_SECONDS_PER_CALL) / Math.max(1, concurrency.extract)
 
-  // Stage 7's clock. The head is a whole pipeline run synchronously whatever the dispatch
-  // is (§3 stage 7's "2 lessons in real time"), so it is always seconds the user waits; the
-  // tail is either three batch windows or, when there is no runner, the rest of the lessons
-  // at the same per-lesson cost.
-  const perLessonSeconds = P3_SECONDS + P4_SECONDS + P5_SECONDS
+  // Stages 7 and 8's clock. The head is a whole pipeline run synchronously whatever the
+  // dispatch is (§3 stage 7's "2 lessons in real time"), gates included, so it is always
+  // seconds the user waits; the tail is either the batch windows — three for the writing,
+  // then the QA waves — or, when there is no runner, the rest of the lessons at the same
+  // per-lesson cost.
+  const qaSeconds = P6_SECONDS + (qaMode === 'full' ? P7_SECONDS + P8_SECONDS * P8_SHARE : 0)
+  const perLessonSeconds = P3_SECONDS + P4_SECONDS + P5_SECONDS + qaSeconds
   const headLessons = Math.min(lessons, SYNCHRONOUS_HEAD_LESSONS)
   const tailLessons = Math.max(0, lessons - headLessons)
   const expandWaves = input.dispatch === 'batch' && tailLessons > 0 ? EXPANSION_BATCH_WAVES : 0
+  const qaWaves = input.dispatch === 'batch' && tailLessons > 0 ? QA_BATCH_WAVES[qaMode] : 0
   const expandSeconds =
     (headLessons * perLessonSeconds) / Math.max(1, concurrency.modules) +
     (expandWaves > 0 ? 0 : tailLessons * perLessonSeconds)
 
   const syncSeconds = p1Seconds + p2Seconds + expandSeconds
-  const windows = (calls > 0 ? 1 : 0) + expandWaves
+  const windows = (calls > 0 ? 1 : 0) + expandWaves + qaWaves
   const minutes =
     input.dispatch === 'batch' && windows > 0
       ? {
@@ -362,11 +477,19 @@ export function estimateGeneration(input: EstimateInput): GenerationEstimate {
     p3Lessons,
     p4Activities,
     p5Flashcards,
+    p6Faithfulness,
+    p7Judge,
+    p8Edit,
+    qaRegenerate,
     usd,
     lowUsd,
     highUsd,
     minutes,
     dispatch: input.dispatch,
-    priced: { cheap: input.rates.cheap !== undefined, smart: input.rates.smart !== undefined },
+    priced: {
+      cheap: input.rates.cheap !== undefined,
+      smart: input.rates.smart !== undefined,
+      judge: input.rates.judge !== undefined,
+    },
   }
 }

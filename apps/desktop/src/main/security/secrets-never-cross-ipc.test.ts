@@ -254,6 +254,7 @@ describe('layer 3 — the outputs with a JSON hole are a known, visible set', ()
     'pathgen.editDraft.output',
     'pathgen.expand.output',
     'pathgen.getLessons.output',
+    'pathgen.getQaReport.output',
     'pathgen.getRun.output',
     'pathgen.getVersion.output',
     'pathgen.quote.output',

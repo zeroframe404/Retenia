@@ -48,7 +48,7 @@ import type {
 import { PROVIDER_ROLE_VALUES } from '@retenia/ipc-contract'
 import { app, BrowserWindow, dialog, nativeTheme } from 'electron'
 import type { BatchesFacade } from '../ai/batch'
-import { buildRegistry } from '../ai/client'
+import { buildRegistry, settleJudgeAssignment } from '../ai/client'
 import type { BackupService } from '../backups/service'
 import { ensureDevMediaSample } from '../dev/media-sample'
 import { collectSystemInfo, exportDiagnostics } from '../diagnostics/export'
@@ -645,6 +645,8 @@ export function createHandlers({
 
     'pathgen.getLessons': (input) => pathgenOrThrow().getLessons(input),
 
+    'pathgen.getQaReport': (input) => pathgenOrThrow().getQaReport(input),
+
     'pathgen.regenerateLesson': (input) => pathgenOrThrow().regenerateLesson(input),
 
     // --- AI batches: the Batch API's tray surface (sub-phase 7.3) ---
@@ -1164,7 +1166,7 @@ export function createHandlers({
         return (await secrets.getSecret(profile.keyRef)) !== undefined
       }
 
-      const stored: Record<string, RoleAssignmentValue> = {}
+      const submitted: Record<string, RoleAssignmentValue> = {}
       for (const assignment of roles) {
         if (assignment.primary !== null) {
           if (!(await isUsable(assignment.primary))) {
@@ -1184,10 +1186,19 @@ export function createHandlers({
             }
           }
         }
-        stored[assignment.role] = { primary: assignment.primary, fallbacks: assignment.fallbacks }
+        submitted[assignment.role] = {
+          primary: assignment.primary,
+          fallbacks: assignment.fallbacks,
+        }
       }
 
-      await settingsRepo.set('ai.roles', stored)
+      // Stage 8's bias rule (`docs/spec/04-path-generation.md` §5 gate 9): the pedagogy judge
+      // is never the model that writes the lessons. A judge the user chose onto the generator
+      // is refused; one the panel merely echoed back is dropped so the registry re-derives it.
+      const settled = settleJudgeAssignment(registry.roles.judge?.primary ?? null, submitted)
+      if (settled.error !== null) throw new Error(`ai.setRoles: ${settled.error}`)
+
+      await settingsRepo.set('ai.roles', settled.stored)
       return { ok: true }
     },
 

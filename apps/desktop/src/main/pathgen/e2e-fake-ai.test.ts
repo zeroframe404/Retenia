@@ -1,9 +1,15 @@
 import { createActivityAuthor, makeActivitiesOutputSchema } from '@retenia/activity-ai'
 import {
+  EDIT_LESSON_SCHEMA_NAME,
   EXTRACT_CHUNK_SCHEMA_NAME,
+  editLessonOutputSchema,
   extractChunkOutputSchema,
+  FAITHFULNESS_SCHEMA_NAME,
+  faithfulnessOutputSchema,
   MAKE_FLASHCARDS_SCHEMA_NAME,
   makeFlashcardsOutputSchema,
+  PEDAGOGY_JUDGE_SCHEMA_NAME,
+  pedagogyJudgeOutputSchema,
   SYNTHESIZE_MODULE_SCHEMA_NAME,
   SYNTHESIZE_OUTLINE_SCHEMA_NAME,
   synthesizeModuleOutputSchema,
@@ -12,7 +18,13 @@ import {
   writeLessonOutputSchema,
 } from '@retenia/pathgen'
 import { describe, expect, it } from 'vitest'
-import { createE2eFakeInvoker, E2E_MODEL_ID, e2eFakeProfile, e2eFakeRegistry } from './e2e-fake-ai'
+import {
+  createE2eFakeInvoker,
+  E2E_JUDGE_MODEL_ID,
+  E2E_MODEL_ID,
+  e2eFakeProfile,
+  e2eFakeRegistry,
+} from './e2e-fake-ai'
 
 /**
  * The E2E-only deterministic invoker (`docs/spec/04-path-generation.md` §13's Playwright
@@ -44,6 +56,16 @@ describe('e2eFakeRegistry()', () => {
     expect(registry.profiles[0]?.keyRef).toBeNull()
     expect(registry.roles.cheap?.primary.profileId).toBe('e2e-fake')
     expect(registry.roles.smart?.primary.profileId).toBe('e2e-fake')
+  })
+
+  it('routes the judge at its own model id, so the bias guard lets it judge', () => {
+    const registry = e2eFakeRegistry()
+    expect(registry.roles.judge?.primary).toEqual({
+      profileId: 'e2e-fake',
+      modelId: E2E_JUDGE_MODEL_ID,
+    })
+    expect(E2E_JUDGE_MODEL_ID).not.toBe(E2E_MODEL_ID)
+    expect(registry.profiles[0]?.models).toContain(E2E_JUDGE_MODEL_ID)
   })
 })
 
@@ -178,6 +200,21 @@ describe('createE2eFakeInvoker()', () => {
         temperature: 0.3,
         schemaName: MAKE_FLASHCARDS_SCHEMA_NAME,
       }),
+      P6_faithfulness: await invoke(invoker, {
+        prompt: 'claim_ids: c01, c02',
+        temperature: 0,
+        schemaName: FAITHFULNESS_SCHEMA_NAME,
+      }),
+      P7_pedagogy_judge: await invoke(invoker, {
+        prompt: 'irrelevant',
+        temperature: 0,
+        schemaName: PEDAGOGY_JUDGE_SCHEMA_NAME,
+      }),
+      P8_edit: await invoke(invoker, {
+        prompt: 'irrelevant',
+        temperature: 0.3,
+        schemaName: EDIT_LESSON_SCHEMA_NAME,
+      }),
     }
 
     // The record step, in the shape `test/fixtures/book/p1-extractions.json` already uses:
@@ -204,5 +241,41 @@ describe('createE2eFakeInvoker()', () => {
     const parsed = synthesizeModuleOutputSchema.parse(answer)
     expect(parsed.lesson_specs[0]?.concept_ids.sort()).toEqual(['c_aaa', 'c_bbb'])
     expect(parsed.lesson_specs[0]?.title).toContain('Módulo generado (e2e)')
+  })
+})
+
+describe('createE2eFakeInvoker() — stage 8 (sub-phase 8.4)', () => {
+  it('answers faithfulness@1 with one supported verdict per claim id the task listed', async () => {
+    const invoker = createE2eFakeInvoker()
+    const answer = await invoke(invoker, {
+      prompt: ['lesson_id: L01', 'claim_ids: c01, c02, c03', ''].join(String.fromCharCode(10)),
+      temperature: 0,
+      schemaName: FAITHFULNESS_SCHEMA_NAME,
+    })
+    const parsed = faithfulnessOutputSchema.parse(answer)
+    expect(parsed.claims.map((claim) => claim.id)).toEqual(['c01', 'c02', 'c03'])
+    expect(parsed.claims.every((claim) => claim.verdict === 'supported')).toBe(true)
+  })
+
+  it('answers pedagogy_judge@1 with the five criteria and no edits', async () => {
+    const invoker = createE2eFakeInvoker()
+    const answer = await invoke(invoker, {
+      prompt: 'irrelevant',
+      temperature: 0,
+      schemaName: PEDAGOGY_JUDGE_SCHEMA_NAME,
+    })
+    const parsed = pedagogyJudgeOutputSchema.parse(answer)
+    expect(parsed.criteria).toHaveLength(5)
+    expect(parsed.edits).toEqual([])
+  })
+
+  it('answers edit_lesson@1 with no changes', async () => {
+    const invoker = createE2eFakeInvoker()
+    const answer = await invoke(invoker, {
+      prompt: 'irrelevant',
+      temperature: 0.3,
+      schemaName: EDIT_LESSON_SCHEMA_NAME,
+    })
+    expect(editLessonOutputSchema.parse(answer)).toEqual({ changes: [], notes: [] })
   })
 })

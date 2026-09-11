@@ -4,6 +4,11 @@ import { EXTRACT_CHUNK_SCHEMA_ID, type ExtractChunkOutput } from '../schemas/ext
 import { MAKE_FLASHCARDS_SCHEMA_ID } from '../schemas/flashcards'
 import { WRITE_LESSON_SCHEMA_ID } from '../schemas/lesson'
 import { SYNTHESIZE_MODULE_SCHEMA_ID, SYNTHESIZE_OUTLINE_SCHEMA_ID } from '../schemas/outline'
+import {
+  EDIT_LESSON_SCHEMA_ID,
+  FAITHFULNESS_SCHEMA_ID,
+  PEDAGOGY_JUDGE_SCHEMA_ID,
+} from '../schemas/qa'
 
 /**
  * Hand-built chunks, sources, prompts and P1 answers for the extraction tests. The real
@@ -87,6 +92,30 @@ export const flashcardsPrompt: PathgenPrompt = {
   temperature: 0.3,
 }
 
+export const faithfulnessPrompt: PathgenPrompt = {
+  template: 'Check every claim against its fragments.\n\n{{task}}',
+  promptVersion: '1',
+  schemaVersion: FAITHFULNESS_SCHEMA_ID,
+  role: 'cheap',
+  temperature: 0,
+}
+
+export const judgePrompt: PathgenPrompt = {
+  template: 'Score the lesson against the anchors.\n\n{{task}}',
+  promptVersion: '1',
+  schemaVersion: PEDAGOGY_JUDGE_SCHEMA_ID,
+  role: 'judge',
+  temperature: 0,
+}
+
+export const editPrompt: PathgenPrompt = {
+  template: 'Apply the edits and nothing else.\n\n{{task}}',
+  promptVersion: '1',
+  schemaVersion: EDIT_LESSON_SCHEMA_ID,
+  role: 'smart',
+  temperature: 0.3,
+}
+
 export const testPrompts: PathgenPrompts = {
   extract: extractPrompt,
   outline: outlinePrompt,
@@ -94,6 +123,9 @@ export const testPrompts: PathgenPrompts = {
   lesson: lessonPrompt,
   activities: activitiesPrompt,
   flashcards: flashcardsPrompt,
+  faithfulness: faithfulnessPrompt,
+  judge: judgePrompt,
+  edit: editPrompt,
   snapshot: {
     P1_extract_chunk: '1',
     P2_synthesize_outline: '1',
@@ -101,6 +133,9 @@ export const testPrompts: PathgenPrompts = {
     P3_write_lesson: '1',
     P4_make_activities: '1',
     P5_make_flashcards: '1',
+    P6_faithfulness: '1',
+    P7_pedagogy_judge: '1',
+    P8_edit: '1',
   },
 }
 

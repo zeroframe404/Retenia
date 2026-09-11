@@ -16,8 +16,10 @@ import {
   createLocalProfile,
   DEFAULT_PROFILES,
   DEFAULT_ROLES,
+  judgeConflict,
   realTimers,
   SHIPPED_PRICING,
+  withJudgeDefault,
   withLocalPolicy,
   withLocalPreference,
 } from '@retenia/ai'
@@ -26,6 +28,7 @@ import type {
   AiCallRepository,
   AiResultRepository,
   BudgetAlertLatch,
+  RoleAssignmentValue,
   SecretStore,
   SettingsRepository,
 } from '@retenia/core'
@@ -125,6 +128,7 @@ export const LOCAL_PROFILE_ID = 'local'
 const PROVIDER_ROLES: ReadonlySet<ProviderRole> = new Set<ProviderRole>([
   'smart',
   'cheap',
+  'judge',
   'vision',
   'audio',
   'embed',
@@ -155,7 +159,10 @@ export async function buildRegistry(
 
   if (localModel === '' || localModel === undefined) {
     const profiles = allowedProfiles(DEFAULT_PROFILES, allowlist)
-    return { profiles, roles: applyRoleOverrides(DEFAULT_ROLES, profiles, storedRoles) }
+    return {
+      profiles,
+      roles: withJudgeDefault(applyRoleOverrides(DEFAULT_ROLES, profiles, storedRoles)),
+    }
   }
 
   const localProfile = createLocalProfile({
@@ -173,7 +180,47 @@ export async function buildRegistry(
     }
   }
 
-  return { profiles, roles: applyRoleOverrides(roles, profiles, storedRoles) }
+  // Last, over everything the user and the local preference composed: the pedagogy judge
+  // must never be the model that writes the lessons (`docs/spec/04-path-generation.md` §5
+  // gate 9), so a `smart` override that lands on the judge's model re-derives the judge.
+  return { profiles, roles: withJudgeDefault(applyRoleOverrides(roles, profiles, storedRoles)) }
+}
+
+/**
+ * What `ai.setRoles` stores for the judge, given what the panel submitted.
+ *
+ * The panel submits *every* assignable role from `ai.getRoles`, and after `withJudgeDefault`
+ * that answer carries the derived judge. So a user moving `smart` onto the judge's model
+ * resubmits, unchanged, a judge that now collides — and refusing that would lock them out
+ * of changing `smart` at all. The rule: a colliding judge the user did not touch (it equals
+ * the judge the registry resolved before this write) is dropped from the stored map, so the
+ * registry derives its complement again; a colliding judge the user *chose* is refused with
+ * `judgeConflict`'s reason (`docs/spec/04-path-generation.md` §5 gate 9).
+ */
+export function settleJudgeAssignment(
+  previousJudge: ModelRef | null,
+  submitted: Readonly<Record<string, RoleAssignmentValue>>,
+): { readonly stored: Record<string, RoleAssignmentValue>; readonly error: string | null } {
+  const judge = submitted.judge?.primary ?? null
+  const smart = submitted.smart?.primary ?? null
+  if (judge === null || smart === null || judge.modelId !== smart.modelId) {
+    return { stored: { ...submitted }, error: null }
+  }
+  const untouched =
+    previousJudge !== null &&
+    previousJudge.modelId === judge.modelId &&
+    previousJudge.profileId === judge.profileId
+  if (untouched) {
+    const { judge: _dropped, ...rest } = submitted
+    return { stored: rest, error: null }
+  }
+  return {
+    stored: { ...submitted },
+    error: judgeConflict({
+      judge: { primary: judge, fallbacks: [] },
+      smart: { primary: smart, fallbacks: [] },
+    }),
+  }
 }
 
 /**
