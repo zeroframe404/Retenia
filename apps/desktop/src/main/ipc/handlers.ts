@@ -665,6 +665,24 @@ export function createHandlers({
 
     'pathgen.diagnosticRevert': (input) => pathgenOrThrow().diagnosticRevert(input),
 
+    // --- remediation and regeneration (sub-phase 8.6) ---
+
+    'pathgen.remediationList': (input) => pathgenOrThrow().remediationList(input),
+
+    'pathgen.remediationRequest': (input) => pathgenOrThrow().remediationRequest(input),
+
+    'pathgen.remediationComplete': (input) => pathgenOrThrow().remediationComplete(input),
+
+    'pathgen.remediationDismiss': (input) => pathgenOrThrow().remediationDismiss(input),
+
+    'pathgen.regenerate': (input) => pathgenOrThrow().regenerate(input),
+
+    'pathgen.versionDiff': (input) => pathgenOrThrow().versionDiff(input),
+
+    'pathgen.affectedLessons': (input) => pathgenOrThrow().affectedLessons(input),
+
+    'pathgen.regenerateAffected': (input) => pathgenOrThrow().regenerateAffected(input),
+
     // --- AI batches: the Batch API's tray surface (sub-phase 7.3) ---
 
     'ai.listBatches': async () => ({

@@ -273,6 +273,12 @@ describe('layer 3 — the outputs with a JSON hole are a known, visible set', ()
     'pathgen.diagnosticGet.output',
     'pathgen.diagnosticRevert.output',
     'pathgen.diagnosticStart.output',
+    // Sub-phase 8.6: "Regenerar ruta" answers with `pathgen.start`'s own result and "Regenerar
+    // afectadas" with a run — the same `warnings[]` catalog as above — and the version diff
+    // carries `conceptNames`, a concept id → canonical name map read off the knowledge graph.
+    'pathgen.regenerate.output',
+    'pathgen.regenerateAffected.output',
+    'pathgen.versionDiff.output',
     'scheduler.optimize.output',
     'session.answer.output',
     'session.next.output',

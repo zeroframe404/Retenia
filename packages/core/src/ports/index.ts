@@ -111,6 +111,17 @@ export type { OutboxAppend, OutboxRepository } from './outbox-repository'
 export type { PathRepository, PathTree } from './path-repository'
 export type { ProcessLiveness } from './process-liveness'
 export type {
+  RemediationAuthorCollected,
+  RemediationAuthorRequest,
+  RemediationBlock,
+  RemediationBlockType,
+  RemediationContrastCard,
+  RemediationError,
+  RemediationExcerpt,
+} from './remediation-author'
+export { REMEDIATION_BLOCK_TYPES } from './remediation-author'
+export type { RemediationRepository } from './remediation-repository'
+export type {
   RerankDocument,
   Reranker,
   RerankOptions,

@@ -12,6 +12,7 @@ import { systemFor } from '../prompts'
 import { type LessonQaSummary, summarizeQa } from '../qa/lesson-qa'
 import { persistQa } from '../qa/persist'
 import type { QaLessonInput } from '../qa/pipeline'
+import { needsFlashcards } from '../regenerate/migrate'
 import type { MakeFlashcardsOutput } from '../schemas/flashcards'
 import type { LessonCitation, LessonTheory, WriteLessonOutput } from '../schemas/lesson'
 import type { PathDraft } from '../schemas/path-draft'
@@ -762,7 +763,9 @@ export async function expandLessons(
     const ready: Prepared[] = []
     for (const entry of landedEntries) {
       const already = await deps.repos.knowledgeItems.listByLesson(entry.plan.lessonId)
-      if (already.length === 0) {
+      // Cards a regeneration carried over (8.6) cover only the concepts they are about: a lesson
+      // that gained one still gets P5 for it (`needsFlashcards`).
+      if (needsFlashcards(already, entry.plan.node.concept_ids)) {
         ready.push(entry)
         continue
       }

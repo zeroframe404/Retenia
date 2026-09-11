@@ -18,6 +18,7 @@ import type { JobRepository } from './job-repository'
 import type { KnowledgeItemRepository } from './knowledge-item-repository'
 import type { OutboxRepository } from './outbox-repository'
 import type { PathRepository } from './path-repository'
+import type { RemediationRepository } from './remediation-repository'
 import type { ReviewLogRepository } from './review-log-repository'
 import type { ReviewSessionRepository } from './review-session-repository'
 import type { SchedulerProfileRepository } from './scheduler-profile-repository'
@@ -53,6 +54,8 @@ export interface Repositories {
   knowledgeItems: KnowledgeItemRepository
   outbox: OutboxRepository
   paths: PathRepository
+  /** The remediation log: triggers, the limits' verdicts, the detours and their effect (8.6). */
+  remediations: RemediationRepository
   reviewLogs: ReviewLogRepository
   reviewSessions: ReviewSessionRepository
   /** The FSRS parameters in force (§6, §16). */

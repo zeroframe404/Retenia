@@ -388,7 +388,8 @@
       },
       "reopened": {
         "lapses": "Reabierto por repasos fallidos",
-        "low_retention": "Reabierto por baja retención"
+        "low_retention": "Reabierto por baja retención",
+        "remediation": "Reabierto: tercer desvío sobre una de sus ideas"
       },
       "revert": "Deshacer",
       "revertModule": "Deshacer «{title}»",
@@ -405,6 +406,59 @@
       "probability": "P {percent} %",
       "evidence": "{answered} respondidas / {inferred} inferidas",
       "continue": "Continuar"
+    }
+  },
+  "remediation": {
+    "toastTitle": "Desvío sugerido: {title}",
+    "minutes": "{count} min",
+    "dismiss": "Descartar",
+    "reason": {
+      "reinforcement_low": "Acertaste {percent} % sobre «{concept}» en el refuerzo.",
+      "memory_lapses": "Olvidaste «{concept}» {count, plural, one {# vez} other {# veces}} en las últimas dos semanas.",
+      "memory_retention": "Tu recuerdo de «{concept}» bajó a {percent} %.",
+      "confident_error": "Respondiste con seguridad algo incorrecto sobre «{concept}».",
+      "repeated_misconception": "Se repitió el mismo error sobre «{concept}».",
+      "user_request": "Pediste otra explicación de «{concept}»."
+    },
+    "refused": {
+      "duplicate_concept": "Ya hay un desvío sobre «{concept}».",
+      "module_active": "Terminá el desvío abierto de este módulo antes de empezar otro.",
+      "weekly_limit": "Ya tenés 3 desvíos esta semana; «{concept}» queda para después.",
+      "revisit_core": "Es el tercer desvío sobre «{concept}»: te va a ayudar más volver a la lección.",
+      "no_anchor": "No hay una lección sobre «{concept}» de la que colgar un desvío."
+    },
+    "failed": "No se pudo preparar el desvío sobre «{concept}»."
+  },
+  "regenerate": {
+    "title": "Regenerar ruta",
+    "description": "Crea una versión nueva con la misma configuración. Tu progreso se conserva por idea, y esta versión sigue activa hasta que confirmes la nueva.",
+    "action": "Regenerar ruta",
+    "running": "Regenerando…",
+    "error": "No se pudo regenerar la ruta. Probá de nuevo.",
+    "affected": {
+      "title": "Fuentes actualizadas",
+      "description": "{count, plural, one {# lección se escribió con partes que cambiaron.} other {# lecciones se escribieron con partes que cambiaron.}}",
+      "none": "Ninguna lección quedó desactualizada.",
+      "action": "Regenerar afectadas",
+      "running": "Regenerando…",
+      "reason": {
+        "blob_changed": "El archivo cambió",
+        "chunks_changed": "Su contenido cambió",
+        "missing": "Ya no está en la biblioteca"
+      }
+    },
+    "diff": {
+      "title": "Cambios respecto de la versión {from}",
+      "summary": "{unchanged} sin cambios · {changed} cambiadas · {added} nuevas · {removed} quitadas",
+      "change": {
+        "unchanged": "Sin cambios",
+        "changed": "Cambiada",
+        "added": "Nueva",
+        "removed": "Quitada"
+      },
+      "addedConcepts": "Suma: {concepts}",
+      "removedConcepts": "Quita: {concepts}",
+      "was": "Antes: {title}"
     }
   }
 }

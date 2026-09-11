@@ -1,16 +1,27 @@
-import { createActivityAuthor, createItemAuthor } from '@retenia/activity-ai'
+import {
+  createActivityAuthor,
+  createItemAuthor,
+  createRemediationAuthor,
+} from '@retenia/activity-ai'
 import type { AiClient, AiRegistry, BatchRunner } from '@retenia/ai'
 import { realTimers } from '@retenia/ai'
 import { bundledPromptReader } from '@retenia/ai/prompts-bundled'
-import type { Clock, EmbeddingProvider } from '@retenia/core'
+import type { Clock, DomainEventBus, EmbeddingProvider } from '@retenia/core'
 import { detectLanguage } from '@retenia/ingest'
-import type { PathgenLessonStatusEvent, PathgenProgressEvent } from '@retenia/ipc-contract'
+import type {
+  PathgenLessonStatusEvent,
+  PathgenProgressEvent,
+  PathgenRemediationEvent,
+} from '@retenia/ipc-contract'
 import {
+  activityStem,
   buildItemBank,
   createExpansionRun,
   createGenerationRun,
   createQaPipeline,
+  createRemediationService,
   examCellsDue,
+  findAffectedLessons,
   type GenerationConfigInput,
   type PathgenLogger,
   quoteConfig as quoteGenerationConfig,
@@ -21,9 +32,11 @@ import { buildAiResultCache } from '../ai/client'
 import type { AppDatabase } from '../db/open'
 import type { EmbeddingService } from '../library/embedding-service'
 import { log } from '../logging/log'
+import { diagnosticRemediationSignals, remediationItemIds } from './diagnostic-remediations'
 import { createDiagnosticService, type DiagnosticMemory } from './diagnostic-service'
 import { createPathgenFacade, type PathgenFacade } from './facade'
 import { createItemBankService } from './item-bank-service'
+import { createRemediationDtoBuilder } from './remediation-dto'
 
 /** §10's deferred verification runs daily: at startup, then every 24 hours while open. */
 const VERIFY_EVERY_MS = 24 * 60 * 60 * 1000
@@ -54,6 +67,10 @@ export interface BootstrapPathgenOptions {
   readonly embeddings?: EmbeddingService | null
   /** The memory service, for the diagnostic's seeding and its deferred verification (8.5). */
   readonly memory?: DiagnosticMemory | null
+  /** Pushes `pathgen.remediation` — a detour appeared, changed or went away (8.6). */
+  readonly emitRemediation?: (event: PathgenRemediationEvent) => void
+  /** The domain's facts: remediation listens to `card.reviewed` for §11's memory trigger. */
+  readonly events?: Pick<DomainEventBus, 'subscribe'> | null
   readonly clock?: Clock
 }
 
@@ -71,6 +88,8 @@ export function bootstrapPathgen({
   batches,
   embeddings,
   memory = null,
+  emitRemediation,
+  events = null,
   clock = { now: () => new Date() },
 }: BootstrapPathgenOptions): PathgenFacade {
   // The bundled reader, not the disk one: `@retenia/ai` is inlined into `out/main/index.js`
@@ -208,6 +227,74 @@ export function bootstrapPathgen({
   const diagnostics = createDiagnosticService({ repos, memory, clock })
 
   /**
+   * §11's remediation service (sub-phase 8.6): P11 over the same client and cache, synchronous
+   * (the learner is on the map when a detour appears), on the role the learner's
+   * `pathgen.remediationTier` names. It is fed by `card.reviewed` below, by the diagnostic's
+   * confident misconceptions and by the lesson player's "no lo entiendo"; the reinforcement
+   * node (9.3) and the exam's grading (10.x) call `handle` the same way when they land.
+   */
+  const remediationDto = createRemediationDtoBuilder(repos.paths)
+  const remediation = createRemediationService({
+    ai,
+    resultCache,
+    author: createRemediationAuthor({ prompt: prompts.remediation }),
+    prompts,
+    repos,
+    clock,
+    timers: realTimers,
+    logger: pathgenLogger,
+    tier: () => repos.settings.get('pathgen.remediationTier'),
+    ...(memory === null ? {} : { retrievability: (card, at) => memory.retrievability(card, at) }),
+    onChange: (change) => {
+      if (emitRemediation === undefined) return
+      void remediationDto(change.remediation, change.lesson)
+        .then((dto) => emitRemediation({ kind: change.kind, remediation: dto }))
+        .catch((error: unknown) => log.warn('[pathgen] a remediation could not be pushed:', error))
+    },
+    // "Lower the module's mastery estimate": re-open it, when a diagnostic had marked it known.
+    onRevisitCore: async ({ pathVersionId, moduleId }) => {
+      if (moduleId !== null) await diagnostics.reopenModule(pathVersionId, moduleId)
+    },
+  })
+
+  events?.subscribe('card.reviewed', (event) => {
+    // The diagnostic's seeding and an import are not the learner forgetting anything.
+    if (event.log.context === 'diagnostic' || event.log.context === 'import') return
+    void remediation
+      .handle({
+        kind: 'card_reviewed',
+        cardId: event.card.id,
+        rating: event.log.rating,
+        at: event.log.review,
+      })
+      .catch((error: unknown) =>
+        log.warn('[pathgen] a review could not be checked for a remediation:', error),
+      )
+  })
+
+  /** The question the learner was sure about, for P11 to write against. */
+  const stemOfItem = async (itemBankId: string): Promise<string | null> => {
+    const entry = await repos.itemBank.findById(itemBankId)
+    const activity =
+      entry === undefined ? undefined : await repos.paths.findActivity(entry.activityId)
+    return activity === undefined ? null : activityStem(activity)
+  }
+
+  /** §10 step 8's `insert_remediation` actions, acted on: each is §11's "confident error". */
+  const onDiagnosticCompleted = async (sessionId: string): Promise<void> => {
+    const session = await repos.diagnosticSessions.findById(sessionId)
+    if (session === undefined) return
+    const stems = new Map<string, string>()
+    for (const itemId of remediationItemIds(session)) {
+      const stem = await stemOfItem(itemId)
+      if (stem !== null) stems.set(itemId, stem)
+    }
+    for (const signal of diagnosticRemediationSignals(session, stems)) {
+      await remediation.handle(signal)
+    }
+  }
+
+  /**
    * Stage 7 (sub-phase 8.3): the same client, cache and runner, plus the three things only
    * expansion needs — the activity author, retrieval and the embedding port — and, since
    * 8.4, the gates that decide when a lesson is `ready`.
@@ -315,8 +402,17 @@ export function bootstrapPathgen({
         if (reopened > 0) log.info(`[pathgen] re-opened ${reopened} module(s) marked known`)
       })
       .catch((error: unknown) => log.warn('[pathgen] the deferred verification failed:', error))
+  // §11's traceability: the measured effect of every recent detour, refreshed on the same beat.
+  const measureRemediations = () =>
+    remediation
+      .sweep()
+      .catch((error: unknown) => log.warn('[pathgen] the remediation outcome sweep failed:', error))
   void verify()
-  setInterval(() => void verify(), VERIFY_EVERY_MS).unref()
+  void measureRemediations()
+  setInterval(() => {
+    void verify()
+    void measureRemediations()
+  }, VERIFY_EVERY_MS).unref()
 
   /**
    * The startup resume sweep `generationRuns.listActive()` was written for and nothing ever
@@ -344,6 +440,9 @@ export function bootstrapPathgen({
     clock,
     itemBank,
     diagnostics,
+    remediation,
+    affected: (pathVersionId) => findAffectedLessons(repos, pathVersionId),
+    onDiagnosticCompleted,
     quote: async (config: GenerationConfigInput) => {
       const { estimate } = await quoteGenerationConfig({ ai, repos, prompts }, config)
       return { estimate, warnings: [] }

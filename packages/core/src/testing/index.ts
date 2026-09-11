@@ -23,6 +23,7 @@ export {
   importanceLevelsContract,
   jobsContract,
   outboxContract,
+  remediationsContract,
   reviewLogsContract,
   runRepositoryContracts,
   schedulerProfilesContract,

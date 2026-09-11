@@ -1,5 +1,21 @@
-import type { Clock, LearningPath, PathRepository, PathTree, PathVersion } from '@retenia/core'
+import type {
+  Clock,
+  KnowledgeItemRepository,
+  LearningPath,
+  PathRepository,
+  PathTree,
+  PathVersion,
+} from '@retenia/core'
 import { GenerationError } from '../errors'
+import { asJson } from '../json'
+import { diffDrafts, type VersionDiff } from '../regenerate/diff'
+import {
+  applyProgressMigration,
+  type MigrationItem,
+  type MigrationLesson,
+  type MigrationSummary,
+  planProgressMigration,
+} from '../regenerate/migrate'
 import { type PathDraft, pathDraftSchema } from '../schemas/path-draft'
 
 /**
@@ -15,21 +31,33 @@ import { type PathDraft, pathDraftSchema } from '../schemas/path-draft'
  * `known_node_ids` (§13 step 3's "ya lo sé") becomes `lessons.completed_at`: every lesson under
  * a known section or module is frozen already completed. Real FSRS low-priority seeding needs
  * the memory system's item creation and stays the diagnostic's `seed_memory` TODO (8.5).
+ *
+ * **Freezing a regeneration** (sub-phase 8.6, §7 "Regenerar = nueva PathSpec.version con diff
+ * por lección; el progreso migra por concept_id"): when the path already has an active version,
+ * the new one is compared with it lesson by lesson (`regenerate/diff.ts`, stored in
+ * `path_versions.diff`) and inherits its progress by concept (`regenerate/migrate.ts`) before it
+ * becomes the active version. The previous version's rows are only ever read.
  */
 
 export interface FreezeRepos {
   readonly paths: Pick<
     PathRepository,
     | 'findVersion'
+    | 'findVersionByNumber'
     | 'findById'
     | 'update'
+    | 'updateVersion'
     | 'createSection'
     | 'createModule'
     | 'createLesson'
+    | 'updateLesson'
     | 'freezeVersion'
     | 'setActiveVersion'
     | 'loadTree'
   >
+  /** Where the previous version's cards hang. Absent means completion still migrates and the
+   *  cards simply stay attached to the lessons they were written for. */
+  readonly knowledgeItems?: Pick<KnowledgeItemRepository, 'listByLesson' | 'update'>
 }
 
 export interface FreezeDeps {
@@ -45,10 +73,64 @@ export interface FreezeResult {
   readonly path: LearningPath
   readonly version: PathVersion
   readonly tree: PathTree
+  /** Against the version that was active, when this freeze replaced one. */
+  readonly diff: VersionDiff | null
+  readonly migrated: MigrationSummary | null
 }
 
 function readDraft(version: PathVersion): PathDraft {
   return pathDraftSchema.parse(version.spec)
+}
+
+function migrationLessons(tree: PathTree): MigrationLesson[] {
+  return tree.sections.flatMap((section) =>
+    section.modules.flatMap((module) =>
+      module.lessons.map((lesson) => ({
+        id: lesson.id,
+        kind: lesson.kind,
+        conceptIds: lesson.conceptIds,
+        completed: lesson.completedAt !== null,
+      })),
+    ),
+  )
+}
+
+/** The previous active version's diff and progress, carried into the one just materialized. */
+async function inherit(
+  deps: FreezeDeps,
+  previous: PathVersion,
+  next: PathVersion,
+  draft: PathDraft,
+  now: Date,
+): Promise<{ diff: VersionDiff | null; migrated: MigrationSummary | null }> {
+  const previousDraft = pathDraftSchema.safeParse(previous.spec)
+  const diff = previousDraft.success
+    ? diffDrafts(previousDraft.data, draft, { from: previous.number, to: next.number })
+    : null
+  const [before, after] = await Promise.all([
+    deps.repos.paths.loadTree(previous.id),
+    deps.repos.paths.loadTree(next.id),
+  ])
+  if (before === undefined || after === undefined) return { diff, migrated: null }
+
+  const previousLessons = migrationLessons(before)
+  const items: MigrationItem[] = []
+  if (deps.repos.knowledgeItems !== undefined) {
+    for (const lesson of previousLessons) {
+      items.push(...(await deps.repos.knowledgeItems.listByLesson(lesson.id)))
+    }
+  }
+  const nextLessons = migrationLessons(after)
+  const plan = planProgressMigration({ previous: previousLessons, next: nextLessons, items })
+  // "Ya lo sé" may already have completed some of them; completing twice would move the date.
+  const alreadyDone = new Set(nextLessons.filter((lesson) => lesson.completed).map((l) => l.id))
+  const migrated = await applyProgressMigration(
+    deps.repos,
+    { ...plan, complete: plan.complete.filter((id) => !alreadyDone.has(id)) },
+    items,
+    now,
+  )
+  return { diff, migrated }
 }
 
 export async function freezePath(deps: FreezeDeps, input: FreezeInput): Promise<FreezeResult> {
@@ -168,9 +250,37 @@ export async function freezePath(deps: FreezeDeps, input: FreezeInput): Promise<
     }
   }
 
-  const frozen = await deps.repos.paths.freezeVersion(version.id, now)
+  let frozen = await deps.repos.paths.freezeVersion(version.id, now)
+
+  // A regeneration: the version being studied until now hands over its progress.
+  const previous =
+    path.activeVersion === null || path.activeVersion === frozen.number
+      ? undefined
+      : await deps.repos.paths.findVersionByNumber(path.id, path.activeVersion)
+  let diff: VersionDiff | null = null
+  let migrated: MigrationSummary | null = null
+  if (previous !== undefined && previous.frozenAt !== null) {
+    const inherited = await inherit(deps, previous, frozen, draft, now)
+    diff = inherited.diff
+    migrated = inherited.migrated
+    if (diff !== null)
+      frozen = await deps.repos.paths.updateVersion(frozen.id, { diff: asJson(diff) })
+  }
+
   await deps.repos.paths.setActiveVersion(path.id, frozen.number)
-  const updatedPath = await deps.repos.paths.update(path.id, { status: 'active' })
+  const updatedPath = await deps.repos.paths.update(path.id, {
+    status: 'active',
+    // A regeneration left the studied path's own fields alone until now (`generation-run.ts`).
+    ...(previous === undefined
+      ? {}
+      : {
+          title: draft.title,
+          language: draft.language,
+          level: draft.level,
+          goal: draft.goal,
+          targetDate: draft.target_date,
+        }),
+  })
   const tree = await deps.repos.paths.loadTree(frozen.id)
   if (tree === undefined) {
     throw new GenerationError(
@@ -179,5 +289,5 @@ export async function freezePath(deps: FreezeDeps, input: FreezeInput): Promise<
     )
   }
 
-  return { path: updatedPath, version: frozen, tree }
+  return { path: updatedPath, version: frozen, tree, diff, migrated }
 }

@@ -19,5 +19,6 @@ export type {
   PathVersion,
   Section,
 } from './paths'
+export type { Remediation } from './remediations'
 export type { Attempt, LessonSession, ReviewLog, ReviewSession } from './sessions'
 export type { AiBatch, AiCall, AiResult, Job, OutboxEntry, Setting } from './system'

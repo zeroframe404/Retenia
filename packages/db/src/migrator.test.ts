@@ -48,6 +48,7 @@ const EXPECTED_TABLES = [
   'outbox',
   'path_versions',
   'paths',
+  'remediations',
   'review_logs',
   'review_sessions',
   'scheduler_profiles',
@@ -106,6 +107,7 @@ describe('loadMigrations()', () => {
       '0015_lesson_expansion',
       '0016_lesson_qa_status',
       '0017_diagnostic_sessions',
+      '0018_remediations',
     ])
     for (const migration of migrations) expect(migration.sql.length).toBeGreaterThan(0)
   })
@@ -158,6 +160,7 @@ describe('migrate()', () => {
       '0015_lesson_expansion',
       '0016_lesson_qa_status',
       '0017_diagnostic_sessions',
+      '0018_remediations',
     ])
     expect(result.alreadyApplied).toEqual([])
     expect(listTables(opened)).toEqual([...EXPECTED_TABLES])
@@ -188,6 +191,7 @@ describe('migrate()', () => {
       '0015_lesson_expansion',
       '0016_lesson_qa_status',
       '0017_diagnostic_sessions',
+      '0018_remediations',
     ])
     expect(listTables(opened)).toEqual([...EXPECTED_TABLES])
     expect(opened.sqlite.prepare('SELECT count(*) AS n FROM importance_levels').get()).toEqual({
@@ -217,7 +221,7 @@ describe('migrate()', () => {
 
   it('accepts the raw handle and the Drizzle instance as targets too', () => {
     opened = openDatabase(IN_MEMORY)
-    expect(migrate(opened.sqlite).applied).toHaveLength(18)
+    expect(migrate(opened.sqlite).applied).toHaveLength(19)
     expect(migrate(opened.db).applied).toHaveLength(0)
   })
 

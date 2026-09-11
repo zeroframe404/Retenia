@@ -42,6 +42,7 @@ const ALL_TABLES = [
   'outbox',
   'path_versions',
   'paths',
+  'remediations',
   'review_logs',
   'review_sessions',
   'scheduler_profiles',
@@ -366,6 +367,24 @@ describe('v1 schema', () => {
         stopReason: 'all_classified',
         startedAt: now,
         finishedAt: now + 600_000,
+        ...a,
+      })
+      .run()
+
+    db.insert(schema.remediations)
+      .values({
+        id: ids.next(),
+        pathVersionId,
+        moduleId,
+        conceptId: 'c-heart',
+        misconceptionId: 'mc-three-chambers',
+        trigger: 'memory_lapses',
+        status: 'active',
+        anchorLessonId: lessonId,
+        lessonId: remediationId,
+        specId: 'L01.r1',
+        evidence: { lapses: 3 },
+        boost: { card_ids: [] },
         ...a,
       })
       .run()
@@ -763,7 +782,7 @@ describe('v1 schema', () => {
       expect(count(table), table).toBeGreaterThanOrEqual(1)
     }
     expect(count('importance_levels')).toBe(5)
-    expect(count('_migrations')).toBe(18)
+    expect(count('_migrations')).toBe(19)
     expect(count('lessons')).toBe(2)
   })
 
@@ -1159,6 +1178,47 @@ describe('v1 schema', () => {
     ).toMatch(
       /WHERE "diagnostic_sessions"\."status" = 'in_progress' AND "diagnostic_sessions"\."deleted_at" IS NULL/,
     )
+  })
+
+  it('guards remediations: defaults, enums, the refusal-iff-refused rule, JSON shapes and the FK', () => {
+    const { pathVersionId } = seedEverything()
+    const base = {
+      pathVersionId,
+      conceptId: 'c-heart',
+      trigger: 'memory_lapses' as const,
+      status: 'active' as const,
+      ...audit(now),
+    }
+    const insert = (values: Partial<typeof schema.remediations.$inferInsert>) => () =>
+      opened.db
+        .insert(schema.remediations)
+        .values({ ...base, id: ids.next(), ...values })
+        .run()
+
+    const id = ids.next()
+    opened.db
+      .insert(schema.remediations)
+      .values({ ...base, id })
+      .run()
+    expect(
+      opened.sqlite
+        .prepare('SELECT evidence, boost, outcome, refusal FROM remediations WHERE id = ?')
+        .get(id),
+    ).toEqual({ evidence: '{}', boost: '{}', outcome: null, refusal: null })
+
+    expect(insert({ trigger: 'never_happens' as never })).toThrow(/remediations_trigger/)
+    expect(insert({ status: 'archived' as never })).toThrow(/remediations_status/)
+    expect(insert({ refusal: 'because' as never })).toThrow(/remediations_refusal\b/)
+    expect(insert({ status: 'refused' as const, refusal: null })).toThrow(
+      /remediations_refusal_iff_refused/,
+    )
+    expect(insert({ status: 'active' as const, refusal: 'weekly_limit' as const })).toThrow(
+      /remediations_refusal_iff_refused/,
+    )
+    expect(insert({ evidence: [1] as never })).toThrow(/remediations_evidence_json/)
+    expect(insert({ boost: 'x' as never })).toThrow(/remediations_boost_json/)
+    expect(insert({ outcome: [1] as never })).toThrow(/remediations_outcome_json/)
+    expect(insert({ pathVersionId: ids.next() })).toThrow(/FOREIGN KEY constraint failed/)
   })
 
   it('ships the five importance levels with the spec values', () => {

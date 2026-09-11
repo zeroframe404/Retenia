@@ -131,6 +131,7 @@ export {
   urgentModeHoursSchema,
 } from './channels/memory'
 export type {
+  AffectedLessonsDto,
   CheckpointNodeDto,
   CoreLessonNodeDto,
   DiagnosticConfidenceDto,
@@ -169,10 +170,14 @@ export type {
   QaReportLessonDto,
   QaVerdictDto,
   ReinforcementNodeDto,
+  RemediationDecisionDto,
+  RemediationDto,
   SectionNodeDto,
   SelfAssessmentLevelDto,
+  VersionDiffDto,
 } from './channels/pathgen'
 export {
+  affectedLessonsDtoSchema,
   checkpointNodeDtoSchema,
   coreLessonNodeDtoSchema,
   diagnosticConfidenceDtoSchema,
@@ -198,6 +203,7 @@ export {
   ITEM_USAGE_DTOS,
   itemBankStatusDtoSchema,
   itemUsageDtoSchema,
+  LESSON_CHANGE_DTOS,
   LESSON_REGENERATE_MODES,
   LESSON_STATUSES,
   lessonQaSummaryDtoSchema,
@@ -221,10 +227,19 @@ export {
   qaReportDtoSchema,
   qaReportLessonDtoSchema,
   qaVerdictSchema,
+  REMEDIATION_REFUSAL_DTOS,
+  REMEDIATION_STATUS_DTOS,
+  REMEDIATION_TRIGGER_DTOS,
   reinforcementNodeDtoSchema,
+  remediationDecisionDtoSchema,
+  remediationDtoSchema,
+  remediationRefusalDtoSchema,
+  remediationStatusDtoSchema,
+  remediationTriggerDtoSchema,
   SELF_ASSESSMENT_LEVEL_DTOS,
   sectionNodeDtoSchema,
   selfAssessmentLevelDtoSchema,
+  versionDiffDtoSchema,
 } from './channels/pathgen'
 export {
   evaluationSchema,
@@ -292,8 +307,16 @@ export type { DeepLink, UpdateStatus } from './events/app'
 export { updateStatusSchema } from './events/app'
 export type { JobProgressEvent } from './events/jobs'
 export { jobProgressSchema } from './events/jobs'
-export type { PathgenLessonStatusEvent, PathgenProgressEvent } from './events/pathgen'
-export { pathgenLessonStatusSchema, pathgenProgressSchema } from './events/pathgen'
+export type {
+  PathgenLessonStatusEvent,
+  PathgenProgressEvent,
+  PathgenRemediationEvent,
+} from './events/pathgen'
+export {
+  pathgenLessonStatusSchema,
+  pathgenProgressSchema,
+  pathgenRemediationSchema,
+} from './events/pathgen'
 
 /**
  * Every main<->renderer request/response channel. Merge one object per domain; the

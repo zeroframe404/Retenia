@@ -630,7 +630,8 @@ export const diagnosticModuleResultDtoSchema = z.object({
   pendingSeedLessons: count,
   reverted: z.boolean(),
   reopened: z.boolean(),
-  reopenReason: z.enum(['lapses', 'low_retention']).nullable(),
+  /** `remediation`: the third detour on one of its concepts sent the learner back (§11). */
+  reopenReason: z.enum(['lapses', 'low_retention', 'remediation']).nullable(),
 })
 export type DiagnosticModuleResultDto = z.infer<typeof diagnosticModuleResultDtoSchema>
 
@@ -671,6 +672,143 @@ export const diagnosticStateDtoSchema = z.object({
   result: diagnosticResultDtoSchema.nullable(),
 })
 export type DiagnosticStateDto = z.infer<typeof diagnosticStateDtoSchema>
+
+// --- remediation and regeneration (sub-phase 8.6) ---------------------------------------------
+
+/** Mirrors `REMEDIATION_TRIGGERS` in `packages/db/src/schema/remediations.ts`. */
+export const REMEDIATION_TRIGGER_DTOS = [
+  'reinforcement_low',
+  'memory_lapses',
+  'memory_retention',
+  'confident_error',
+  'repeated_misconception',
+  'user_request',
+] as const
+/** Mirrors `REMEDIATION_STATUSES`. */
+export const REMEDIATION_STATUS_DTOS = [
+  'active',
+  'completed',
+  'dismissed',
+  'refused',
+  'failed',
+] as const
+/** Mirrors `REMEDIATION_REFUSALS`. */
+export const REMEDIATION_REFUSAL_DTOS = [
+  'duplicate_concept',
+  'module_active',
+  'weekly_limit',
+  'revisit_core',
+  'no_anchor',
+] as const
+export const remediationTriggerDtoSchema = z.enum(REMEDIATION_TRIGGER_DTOS)
+export const remediationStatusDtoSchema = z.enum(REMEDIATION_STATUS_DTOS)
+export const remediationRefusalDtoSchema = z.enum(REMEDIATION_REFUSAL_DTOS)
+
+/**
+ * One remediation as the path map draws it (§11): a dotted detour node beside its anchor, or —
+ * for a refusal — the reason nothing was inserted. `reasons` carries the numbers behind the
+ * "desvío sugerido" toast; the sentence is the renderer's, in the learner's language.
+ */
+export const remediationDtoSchema = z.object({
+  id: z.uuid(),
+  pathVersionId: z.uuid(),
+  moduleId: z.uuid().nullable(),
+  conceptId: z.string().max(128),
+  conceptName: z.string().max(500),
+  misconceptionId: z.string().max(64).nullable(),
+  trigger: remediationTriggerDtoSchema,
+  status: remediationStatusDtoSchema,
+  refusal: remediationRefusalDtoSchema.nullable(),
+  lessonId: z.uuid().nullable(),
+  /** `L07.r1`. */
+  specId: z.string().max(64).nullable(),
+  anchorLessonId: z.uuid().nullable(),
+  anchorSpecId: z.string().max(64).nullable(),
+  /** Which side of its anchor the node sits on. */
+  position: z.enum(['after', 'before']).nullable(),
+  title: z.string().max(1_000).nullable(),
+  lessonStatus: lessonStatusDtoSchema.nullable(),
+  estimatedMinutes: z.int().min(0).max(60).nullable(),
+  reasons: z.object({
+    accuracy: z.number().min(0).max(1).nullable(),
+    lapses: count.nullable(),
+    meanR: z.number().min(0).max(1).nullable(),
+    failures: count.nullable(),
+    context: z.enum(['diagnostic', 'exam']).nullable(),
+  }),
+  /** For `revisit_core`: the core lesson to go back to. */
+  revisitLessonId: z.uuid().nullable(),
+  boostedCards: count,
+  boostExpiresAt: z.iso.datetime().nullable(),
+  createdAt: z.iso.datetime(),
+  resolvedAt: z.iso.datetime().nullable(),
+})
+export type RemediationDto = z.infer<typeof remediationDtoSchema>
+
+export const remediationDecisionDtoSchema = z.object({
+  kind: z.enum(['inserted', 'refused', 'failed', 'ignored']),
+  refusal: remediationRefusalDtoSchema.nullable(),
+  remediation: remediationDtoSchema.nullable(),
+})
+export type RemediationDecisionDto = z.infer<typeof remediationDecisionDtoSchema>
+
+/** Mirrors `LESSON_CHANGES` in `packages/pathgen/src/regenerate/diff.ts`. */
+export const LESSON_CHANGE_DTOS = ['unchanged', 'changed', 'added', 'removed'] as const
+const conceptList = z.array(z.string().max(128)).max(64)
+
+/** "Regenerar ruta crea v2 con un diff" (§13 step 6): per lesson, what v2 did to v1. */
+export const versionDiffDtoSchema = z.object({
+  fromVersion: z.int().min(1),
+  toVersion: z.int().min(1),
+  lessons: z
+    .array(
+      z.object({
+        change: z.enum(LESSON_CHANGE_DTOS),
+        specId: z.string().max(64).nullable(),
+        title: z.string().max(1_000).nullable(),
+        previousSpecId: z.string().max(64).nullable(),
+        previousTitle: z.string().max(1_000).nullable(),
+        addedConcepts: conceptList,
+        removedConcepts: conceptList,
+        keptConcepts: conceptList,
+      }),
+    )
+    .max(2_000),
+  concepts: z.object({
+    added: conceptList.max(2_000),
+    removed: conceptList.max(2_000),
+    kept: count,
+  }),
+  summary: z.object({ unchanged: count, changed: count, added: count, removed: count }),
+  /** Concept id → name, for every id the lists above name. */
+  conceptNames: z.record(z.string().max(128), z.string().max(500)),
+})
+export type VersionDiffDto = z.infer<typeof versionDiffDtoSchema>
+
+/** "Regenerar afectadas": the sources that changed and the lessons written from what they lost. */
+export const affectedLessonsDtoSchema = z.object({
+  sources: z
+    .array(
+      z.object({
+        sourceId: z.uuid(),
+        title: z.string().max(1_000),
+        reason: z.enum(['blob_changed', 'chunks_changed', 'missing']),
+      }),
+    )
+    .max(50),
+  lessons: z
+    .array(
+      z.object({
+        lessonId: z.uuid(),
+        specId: z.string().max(64),
+        title: z.string().max(1_000),
+        sourceIds: z.array(z.uuid()).max(50),
+        missingFragments: count,
+      }),
+    )
+    .max(2_000),
+})
+export type AffectedLessonsDto = z.infer<typeof affectedLessonsDtoSchema>
 
 export const pathgenChannels = defineContract({
   /** The wizard's step-1 live estimate — never writes anything (§13 step 1). */
@@ -862,5 +1000,67 @@ export const pathgenChannels = defineContract({
   'pathgen.diagnosticRevert': {
     input: z.object({ sessionId: z.uuid(), moduleId: z.uuid().optional() }),
     output: diagnosticStateDtoSchema,
+  },
+
+  // --- remediation (sub-phase 8.6, §11) -------------------------------------------------------
+
+  /** Every remediation of a version: the detours the map draws and the refusals behind them. */
+  'pathgen.remediationList': {
+    input: z.object({ pathVersionId: z.uuid() }),
+    output: z.object({ remediations: z.array(remediationDtoSchema).max(2_000) }),
+  },
+
+  /**
+   * The lesson player's "no lo entiendo" (§11's fifth trigger). The concept is taken only if it
+   * is one of the lesson's own; the §11 limits apply as to every other trigger.
+   */
+  'pathgen.remediationRequest': {
+    input: z.object({ lessonId: z.uuid(), conceptId: z.string().min(1).max(128).optional() }),
+    output: remediationDecisionDtoSchema,
+  },
+
+  /** The learner finished a detour: its lesson completes and its contrast card joins memory. */
+  'pathgen.remediationComplete': {
+    input: z.object({ remediationId: z.uuid() }),
+    output: remediationDtoSchema,
+  },
+
+  /** The learner closed a detour: the node goes away; its `Lxx.rN` is never handed out again. */
+  'pathgen.remediationDismiss': {
+    input: z.object({ remediationId: z.uuid() }),
+    output: remediationDtoSchema,
+  },
+
+  // --- regeneration (§7, §13 step 6) ----------------------------------------------------------
+
+  /**
+   * "Regenerar ruta": stages 8.1–8.4 again into a new, unfrozen version of the same path, with
+   * the path's configuration or an edited one. The version being studied stays active until the
+   * new one is frozen.
+   */
+  'pathgen.regenerate': {
+    input: z.object({
+      pathId: z.uuid(),
+      config: generationConfigInputSchema.optional(),
+      allowOverBudget: z.boolean().optional(),
+    }),
+    output: generationResultDtoSchema,
+  },
+
+  /** A version against the one it replaces — stored once frozen, computed live for a draft. */
+  'pathgen.versionDiff': {
+    input: z.object({ pathVersionId: z.uuid() }),
+    output: z.object({ diff: versionDiffDtoSchema.nullable() }),
+  },
+
+  'pathgen.affectedLessons': {
+    input: z.object({ pathVersionId: z.uuid() }),
+    output: affectedLessonsDtoSchema,
+  },
+
+  /** "Regenerar afectadas": re-writes the listed lessons (all affected ones when absent). */
+  'pathgen.regenerateAffected': {
+    input: z.object({ pathVersionId: z.uuid(), lessonIds: z.array(z.uuid()).max(500).optional() }),
+    output: z.object({ run: generationRunDtoSchema.nullable(), lessons: count }),
   },
 })

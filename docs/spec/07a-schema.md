@@ -60,6 +60,7 @@ Packaging note (Windows first): the `.node` binaries of both drivers and `sqlite
 | 15 | `0015_lesson_expansion` | `cd2d5cb43e0b` |  |
 | 16 | `0016_lesson_qa_status` | `e71c52ae8e7e` |  |
 | 17 | `0017_diagnostic_sessions` | `c3bc1ac98ddc` | `diagnostic_sessions` (the prior-knowledge diagnostic of `04-path-generation.md` §10: self-assessment, the answer log a resume replays, the item being served, the result, and what the result wrote so it can be undone) and `item_bank.authoring` (what P9 said about each item; `cell_key` is the item build's idempotency key). The column is added with `ALTER TABLE … ADD COLUMN … CHECK` rather than drizzle-kit's table rebuild, which cannot commit while `exam_items` rows reference `item_bank`. |
+| 18 | `0018_remediations` | `bf93e47b3f03` | `remediations` (the remediation log of `04-path-generation.md` §11: trigger, the limits' verdict and its refusal reason, the anchor lesson and the `L07.r1` detour it became, the evidence, the temporary importance raise, and the outcome measured afterwards). A new table only — no existing row is rewritten. |
 
 ## Tables
 
@@ -86,6 +87,7 @@ Packaging note (Windows first): the `.node` binaries of both drivers and `sqlite
 | `exam_items` | Exams, item bank and diagnostic | 14 | 3 | 2 | 7 |
 | `exam_attempts` | Exams, item bank and diagnostic | 15 | 1 | 1 | 10 |
 | `diagnostic_sessions` | Exams, item bank and diagnostic | 17 | 1 | 2 | 12 |
+| `remediations` | Remediation | 20 | 4 | 4 | 10 |
 | `importance_levels` | Memory system | 14 | 0 | 1 | 11 |
 | `scheduler_profiles` | Memory system | 20 | 0 | 1 | 11 |
 | `knowledge_items` | Memory system | 18 | 3 | 5 | 10 |
@@ -893,6 +895,55 @@ Checks:
 - `diagnostic_sessions_id_uuidv7`: `length(id) = 36 AND substr(id, 15, 1) = '7'`
 - `diagnostic_sessions_version_positive`: `version >= 1`
 - `diagnostic_sessions_updated_after_created`: `updated_at >= created_at`
+
+## Remediation
+
+The remediation log (`src/schema/remediations.ts`): every trigger that fired on a concept, what the limits of `04-path-generation.md` §11 made of it, the `L07.r1` detour it became — a `lessons` row of kind `remediation` — and its measured effect. Refusals are rows too, so the thresholds can be tuned against what was not inserted.
+
+### `remediations`
+
+| Column | Type | Null | Default | Key |
+|---|---|---|---|---|
+| `id` | text | no |  | PK |
+| `path_version_id` | text | no |  | → `path_versions.id` |
+| `module_id` | text | yes |  | → `modules.id` |
+| `concept_id` | text | no |  |  |
+| `misconception_id` | text | yes |  |  |
+| `trigger` | text | no |  |  |
+| `status` | text | no |  |  |
+| `refusal` | text | yes |  |  |
+| `anchor_lesson_id` | text | yes |  | → `lessons.id` |
+| `lesson_id` | text | yes |  | → `lessons.id` |
+| `spec_id` | text | yes |  |  |
+| `evidence` | text | no | `'{}'` |  |
+| `boost` | text | no | `'{}'` |  |
+| `outcome` | text | yes |  |  |
+| `resolved_at` | integer | yes |  |  |
+| `created_at` | integer | no |  |  |
+| `updated_at` | integer | no |  |  |
+| `deleted_at` | integer | yes |  |  |
+| `device_id` | text | no |  |  |
+| `version` | integer | no | `1` |  |
+
+Indexes:
+
+- `remediations_created` (`created_at`)
+- `remediations_lesson` (`lesson_id`)
+- `remediations_concept` (`concept_id`)
+- `remediations_version_status` (`path_version_id`, `status`)
+
+Checks:
+
+- `remediations_trigger`: `trigger IN ('reinforcement_low', 'memory_lapses', 'memory_retention', 'confident_error', 'repeated_misconception', 'user_request')`
+- `remediations_status`: `status IN ('active', 'completed', 'dismissed', 'refused', 'failed')`
+- `remediations_refusal`: `refusal IS NULL OR refusal IN ('duplicate_concept', 'module_active', 'weekly_limit', 'revisit_core', 'no_anchor')`
+- `remediations_refusal_iff_refused`: `(status = 'refused') = (refusal IS NOT NULL)`
+- `remediations_evidence_json`: `json_valid(evidence) AND json_type(evidence) = 'object'`
+- `remediations_boost_json`: `json_valid(boost) AND json_type(boost) = 'object'`
+- `remediations_outcome_json`: `outcome IS NULL OR (json_valid(outcome) AND json_type(outcome) = 'object')`
+- `remediations_id_uuidv7`: `length(id) = 36 AND substr(id, 15, 1) = '7'`
+- `remediations_version_positive`: `version >= 1`
+- `remediations_updated_after_created`: `updated_at >= created_at`
 
 ## Memory system
 

@@ -44,3 +44,4 @@ export {
 } from './grade-long-text/task'
 export * from './make-activities'
 export * from './make-items'
+export * from './remediation'

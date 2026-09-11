@@ -388,7 +388,8 @@
       },
       "reopened": {
         "lapses": "Reopened after failed reviews",
-        "low_retention": "Reopened for low retention"
+        "low_retention": "Reopened for low retention",
+        "remediation": "Reopened: a third detour on one of its ideas"
       },
       "revert": "Undo",
       "revertModule": "Undo “{title}”",
@@ -405,6 +406,59 @@
       "probability": "P {percent} %",
       "evidence": "{answered} answered / {inferred} inferred",
       "continue": "Continue"
+    }
+  },
+  "remediation": {
+    "toastTitle": "Suggested detour: {title}",
+    "minutes": "{count} min",
+    "dismiss": "Dismiss",
+    "reason": {
+      "reinforcement_low": "You got {percent} % right on “{concept}” in the reinforcement.",
+      "memory_lapses": "You forgot “{concept}” {count, plural, one {# time} other {# times}} in the last two weeks.",
+      "memory_retention": "Your recall of “{concept}” dropped to {percent} %.",
+      "confident_error": "You were sure about a wrong answer on “{concept}”.",
+      "repeated_misconception": "The same mistake on “{concept}” came up again.",
+      "user_request": "You asked for another explanation of “{concept}”."
+    },
+    "refused": {
+      "duplicate_concept": "There is already a detour on “{concept}”.",
+      "module_active": "Finish this module’s open detour before starting another.",
+      "weekly_limit": "You already have 3 detours this week; “{concept}” will wait.",
+      "revisit_core": "That is the third detour on “{concept}”: going back to the lesson will help more.",
+      "no_anchor": "There is no lesson on “{concept}” to hang a detour from."
+    },
+    "failed": "The detour on “{concept}” could not be prepared."
+  },
+  "regenerate": {
+    "title": "Regenerate path",
+    "description": "Builds a new version with the same settings. Your progress carries over by idea, and this version stays active until you confirm the new one.",
+    "action": "Regenerate path",
+    "running": "Regenerating…",
+    "error": "The path could not be regenerated. Try again.",
+    "affected": {
+      "title": "Updated sources",
+      "description": "{count, plural, one {# lesson was written from parts that changed.} other {# lessons were written from parts that changed.}}",
+      "none": "No lesson is out of date.",
+      "action": "Regenerate affected",
+      "running": "Regenerating…",
+      "reason": {
+        "blob_changed": "The file changed",
+        "chunks_changed": "Its contents changed",
+        "missing": "It is no longer in the library"
+      }
+    },
+    "diff": {
+      "title": "Changes since version {from}",
+      "summary": "{unchanged} unchanged · {changed} changed · {added} new · {removed} removed",
+      "change": {
+        "unchanged": "Unchanged",
+        "changed": "Changed",
+        "added": "New",
+        "removed": "Removed"
+      },
+      "addedConcepts": "Adds: {concepts}",
+      "removedConcepts": "Drops: {concepts}",
+      "was": "Was: {title}"
     }
   }
 }
