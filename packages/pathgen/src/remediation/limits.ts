@@ -24,6 +24,13 @@ export interface LimitsInput {
   readonly moduleId: string
   /** Every remediation of this path version. */
   readonly version: readonly LimitRow[]
+  /** Every remediation of this concept across every version of the same path — the live one
+   *  and every one a regeneration superseded. A regeneration only *retires* a superseded
+   *  version's open detours (`dismissed`, `migrate.ts` never migrates a `remediation` lesson
+   *  to the new version) — it does not erase the row — so this, not `version`, is what "the
+   *  third remediation of a concept" (§11) counts: otherwise the count would silently reset to
+   *  zero on every regeneration and the learner could get three more "free" detours each time. */
+  readonly conceptHistory: readonly Pick<Remediation, 'conceptId' | 'status'>[]
   /** Every remediation created in the last week, whichever path it belongs to: the week is the
    *  learner's, not the path's. */
   readonly recent: readonly Pick<Remediation, 'status' | 'createdAt'>[]
@@ -43,7 +50,9 @@ export function checkLimits(
   if (sameConcept.some((row) => row.status === 'active')) {
     return { kind: 'refuse', refusal: 'duplicate_concept' }
   }
-  const insertedForConcept = sameConcept.filter((row) => INSERTED_STATUSES.has(row.status)).length
+  const insertedForConcept = input.conceptHistory.filter(
+    (row) => row.conceptId === input.conceptId && INSERTED_STATUSES.has(row.status),
+  ).length
   if (insertedForConcept >= policy.revisitCoreAt - 1) {
     return {
       kind: 'refuse',

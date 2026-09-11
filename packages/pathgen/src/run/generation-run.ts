@@ -188,9 +188,12 @@ function readAccounting(run: GenerationRun): {
     calls: manifest.cost.calls,
     cacheHits: manifest.cost.cache_hits,
     models: {
-      extract: [...manifest.models.P1_extract_chunk.models_used],
-      outline: [...manifest.models.P2_synthesize_outline.models_used],
-      module: [...manifest.models.P2_synthesize_module.models_used],
+      // §8's `models` is an open map keyed by stage (`schemas/manifest.ts`), so a key this
+      // run's own manifest always writes could in principle be absent on one it never wrote —
+      // never true for `buildManifest`'s own P1/P2 keys, but the type no longer promises it.
+      extract: [...(manifest.models.P1_extract_chunk?.models_used ?? [])],
+      outline: [...(manifest.models.P2_synthesize_outline?.models_used ?? [])],
+      module: [...(manifest.models.P2_synthesize_module?.models_used ?? [])],
     },
   }
 }

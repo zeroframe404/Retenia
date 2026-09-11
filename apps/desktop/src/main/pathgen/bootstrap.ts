@@ -1,12 +1,15 @@
 import {
   createActivityAuthor,
+  createAiLongTextGrader,
   createItemAuthor,
   createRemediationAuthor,
+  type GradeLongTextPrompt,
 } from '@retenia/activity-ai'
 import type { AiClient, AiRegistry, BatchRunner } from '@retenia/ai'
 import { realTimers } from '@retenia/ai'
+import { loadPrompt, type PromptFileReader } from '@retenia/ai/prompts'
 import { bundledPromptReader } from '@retenia/ai/prompts-bundled'
-import type { Clock, DomainEventBus, EmbeddingProvider } from '@retenia/core'
+import type { AiGrader, Clock, DomainEventBus, EmbeddingProvider } from '@retenia/core'
 import { detectLanguage } from '@retenia/ingest'
 import type {
   PathgenLessonStatusEvent,
@@ -77,6 +80,48 @@ export interface BootstrapPathgenOptions {
 const pathgenLogger: PathgenLogger = {
   warn: (message) => log.warn(message),
   error: (message, error) => log.error(message, error),
+}
+
+/**
+ * P10's grader (`docs/spec/04-path-generation.md` §9's "P10_grade", `packages/activity-ai`'s
+ * `createAiLongTextGrader`), over the running app's `AiClient` — the exact construction
+ * `itemAuthor`/`createRemediationAuthor` below use for P9/P11: the prompt loaded once, its own
+ * declared role bound through `AiClient.textGenerator`, and `grade_long_text` as the `purpose`
+ * tag `ai_calls.purpose` names for this call (`AiBinding.purpose`'s own doc comment gives this
+ * exact string as an example).
+ *
+ * Deliberately **not** part of `PathgenPrompts`/`loadPathgenPrompts`: P10 runs whenever a
+ * learner submits a `long_text` answer during review, never during path generation, so it is
+ * not one of the eleven prompts `createGenerationRun`/`createExpansionRun`/`createQaPipeline`
+ * are given — `packages/pathgen/src/prompts.ts`'s `PATHGEN_PROMPT_IDS` excludes it on purpose,
+ * and `grader.test.ts` loads it straight from `@retenia/ai/prompts` for the same reason.
+ *
+ * It is constructed here, alongside the other P9/P11 authors, because this is the one file
+ * that already knows how to turn `AiClient` plus a loaded prompt into a role-bound grader and
+ * because no review/grading bootstrap exists yet to own it (`apps/desktop/src/main/memory/`'s
+ * `createMemoryService` takes no `AiClient` at all today). See `bootstrapPathgen`'s caller in
+ * `apps/desktop/src/main/index.ts` for what is still missing before a real answer reaches it.
+ *
+ * `read` defaults exactly like `loadPrompt`'s own third parameter: `undefined` reads the disk,
+ * which is right for a test running from source; `bootstrapPathgen` passes the bundled reader,
+ * because a bundled `@retenia/ai` cannot resolve `PROMPTS_ROOT` from `out/main/index.js`.
+ */
+export function createLongTextGrader(ai: AiClient, read?: PromptFileReader): AiGrader {
+  const loaded = loadPrompt('grade_long_text', undefined, read)
+  const prompt: GradeLongTextPrompt = {
+    template: loaded.template,
+    role: loaded.frontmatter.role,
+    temperature: loaded.frontmatter.temperature,
+  }
+  return createAiLongTextGrader({
+    textGenerator: ai.textGenerator({ role: prompt.role, purpose: 'grade_long_text' }),
+    prompt,
+    onError: (error) =>
+      log.warn(
+        '[pathgen] the P10 long-text grader fell back to the deterministic estimate:',
+        error,
+      ),
+  })
 }
 
 export function bootstrapPathgen({
@@ -188,6 +233,10 @@ export function bootstrapPathgen({
    */
   const bankVectors = new Map<string, Float32Array | null>()
   const itemAuthor = createItemAuthor({ prompt: prompts.items })
+  // P10 (`docs/spec/04-path-generation.md` §9), over the same `AiClient` — see
+  // `createLongTextGrader`'s own doc comment for why it is built here and what is still
+  // missing before a review answer actually reaches it.
+  const longTextGrader = createLongTextGrader(ai, bundledPromptReader)
   const itemBank = createItemBankService({
     repos: { itemBank: repos.itemBank },
     build: (input) =>
@@ -441,6 +490,7 @@ export function bootstrapPathgen({
     itemBank,
     diagnostics,
     remediation,
+    longTextGrader,
     affected: (pathVersionId) => findAffectedLessons(repos, pathVersionId),
     onDiagnosticCompleted,
     quote: async (config: GenerationConfigInput) => {

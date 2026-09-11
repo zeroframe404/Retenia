@@ -361,8 +361,11 @@ then re-opens the module if 2 lapses occur in 14 days.
    self-assessment in 4 levels; what is marked "never seen it" is not asked.
 2. **Start** at the mid-depth module of the DAG with its mid item.
 3. **Answer + confidence** → weight `w = 1.0 / 0.6 / 0.3`; `θ_m += K(n)·w·(y − P)` with
-   `K(n) = 1/(1 + 0.05·n)` scaled to ≈ **0.8** on the first item; a "sure" error is recorded
-   as a **confident misconception**.
+   `K(n) = a/(1 + 0.05·n)`, `a` scaled so that **the θ movement itself is ≈ 0.8 on the first
+   item** — a first, "sure" (`w = 1`) answer starts at `P = 0.5`, so `K(0)·1·0.5 ≈ 0.8` gives
+   `K(0) = a ≈ 1.6`, not 0.8. (0.8 is what sub-phase 8.6's acceptance simulation — 200
+   synthetic learners, ≥ 85 % known-vs-unknown accuracy — was calibrated against; a literal
+   `a = 0.8` fails that gate.) A "sure" error is recorded as a **confident misconception**.
 4. **Propagation:** ancestors `+0.5·Δθ` if `Δθ > 0`; descendants `+0.5·Δθ` if `Δθ < 0`;
    maximum two levels.
 5. **Next item:** the most uncertain module weighted by importance; difficulty ≈ θ; no

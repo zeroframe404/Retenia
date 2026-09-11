@@ -1,4 +1,5 @@
 import type {
+  AiGrader,
   GenerationRun,
   LearningPath,
   Lesson,
@@ -321,6 +322,30 @@ function makeRuns() {
 }
 
 describe('createPathgenFacade()', () => {
+  it('exposes the P10 long-text grader deps.longTextGrader was built with, or null without one', async () => {
+    const version = makeVersion()
+    const repos = makeRepos(version, makePath())
+    const grader: AiGrader = vi.fn()
+    const withGrader = createPathgenFacade({
+      runs: makeRuns(),
+      expansion: makeExpansion(),
+      repos,
+      clock,
+      quote: async () => ({ estimate: null as never, warnings: [] }),
+      longTextGrader: grader,
+    })
+    expect(withGrader.longTextGrader).toBe(grader)
+
+    const withoutGrader = createPathgenFacade({
+      runs: makeRuns(),
+      expansion: makeExpansion(),
+      repos,
+      clock,
+      quote: async () => ({ estimate: null as never, warnings: [] }),
+    })
+    expect(withoutGrader.longTextGrader).toBeNull()
+  })
+
   it('getVersion reads the draft out of the version spec', async () => {
     const version = makeVersion()
     const path = makePath()

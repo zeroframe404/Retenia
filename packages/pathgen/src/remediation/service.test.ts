@@ -1,4 +1,5 @@
 import type { AiClient, Timers } from '@retenia/ai'
+import type { PathVersion } from '@retenia/core'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { silentLogger } from '../logger'
 import { testPrompts } from '../testing/extract-fixtures'
@@ -584,6 +585,85 @@ describe('createRemediationService', () => {
       expect(decision.refusal).toBe('revisit_core')
       expect(decision.revisitLessonId).toBe(world.lessonIds.L01)
       expect(decision.remediation?.evidence.revisit_lesson_id).toBe(world.lessonIds.L01)
+    }
+    expect(onRevisitCore).toHaveBeenCalledTimes(1)
+    expect(onRevisitCore).toHaveBeenCalledWith({
+      pathVersionId: world.pathVersionId,
+      moduleId: world.moduleIds.M01,
+      conceptId: 'c1',
+      lessonId: world.lessonIds.L01,
+    })
+  })
+
+  it('counts a concept’s remediations from a since-regenerated path version toward revisit_core, so the limit survives a regeneration', async () => {
+    // A regeneration froze a new `world.pathVersionId` and left this one behind: `migrate.ts`
+    // never carries a `remediation` lesson to the new version, and `retire()` only dismisses a
+    // superseded version's *open* detours — the rows themselves stay in the log. Nothing on the
+    // current (live) version names this concept at all.
+    const supersededVersionId = world.ids.next()
+    const supersededVersion: PathVersion = {
+      id: supersededVersionId,
+      pathId: world.pathId,
+      number: 0,
+      spec: {},
+      knowledgeGraph: null,
+      manifest: null,
+      diff: null,
+      frozenAt: world.clock.now(),
+      createdAt: world.clock.now(),
+      updatedAt: world.clock.now(),
+      deletedAt: null,
+      deviceId: 'test',
+      version: 1,
+    }
+    world.rows.versions.push(supersededVersion)
+    await world.repos.remediations.create({
+      pathVersionId: supersededVersionId,
+      moduleId: world.moduleIds.M01,
+      conceptId: 'c1',
+      misconceptionId: null,
+      trigger: 'user_request',
+      status: 'completed',
+      refusal: null,
+      anchorLessonId: world.lessonIds.L01,
+      lessonId: null,
+      specId: 'L01.r1',
+      evidence: {},
+      boost: {},
+      outcome: null,
+      resolvedAt: world.clock.now(),
+    })
+    await world.repos.remediations.create({
+      pathVersionId: supersededVersionId,
+      moduleId: world.moduleIds.M01,
+      conceptId: 'c1',
+      misconceptionId: null,
+      trigger: 'user_request',
+      // What `retire()` does to a superseded version's still-open detour on regeneration.
+      status: 'dismissed',
+      refusal: null,
+      anchorLessonId: world.lessonIds.L01,
+      lessonId: null,
+      specId: 'L01.r2',
+      evidence: { retired_by: world.pathVersionId },
+      boost: {},
+      outcome: null,
+      resolvedAt: world.clock.now(),
+    })
+
+    const onRevisitCore = vi.fn(async () => {})
+    const service = createRemediationService(buildDeps(world, { onRevisitCore }))
+    const decisions = await service.handle({
+      kind: 'not_understood',
+      lessonId: world.lessonIds.L01,
+      conceptId: 'c1',
+    })
+    expect(decisions).toHaveLength(1)
+    const decision = decisions[0]
+    expect(decision?.kind).toBe('refused')
+    if (decision?.kind === 'refused') {
+      expect(decision.refusal).toBe('revisit_core')
+      expect(decision.revisitLessonId).toBe(world.lessonIds.L01)
     }
     expect(onRevisitCore).toHaveBeenCalledTimes(1)
     expect(onRevisitCore).toHaveBeenCalledWith({

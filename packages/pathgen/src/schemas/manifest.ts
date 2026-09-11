@@ -81,11 +81,16 @@ export const generationManifestSchema = z.object({
     path_draft: z.string(),
     manifest: z.string(),
   }),
-  models: z.object({
-    P1_extract_chunk: manifestModelSchema,
-    P2_synthesize_outline: manifestModelSchema,
-    P2_synthesize_module: manifestModelSchema,
-  }),
+  /**
+   * Keyed by pipeline stage id (`P1_extract_chunk`, `P2_synthesize_outline`,
+   * `P2_synthesize_module`, and — once expansion/QA have run — `P3_write_lesson`,
+   * `P4_make_activities`, `P5_make_flashcards`, `P6_faithfulness`, `P7_pedagogy_judge`,
+   * `P8_edit`). §8 describes this as an open map, not a fixed set of keys: draft persistence
+   * writes the P1/P2 entries; `expansion-run.ts` merges in the rest after `expandLessons` and
+   * the QA pipeline complete. P9 (item bank) and P11 (remediation) don't track model usage
+   * anywhere yet, so they have no entry here — see the comment in `expansion-run.ts`.
+   */
+  models: z.record(z.string(), manifestModelSchema),
   embeddings: z.object({
     model_id: z.string().nullable(),
     dims: z.number().int().nullable(),

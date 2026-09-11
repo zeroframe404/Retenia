@@ -6,6 +6,7 @@ import type {
   GenerationRun,
   LearningPath,
   NewEntity,
+  PathRepository,
   PathVersion,
   Source,
 } from '@retenia/core'
@@ -30,6 +31,13 @@ type Audited<T> = T & {
 }
 
 export interface MemoryRepos extends GenerationRepos {
+  /**
+   * Widened past `GenerationRepos['paths']` with `updateVersion`: `expansion-run.ts`'s
+   * `ExpansionRepos.paths` needs it to merge stage 7/8's manifest data back onto the version,
+   * and this fake is small enough already that reusing it there is worth one extra method
+   * rather than a fourth fake next to `expand-repos.ts` and `tree-repos.ts`.
+   */
+  readonly paths: GenerationRepos['paths'] & Pick<PathRepository, 'updateVersion'>
   readonly rows: {
     readonly sources: Source[]
     readonly chunks: Chunk[]
@@ -122,6 +130,8 @@ export function createMemoryRepos(
         return row
       },
       findVersion: async (id) => rows.versions.find((version) => version.id === id),
+      updateVersion: async (id, patch: EntityPatch<PathVersion>) =>
+        patchRow(rows.versions, id, patch, 'path version'),
     },
 
     generationRuns: {

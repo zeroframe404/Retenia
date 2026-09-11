@@ -20,12 +20,11 @@ export {
   createExplainAnswer,
   EXPLAIN_ANSWER_TEMPERATURE,
 } from './explain-answer'
-export type { AiLongTextGraderOptions } from './grade-long-text/grader'
+export type { AiLongTextGraderOptions, GradeLongTextPrompt } from './grade-long-text/grader'
 export {
   AGREEMENT_EPSILON,
   createAiLongTextGrader,
   DISAGREEMENT_UNCERTAIN,
-  GRADE_LONG_TEXT_TEMPERATURE,
   ratingForScore,
 } from './grade-long-text/grader'
 export type { GradeLongTextOutput } from './grade-long-text/output'
