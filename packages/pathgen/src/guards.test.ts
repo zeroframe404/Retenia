@@ -21,7 +21,7 @@ const sources = (dir: string): string[] =>
   walk(join(SRC, dir)).filter((file) => file.endsWith('.ts') && !file.endsWith('.test.ts'))
 
 describe('the deterministic stages', () => {
-  const files = ['graph', 'validate', 'sequencing'].flatMap(sources)
+  const files = ['graph', 'validate', 'sequencing', 'qa/gates'].flatMap(sources)
 
   it('scan the three directories', () => {
     expect(files.length).toBeGreaterThan(10)

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { citedPageOf } from './dto'
+import { citedPageOf, perLessonUsdOf, toLessonQaSummaryDto } from './dto'
 
 /**
  * `firstCitation.page` is the half of "Reportar error" that makes it a deep link rather than
@@ -41,5 +41,77 @@ describe('citedPageOf()', () => {
   it('is null for a source that has no pages at all', () => {
     // A transcript locates by timestamp. The link still opens the source, at its start.
     expect(citedPageOf(citation, chunk({ t_start: 750_000 }))).toBeNull()
+  })
+})
+
+describe('perLessonUsdOf() and toLessonQaSummaryDto() (sub-phase 8.4)', () => {
+  const stage = (usd: number, calls = 4) => ({
+    calls,
+    inputTokens: 0,
+    cachedInputTokens: 0,
+    cacheWriteTokens: 0,
+    outputTokens: 0,
+    usd,
+  })
+
+  it('adds the four QA rows to what one more lesson costs', () => {
+    const run = {
+      estimate: {
+        chunks: 0,
+        concepts: 0,
+        modules: 0,
+        lessons: 4,
+        p1: stage(0, 0),
+        p2Outline: stage(0, 0),
+        p2Modules: stage(0, 0),
+        p3Lessons: stage(1),
+        p4Activities: stage(1),
+        p5Flashcards: stage(1),
+        p6Faithfulness: stage(0.4),
+        p7Judge: stage(0.4),
+        p8Edit: stage(0.2, 1),
+        qaRegenerate: stage(0.2, 1),
+        usd: 4.2,
+        lowUsd: 4,
+        highUsd: 5,
+        minutes: { low: 1, high: 2 },
+        dispatch: 'sync',
+        priced: { cheap: true, smart: true, judge: true },
+      },
+    } as never
+    expect(perLessonUsdOf(run)).toBeCloseTo((3 + 0.4 + 0.4 + 0.2 + 0.2) / 4, 9)
+  })
+
+  it('is null before the gates ran and a summary after', () => {
+    expect(toLessonQaSummaryDto(null)).toBeNull()
+    expect(
+      toLessonQaSummaryDto({
+        faithfulness: 0.95,
+        pedagogy_score: 4,
+        coverage_ok: true,
+        warnings: [],
+        version: 1,
+        run_id: 'run-1',
+        at: '2026-09-09T12:00:00.000Z',
+        mode: 'full',
+        verdict: 'pass',
+        reviewed: true,
+        sources_count: 2,
+        iterations: { edit: 0, regenerate: 0 },
+        gates: [],
+        criteria: [],
+        findings: [],
+        cost: { usd: 0, calls: 0, cache_hits: 2 },
+        models: { p6: null, p7: null, p8: null },
+      }),
+    ).toEqual({
+      faithfulness: 0.95,
+      pedagogyScore: 4,
+      coverageOk: true,
+      verdict: 'pass',
+      reviewed: true,
+      sourcesCount: 2,
+      findings: 0,
+    })
   })
 })

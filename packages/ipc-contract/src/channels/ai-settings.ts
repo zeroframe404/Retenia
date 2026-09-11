@@ -19,7 +19,15 @@ export const providerKindSchema = z.enum(PROVIDER_KIND_VALUES)
 export type ProviderKindDto = z.infer<typeof providerKindSchema>
 
 /** Mirrors `ProviderRole` in `packages/ai/src/provider-port.ts`. Same leaf-package reason. */
-export const PROVIDER_ROLE_VALUES = ['smart', 'cheap', 'vision', 'audio', 'embed', 'local'] as const
+export const PROVIDER_ROLE_VALUES = [
+  'smart',
+  'cheap',
+  'judge',
+  'vision',
+  'audio',
+  'embed',
+  'local',
+] as const
 export const providerRoleSchema = z.enum(PROVIDER_ROLE_VALUES)
 export type ProviderRoleDto = z.infer<typeof providerRoleSchema>
 

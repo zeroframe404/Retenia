@@ -4,8 +4,8 @@ import {
   normalizeText,
   type PerItem,
 } from '@retenia/activity-schema'
+import { relativeDistance } from '@retenia/core'
 import { DEFAULT_MAX_RELATIVE_EDIT_DISTANCE, PASS_SCORE } from '../constants'
-import { relativeDistance } from '../text/distance'
 import { type AttemptMeta, result } from './shared'
 
 /**

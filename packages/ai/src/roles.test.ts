@@ -1,9 +1,67 @@
 import { describe, expect, it } from 'vitest'
 import { AiError } from './errors'
 import { DEFAULT_PROFILES } from './profiles'
-import { DEFAULT_ROLES, resolveTargets } from './roles'
+import { DEFAULT_ROLES, judgeConflict, resolveTargets, withJudgeDefault } from './roles'
 
 const registry = { profiles: DEFAULT_PROFILES, roles: DEFAULT_ROLES }
+
+const sonnet = { profileId: 'anthropic', modelId: 'claude-sonnet-5' }
+const gemini = { profileId: 'google', modelId: 'gemini-3.7-flash' }
+const haiku = { profileId: 'anthropic', modelId: 'claude-haiku-4-5' }
+
+describe('the judge role (docs/spec/04-path-generation.md §5 gate 9)', () => {
+  it('defaults to Gemini 3.7 Flash, the complement of the Sonnet 5 generator', () => {
+    expect(resolveTargets('judge', registry).map((t) => `${t.profile.id}/${t.modelId}`)).toEqual([
+      'google/gemini-3.7-flash',
+      'anthropic/claude-haiku-4-5',
+    ])
+    expect(judgeConflict(DEFAULT_ROLES)).toBeNull()
+    // Nothing to derive: the very same object comes back, so identity comparisons hold.
+    expect(withJudgeDefault(DEFAULT_ROLES)).toBe(DEFAULT_ROLES)
+  })
+
+  it('derives Sonnet 5 when the lessons are written by Gemini', () => {
+    const roles = withJudgeDefault({
+      smart: { primary: gemini, fallbacks: [sonnet] },
+      cheap: DEFAULT_ROLES.cheap as never,
+    })
+    expect(roles.judge).toEqual({ primary: sonnet, fallbacks: [haiku] })
+    expect(judgeConflict(roles)).toBeNull()
+  })
+
+  it('re-derives a judge that collides with a moved generator', () => {
+    // The user moved `smart` onto the model the judge defaulted to.
+    const collided = { ...DEFAULT_ROLES, smart: { primary: gemini, fallbacks: [] } }
+    expect(judgeConflict(collided)).toMatch(/must not run on the model that writes the lessons/)
+    expect(withJudgeDefault(collided).judge).toEqual({ primary: sonnet, fallbacks: [haiku] })
+  })
+
+  it('keeps an explicit judge that already differs from the generator', () => {
+    const explicit = { ...DEFAULT_ROLES, judge: { primary: haiku, fallbacks: [] } }
+    expect(withJudgeDefault(explicit)).toBe(explicit)
+  })
+
+  it('strips the generator from an explicit judge’s fallbacks', () => {
+    // Sonnet writes the lessons; a judge that falls back to Sonnet is the same bias one hop
+    // later, so that fallback goes and the rest of the chain stays as chosen.
+    const explicit = { ...DEFAULT_ROLES, judge: { primary: haiku, fallbacks: [sonnet, gemini] } }
+    expect(withJudgeDefault(explicit).judge).toEqual({ primary: haiku, fallbacks: [gemini] })
+  })
+
+  it('never lets a fallback land on the generator either', () => {
+    // A generator that is neither chain's primary: the first chain applies, minus any
+    // fallback equal to the generator.
+    const roles = withJudgeDefault({ smart: { primary: haiku, fallbacks: [] } })
+    expect(roles.judge?.primary).toEqual(gemini)
+    expect(roles.judge?.fallbacks).toEqual([])
+  })
+
+  it('has nothing to conflict with when a role is missing', () => {
+    expect(judgeConflict({})).toBeNull()
+    expect(judgeConflict({ smart: { primary: sonnet, fallbacks: [] } })).toBeNull()
+    expect(withJudgeDefault({}).judge?.primary).toEqual(gemini)
+  })
+})
 
 describe('resolveTargets', () => {
   it('puts Gemini Flash first for the cheap role, then Haiku as the fallback', () => {

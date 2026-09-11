@@ -3,9 +3,14 @@ import { EXTRACT_CHUNK_SCHEMA_ID } from './schemas/extraction'
 import { MAKE_FLASHCARDS_SCHEMA_ID } from './schemas/flashcards'
 import { WRITE_LESSON_SCHEMA_ID } from './schemas/lesson'
 import { SYNTHESIZE_MODULE_SCHEMA_ID, SYNTHESIZE_OUTLINE_SCHEMA_ID } from './schemas/outline'
+import {
+  EDIT_LESSON_SCHEMA_ID,
+  FAITHFULNESS_SCHEMA_ID,
+  PEDAGOGY_JUDGE_SCHEMA_ID,
+} from './schemas/qa'
 
 /**
- * The six prompt files this package runs, as the main process hands them in.
+ * The nine prompt files this package runs, as the main process hands them in.
  *
  * `@retenia/ai/prompts` is Node-only (it reads `packages/ai/prompts/` from disk), so the
  * pure entry point takes the *loaded* prompts rather than loading them — the same convention
@@ -20,6 +25,9 @@ export const PATHGEN_PROMPT_IDS = {
   lesson: 'P3_write_lesson',
   activities: 'P4_make_activities',
   flashcards: 'P5_make_flashcards',
+  faithfulness: 'P6_faithfulness',
+  judge: 'P7_pedagogy_judge',
+  edit: 'P8_edit',
 } as const
 
 export interface PathgenPrompt {
@@ -45,6 +53,12 @@ export interface PathgenPrompts {
    */
   readonly activities: PathgenPrompt
   readonly flashcards: PathgenPrompt
+  /** P6 — stage 8's per-claim verifier, on the `cheap` role at temperature 0. */
+  readonly faithfulness: PathgenPrompt
+  /** P7 — stage 8's pedagogy judge, on the `judge` role (never the generator's) at temperature 0. */
+  readonly judge: PathgenPrompt
+  /** P8 — stage 8's critic-editor. */
+  readonly edit: PathgenPrompt
   /** `promptVersionSnapshot()` — every registered prompt, for the manifest. */
   readonly snapshot: Readonly<Record<string, string>>
 }
@@ -101,6 +115,27 @@ export function assertPathgenPrompts(prompts: PathgenPrompts): PathgenPrompts {
         `outside ${P4_TEMPERATURE_RANGE.min}–${P4_TEMPERATURE_RANGE.max})`,
     )
   }
+  // §7 and §9: the verifier and the judge are deterministic — a threshold of 0.9 or of 3
+  // means nothing over an answer that varies between runs.
+  for (const [id, prompt] of [
+    [PATHGEN_PROMPT_IDS.faithfulness, prompts.faithfulness],
+    [PATHGEN_PROMPT_IDS.judge, prompts.judge],
+  ] as const) {
+    if (prompt.temperature !== 0) {
+      throw new PathgenPromptError(
+        `${id} must run at temperature 0 (it runs at ${prompt.temperature})`,
+      )
+    }
+  }
+  // §5 gate 9 and §14 pitfall 16: the judge is a model different from the generator, and the
+  // `judge` role is what carries that rule through the role map. A prompt file re-pointed at
+  // `smart` would have the lesson's author grade its own work.
+  if (prompts.judge.role !== 'judge') {
+    throw new PathgenPromptError(
+      `${PATHGEN_PROMPT_IDS.judge} must run on the "judge" role, never on the generator's ` +
+        `(it declares "${prompts.judge.role}")`,
+    )
+  }
   const expected: ReadonlyArray<readonly [string, PathgenPrompt, string | null]> = [
     [PATHGEN_PROMPT_IDS.extract, prompts.extract, EXTRACT_CHUNK_SCHEMA_ID],
     [PATHGEN_PROMPT_IDS.outline, prompts.outline, SYNTHESIZE_OUTLINE_SCHEMA_ID],
@@ -108,6 +143,9 @@ export function assertPathgenPrompts(prompts: PathgenPrompts): PathgenPrompts {
     [PATHGEN_PROMPT_IDS.lesson, prompts.lesson, WRITE_LESSON_SCHEMA_ID],
     [PATHGEN_PROMPT_IDS.activities, prompts.activities, null],
     [PATHGEN_PROMPT_IDS.flashcards, prompts.flashcards, MAKE_FLASHCARDS_SCHEMA_ID],
+    [PATHGEN_PROMPT_IDS.faithfulness, prompts.faithfulness, FAITHFULNESS_SCHEMA_ID],
+    [PATHGEN_PROMPT_IDS.judge, prompts.judge, PEDAGOGY_JUDGE_SCHEMA_ID],
+    [PATHGEN_PROMPT_IDS.edit, prompts.edit, EDIT_LESSON_SCHEMA_ID],
   ]
   for (const [id, prompt, schema] of expected) {
     if (schema !== null && prompt.schemaVersion !== schema) {

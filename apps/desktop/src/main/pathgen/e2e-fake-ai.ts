@@ -7,9 +7,12 @@ import {
   ZERO_USAGE,
 } from '@retenia/ai'
 import {
+  EDIT_LESSON_SCHEMA_NAME,
   EXTRACT_CHUNK_SCHEMA_NAME,
+  FAITHFULNESS_SCHEMA_NAME,
   MAKE_FLASHCARDS_SCHEMA_NAME,
   type ParsedModuleTask,
+  PEDAGOGY_JUDGE_SCHEMA_NAME,
   parseModuleTask,
   SYNTHESIZE_MODULE_SCHEMA_NAME,
   SYNTHESIZE_OUTLINE_SCHEMA_NAME,
@@ -41,18 +44,33 @@ import {
 
 export const E2E_PROFILE_ID = 'e2e-fake'
 export const E2E_MODEL_ID = 'e2e-fake-model'
+/**
+ * A second model id on the same keyless profile, for the `judge` role: stage 8's bias guard
+ * (`docs/spec/04-path-generation.md` §5 gate 9) skips a judge that resolves to the model
+ * that wrote the lesson, so a fake that routed every role at one id would never judge
+ * anything and the E2E run would never see a pedagogy score.
+ */
+export const E2E_JUDGE_MODEL_ID = 'e2e-fake-judge'
 
 /** One `ProviderProfile` needing no stored key — the same shape `ai.providers.local.model`
  *  already uses for Ollama/LM Studio (`keyRef: null`). */
 export function e2eFakeProfile() {
-  return createLocalProfile({ id: E2E_PROFILE_ID, baseURL: '', models: [E2E_MODEL_ID] })
+  return createLocalProfile({
+    id: E2E_PROFILE_ID,
+    baseURL: '',
+    models: [E2E_MODEL_ID, E2E_JUDGE_MODEL_ID],
+  })
 }
 
-/** Routes both text roles at the fake profile — nothing else needs a role in this pipeline. */
+/** Routes the three text roles at the fake profile — the judge at its own model id. */
 export function e2eFakeRegistry(): AiRegistry {
   const target = { profileId: E2E_PROFILE_ID, modelId: E2E_MODEL_ID }
   const role = { primary: target, fallbacks: [] }
-  return { profiles: [e2eFakeProfile()], roles: { smart: role, cheap: role } }
+  const judge = {
+    primary: { profileId: E2E_PROFILE_ID, modelId: E2E_JUDGE_MODEL_ID },
+    fallbacks: [],
+  }
+  return { profiles: [e2eFakeProfile()], roles: { smart: role, cheap: role, judge } }
 }
 
 /** `concept_id | canonical | kind | imp … | diff … | first: "…"` — `conceptLine()`'s own
@@ -151,6 +169,12 @@ function citeIdsFrom(prompt: string): string[] {
     .filter((id): id is string => id !== undefined)
 }
 
+/** Enough claim-free prose to keep the fake lesson inside §4's 600–1,200-word band. */
+const FILLER = Array.from(
+  { length: 60 },
+  () => 'Esta lección explica el concepto con calma y con ejemplos.',
+).join(' ')
+
 function lessonAnswer(request: TextGenerationRequest) {
   const [cite] = citeIdsFrom(request.prompt)
   const citations = cite === undefined ? [] : [cite]
@@ -163,10 +187,17 @@ function lessonAnswer(request: TextGenerationRequest) {
   })
   return {
     blocks: [
-      block('hook', 'Al terminar vas a poder explicar el concepto de esta lección.', false),
+      block(
+        'hook',
+        `Al terminar vas a poder explicar el concepto de esta lección. ${FILLER}`,
+        false,
+      ),
       block(
         'explanation',
-        `El concepto se explica en la fuente${cite === undefined ? '' : ` [cite:${cite}]`}.`,
+        // Names both fake concepts (`extractionAnswer()` above) so gate 4 (coverage) is
+        // actually satisfied, not merely skipped: a real lesson has to mention what it
+        // was asked to teach.
+        `El concepto principal y el concepto secundario se explican en la fuente${cite === undefined ? '' : ` [cite:${cite}]`}.`,
         true,
       ),
       block('summary', '- Un punto\n- Otro punto\n- Un tercero', true),
@@ -252,12 +283,48 @@ function activitiesAnswer() {
   }
 }
 
+/** The claim ids a P6 task lists in its header, so every one gets a verdict. */
+const CLAIM_IDS = /^claim_ids: (.*)$/m
+
+function faithfulnessAnswer(request: TextGenerationRequest) {
+  const ids = (CLAIM_IDS.exec(request.prompt)?.[1] ?? '').split(', ').filter((id) => id !== '')
+  return {
+    claims: ids.map((id) => ({
+      id,
+      verdict: 'supported',
+      citation_id: null,
+      sources_differ: false,
+      differing_citation_ids: [],
+      note: '',
+    })),
+  }
+}
+
+function judgeAnswer() {
+  return {
+    criteria: ['clarity', 'examples_correct', 'cognitive_load', 'alignment', 'misconceptions'].map(
+      (id) => ({ id, score: 4, rationale: 'Respuesta del proveedor falso de e2e.' }),
+    ),
+    overall: 4,
+    edits: [],
+  }
+}
+
+function editAnswer() {
+  return { changes: [], notes: [] }
+}
+
 function answerFor(request: TextGenerationRequest): object {
   if (request.schemaName === EXTRACT_CHUNK_SCHEMA_NAME) return extractionAnswer()
   if (request.schemaName === SYNTHESIZE_OUTLINE_SCHEMA_NAME) return outlineAnswer(request)
   if (request.schemaName === SYNTHESIZE_MODULE_SCHEMA_NAME) return moduleAnswer(request)
   if (request.schemaName === WRITE_LESSON_SCHEMA_NAME) return lessonAnswer(request)
   if (request.schemaName === MAKE_FLASHCARDS_SCHEMA_NAME) return flashcardAnswer(request)
+  // Stage 8 (sub-phase 8.4): every claim supported, a judge that likes the lesson, no edits —
+  // so the E2E run exercises the gates' happy path and every lesson ends `ready` and reviewed.
+  if (request.schemaName === FAITHFULNESS_SCHEMA_NAME) return faithfulnessAnswer(request)
+  if (request.schemaName === PEDAGOGY_JUDGE_SCHEMA_NAME) return judgeAnswer()
+  if (request.schemaName === EDIT_LESSON_SCHEMA_NAME) return editAnswer()
   // `make_activities_<family>`: only `choice` is written, for the reason in the module doc.
   if (request.schemaName === 'make_activities_choice') return activitiesAnswer()
   // Outside pathgen's three P1/P2 calls this provider is never selected for a real feature

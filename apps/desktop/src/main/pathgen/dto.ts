@@ -6,18 +6,25 @@ import {
   type GenerationStageDto,
   generationEstimateDtoSchema,
   generationWarningDtoSchema,
+  type LessonQaSummaryDto,
   type LessonSummaryDto,
   type PathDto,
   type PathEditOpDto,
   type PathVersionDto,
+  type QaFindingDto,
+  type QaReportLessonDto,
 } from '@retenia/ipc-contract'
 import {
   GENERATION_STAGES,
   type GenerationResult,
+  type LessonCitation,
+  type LessonQa,
   lessonCitationSchema,
   lessonExpansionSchema,
   type PathEditOp,
   pathDraftSchema,
+  readLessonQa,
+  summarizeQa,
 } from '@retenia/pathgen'
 
 /** Domain → wire conversions for every `pathgen.*` channel — kept beside the facade, the same
@@ -109,11 +116,96 @@ export function perLessonUsdOf(run: GenerationRun | undefined): number {
   // exercises and its cards. Before sub-phase 8.3 the quote stopped at P2, so the per-module
   // synthesis cost was the only proxy available — an estimate stored back then still parses
   // (the stage-7 fields default to zero) and still falls back to it.
-  const { p3Lessons, p4Activities, p5Flashcards, p2Modules } = estimate.data
+  const { p3Lessons, p4Activities, p5Flashcards, p6Faithfulness, p7Judge, p8Edit, qaRegenerate } =
+    estimate.data
   if (p3Lessons.calls > 0) {
-    return (p3Lessons.usd + p4Activities.usd + p5Flashcards.usd) / p3Lessons.calls
+    // Stage 8's rows too (sub-phase 8.4): a deeper lesson is also a lesson to verify, judge
+    // and, a third of the time, edit.
+    return (
+      (p3Lessons.usd +
+        p4Activities.usd +
+        p5Flashcards.usd +
+        p6Faithfulness.usd +
+        p7Judge.usd +
+        p8Edit.usd +
+        qaRegenerate.usd) /
+      p3Lessons.calls
+    )
   }
+  const { p2Modules } = estimate.data
   return p2Modules.calls === 0 ? 0 : p2Modules.usd / p2Modules.calls
+}
+
+/** `lessons.qa` as the badge sees it, or `null` for a lesson the gates have not reached. */
+export function toLessonQaSummaryDto(qa: LessonQa | null): LessonQaSummaryDto | null {
+  if (qa === null) return null
+  const summary = summarizeQa(qa)
+  return {
+    faithfulness: summary.faithfulness,
+    pedagogyScore: summary.pedagogyScore,
+    coverageOk: summary.coverageOk,
+    verdict: summary.verdict,
+    reviewed: summary.reviewed,
+    sourcesCount: summary.sourcesCount,
+    findings: summary.findings,
+  }
+}
+
+/** A citation of the report, with the page the caller resolved for it. */
+export interface ResolvedCitationDto {
+  readonly id: string
+  readonly sourceId: string
+  readonly locator: string
+  readonly page: number | null
+  readonly blockIds: string[]
+}
+
+/** `lessons.citations`, parsed, keyed by cite id — what a finding's `citation_ids` name. */
+export function citationsOf(lesson: Lesson): Map<string, LessonCitation> {
+  const out = new Map<string, LessonCitation>()
+  for (const raw of lesson.citations) {
+    const parsed = lessonCitationSchema.safeParse(raw)
+    if (parsed.success) out.set(parsed.data.id, parsed.data)
+  }
+  return out
+}
+
+/**
+ * One lesson of the QA report (sub-phase 8.4). `resolve` turns a cite id into what the
+ * reader route can open, or `undefined` for an id the lesson no longer stores — a finding
+ * about a stripped citation still names the id it stripped.
+ */
+export function toQaReportLessonDto(
+  lesson: Lesson,
+  moduleTitle: string,
+  resolve: (citationId: string) => ResolvedCitationDto | undefined,
+): QaReportLessonDto {
+  const qa = readLessonQa(lesson.qa)
+  const findings: QaFindingDto[] =
+    qa === null
+      ? []
+      : qa.findings.map((finding) => ({
+          gate: finding.gate,
+          kind: finding.kind,
+          blockIndex: finding.block_index,
+          sentence: finding.sentence,
+          detail: finding.detail,
+          citations: finding.citation_ids.flatMap((id) => {
+            const citation = resolve(id)
+            return citation === undefined ? [] : [citation]
+          }),
+        }))
+  return {
+    lessonId: lesson.id,
+    specId: lesson.specId,
+    moduleTitle,
+    title: lesson.title,
+    status: lesson.status,
+    qa: toLessonQaSummaryDto(qa),
+    gates: qa === null ? [] : qa.gates.map((gate) => ({ gate: gate.gate, outcome: gate.outcome })),
+    findings,
+    warnings: qa === null ? [] : toWarningsDto(qa.warnings),
+  }
 }
 
 /** `PathEditOpDto` → `PathEditOp`: the wire shape is looser (a `replace` draft is validated
@@ -210,5 +302,6 @@ export function toLessonSummaryDto(
           blockIds: [...citation.data.block_ids],
         }
       : null,
+    qa: toLessonQaSummaryDto(readLessonQa(lesson.qa)),
   }
 }

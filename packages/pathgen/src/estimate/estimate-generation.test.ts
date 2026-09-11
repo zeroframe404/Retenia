@@ -12,6 +12,11 @@ import {
   MODULE_TASK_TOKENS,
   P1_OUTPUT_TOKENS_PER_CHUNK,
   P3_CACHED_PREFIX_TOKENS,
+  P6_INPUT_TOKENS_PER_LESSON,
+  P6_OUTPUT_TOKENS,
+  P8_SHARE,
+  QA_BATCH_WAVES,
+  REGENERATE_SHARE,
 } from './estimate-generation'
 
 const cheap = {
@@ -25,6 +30,10 @@ const smart = {
   outputUsdPerMillion: 10,
   cachedInputUsdPerMillion: 0.2,
   cacheWriteUsdPerMillion: 2.5,
+}
+const judge = {
+  inputUsdPerMillion: 0.75,
+  outputUsdPerMillion: 3.75,
 }
 
 function chunks(count: number, tokens = 400) {
@@ -42,16 +51,29 @@ const systemTokens = {
   lesson: 1800,
   activities: 1600,
   flashcards: 1400,
+  faithfulness: 1300,
+  judge: 1500,
+  edit: 1200,
 }
 
 describe('estimateWarnings()', () => {
   it('reports an unpriced role only when there is a cap to enforce', () => {
-    expect(estimateWarnings({ priced: { cheap: false, smart: true } }, 0)).toEqual([])
-    expect(estimateWarnings({ priced: { cheap: true, smart: true } }, 5)).toEqual([])
-    expect(estimateWarnings({ priced: { cheap: false, smart: false } }, 5)).toEqual([
+    expect(estimateWarnings({ priced: { cheap: false, smart: true, judge: true } }, 0)).toEqual([])
+    expect(estimateWarnings({ priced: { cheap: true, smart: true, judge: true } }, 5)).toEqual([])
+    expect(estimateWarnings({ priced: { cheap: false, smart: false, judge: false } }, 5)).toEqual([
       { code: 'estimate_unpriced', stage: 'extract', params: { role: 'cheap' } },
       { code: 'estimate_unpriced', stage: 'extract', params: { role: 'smart' } },
+      { code: 'estimate_unpriced', stage: 'extract', params: { role: 'judge' } },
     ])
+  })
+
+  it('does not report the judge on a light run, which never calls it', () => {
+    expect(
+      estimateWarnings({ priced: { cheap: true, smart: true, judge: false } }, 5, 'light'),
+    ).toEqual([])
+    expect(
+      estimateWarnings({ priced: { cheap: true, smart: true, judge: false } }, 5, 'full'),
+    ).toEqual([{ code: 'estimate_unpriced', stage: 'extract', params: { role: 'judge' } }])
   })
 })
 
@@ -70,7 +92,7 @@ describe('estimateGeneration()', () => {
     const estimate = estimateGeneration({
       chunks: chunks(10),
       alreadyExtracted: 4,
-      rates: { cheap, smart },
+      rates: { cheap, smart, judge },
       systemTokens,
       dispatch: 'sync',
     })
@@ -79,7 +101,7 @@ describe('estimateGeneration()', () => {
       concepts: 12,
       modules: 2,
       dispatch: 'sync',
-      priced: { cheap: true, smart: true },
+      priced: { cheap: true, smart: true, judge: true },
     })
     // P1: 6 calls × (1000 + 400 + 120) in, 6 × 500 out.
     expect(estimate.p1).toEqual({
@@ -115,7 +137,14 @@ describe('estimateGeneration()', () => {
     // The quote covers every stage the run will be billed for, stage 7 included: §6's table
     // for a 300-page book puts the lessons row at 1.18 of a 3.4 total, so a quote that
     // stopped at P2 would understate the bill by most of it.
-    const expand = estimate.p3Lessons.usd + estimate.p4Activities.usd + estimate.p5Flashcards.usd
+    const expand =
+      estimate.p3Lessons.usd +
+      estimate.p4Activities.usd +
+      estimate.p5Flashcards.usd +
+      estimate.p6Faithfulness.usd +
+      estimate.p7Judge.usd +
+      estimate.p8Edit.usd +
+      estimate.qaRegenerate.usd
     expect(expand).toBeGreaterThan(0)
     expect(estimate.usd).toBeCloseTo(
       estimate.p1.usd + estimate.p2Outline.usd + estimate.p2Modules.usd + expand,
@@ -167,10 +196,11 @@ describe('estimateGeneration()', () => {
     })
     expect(batch.p1.usd).toBeCloseTo(sync.p1.usd / 2, 9)
     expect(batch.p2Outline).toEqual(sync.p2Outline)
-    // Stage 7 is batched too, and its tail is three sequential waves — theory, practice,
-    // cards — so the wait is four Batch API windows, not one.
+    // Stages 7 and 8 are batched too: the tail is three sequential expansion waves — theory,
+    // practice, cards — and then the QA waves, so the wait is that many Batch API windows,
+    // not one.
     expect(batch.p3Lessons.usd).toBeCloseTo(sync.p3Lessons.usd / 2, 9)
-    const windows = 1 + EXPANSION_BATCH_WAVES
+    const windows = 1 + EXPANSION_BATCH_WAVES + QA_BATCH_WAVES.full
     expect(batch.minutes.high - batch.minutes.low).toBe(
       (BATCH_MINUTES.high - BATCH_MINUTES.low) * windows,
     )
@@ -196,7 +226,7 @@ describe('estimateGeneration()', () => {
       countTokens: (text) => text.length,
     })
     expect(estimate.p1.inputTokens).toBe(1000 + 200 + 60 + 120)
-    expect(estimate.priced).toEqual({ cheap: true, smart: false })
+    expect(estimate.priced).toEqual({ cheap: true, smart: false, judge: false })
     expect(estimate.p2Outline.usd).toBe(0)
     expect(estimate.p2Modules.usd).toBe(0)
   })
@@ -223,6 +253,10 @@ describe('estimateGeneration()', () => {
     expect(empty.p3Lessons.calls).toBe(0)
     expect(empty.p4Activities.calls).toBe(0)
     expect(empty.p5Flashcards.calls).toBe(0)
+    expect(empty.p6Faithfulness.calls).toBe(0)
+    expect(empty.p7Judge.calls).toBe(0)
+    expect(empty.p8Edit.calls).toBe(0)
+    expect(empty.qaRegenerate.calls).toBe(0)
 
     const done = estimateGeneration({
       chunks: chunks(3),
@@ -234,11 +268,11 @@ describe('estimateGeneration()', () => {
     expect(done.p1.calls).toBe(0)
     expect(done.p1.usd).toBe(0)
     expect(done.p2Outline.calls).toBe(1)
-    // No P1 calls, but stage 7 still has a tail to batch, so there is still a wait — three
-    // windows rather than four.
+    // No P1 calls, but stages 7 and 8 still have a tail to batch, so there is still a wait —
+    // the expansion and QA windows, without P1's.
     expect(done.p3Lessons.calls).toBeGreaterThan(0)
     expect(done.minutes.high - done.minutes.low).toBe(
-      (BATCH_MINUTES.high - BATCH_MINUTES.low) * EXPANSION_BATCH_WAVES,
+      (BATCH_MINUTES.high - BATCH_MINUTES.low) * (EXPANSION_BATCH_WAVES + QA_BATCH_WAVES.full),
     )
   })
 
@@ -259,5 +293,89 @@ describe('estimateGeneration()', () => {
         1e6,
       9,
     )
+  })
+})
+
+describe('stage 8 rows (sub-phase 8.4)', () => {
+  const full = estimateGeneration({
+    chunks: chunks(6),
+    alreadyExtracted: 0,
+    rates: { cheap, smart, judge },
+    systemTokens,
+    dispatch: 'sync',
+  })
+
+  it('prices P6 on the cheap role, once per lesson, at §6’s 8.5k / 1k', () => {
+    expect(full.p6Faithfulness.calls).toBe(full.lessons)
+    expect(full.p6Faithfulness.inputTokens).toBe(
+      full.lessons * (systemTokens.faithfulness + P6_INPUT_TOKENS_PER_LESSON),
+    )
+    expect(full.p6Faithfulness.outputTokens).toBe(full.lessons * P6_OUTPUT_TOKENS)
+    expect(full.p6Faithfulness.usd).toBeCloseTo(
+      (full.p6Faithfulness.inputTokens * cheap.inputUsdPerMillion +
+        full.p6Faithfulness.outputTokens * cheap.outputUsdPerMillion) /
+        1e6,
+      9,
+    )
+  })
+
+  it('prices the judge on its own role and the editor on a share of the lessons', () => {
+    expect(full.p7Judge.calls).toBe(full.lessons)
+    expect(full.p7Judge.usd).toBeCloseTo(
+      (full.p7Judge.inputTokens * judge.inputUsdPerMillion +
+        full.p7Judge.outputTokens * judge.outputUsdPerMillion) /
+        1e6,
+      9,
+    )
+    expect(full.p8Edit.calls).toBe(Math.round(full.lessons * P8_SHARE))
+    expect(full.qaRegenerate.calls).toBe(Math.round(full.lessons * REGENERATE_SHARE))
+    // A regeneration costs what writing the lesson cost: P3 + P4 + P5, per lesson.
+    expect(full.qaRegenerate.usd).toBeCloseTo(
+      (full.p3Lessons.usd + full.p4Activities.usd + full.p5Flashcards.usd) * REGENERATE_SHARE,
+      6,
+    )
+    expect(full.usd).toBeGreaterThan(
+      full.p1.usd + full.p2Outline.usd + full.p2Modules.usd + full.p3Lessons.usd,
+    )
+  })
+
+  it('zeroes the judge and the editor in light mode, and keeps the verifier', () => {
+    const light = estimateGeneration({
+      chunks: chunks(6),
+      alreadyExtracted: 0,
+      rates: { cheap, smart, judge },
+      systemTokens,
+      dispatch: 'batch',
+      qaMode: 'light',
+    })
+    expect(light.p6Faithfulness.calls).toBe(light.lessons)
+    expect(light.p7Judge.calls).toBe(0)
+    expect(light.p7Judge.usd).toBe(0)
+    expect(light.p8Edit.calls).toBe(0)
+    expect(light.usd).toBeLessThan(full.usd)
+    // One QA window instead of four: P6 alone.
+    const fullBatch = estimateGeneration({
+      chunks: chunks(6),
+      alreadyExtracted: 0,
+      rates: { cheap, smart, judge },
+      systemTokens,
+      dispatch: 'batch',
+    })
+    expect(fullBatch.minutes.low - light.minutes.low).toBeGreaterThanOrEqual(
+      BATCH_MINUTES.low * (QA_BATCH_WAVES.full - QA_BATCH_WAVES.light),
+    )
+  })
+
+  it('prices an unpriced judge at zero and says so through priced.judge', () => {
+    const noJudge = estimateGeneration({
+      chunks: chunks(6),
+      alreadyExtracted: 0,
+      rates: { cheap, smart },
+      systemTokens,
+      dispatch: 'sync',
+    })
+    expect(noJudge.p7Judge.calls).toBe(noJudge.lessons)
+    expect(noJudge.p7Judge.usd).toBe(0)
+    expect(noJudge.priced.judge).toBe(false)
   })
 })

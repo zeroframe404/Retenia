@@ -9,8 +9,11 @@ import type { BudgetGuard } from '../budget'
 import type { GenerationConfig } from '../config/generation-config'
 import type { GenerationStage } from '../progress/stages'
 import { systemFor } from '../prompts'
+import { type LessonQaSummary, summarizeQa } from '../qa/lesson-qa'
+import { persistQa } from '../qa/persist'
+import type { QaLessonInput } from '../qa/pipeline'
 import type { MakeFlashcardsOutput } from '../schemas/flashcards'
-import type { LessonTheory, WriteLessonOutput } from '../schemas/lesson'
+import type { LessonCitation, LessonTheory, WriteLessonOutput } from '../schemas/lesson'
 import type { PathDraft } from '../schemas/path-draft'
 import { dedupeWarnings, type GenerationWarning, warning } from '../schemas/warnings'
 import { addUsage, type StageUsage, ZERO_USAGE } from '../usage'
@@ -59,6 +62,12 @@ import { runWave, type WaveResult } from './wave'
  * A lesson that fails is a warning, never a failure of the run — the policy P1 already
  * applies to a chunk. `reinforcement` and `checkpoint` rows are not expanded at all: they
  * compose items that already exist, which is sub-phase 8.5's.
+ *
+ * **Stage 8** (sub-phase 8.4) follows the cards when a `QaPipeline` is wired: the row moves
+ * to `qa` instead of `ready`, the gates of §5 run over the group as three more waves, and
+ * `ready` becomes the gates' verdict. A lesson under §5's thresholds goes back to P3
+ * exactly once — the same three steps at the next revision, the cards kept — and a second
+ * failure is flagged for the user rather than rewritten again.
  */
 
 /** §3 stage 7: *"the first two lessons are synchronous so the user starts in < 1 min"*. */
@@ -86,7 +95,25 @@ export interface LessonProgress {
   readonly status: LessonStatus
   readonly activities: number
   readonly flashcards: number
+  /** The gates' verdict, once there is one — what the badges redraw on. */
+  readonly qa?: LessonQaSummary
 }
+
+/** How the gates left the group: what the completion summary and the run's log report. */
+export interface ExpandQaCounts {
+  /** Lessons every gate ran over to a conclusion. */
+  readonly reviewed: number
+  readonly fixed: number
+  readonly regenerated: number
+  readonly flagged: number
+}
+
+export const ZERO_QA_COUNTS: ExpandQaCounts = Object.freeze({
+  reviewed: 0,
+  fixed: 0,
+  regenerated: 0,
+  flagged: 0,
+})
 
 export interface ExpandStageInput {
   readonly runId: string
@@ -128,6 +155,7 @@ export interface ExpandStageResult {
   readonly usage: StageUsage
   readonly batchIds: readonly string[]
   readonly modelsUsed: readonly string[]
+  readonly qa: ExpandQaCounts
 }
 
 export function tooManyFailedLessons(
@@ -141,8 +169,12 @@ interface Prepared {
   readonly plan: LessonPlan
   readonly context: LessonContext
   readonly revision: number
+  /** `expansion.qa_regenerations` when prepared: `0` may still be sent back to P3 once, `1` may not. */
+  readonly qaAttempt: number
   /** Set once P3 has landed, so P4 and P5 can be parented on it. */
   theory?: { readonly output: WriteLessonOutput; readonly customId: string; readonly model: string }
+  /** The theory as `persistTheory` wrote it — after citation resolution — for the gates to read. */
+  resolved?: { readonly theory: LessonTheory; readonly citations: readonly LessonCitation[] }
 }
 
 interface Totals {
@@ -153,9 +185,13 @@ interface Totals {
   usage: StageUsage
   batchIds: string[]
   models: Set<string>
+  qa: { reviewed: number; fixed: number; regenerated: number; flagged: number }
 }
 
-function accrue(totals: Totals, wave: WaveResult): void {
+function accrue(
+  totals: Totals,
+  wave: Pick<WaveResult, 'cacheHits' | 'calls' | 'usage' | 'batchIds' | 'modelsUsed'>,
+): void {
   totals.cacheHits += wave.cacheHits
   totals.calls += wave.calls
   totals.usage = addUsage(totals.usage, wave.usage)
@@ -192,6 +228,7 @@ export async function expandLessons(
     usage: ZERO_USAGE,
     batchIds: [],
     models: new Set<string>(),
+    qa: { reviewed: 0, fixed: 0, regenerated: 0, flagged: 0 },
   }
   let status: ExpandStageStatus = 'completed'
 
@@ -218,6 +255,7 @@ export async function expandLessons(
       usage: ZERO_USAGE,
       batchIds: [],
       modelsUsed: [],
+      qa: ZERO_QA_COUNTS,
     }
   }
 
@@ -248,6 +286,7 @@ export async function expandLessons(
       usage: ZERO_USAGE,
       batchIds: [],
       modelsUsed: [],
+      qa: ZERO_QA_COUNTS,
     }
   }
 
@@ -264,10 +303,14 @@ export async function expandLessons(
       deps.countTokens === undefined ? {} : { countTokens: deps.countTokens },
     )
     warnings.push(...context.warnings)
+    // "Regenerar" is a fresh revision by the user's hand, so the gates get their one
+    // regeneration back for it; a resume keeps the counter the ledger already holds.
+    if (input.regenerate === true) plan.expansion.qa_regenerations = 0
     prepared.push({
       plan,
       context,
       revision: plan.expansion.revision + (input.regenerate === true ? 1 : 0),
+      qaAttempt: plan.expansion.qa_regenerations,
     })
   }
 
@@ -407,7 +450,11 @@ export async function expandLessons(
   }
 
   /** Fires once per lesson whose row moved, so the panel redraws one line rather than all. */
-  const reportLesson = async (plan: LessonPlan, status: LessonStatus): Promise<void> => {
+  const reportLesson = async (
+    plan: LessonPlan,
+    status: LessonStatus,
+    qa?: LessonQaSummary,
+  ): Promise<void> => {
     if (deps.onLesson === undefined) return
     const [activities, items] = await Promise.all([
       deps.repos.paths.listActivities(plan.lessonId),
@@ -421,8 +468,13 @@ export async function expandLessons(
       status,
       activities: activities.length,
       flashcards: items.length,
+      ...(qa === undefined ? {} : { qa }),
     })
   }
+
+  // Stage 8 takes over from the cards when it is wired: `qa` is "written, not yet through
+  // §5's gates" and `ready` is the gates' verdict. Without the gates, the cards are the end.
+  const landed: LessonStatus = deps.qa === undefined ? 'ready' : 'qa'
 
   const failLesson = async (entry: Prepared, error: string): Promise<void> => {
     failed.push({ lesson: entry.plan.specId, error })
@@ -490,6 +542,7 @@ export async function expandLessons(
           word_count: value.word_count,
         }
         entry.theory = { output: value, customId: request.customId, model }
+        entry.resolved = { theory, citations: resolved.citations }
         entry.plan.expansion.p3 = {
           custom_id: request.customId,
           at: deps.clock.now().toISOString(),
@@ -700,7 +753,22 @@ export async function expandLessons(
 
   /** P5 for a group of lessons whose theory has landed, then the memory items. */
   const runCards = async (entries: readonly Prepared[], userWaiting: boolean): Promise<void> => {
-    const ready = entries.filter((entry) => entry.theory !== undefined)
+    const landedEntries = entries.filter((entry) => entry.theory !== undefined)
+    if (landedEntries.length === 0) return
+
+    // A lesson whose items already exist is never re-written (see below), so it is not asked
+    // for cards either. Until this, every "Regenerar" — and every regeneration the gates ask
+    // for — built and paid for a P5 whose answer was then thrown away.
+    const ready: Prepared[] = []
+    for (const entry of landedEntries) {
+      const already = await deps.repos.knowledgeItems.listByLesson(entry.plan.lessonId)
+      if (already.length === 0) {
+        ready.push(entry)
+        continue
+      }
+      await markLesson(deps.repos, entry.plan, landed, entry.plan.expansion)
+      await reportLesson(entry.plan, landed)
+    }
     if (ready.length === 0) return
 
     const requests = ready.map((entry) => {
@@ -803,30 +871,23 @@ export async function expandLessons(
           kept: drafts.length,
           deduped,
         }
-        // A lesson whose items already exist is never re-written. That is what makes a
-        // resume free — "created exactly once per flashcard" is a property of the stage — and
-        // it is also what "Regenerar" must do: a card the learner has already reviewed
-        // carries FSRS state, and replacing the row would throw away the stability and
-        // difficulty they earned. Rewriting the theory does not invalidate what they
-        // remember. §11's remediation policy takes the same line: it *reuses* a concept's
-        // cards and only adds a contrast card.
-        const already = await deps.repos.knowledgeItems.listByLesson(entry.plan.lessonId)
-        const written =
-          already.length > 0
-            ? 0
-            : await persistFlashcards(deps.repos, {
-                plan: entry.plan,
-                drafts,
-                expansion: entry.plan.expansion,
-                status: 'ready',
-              })
-        if (already.length > 0) {
-          await markLesson(deps.repos, entry.plan, 'ready', entry.plan.expansion)
-        }
+        // A lesson whose items already exist is never re-written — it was not even asked for
+        // cards, above. That is what makes a resume free — "created exactly once per
+        // flashcard" is a property of the stage — and it is also what "Regenerar" must do: a
+        // card the learner has already reviewed carries FSRS state, and replacing the row
+        // would throw away the stability and difficulty they earned. Rewriting the theory
+        // does not invalidate what they remember. §11's remediation policy takes the same
+        // line: it *reuses* a concept's cards and only adds a contrast card.
+        const written = await persistFlashcards(deps.repos, {
+          plan: entry.plan,
+          drafts,
+          expansion: entry.plan.expansion,
+          status: landed,
+        })
         totals.flashcards += written
         done += 1
         report('expanding_flashcards', done, ready.length, entry.plan.specId)
-        await reportLesson(entry.plan, 'ready')
+        await reportLesson(entry.plan, landed)
       },
     )
     accrue(totals, result)
@@ -838,7 +899,115 @@ export async function expandLessons(
     }
   }
 
-  /** P3, then P4, then P5, for one group of lessons. */
+  /**
+   * Stage 8 for a group whose cards have landed: the gates, the verdict, and — for a lesson
+   * under §5's thresholds that may still have it — the one regeneration.
+   */
+  const runQa = async (entries: readonly Prepared[], userWaiting: boolean): Promise<void> => {
+    const qa = deps.qa
+    if (qa === undefined) return
+    const ready = entries.filter(
+      (entry) => entry.theory !== undefined && entry.resolved !== undefined,
+    )
+    if (ready.length === 0 || stopped()) return
+
+    const lessons: QaLessonInput[] = ready.map((entry) => {
+      const theory = entry.theory as NonNullable<Prepared['theory']>
+      const resolved = entry.resolved as NonNullable<Prepared['resolved']>
+      return {
+        lessonId: entry.plan.lessonId,
+        specId: entry.plan.specId,
+        moduleId: entry.plan.moduleId,
+        title: entry.plan.node.title,
+        objectives: entry.plan.node.objectives,
+        concepts: entry.plan.concepts,
+        misconceptions: entry.plan.misconceptions,
+        theory: resolved.theory,
+        citations: resolved.citations,
+        p3CustomId: theory.customId,
+        generatorModel: theory.model,
+        attempt: entry.qaAttempt,
+        variantRounds: entry.plan.expansion.variants.all ?? 0,
+      }
+    })
+
+    const result = await qa.run({
+      runId: input.runId,
+      pathVersionId: input.pathVersionId,
+      lessonLanguage: input.config.lessonLanguage,
+      mode: input.config.qaMode,
+      lessons,
+      userWaiting,
+      allowOverBudget: input.allowOverBudget,
+      // "Más ejemplos" did not touch the theory, so a verdict under the threshold is not a
+      // reason to rewrite it — the lesson is flagged and the user decides.
+      allowRegenerate: input.moreExamples !== true,
+      ...(input.budget === undefined ? {} : { budget: input.budget }),
+      ...(input.perCallEstimateUsd === undefined
+        ? {}
+        : { perCallEstimateUsd: input.perCallEstimateUsd }),
+      ...(input.batchIds === undefined ? {} : { batchIds: input.batchIds }),
+      ...(input.signal === undefined ? {} : { signal: input.signal }),
+      onProgress: (progress) => deps.onProgress?.(progress),
+      ...(deps.onBatch === undefined ? {} : { onBatch: deps.onBatch }),
+    })
+    accrue(totals, result)
+    worsen(result.status)
+    warnings.push(...result.warnings)
+    // A wave that paused on the budget or was cancelled left some lesson unverified, and a
+    // verdict written now would be the last word on it: nothing is persisted, every lesson
+    // stays in `qa`, and the resume replays what was answered from `ai_results` for free.
+    if (stopped()) return
+
+    const again: Prepared[] = []
+    for (const outcome of result.outcomes) {
+      const entry = ready.find((candidate) => candidate.plan.lessonId === outcome.lessonId)
+      if (entry === undefined) continue
+      if (outcome.regenerate && !stopped()) {
+        warnings.push(warning('lesson_regenerated', { lesson: entry.plan.specId }))
+        again.push({
+          plan: entry.plan,
+          context: entry.context,
+          revision: entry.revision + 1,
+          qaAttempt: entry.qaAttempt + 1,
+        })
+        continue
+      }
+      await persistQa(deps.repos, {
+        lessonId: entry.plan.lessonId,
+        theory: outcome.theory,
+        citations: outcome.citations,
+        qa: outcome.qa,
+        duplicateActivityIds: outcome.duplicateActivityIds,
+      })
+      if (outcome.qa.reviewed) totals.qa.reviewed += 1
+      if (outcome.qa.verdict === 'fixed') totals.qa.fixed += 1
+      if (outcome.qa.verdict === 'regenerated') totals.qa.regenerated += 1
+      if (outcome.qa.verdict === 'flagged') totals.qa.flagged += 1
+      await reportLesson(entry.plan, 'ready', summarizeQa(outcome.qa))
+    }
+
+    if (again.length === 0 || stopped()) return
+    // The one regeneration §5 allows: P3 again at the next revision, P4 replaced, the cards
+    // kept (they are never rewritten), and the gates once more with `attempt: 1`. The
+    // counter goes on the ledger *before* P3 lands, so a process that dies here resumes into
+    // "already regenerated once" rather than into a third rewrite.
+    for (const entry of again) {
+      entry.plan.expansion.qa_regenerations = entry.qaAttempt
+      entry.plan.expansion.revision = entry.revision
+      await markLesson(deps.repos, entry.plan, 'generating', entry.plan.expansion)
+      await reportLesson(entry.plan, 'generating')
+    }
+    await runTheory(again, userWaiting)
+    if (stopped()) return
+    await runPractice(again, userWaiting)
+    if (stopped()) return
+    await runCards(again, userWaiting)
+    if (stopped()) return
+    await runQa(again, userWaiting)
+  }
+
+  /** P3, then P4, then P5, then the gates, for one group of lessons. */
   const runGroup = async (entries: readonly Prepared[], userWaiting: boolean): Promise<void> => {
     if (entries.length === 0 || stopped()) return
     // The row moves to `generating` when P3 starts (`persistTheory`), but only `ready` and
@@ -851,6 +1020,8 @@ export async function expandLessons(
     await runPractice(entries, userWaiting)
     if (stopped()) return
     await runCards(entries, userWaiting)
+    if (stopped()) return
+    await runQa(entries, userWaiting)
   }
 
   // The head is a whole pipeline run synchronously, so the learner has a *complete* lesson —
@@ -881,5 +1052,6 @@ export async function expandLessons(
     usage: totals.usage,
     batchIds: [...new Set(totals.batchIds)],
     modelsUsed: [...totals.models].sort(),
+    qa: { ...totals.qa },
   }
 }

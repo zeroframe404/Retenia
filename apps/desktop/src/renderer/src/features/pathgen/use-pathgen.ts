@@ -121,6 +121,8 @@ export function useLessons(pathVersionId: string | undefined) {
                           status: event.status,
                           activities: event.activities,
                           flashcards: event.flashcards,
+                          // The verdict rides on the push that moves the row to `ready` (8.4).
+                          qa: event.qa ?? lesson.qa,
                         }
                       : lesson,
                   ),
@@ -141,6 +143,15 @@ export function useExpand(pathVersionId: string) {
       void client.invalidateQueries({ queryKey: LESSONS_KEY(pathVersionId) })
     },
   })
+}
+
+/** Stage 8's report (sub-phase 8.4): read once per visit; the panel's pushes do not feed it. */
+export function useQaReport(pathVersionId: string | undefined) {
+  return useIpcQuery(
+    'pathgen.getQaReport',
+    { pathVersionId: pathVersionId ?? '' },
+    { enabled: pathVersionId !== undefined },
+  )
 }
 
 export function useRegenerateLesson(pathVersionId: string) {

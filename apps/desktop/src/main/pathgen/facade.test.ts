@@ -427,3 +427,114 @@ describe('createPathgenFacade()', () => {
     expect(quote).toHaveBeenCalled()
   })
 })
+
+describe('createPathgenFacade().getQaReport (sub-phase 8.4)', () => {
+  it('lists every core lesson with its verdict and resolves a finding’s citation to a page', async () => {
+    const version = makeVersion({ frozenAt: clock.now() })
+    const path = makePath()
+    const repos = makeRepos(version, path)
+    const lesson = {
+      id: '019213cd-0000-7000-8000-000000000020',
+      moduleId: 'mod-row-1',
+      ordinal: 0,
+      specId: 'S01M1L1',
+      kind: 'core' as const,
+      parentLessonId: null,
+      title: 'Lección 1',
+      status: 'ready' as const,
+      objectives: [],
+      conceptIds: ['c1'],
+      prerequisiteLessonIds: [],
+      estimatedMinutes: 10,
+      theory: null,
+      citations: [
+        {
+          id: 'B01',
+          source_id: '019213cd-0000-7000-8000-00000000003a',
+          chunk_id: 'chunk-1',
+          block_ids: ['b1'],
+          locator: 'p. 8',
+          quote: null,
+        },
+      ],
+      qa: {
+        faithfulness: 0.5,
+        pedagogy_score: 3,
+        coverage_ok: true,
+        warnings: [],
+        version: 1,
+        run_id: 'run-1',
+        at: clock.now().toISOString(),
+        mode: 'full',
+        verdict: 'flagged',
+        reviewed: true,
+        sources_count: 1,
+        iterations: { edit: 0, regenerate: 1 },
+        gates: [{ gate: 'faithfulness', outcome: 'regenerate' }],
+        criteria: [],
+        findings: [
+          {
+            gate: 'faithfulness',
+            kind: 'claim_unsupported',
+            block_index: 1,
+            sentence: 'Retiene siete.',
+            citation_ids: ['B01', 'B99'],
+            detail: 'la fuente dice cuatro',
+          },
+        ],
+        cost: { usd: 0.01, calls: 2, cache_hits: 0 },
+        models: { p6: 'gemini-3.7-flash', p7: 'gemini-3.7-flash', p8: null },
+      },
+      expansion: null,
+      remediation: null,
+      unlockRule: null,
+      xpReward: 0,
+      completedAt: null,
+      createdAt: clock.now(),
+      updatedAt: clock.now(),
+      deletedAt: null,
+      deviceId: 'test',
+      version: 1,
+    } as unknown as Lesson
+    const tree = (await repos.paths.loadTree(version.id)) as PathTree
+    const module = tree.sections[0]?.modules[0] as PathTree['sections'][number]['modules'][number]
+    repos.paths.loadTree = vi.fn(async () => ({
+      ...tree,
+      sections: [
+        {
+          ...(tree.sections[0] as PathTree['sections'][number]),
+          modules: [{ ...module, lessons: [{ ...lesson, activities: [] }] }],
+        },
+      ],
+    })) as never
+    repos.chunks.findById = vi.fn(async () => ({
+      id: 'chunk-1',
+      sourceId: '019213cd-0000-7000-8000-00000000003a',
+      unitId: null,
+      locator: { page: 8, block_ids: ['b1'] },
+    })) as never
+    const facade = createPathgenFacade({
+      runs: makeRuns(),
+      expansion: makeExpansion(),
+      repos,
+      clock,
+      quote: async () => ({ estimate: null as never, warnings: [] }),
+    })
+
+    const report = await facade.getQaReport({ pathVersionId: version.id })
+    expect(report.totals).toEqual({ lessons: 1, reviewed: 1, flagged: 1, meanFaithfulness: 0.5 })
+    const [row] = report.lessons
+    expect(row?.qa).toMatchObject({ verdict: 'flagged', faithfulness: 0.5, sourcesCount: 1 })
+    expect(row?.findings).toHaveLength(1)
+    // B01 resolves to the chunk's page; B99 names nothing the lesson stores and is left out.
+    expect(row?.findings[0]?.citations).toEqual([
+      {
+        id: 'B01',
+        sourceId: '019213cd-0000-7000-8000-00000000003a',
+        locator: 'p. 8',
+        page: 8,
+        blockIds: ['b1'],
+      },
+    ])
+  })
+})

@@ -2309,5 +2309,6 @@
     }
   ],
   "known_node_ids": [],
-  "target_language": null
+  "target_language": null,
+  "qa_mode": "full"
 }

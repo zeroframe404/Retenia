@@ -36,6 +36,14 @@ export const lessonExpansionSchema = z.object({
   /** "Regenerar" presses. Part of P3's `custom_id`, and so of P4's and P5's through it. */
   revision: z.number().int().min(0),
   /**
+   * How many times the QA gates sent this lesson back to P3 (sub-phase 8.4: at most one).
+   *
+   * Persisted *with* the revision bump, before the second attempt's P3 lands, so a process
+   * that dies mid-attempt resumes into "already regenerated once" rather than into a third
+   * rewrite. Additive: a ledger written before this field existed reads as `0`.
+   */
+  qa_regenerations: z.number().int().min(0).default(0),
+  /**
    * "Más ejemplos" presses, under the key `all`: part of every family's P4 `custom_id` and of
    * nothing else, so a second press asks for a genuinely new pool rather than replaying the
    * first one's answer.
@@ -76,6 +84,7 @@ export function emptyExpansion(runId: string): LessonExpansion {
     version: LESSON_EXPANSION_VERSION,
     run_id: runId,
     revision: 0,
+    qa_regenerations: 0,
     variants: {},
     p3: null,
     p4: null,

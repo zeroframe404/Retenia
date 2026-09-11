@@ -86,6 +86,8 @@ export function conceptsOf(knowledgeGraph: unknown): ReadonlyMap<string, Concept
         name: node.canonical,
         definition: node.definition,
         kind: node.kind,
+        aliases: [...node.aliases],
+        importance: node.importance,
       },
     ]),
   )
@@ -165,6 +167,10 @@ export function createExpansionRun(deps: ExpansionRunDeps): ExpansionRunHandle {
       // `forExam` is the exam's date, not a flag: it is what raises every flashcard this path
       // creates to `urgent` (§11 rule 3).
       forExam: draft.target_date === null ? null : { date: draft.target_date },
+      // Stage 8's depth travels on the draft for the same reason the language does: the
+      // frozen draft is the authority on what this path is, and the wizard that chose "QA
+      // ligera" may be a different run from the one that expands it.
+      qaMode: draft.qa_mode,
     })
   }
 

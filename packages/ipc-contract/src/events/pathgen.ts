@@ -1,5 +1,9 @@
 import { z } from 'zod'
-import { generationStageSchema, lessonStatusDtoSchema } from '../channels/pathgen'
+import {
+  generationStageSchema,
+  lessonQaSummaryDtoSchema,
+  lessonStatusDtoSchema,
+} from '../channels/pathgen'
 import { defineEvents } from '../define'
 
 /**
@@ -45,6 +49,8 @@ export const pathgenLessonStatusSchema = z.object({
   status: lessonStatusDtoSchema,
   activities: z.number().int().min(0),
   flashcards: z.number().int().min(0),
+  /** The gates' verdict, on the push that moves the row to `ready` (sub-phase 8.4). */
+  qa: lessonQaSummaryDtoSchema.optional(),
 })
 export type PathgenLessonStatusEvent = z.infer<typeof pathgenLessonStatusSchema>
 

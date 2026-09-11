@@ -94,6 +94,7 @@ describe('contract', () => {
       'pathgen.expand',
       'pathgen.freeze',
       'pathgen.getLessons',
+      'pathgen.getQaReport',
       'pathgen.getRun',
       'pathgen.getVersion',
       'pathgen.quote',

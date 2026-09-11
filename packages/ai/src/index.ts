@@ -153,7 +153,7 @@ export {
   retryDelayMs,
 } from './retry'
 export type { AiRegistry, ModelRef, RoleConfig, RoleMap, RoleTarget } from './roles'
-export { DEFAULT_ROLES, resolveTargets } from './roles'
+export { DEFAULT_ROLES, judgeConflict, resolveTargets, withJudgeDefault } from './roles'
 export type { AiAttempt, AiBinding, AiReview, RunDeps, RunOptions } from './run'
 export { DEFAULT_REPAIR_BUDGET, runOnce } from './run'
 export type {

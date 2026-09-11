@@ -39,7 +39,7 @@ export const promptFrontmatterSchema = z.object({
   id: z.string().min(1),
   /** A positive integer, matching the file's own name (`prompts/<id>/<version>.md`). */
   version: z.coerce.number().int().positive(),
-  role: z.enum(['smart', 'cheap', 'vision', 'audio', 'embed', 'local']),
+  role: z.enum(['smart', 'cheap', 'judge', 'vision', 'audio', 'embed', 'local']),
   /**
    * §7: **0** in extraction, judges and grading; 0.5–0.7 in writing. Declared per prompt
    * rather than passed per call site, so that "the grader must be deterministic" is a property

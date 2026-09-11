@@ -8,7 +8,7 @@ import {
 } from './prompts'
 
 /**
- * `@retenia/pathgen/node` — the one Node-only door of this package: reads the six prompt
+ * `@retenia/pathgen/node` — the one Node-only door of this package: reads the nine prompt
  * files through `@retenia/ai/prompts` (which reads the disk) and hands back the bundle the
  * pure entry point takes. Main calls it once at startup; the tests call it to run the real
  * prompts through the pipeline.
@@ -44,6 +44,9 @@ export function loadPathgenPrompts(read?: PromptFileReader): PathgenPrompts {
     lesson: toPathgenPrompt(PATHGEN_PROMPT_IDS.lesson, read),
     activities: toPathgenPrompt(PATHGEN_PROMPT_IDS.activities, read),
     flashcards: toPathgenPrompt(PATHGEN_PROMPT_IDS.flashcards, read),
+    faithfulness: toPathgenPrompt(PATHGEN_PROMPT_IDS.faithfulness, read),
+    judge: toPathgenPrompt(PATHGEN_PROMPT_IDS.judge, read),
+    edit: toPathgenPrompt(PATHGEN_PROMPT_IDS.edit, read),
     snapshot: promptVersionSnapshot(),
   })
 }

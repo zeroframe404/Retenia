@@ -1,6 +1,6 @@
 /**
- * `@retenia/pathgen` — learning-path generation, stages 3–5 of
- * `docs/spec/04-path-generation.md` §3 (sub-phase 8.1).
+ * `@retenia/pathgen` — learning-path generation, stages 3–8 of
+ * `docs/spec/04-path-generation.md` §3 (sub-phases 8.1–8.4).
  *
  * P1 extraction per chunk (cheap role, batch, idempotent custom ids), concept consolidation
  * in code, P2 knowledge-graph and outline synthesis (smart role, skeleton first), validation,
@@ -50,6 +50,7 @@ export {
   type PathgenPrompts,
   systemFor,
 } from './prompts'
+export * from './qa'
 export * from './run'
 export {
   EMPTY_EXTRACTION,
@@ -146,6 +147,37 @@ export {
   sectionNodeSchema,
   sourceRefSchema,
 } from './schemas/path-draft'
+export {
+  CLAIM_VERDICTS,
+  type ClaimVerdict,
+  type ClaimVerdictEntry,
+  claimVerdictSchema,
+  EDIT_KINDS,
+  EDIT_LESSON_SCHEMA_ID,
+  EDIT_LESSON_SCHEMA_NAME,
+  EDIT_LESSON_SCHEMA_VERSION,
+  type EditChange,
+  type EditKind,
+  type EditLessonOutput,
+  editChangeSchema,
+  editLessonOutputSchema,
+  FAITHFULNESS_SCHEMA_ID,
+  FAITHFULNESS_SCHEMA_NAME,
+  FAITHFULNESS_SCHEMA_VERSION,
+  type FaithfulnessOutput,
+  faithfulnessOutputSchema,
+  JUDGE_CRITERIA,
+  type JudgeCriterion,
+  type JudgeEdit,
+  judgeCriterionSchema,
+  judgeEditSchema,
+  MAX_JUDGE_EDITS,
+  PEDAGOGY_JUDGE_SCHEMA_ID,
+  PEDAGOGY_JUDGE_SCHEMA_NAME,
+  PEDAGOGY_JUDGE_SCHEMA_VERSION,
+  type PedagogyJudgeOutput,
+  pedagogyJudgeOutputSchema,
+} from './schemas/qa'
 export {
   dedupeWarnings,
   type GenerationWarning,

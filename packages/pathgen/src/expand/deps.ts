@@ -17,6 +17,7 @@ import type {
 } from '@retenia/core'
 import type { PathgenLogger } from '../logger'
 import type { PathgenPrompts } from '../prompts'
+import type { QaPipeline } from '../qa/pipeline'
 import type { ActivityAuthor } from './activity-author'
 import type { ExpandProgress, LessonProgress } from './expand-lessons'
 
@@ -88,6 +89,12 @@ export interface ExpandDeps {
   /** `ai_results` — where a batch's answers land and where a resumed run reads them. */
   readonly resultCache?: Pick<AiResultCache, 'get'>
   readonly author: ActivityAuthor
+  /**
+   * Stage 8 (sub-phase 8.4). Absent, a lesson is `ready` the moment its cards land, exactly
+   * as before the gates existed — which is what every stage-7 test relies on, and what a
+   * caller that only wants the writing gets. Main always wires it.
+   */
+  readonly qa?: QaPipeline
   readonly repos: ExpandRepos
   readonly prompts: Pick<PathgenPrompts, 'lesson' | 'activities' | 'flashcards'>
   /** Absent means flashcards are deduped on the exact front only, and the run says so. */

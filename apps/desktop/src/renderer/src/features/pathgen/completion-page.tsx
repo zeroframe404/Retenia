@@ -15,9 +15,11 @@ import { usePathVersion } from './use-pathgen'
  */
 export interface CompletionPageProps {
   pathVersionId: string
+  /** Opens stage 8's report (sub-phase 8.4). Absent, the button is not shown. */
+  onOpenQaReport?: () => void
 }
 
-export function CompletionPage({ pathVersionId }: CompletionPageProps) {
+export function CompletionPage({ pathVersionId, onOpenQaReport }: CompletionPageProps) {
   const t = useT('path')
   const navigate = useNavigate()
   const version = usePathVersion(pathVersionId)
@@ -50,6 +52,11 @@ export function CompletionPage({ pathVersionId }: CompletionPageProps) {
         >
           {t('completion.regenerate')}
         </Button>
+        {onOpenQaReport !== undefined && (
+          <Button variant="outline" onClick={onOpenQaReport} data-testid="completion-qa-report">
+            {t('completion.qaReport')}
+          </Button>
+        )}
       </div>
       {/* §13 step 5's "Reportar error (abre la cita)": the reader route of sub-phase 6.6 is
           the destination, the same one "Ver en la fuente" and "Continuar donde estaba" use. */}

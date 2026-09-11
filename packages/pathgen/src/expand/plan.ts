@@ -21,6 +21,10 @@ export interface ConceptFacts {
   readonly name: string
   readonly definition: string
   readonly kind: ConceptKind
+  /** The other spellings consolidation folded into this concept — what QA gate 4 matches on. */
+  readonly aliases: readonly string[]
+  /** 0–1, from the graph; QA gate 4 checks coverage of those at or above 0.5. */
+  readonly importance: number
 }
 
 export interface LessonPlan {

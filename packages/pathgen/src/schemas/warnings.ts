@@ -20,6 +20,7 @@ export const WARNING_STAGES = [
   'validate',
   'sequence',
   'expand',
+  'qa',
 ] as const
 export type WarningStage = (typeof WARNING_STAGES)[number]
 
@@ -101,6 +102,39 @@ export const WARNING_STAGE_OF = {
   flashcards_thin: 'expand',
   /** A card whose cite ids resolved to no fragment, so it stores no source (§1.2 rule 18). */
   flashcard_uncited: 'expand',
+  // Stage 8 — the QA gates (sub-phase 8.4, §5).
+  /** Gate 2: a quoted span was not in the cited chunk at ≥ 0.85; the sentence lost its markers. */
+  citation_span_mismatch: 'qa',
+  /** Gate 3 / §7: a claim cites two sources that disagree with each other; both are shown. */
+  sources_differ: 'qa',
+  /** Gate 3: faithfulness in the 0.7–0.9 band with no editor to fix it (light mode). */
+  faithfulness_needs_review: 'qa',
+  /** Gate 4: a concept of importance ≥ 0.5 the lesson was told to teach and never names. */
+  concept_uncovered: 'qa',
+  /** Gate 5: an exercise that asks what another lesson's exercise asks. */
+  activity_duplicate: 'qa',
+  /** Gate 5: a card that asks what another lesson's card asks. */
+  flashcard_duplicate: 'qa',
+  /** Gate 6: fewer than three Bloom levels across the module's practice. */
+  module_bloom_variety: 'qa',
+  /** Gate 7: the theory is outside §4's 600–1,200 words. */
+  theory_length: 'qa',
+  /** Gate 8: the prose is not in the lesson's language. */
+  language_mismatch: 'qa',
+  /** Gate 8: a translated glossary term used in its source-language form outside a quotation. */
+  glossary_term_mixed: 'qa',
+  /** Gate 9: the judge role resolves to the model that wrote the lesson (§14 pitfall 16); skipped. */
+  judge_same_as_generator: 'qa',
+  /** Gate 9: no judge role is configured; skipped. */
+  judge_unavailable: 'qa',
+  /** Gate 10: P8 returned a change that touched a citation; the original block was kept. */
+  edit_rejected: 'qa',
+  /** A lesson under §5's thresholds was sent back to P3 once. */
+  lesson_regenerated: 'qa',
+  /** A lesson under §5's thresholds after the one regeneration allowed; flagged for the user. */
+  lesson_below_threshold: 'qa',
+  /** P6, P7 or P8 failed for one lesson. The lesson is `ready`, flagged, and not reviewed. */
+  qa_failed: 'qa',
 } as const satisfies Record<string, WarningStage>
 
 export type WarningCode = keyof typeof WARNING_STAGE_OF

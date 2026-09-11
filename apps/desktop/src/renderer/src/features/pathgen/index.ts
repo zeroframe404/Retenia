@@ -1,6 +1,7 @@
 export { CompletionPage } from './completion-page'
 export { ExpansionPanel } from './expansion-panel'
 export { PreviewPage } from './preview-page'
+export { QaReportPage } from './qa-report-page'
 export {
   useCancelGeneration,
   useEditDraft,
@@ -10,6 +11,7 @@ export {
   useGenerationRun,
   useLessons,
   usePathVersion,
+  useQaReport,
   useQuote,
   useRegenerateLesson,
   useResumeGeneration,

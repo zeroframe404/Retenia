@@ -65,5 +65,6 @@ export function buildPathDraft(input: DraftInput): PathDraft {
     stats: input.sequenced.stats,
     warnings: dedupeWarnings(input.warnings),
     known_node_ids: [],
+    qa_mode: input.config.qaMode,
   }
 }

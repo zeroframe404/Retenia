@@ -1,5 +1,5 @@
-import { mulberry32 } from '@retenia/core'
 import { describe, expect, it } from 'vitest'
+import { mulberry32 } from '../memory/prng'
 import { damerauLevenshtein, relativeDistance } from './distance'
 
 const random = mulberry32(0xd15)
