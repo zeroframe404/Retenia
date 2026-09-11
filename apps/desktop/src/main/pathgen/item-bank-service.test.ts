@@ -37,6 +37,7 @@ function result(overrides: Partial<BuildItemBankResult['cells']> = {}): BuildIte
     pathVersionId: 'version-1',
     blueprint: {} as BuildItemBankResult['blueprint'],
     status: 'completed',
+    examDeferred: false,
     cells: { total: 4, alreadyBuilt: 0, built: 4, short: 0, failed: 0, ...overrides },
     created: 4,
     byUsage: {
@@ -142,6 +143,83 @@ describe('createItemBankService', () => {
         lessonSpecId: 'L01',
       }),
     ).resolves.toBeUndefined()
+  })
+})
+
+describe('createItemBankService — the exam cells after the last lesson', () => {
+  const quietRows = { itemBank: { listByPathVersion: async () => [entry()] } }
+
+  it('builds, without the over-budget pass, once examDue says the lessons have settled', async () => {
+    const build = vi.fn(async () => result())
+    const examDue = vi.fn(async () => true)
+    const service = createItemBankService({
+      repos: quietRows,
+      build,
+      reconcile: noReconcile,
+      examDue,
+    })
+
+    await service.onLessonSettled('version-1')
+    await vi.waitFor(() => expect(build).toHaveBeenCalledOnce())
+    expect(build).toHaveBeenCalledWith({
+      pathVersionId: 'version-1',
+      allowOverBudget: false,
+      userWaiting: true,
+    })
+  })
+
+  it('does nothing while a lesson is still open, or when nothing is wired to ask', async () => {
+    const build = vi.fn(async () => result())
+    await createItemBankService({
+      repos: quietRows,
+      build,
+      reconcile: noReconcile,
+      examDue: async () => false,
+    }).onLessonSettled('version-1')
+    await createItemBankService({
+      repos: quietRows,
+      build,
+      reconcile: noReconcile,
+    }).onLessonSettled('version-1')
+    expect(build).not.toHaveBeenCalled()
+  })
+
+  it('runs again after a build that started before the last lesson settled', async () => {
+    let release: () => void = () => {}
+    const build = vi
+      .fn<() => Promise<BuildItemBankResult>>()
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            release = () => resolve(result())
+          }),
+      )
+      .mockResolvedValue(result())
+    const service = createItemBankService({
+      repos: quietRows,
+      build,
+      reconcile: noReconcile,
+      examDue: async () => true,
+    })
+
+    await service.build('version-1')
+    await service.onLessonSettled('version-1')
+    expect(build).toHaveBeenCalledOnce()
+
+    release()
+    await vi.waitFor(() => expect(build).toHaveBeenCalledTimes(2))
+  })
+
+  it('never lets a failing examDue escape', async () => {
+    const service = createItemBankService({
+      repos: quietRows,
+      build: async () => result(),
+      reconcile: noReconcile,
+      examDue: async () => {
+        throw new Error('database is closed')
+      },
+    })
+    await expect(service.onLessonSettled('version-1')).resolves.toBeUndefined()
   })
 })
 

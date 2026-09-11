@@ -6,10 +6,11 @@ import { BLOOM_LEVELS } from '@retenia/core'
  * `docs/spec/02-memory-system.md` §9 "Simulacros"): topic × Bloom level × difficulty, with the
  * difficulty split **30/50/20** (easy/medium/hard).
  *
- * Topics are the modules, weighted as sequencing already weighted them for the final exam —
- * the module's total concept importance times how much of it the lessons cover
- * (`sequencing/exam.ts`) — so the bank and the draft's final-exam node can never disagree.
- * The shape is the one `exams.blueprint` stores, so 10.2's mock-exam editor can take it over.
+ * Topics are the modules, weighted by the module's total concept importance times how much of
+ * it the lessons cover. The weights come in as `topics`: the draft's (coverage taken as 1,
+ * `sequencing/exam.ts`) until the lessons settle, then measured (`coverage.ts`) and kept in
+ * the path's `final` exam row by `build.ts`. The shape is the one `exams.blueprint` stores,
+ * so 10.2's mock-exam editor can take it over.
  *
  * Every cell is one P9 call. Three kinds:
  * - `diagnostic` — per module, a core cell at the module's entry Bloom level (difficulty
@@ -20,16 +21,8 @@ import { BLOOM_LEVELS } from '@retenia/core'
  * - `exam` — the final exam's items, parallel forms A and B per cell (§9: "the mock exam uses
  *   A, the final exam B").
  *
- * Pure and total: the same input gives the same cells in the same order.
- *
- * Two things this deliberately does not do:
- * - **measure coverage.** The weight is "importance × coverage", and sequencing still passes
- *   coverage as 1 (`sequencing/exam.ts`'s `coverageOf`) — so at freeze a topic weighs its
- *   concepts' total importance. When coverage is measured, the draft's weights carry it here
- *   unchanged.
- * - **persist the blueprint.** It is rebuilt from the frozen draft whenever it is needed
- *   (its hash is part of nothing a user can edit); the mock-exam editor of 10.2 stores the
- *   user's edited copy in `exams.blueprint`, which is the one place edits live.
+ * Pure and total: the same input gives the same cells in the same order — which is what lets
+ * a stored set of weights rebuild exactly the exam cells a previous build wrote.
  */
 
 export const BLUEPRINT_VERSION = 1

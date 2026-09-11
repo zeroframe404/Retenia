@@ -33,18 +33,28 @@ export interface ItemBankService {
   status(pathVersionId: string): Promise<ItemBankStatusDto>
   /** Run after a lesson finished expansion: the lesson wins over any bank item it repeats. */
   reconcileLesson(input: ReconcileInput): Promise<void>
+  /**
+   * Run whenever a lesson settles (ready or failed): once the last core lesson of the version
+   * has, the exam cells — which wait for coverage to be measurable — are built in the
+   * background. Never throws.
+   */
+  onLessonSettled(pathVersionId: string): Promise<void>
 }
 
 export interface ItemBankServiceDeps {
   readonly repos: { readonly itemBank: Pick<ItemBankRepository, 'listByPathVersion'> }
   readonly build: (input: BuildItemBankInput) => Promise<BuildItemBankResult>
   readonly reconcile: (input: ReconcileInput) => Promise<ReconcileResult>
+  /** `examCellsDue` over the repositories. Absent: a settled lesson triggers nothing. */
+  readonly examDue?: (pathVersionId: string) => Promise<boolean>
 }
 
 interface BuildRecord {
   running: Promise<void> | null
   last: BuildItemBankResult | null
   error: string | null
+  /** A settled lesson asked for the exam cells while a build that predates it was running. */
+  again: boolean
 }
 
 const USAGES: readonly ItemUsage[] = [
@@ -61,7 +71,7 @@ export function createItemBankService(deps: ItemBankServiceDeps): ItemBankServic
   const recordOf = (id: string): BuildRecord => {
     let record = records.get(id)
     if (record === undefined) {
-      record = { running: null, last: null, error: null }
+      record = { running: null, last: null, error: null, again: false }
       records.set(id, record)
     }
     return record
@@ -140,6 +150,12 @@ export function createItemBankService(deps: ItemBankServiceDeps): ItemBankServic
       })
       .finally(() => {
         record.running = null
+        // The build that just ended started before the last lesson settled, so it left the
+        // exam cells out; the one that follows reads the settled lessons.
+        if (record.again) {
+          record.again = false
+          void start(pathVersionId, false)
+        }
       })
     return record.running
   }
@@ -168,6 +184,22 @@ export function createItemBankService(deps: ItemBankServiceDeps): ItemBankServic
         }
       } catch (error) {
         log.warn(`[pathgen] reconciling lesson ${input.lessonSpecId} with the bank failed:`, error)
+      }
+    },
+
+    onLessonSettled: async (pathVersionId) => {
+      if (deps.examDue === undefined) return
+      try {
+        if (!(await deps.examDue(pathVersionId))) return
+        const record = recordOf(pathVersionId)
+        if (record.running !== null) {
+          record.again = true
+          return
+        }
+        log.info(`[pathgen] every lesson of ${pathVersionId} settled: building the exam items`)
+        void start(pathVersionId, false)
+      } catch (error) {
+        log.warn(`[pathgen] checking whether ${pathVersionId} needs its exam items failed:`, error)
       }
     },
   }

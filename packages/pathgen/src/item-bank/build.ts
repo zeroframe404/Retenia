@@ -7,6 +7,7 @@ import type {
   ChunkRepository,
   Clock,
   EmbeddingProvider,
+  ExamRepository,
   ItemAuthorRequest,
   ItemBankEntry,
   ItemBankRepository,
@@ -15,6 +16,7 @@ import type {
   PathRepository,
 } from '@retenia/core'
 import { ITEM_USAGES } from '@retenia/core'
+import { z } from 'zod'
 import type { BudgetGuard } from '../budget'
 import { difficultyLogitOf } from '../diagnostic/elo'
 import { GenerationError } from '../errors'
@@ -27,7 +29,14 @@ import { knowledgeGraphDocumentSchema } from '../schemas/knowledge-graph'
 import { pathDraftSchema } from '../schemas/path-draft'
 import { dedupeWarnings, type GenerationWarning, warning } from '../schemas/warnings'
 import { addUsage, type StageUsage, ZERO_USAGE } from '../usage'
-import { type Blueprint, type BlueprintCell, buildBlueprint, cellItemCount } from './blueprint'
+import {
+  BLUEPRINT_VERSION,
+  type Blueprint,
+  type BlueprintCell,
+  buildBlueprint,
+  cellItemCount,
+} from './blueprint'
+import { coreLessonsSettled, coverageWeightedTopics, moduleCoverage } from './coverage'
 import type { ItemAuthor, ItemAuthorCall } from './item-author'
 import { activityStem, readAuthoring, usageFor } from './stems'
 
@@ -45,7 +54,23 @@ import { activityStem, readAuthoring, usageFor } from './stems'
  *
  * Idempotent by cell: a cell with rows (`authoring.cell_key`) is never asked again, so a
  * build interrupted halfway resumes with the cells it had not reached.
+ *
+ * The exam cells wait for the lessons. Their weights are *importance × coverage*, and
+ * coverage is only measurable once every core lesson has been written and through QA
+ * (`coverage.ts`), so a build before that — the one at freeze, which the diagnostic waits on —
+ * writes the diagnostic and reinforcement cells only. The first build after the lessons
+ * settle measures coverage, keeps the resulting blueprint in the path's `final` exam row
+ * (`exams.blueprint`, the shape 10.2's mock-exam editor reads) and builds the exam cells from
+ * it; every later build reuses that stored blueprint, so a lesson regenerated afterwards can
+ * never reshuffle cells the bank already paid for.
  */
+
+/** `exams.scope` of the final exam whose blueprint the bank measured. */
+export const EXAM_SCOPE_KEY = 'path_version_id'
+
+const storedTopicsSchema = z.array(
+  z.object({ module_id: z.string().min(1), weight: z.number().min(0) }),
+)
 
 export const ITEM_BANK_STAGE = 'P9_items'
 /** P9 asks for `overGeneration ×` each cell's count; the pool is filtered to it. */
@@ -66,6 +91,8 @@ export interface ItemBankRepos {
   >
   readonly itemBank: Pick<ItemBankRepository, 'listByPathVersion'>
   readonly chunks: Pick<ChunkRepository, 'findMany'>
+  /** Where the measured exam blueprint is kept. Absent: coverage is re-measured every build. */
+  readonly exams?: Pick<ExamRepository, 'listByPath' | 'create'>
   transaction<T>(work: (repos: ItemBankTxRepos) => Promise<T>): Promise<T>
 }
 
@@ -106,6 +133,9 @@ export interface BuildItemBankResult {
   readonly pathVersionId: string
   readonly blueprint: Blueprint
   readonly status: WaveStatus
+  /** A core lesson has not settled yet, so the exam cells were left for a later build. */
+  readonly examDeferred: boolean
+  /** Counts the cells this build planned — the exam's excluded while it is deferred. */
   readonly cells: {
     readonly total: number
     readonly alreadyBuilt: number
@@ -166,18 +196,60 @@ export async function buildItemBank(
     tree.sections.flatMap((section) => section.modules.map((module) => [module.specId, module])),
   )
 
-  const blueprint = buildBlueprint({
-    modules: draftModules.map((module) => ({
-      id: module.id,
-      objectiveBlooms: module.objectives.map((objective) => objective.bloom),
-      conceptBlooms: module.concept_ids.flatMap((id) => {
-        const node = nodes.get(id)
-        return node === undefined ? [] : [node.bloom_target]
-      }),
-    })),
-    topics: draft.final_exam.blueprint.topics,
-    examItemCount: draft.final_exam.blueprint.item_count,
-  })
+  const blueprintModules = draftModules.map((module) => ({
+    id: module.id,
+    objectiveBlooms: module.objectives.map((objective) => objective.bloom),
+    conceptBlooms: module.concept_ids.flatMap((id) => {
+      const node = nodes.get(id)
+      return node === undefined ? [] : [node.bloom_target]
+    }),
+  }))
+
+  // The exam's weights: stored once measured; measured once the lessons have settled; the
+  // draft's until then (only the exam cells read them, and those wait).
+  const examReady = coreLessonsSettled(tree)
+  const stored = examReady ? await storedExamBlueprint(deps.repos.exams, version) : null
+  let topics: readonly { readonly module_id: string; readonly weight: number }[] =
+    draft.final_exam.blueprint.topics
+  let examItemCount = draft.final_exam.blueprint.item_count
+  let coverage: ReadonlyMap<string, number> | null = null
+  if (stored !== null) {
+    topics = stored.topics
+    examItemCount = stored.examItemCount ?? examItemCount
+  } else if (examReady) {
+    coverage = moduleCoverage(tree, draftModules, (id) => nodes.get(id)?.importance ?? 0)
+    topics = coverageWeightedTopics(draft.final_exam.blueprint.topics, coverage)
+  }
+
+  const blueprint = buildBlueprint({ modules: blueprintModules, topics, examItemCount })
+
+  if (examReady && stored === null && deps.repos.exams !== undefined) {
+    await deps.repos.exams.create({
+      title: draft.title,
+      kind: 'final',
+      date: null,
+      pathId: version.pathId,
+      scope: {
+        [EXAM_SCOPE_KEY]: version.id,
+        blueprint_version: BLUEPRINT_VERSION,
+        exam_item_count: blueprint.exam_item_count,
+      },
+      blueprint: blueprint.topics.map((topic) => ({
+        topic: topic.module_id,
+        module_id: topic.module_id,
+        weight: topic.weight,
+        coverage: coverage?.get(topic.module_id) ?? 1,
+        bloom_mix: { ...topic.bloom_mix },
+        difficulty_mix: { ...topic.difficulty_mix },
+        exam_items: topic.exam_items,
+      })),
+      targetRetention: 0.95,
+      finalWindowDays: 3,
+      studyDaysMask: 127,
+      dailyCapacityMinutes: null,
+      status: 'planned',
+    })
+  }
 
   // What exists: the bank's cells, and every question a learner will already have seen.
   const existing = await deps.repos.itemBank.listByPathVersion(version.id)
@@ -209,7 +281,10 @@ export async function buildItemBank(
     text: activityStem(activity),
   }))
 
-  const pending = blueprint.cells.filter(
+  const planCells = examReady
+    ? blueprint.cells
+    : blueprint.cells.filter((cell) => cell.kind !== 'exam')
+  const pending = planCells.filter(
     (cell) => !builtCells.has(cell.key) && dbModuleOf.has(cell.moduleId),
   )
   const warnings: GenerationWarning[] = []
@@ -474,9 +549,10 @@ export async function buildItemBank(
     pathVersionId: version.id,
     blueprint,
     status,
+    examDeferred: !examReady,
     cells: {
-      total: blueprint.cells.length,
-      alreadyBuilt: blueprint.cells.length - pending.length,
+      total: planCells.length,
+      alreadyBuilt: planCells.length - pending.length,
       built,
       short,
       failed,
@@ -486,4 +562,52 @@ export async function buildItemBank(
     warnings: dedupeWarnings(warnings),
     usage,
   }
+}
+
+/** The blueprint a previous build measured and kept, when there is one that still parses. */
+async function storedExamBlueprint(
+  exams: ItemBankRepos['exams'],
+  version: { readonly id: string; readonly pathId: string },
+): Promise<{
+  topics: { module_id: string; weight: number }[]
+  examItemCount: number | null
+} | null> {
+  if (exams === undefined) return null
+  const rows = await exams.listByPath(version.pathId)
+  const row = rows.find(
+    (exam) =>
+      exam.kind === 'final' && exam.deletedAt === null && exam.scope[EXAM_SCOPE_KEY] === version.id,
+  )
+  if (row === undefined) return null
+  const topics = storedTopicsSchema.safeParse(row.blueprint)
+  if (!topics.success || topics.data.length === 0) return null
+  const count = row.scope.exam_item_count
+  return {
+    topics: topics.data,
+    examItemCount:
+      typeof count === 'number' && Number.isInteger(count) && count >= 0 ? count : null,
+  }
+}
+
+export interface ExamCellsDueRepos {
+  readonly paths: Pick<PathRepository, 'findVersion' | 'loadTree'>
+  readonly itemBank: Pick<ItemBankRepository, 'listByPathVersion'>
+}
+
+/**
+ * Whether a build would now write exam cells the bank does not have: the version is frozen,
+ * every core lesson has settled, and no exam item exists yet. What main asks each time a
+ * lesson settles, so the exam is built once, right after the last lesson — and not re-asked
+ * on every later lesson event.
+ */
+export async function examCellsDue(
+  repos: ExamCellsDueRepos,
+  pathVersionId: string,
+): Promise<boolean> {
+  const version = await repos.paths.findVersion(pathVersionId)
+  if (version === undefined || version.frozenAt === null) return false
+  const tree = await repos.paths.loadTree(version.id)
+  if (tree === undefined || !coreLessonsSettled(tree)) return false
+  const entries = await repos.itemBank.listByPathVersion(version.id)
+  return !entries.some((entry) => entry.authoring.kind === 'exam')
 }

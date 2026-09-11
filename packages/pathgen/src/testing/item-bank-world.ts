@@ -3,6 +3,7 @@ import type {
   Chunk,
   Clock,
   EntityPatch,
+  Exam,
   ItemBankEntry,
   ItemUsage,
   LearningPath,
@@ -39,6 +40,7 @@ export interface ItemBankRows {
   readonly activities: Activity[]
   readonly chunks: Chunk[]
   readonly itemBank: ItemBankEntry[]
+  readonly exams: Exam[]
 }
 
 export interface ItemBankWorld {
@@ -413,6 +415,7 @@ export function itemBankWorld(clock: Clock, options: ItemBankWorldOptions = {}):
       activities: [activity1, activity2],
       chunks: [chunk1, chunk2],
       itemBank: [],
+      exams: [],
     },
     draft,
     graph,
@@ -432,6 +435,7 @@ export interface ItemBankMemoryRepos {
     ReconcileRepos['itemBank'] &
     ItemBankTxRepos['itemBank']
   readonly chunks: ItemBankRepos['chunks']
+  readonly exams: NonNullable<ItemBankRepos['exams']>
   transaction: ItemBankRepos['transaction']
   readonly rows: ItemBankRows
   transactions(): number
@@ -566,6 +570,14 @@ export function createItemBankRepos(clock: Clock, seed: ItemBankRows): ItemBankM
     itemBank,
     chunks: {
       findMany: async (chunkIds) => rows.chunks.filter((row) => chunkIds.includes(row.id)),
+    },
+    exams: {
+      listByPath: async (pathId) => live(rows.exams).filter((row) => row.pathId === pathId),
+      create: async (input: NewEntity<Exam>) => {
+        const created = audit(input) as Exam
+        rows.exams.push(created)
+        return created
+      },
     },
     transaction: async <T>(work: (tx: ItemBankTxRepos) => Promise<T>): Promise<T> => {
       transactions += 1

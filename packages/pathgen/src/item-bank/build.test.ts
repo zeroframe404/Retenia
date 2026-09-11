@@ -4,6 +4,7 @@ import type {
   Clock,
   ExamForm,
   ItemAuthorRequest,
+  Lesson,
 } from '@retenia/core'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { z } from 'zod'
@@ -11,6 +12,7 @@ import { normalizeTerm } from '../consolidate/normalize'
 import { difficultyLogitOf } from '../diagnostic/elo'
 import { GenerationError } from '../errors'
 import { silentLogger } from '../logger'
+import { warning } from '../schemas/warnings'
 import { testPrompts } from '../testing/extract-fixtures'
 import {
   createItemBankRepos,
@@ -18,7 +20,7 @@ import {
   itemBankWorld,
 } from '../testing/item-bank-world'
 import { type Blueprint, type BlueprintCell, buildBlueprint, cellItemCount } from './blueprint'
-import { buildItemBank, type ItemBankDeps } from './build'
+import { buildItemBank, examCellsDue, type ItemBankDeps } from './build'
 import type { ItemAuthor } from './item-author'
 
 /**
@@ -523,6 +525,144 @@ describe('buildItemBank() — idempotent resume', () => {
     expect(again.created).toBe(0)
     expect(again.cells.built).toBe(0)
     expect(again.cells.alreadyBuilt).toBe(again.cells.total)
+  })
+})
+
+describe('buildItemBank() — the exam waits for the lessons and follows their coverage', () => {
+  const isExam = (entry: { readonly authoring: Record<string, unknown> }) =>
+    entry.authoring.kind === 'exam'
+  const moduleIdOf = (fixture: Fixture, specId: string): string => {
+    const module = fixture.repos.rows.modules.find((row) => row.specId === specId)
+    if (module === undefined) throw new Error(`the fixture has no ${specId}`)
+    return module.id
+  }
+  const setLesson = (fixture: Fixture, specId: string, patch: Partial<Lesson>) => {
+    const index = fixture.repos.rows.lessons.findIndex((row) => row.specId === specId)
+    fixture.repos.rows.lessons[index] = {
+      ...(fixture.repos.rows.lessons[index] as Lesson),
+      ...patch,
+    }
+  }
+  const uncovered = (conceptId: string) =>
+    ({
+      warnings: [warning('concept_uncovered', { lesson: 'L01', concept_ids: [conceptId] })],
+    }) as unknown as Lesson['qa']
+
+  it('leaves the exam cells out while a core lesson is still being written, then builds them', async () => {
+    const fixture = setUp()
+    setLesson(fixture, 'L02', { status: 'generating' })
+
+    const early = await buildItemBank(depsOf(fixture), inputOf(fixture))
+
+    expect(early.examDeferred).toBe(true)
+    const withoutExam = blueprintOf(fixture).cells.filter((cell) => cell.kind !== 'exam')
+    expect(early.cells.total).toBe(withoutExam.length)
+    expect(fixture.repos.rows.itemBank.some(isExam)).toBe(false)
+    expect(fixture.repos.rows.exams).toEqual([])
+    expect(await examCellsDue(fixture.repos, fixture.world.pathVersionId)).toBe(false)
+
+    setLesson(fixture, 'L02', { status: 'ready' })
+    expect(await examCellsDue(fixture.repos, fixture.world.pathVersionId)).toBe(true)
+
+    const late = await buildItemBank(depsOf(fixture), inputOf(fixture))
+
+    expect(late.examDeferred).toBe(false)
+    expect(late.cells.alreadyBuilt).toBe(withoutExam.length)
+    expect(fixture.repos.rows.itemBank.some(isExam)).toBe(true)
+    expect(fixture.repos.rows.exams).toHaveLength(1)
+    expect(fixture.repos.rows.exams[0]).toMatchObject({
+      kind: 'final',
+      date: null,
+      pathId: fixture.world.pathId,
+      status: 'planned',
+      scope: { path_version_id: fixture.world.pathVersionId, exam_item_count: 4 },
+    })
+    expect(await examCellsDue(fixture.repos, fixture.world.pathVersionId)).toBe(false)
+  })
+
+  it('weighs a module by the coverage its lessons reached: an uncovered module gets no exam item', async () => {
+    const fixture = setUp()
+    setLesson(fixture, 'L01', { qa: uncovered('c1') })
+
+    await buildItemBank(depsOf(fixture), inputOf(fixture))
+
+    const exam = fixture.repos.rows.itemBank.filter(isExam)
+    expect(exam.length).toBeGreaterThan(0)
+    expect(new Set(exam.map((entry) => entry.moduleId))).toEqual(
+      new Set([moduleIdOf(fixture, 'M02')]),
+    )
+    expect(fixture.repos.rows.exams[0]?.blueprint).toEqual([
+      expect.objectContaining({ module_id: 'M01', weight: 0, coverage: 0, exam_items: 0 }),
+      expect.objectContaining({ module_id: 'M02', weight: 1, coverage: 1, exam_items: 4 }),
+    ])
+    // The diagnostic still asks about M01: coverage only moves the exam.
+    expect(
+      fixture.repos.rows.itemBank.some(
+        (entry) =>
+          entry.moduleId === moduleIdOf(fixture, 'M01') && entry.usage.includes('diagnostic'),
+      ),
+    ).toBe(true)
+  })
+
+  it('counts a failed lesson as covering nothing', async () => {
+    const fixture = setUp()
+    setLesson(fixture, 'L01', { status: 'failed' })
+
+    await buildItemBank(depsOf(fixture), inputOf(fixture))
+
+    const exam = fixture.repos.rows.itemBank.filter(isExam)
+    expect(exam.every((entry) => entry.moduleId === moduleIdOf(fixture, 'M02'))).toBe(true)
+  })
+
+  it('reuses the blueprint a previous build stored, whatever the lessons say now', async () => {
+    const fixture = setUp()
+    fixture.repos.rows.exams.push({
+      id: 'exam-stored',
+      title: 'Memoria',
+      kind: 'final',
+      date: null,
+      pathId: fixture.world.pathId,
+      scope: { path_version_id: fixture.world.pathVersionId, exam_item_count: 2 },
+      blueprint: [
+        { module_id: 'M01', weight: 1 },
+        { module_id: 'M02', weight: 0 },
+      ],
+      targetRetention: 0.95,
+      finalWindowDays: 3,
+      studyDaysMask: 127,
+      dailyCapacityMinutes: null,
+      status: 'planned',
+      createdAt: NOW,
+      updatedAt: NOW,
+      deletedAt: null,
+      deviceId: 'test',
+      version: 1,
+    })
+
+    const result = await buildItemBank(depsOf(fixture), inputOf(fixture))
+
+    expect(result.blueprint.exam_item_count).toBe(2)
+    const exam = fixture.repos.rows.itemBank.filter(isExam)
+    expect(exam).toHaveLength(2 * 2)
+    expect(exam.every((entry) => entry.moduleId === moduleIdOf(fixture, 'M01'))).toBe(true)
+    expect(fixture.repos.rows.exams).toHaveLength(1)
+  })
+
+  it('still weighs by coverage without an exam repository, keeping nothing', async () => {
+    const fixture = setUp()
+    setLesson(fixture, 'L01', { qa: uncovered('c1') })
+    const { exams: _exams, ...withoutExams } = fixture.repos
+
+    await buildItemBank(depsOf(fixture, { repos: withoutExams }), inputOf(fixture))
+
+    const exam = fixture.repos.rows.itemBank.filter(isExam)
+    expect(exam.every((entry) => entry.moduleId === moduleIdOf(fixture, 'M02'))).toBe(true)
+    expect(fixture.repos.rows.exams).toEqual([])
+  })
+
+  it('is never due for a version that is not frozen', async () => {
+    const fixture = setUp({ frozen: false })
+    expect(await examCellsDue(fixture.repos, fixture.world.pathVersionId)).toBe(false)
   })
 })
 

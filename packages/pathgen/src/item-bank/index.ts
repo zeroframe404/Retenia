@@ -22,6 +22,9 @@ export {
   type BuildItemBankResult,
   buildItemBank,
   DEFAULT_ITEM_BANK_CONCURRENCY,
+  EXAM_SCOPE_KEY,
+  type ExamCellsDueRepos,
+  examCellsDue,
   ITEM_BANK_OVER_GENERATION,
   ITEM_BANK_STAGE,
   type ItemBankDeps,
@@ -30,6 +33,14 @@ export {
   type ItemBankTxRepos,
   MAX_CELL_EXCERPTS,
 } from './build'
+export {
+  type CoverageLesson,
+  type CoverageModule,
+  type CoverageTree,
+  coreLessonsSettled,
+  coverageWeightedTopics,
+  moduleCoverage,
+} from './coverage'
 export type { ItemAuthor, ItemAuthorCall } from './item-author'
 export {
   type ReconcileDeps,

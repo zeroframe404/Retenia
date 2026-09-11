@@ -10,6 +10,7 @@ import {
   createExpansionRun,
   createGenerationRun,
   createQaPipeline,
+  examCellsDue,
   type GenerationConfigInput,
   type PathgenLogger,
   quoteConfig as quoteGenerationConfig,
@@ -181,6 +182,7 @@ export function bootstrapPathgen({
             paths: repos.paths,
             itemBank: repos.itemBank,
             chunks: repos.chunks,
+            exams: repos.exams,
             transaction: (work) => repos.transaction((tx) => work(tx)),
           },
           prompts,
@@ -200,6 +202,8 @@ export function bootstrapPathgen({
         },
         input,
       ),
+    examDue: (pathVersionId) =>
+      examCellsDue({ paths: repos.paths, itemBank: repos.itemBank }, pathVersionId),
   })
   const diagnostics = createDiagnosticService({ repos, memory, clock })
 
@@ -270,6 +274,11 @@ export function bootstrapPathgen({
               error,
             ),
           )
+      }
+      // The exam's items wait for every lesson (their weights carry the measured coverage):
+      // the last one to settle, whether it passed or failed, is what starts them.
+      if (lesson.status === 'ready' || lesson.status === 'failed') {
+        void itemBank.onLessonSettled(lesson.pathVersionId)
       }
     },
   })
