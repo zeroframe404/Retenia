@@ -422,12 +422,19 @@ export function createRemediationService(deps: RemediationServiceDeps): Remediat
       return { kind: 'refused', refusal: 'no_anchor', remediation, revisitLessonId: null }
     }
 
-    const recent = await repos.remediations.listSince(new Date(now.getTime() - policy.weekMs))
+    const [recent, conceptHistory] = await Promise.all([
+      repos.remediations.listSince(new Date(now.getTime() - policy.weekMs)),
+      // Across every version of this path, not just the one being considered: a regeneration
+      // retires a superseded version's open detours (`dismissed`) but never erases the row, so
+      // the "third remediation of a concept" limit must not reset to zero on every regeneration.
+      repos.remediations.listByPathId(version.pathId),
+    ])
     const verdict = checkLimits(
       {
         conceptId: candidate.conceptId,
         moduleId: placement.moduleId,
         version: history,
+        conceptHistory,
         recent,
         now,
         teachingLessonId: placement.teachingLessonId,

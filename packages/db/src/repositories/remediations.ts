@@ -7,7 +7,7 @@ import type {
   RemediationTrigger,
 } from '@retenia/core'
 import { asc, eq, gte, inArray } from 'drizzle-orm'
-import { remediations } from '../schema'
+import { pathVersions, remediations } from '../schema'
 import { type BaseRepository, createBaseRepository, type Row, type TableCodec } from './base'
 import type { RepositoryContext } from './context'
 import {
@@ -115,6 +115,25 @@ export function createRemediationRepository(ctx: RepositoryContext): Remediation
         ...options,
         orderBy: oldestFirst,
       }),
+
+    listByPathId: async (pathId, options) => {
+      // No join on the codec table (`base.findWhere` only): the path's version ids first,
+      // then the ordinary indexed `pathVersionId IN (...)` read — the same two-step shape
+      // `paths.loadTree` uses to cross a foreign key.
+      const versionRows = ctx.db
+        .select({ id: pathVersions.id })
+        .from(pathVersions)
+        .where(eq(pathVersions.pathId, pathId))
+        .all() as Array<{ id: string }>
+      if (versionRows.length === 0) return []
+      return base.findWhere(
+        inArray(
+          remediations.pathVersionId,
+          versionRows.map((row) => row.id),
+        ),
+        { ...options, orderBy: oldestFirst },
+      )
+    },
 
     listByStatus: async (statuses, options) =>
       statuses.length === 0

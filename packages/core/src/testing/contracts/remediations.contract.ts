@@ -7,7 +7,8 @@ import type { ContractContext, RepositoryContractHarness } from '../harness'
  * `remediations` (`docs/spec/04-path-generation.md` §11, sub-phase 8.6): the remediation log.
  *
  * What the adapter has to get right is the four reads the limits and the sweeps make —
- * `listByPathVersion`, `listByStatus`, `listSince` and `findByLesson` — plus that the JSON
+ * `listByPathVersion`, `listByPathId`, `listByStatus`, `listSince` and `findByLesson` — plus
+ * that the JSON
  * evidence/boost/outcome and the nullable `resolvedAt`/`refusal` round-trip exactly.
  */
 export function remediationsContract(harness: RepositoryContractHarness): void {
@@ -110,6 +111,27 @@ export function remediationsContract(harness: RepositoryContractHarness): void {
       expect(rows.map((row) => row.id)).toEqual([first.id, second.id])
     })
 
+    it("listByPathId returns every version's rows of the same path, oldest createdAt first, and excludes other paths", async () => {
+      const path = await ctx.seed.path()
+      const versionA = await ctx.seed.pathVersion({ pathId: path.id })
+      const versionB = await ctx.seed.pathVersion({ pathId: path.id })
+      const otherPathVersion = await ctx.seed.pathVersion()
+      const module_ = await ctx.seed.module()
+
+      // A regeneration only retires a superseded version's open detours (`dismissed`); the
+      // row itself, and its earlier `completed` sibling, stay — this is what must still count.
+      const onOldVersion = await ctx.repos.remediations.create(
+        draft(versionA.id, module_.id, { status: 'completed', resolvedAt: ctx.clock.now() }),
+      )
+      ctx.clock.advance(1_000)
+      const onNewVersion = await ctx.repos.remediations.create(draft(versionB.id, module_.id))
+      ctx.clock.advance(1_000)
+      await ctx.repos.remediations.create(draft(otherPathVersion.id, module_.id))
+
+      const rows = await ctx.repos.remediations.listByPathId(path.id)
+      expect(rows.map((row) => row.id)).toEqual([onOldVersion.id, onNewVersion.id])
+    })
+
     it('listByStatus filters by any of the given statuses, and [] returns []', async () => {
       const version = await ctx.seed.pathVersion()
       const module_ = await ctx.seed.module()
@@ -163,7 +185,7 @@ export function remediationsContract(harness: RepositoryContractHarness): void {
       expect(await ctx.repos.remediations.findByLesson(anchor.id)).toBeUndefined()
     })
 
-    it('excludes soft-deleted rows from listByPathVersion, listByStatus, listSince and findByLesson', async () => {
+    it('excludes soft-deleted rows from listByPathVersion, listByPathId, listByStatus, listSince and findByLesson', async () => {
       const version = await ctx.seed.pathVersion()
       const module_ = await ctx.seed.module()
       const lesson = await ctx.seed.lesson({ moduleId: module_.id })
@@ -175,6 +197,7 @@ export function remediationsContract(harness: RepositoryContractHarness): void {
       await ctx.repos.remediations.softDelete(created.id)
 
       expect(await ctx.repos.remediations.listByPathVersion(version.id)).toEqual([])
+      expect(await ctx.repos.remediations.listByPathId(version.pathId)).toEqual([])
       expect(await ctx.repos.remediations.listByStatus(['active'])).toEqual([])
       expect(await ctx.repos.remediations.listSince(from)).toEqual([])
       expect(await ctx.repos.remediations.findByLesson(lesson.id)).toBeUndefined()

@@ -722,6 +722,14 @@ export function remediationWorld(options: RemediationWorldOptions = {}): Remedia
       live(rows.remediations)
         .filter((row) => row.pathVersionId === pathVersionId)
         .toSorted((a, b) => a.createdAt.getTime() - b.createdAt.getTime()),
+    listByPathId: async (pathId) => {
+      const versionIds = new Set(
+        rows.versions.filter((row) => row.pathId === pathId).map((row) => row.id),
+      )
+      return live(rows.remediations)
+        .filter((row) => versionIds.has(row.pathVersionId))
+        .toSorted((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+    },
     listByStatus: async (statuses: readonly RemediationStatus[]) =>
       live(rows.remediations)
         .filter((row) => statuses.includes(row.status))
