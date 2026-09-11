@@ -156,6 +156,14 @@ export interface ExpandStageResult {
   readonly usage: StageUsage
   readonly batchIds: readonly string[]
   readonly modelsUsed: readonly string[]
+  /**
+   * The same models as `modelsUsed`, broken down by pipeline stage (`P3_write_lesson`,
+   * `P4_make_activities`, `P5_make_flashcards`, and — merged in from the QA pipeline —
+   * `P6_faithfulness`, `P7_pedagogy_judge`, `P8_edit`). What `expansion-run.ts` merges into
+   * the version's `GenerationManifest.models` (`docs/spec/04-path-generation.md` §8) once this
+   * stage completes. A stage this run never dispatched has no key here.
+   */
+  readonly modelsByStage: Readonly<Record<string, readonly string[]>>
   readonly qa: ExpandQaCounts
 }
 
@@ -186,18 +194,30 @@ interface Totals {
   usage: StageUsage
   batchIds: string[]
   models: Set<string>
+  /** Same models, broken down by pipeline stage id — see `ExpandStageResult.modelsByStage`. */
+  modelsByStage: Map<string, Set<string>>
   qa: { reviewed: number; fixed: number; regenerated: number; flagged: number }
+}
+
+function mergeModelsByStage(totals: Totals, stage: string, models: readonly string[]): void {
+  if (models.length === 0) return
+  const forStage = totals.modelsByStage.get(stage) ?? new Set<string>()
+  for (const model of models) forStage.add(model)
+  totals.modelsByStage.set(stage, forStage)
 }
 
 function accrue(
   totals: Totals,
   wave: Pick<WaveResult, 'cacheHits' | 'calls' | 'usage' | 'batchIds' | 'modelsUsed'>,
+  /** Absent for the QA wave, whose own result already carries a multi-stage breakdown. */
+  stage?: string,
 ): void {
   totals.cacheHits += wave.cacheHits
   totals.calls += wave.calls
   totals.usage = addUsage(totals.usage, wave.usage)
   totals.batchIds.push(...wave.batchIds)
   for (const model of wave.modelsUsed) totals.models.add(model)
+  if (stage !== undefined) mergeModelsByStage(totals, stage, wave.modelsUsed)
 }
 
 /**
@@ -229,6 +249,7 @@ export async function expandLessons(
     usage: ZERO_USAGE,
     batchIds: [],
     models: new Set<string>(),
+    modelsByStage: new Map<string, Set<string>>(),
     qa: { reviewed: 0, fixed: 0, regenerated: 0, flagged: 0 },
   }
   let status: ExpandStageStatus = 'completed'
@@ -256,6 +277,7 @@ export async function expandLessons(
       usage: ZERO_USAGE,
       batchIds: [],
       modelsUsed: [],
+      modelsByStage: {},
       qa: ZERO_QA_COUNTS,
     }
   }
@@ -287,6 +309,7 @@ export async function expandLessons(
       usage: ZERO_USAGE,
       batchIds: [],
       modelsUsed: [],
+      modelsByStage: {},
       qa: ZERO_QA_COUNTS,
     }
   }
@@ -568,7 +591,7 @@ export async function expandLessons(
         report('expanding_theory', done, entries.length, entry.plan.specId)
       },
     )
-    accrue(totals, result)
+    accrue(totals, result, WRITE_LESSON_STAGE)
     worsen(result.status)
     for (const failure of result.failed) {
       const index = requests.findIndex((request) => request.customId === failure.customId)
@@ -702,7 +725,7 @@ export async function expandLessons(
         report('expanding_practice', done, flat.length, entry.plan.specId)
       },
     )
-    accrue(totals, result)
+    accrue(totals, result, 'P4_make_activities')
     worsen(result.status)
     for (const failure of result.failed) {
       const entry = flat.find(({ call }) => call.customId === failure.customId)?.entry
@@ -893,7 +916,7 @@ export async function expandLessons(
         await reportLesson(entry.plan, landed)
       },
     )
-    accrue(totals, result)
+    accrue(totals, result, MAKE_FLASHCARDS_STAGE)
     worsen(result.status)
     for (const failure of result.failed) {
       const index = requests.findIndex((request) => request.customId === failure.customId)
@@ -955,6 +978,9 @@ export async function expandLessons(
       ...(deps.onBatch === undefined ? {} : { onBatch: deps.onBatch }),
     })
     accrue(totals, result)
+    for (const [stage, models] of Object.entries(result.modelsByStage)) {
+      mergeModelsByStage(totals, stage, models)
+    }
     worsen(result.status)
     warnings.push(...result.warnings)
     // A wave that paused on the budget or was cancelled left some lesson unverified, and a
@@ -1055,6 +1081,9 @@ export async function expandLessons(
     usage: totals.usage,
     batchIds: [...new Set(totals.batchIds)],
     modelsUsed: [...totals.models].sort(),
+    modelsByStage: Object.fromEntries(
+      [...totals.modelsByStage].map(([stage, models]) => [stage, [...models].sort()]),
+    ),
     qa: { ...totals.qa },
   }
 }

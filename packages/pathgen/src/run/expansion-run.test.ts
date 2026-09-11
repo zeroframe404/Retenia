@@ -1,16 +1,91 @@
-import type { Clock, GenerationRun, NewEntity } from '@retenia/core'
+import type { Clock, GenerationRun, NewEntity, PathVersion } from '@retenia/core'
 import { createUuidV7Generator } from '@retenia/core'
 import { describe, expect, it } from 'vitest'
 import type { ActivityAuthor } from '../expand/activity-author'
 import { SYNCHRONOUS_HEAD_LESSONS } from '../expand/expand-lessons'
+import { asJson } from '../json'
 import { silentLogger } from '../logger'
 import type { MakeFlashcardsOutput } from '../schemas/flashcards'
 import type { WriteLessonOutput } from '../schemas/lesson'
+import { type GenerationManifest, MANIFEST_VERSION } from '../schemas/manifest'
 import { createAiHarness, HARNESS_NOW } from '../testing/ai-harness'
 import { createExpandRepos } from '../testing/expand-repos'
 import { expandWorld } from '../testing/expand-world'
 import { testPrompts } from '../testing/extract-fixtures'
 import { conceptsOf, createExpansionRun, type ExpansionRepos } from './expansion-run'
+
+/**
+ * A P1/P2 manifest exactly as `persist-draft.ts` would have written it before this path's
+ * expansion ever ran — the baseline `mergeManifest` (in `expansion-run.ts`) merges stage 7/8
+ * onto, never rewriting.
+ */
+const DRAFT_MANIFEST: GenerationManifest = {
+  version: MANIFEST_VERSION,
+  created_at: HARNESS_NOW.toISOString(),
+  run_id: 'draft-run',
+  stage: 'persisting',
+  config: {},
+  config_hash: '0'.repeat(64),
+  source_hashes: [],
+  prompt_versions: {},
+  schema_versions: {
+    extract_chunk: 'extract_chunk@1',
+    synthesize_outline: 'synthesize_outline@1',
+    synthesize_module: 'synthesize_module@1',
+    knowledge_graph: 'knowledge_graph@1',
+    path_draft: 'path_draft@1',
+    manifest: 'generation_manifest@1',
+  },
+  models: {
+    P1_extract_chunk: {
+      provider: 'anthropic',
+      model: 'claude-haiku',
+      temperature: 0,
+      seed: null,
+      models_used: ['claude-haiku'],
+    },
+    P2_synthesize_outline: {
+      provider: 'anthropic',
+      model: 'claude-sonnet',
+      temperature: 0.3,
+      seed: null,
+      models_used: ['claude-sonnet'],
+    },
+    P2_synthesize_module: {
+      provider: 'anthropic',
+      model: 'claude-sonnet',
+      temperature: 0.3,
+      seed: null,
+      models_used: ['claude-sonnet'],
+    },
+  },
+  embeddings: { model_id: null, dims: null, threshold: 0.85 },
+  sequencing: { algorithm_version: '1', seed: 'seed-abc' },
+  cost: {
+    input_tokens: 1_000,
+    output_tokens: 500,
+    cached_tokens: 0,
+    usd: 0.05,
+    calls: 3,
+    cache_hits: 0,
+  },
+  stats: {
+    chunks_total: 4,
+    chunks_in_scope: 4,
+    chunks_frontmatter: 0,
+    chunks_extracted: 4,
+    chunks_reused: 0,
+    chunks_failed: 0,
+    concepts_raw: 1,
+    concepts: 1,
+    nodes: 1,
+    edges: 0,
+    sections: 1,
+    modules: 1,
+    lessons: 4,
+  },
+  warnings: [],
+}
 
 /**
  * The `generation_runs` row stage 7 owns.
@@ -85,9 +160,16 @@ function setUp(
   options: {
     lessons?: number
     onLesson?: (event: { specId: string; status: string }) => void
+    /** Seeds the version with a P1/P2 manifest, as `persist-draft.ts` would have written. */
+    seedManifest?: boolean
   } = {},
 ) {
   const world = expandWorld(clock, { lessons: options.lessons ?? 4 })
+  if (options.seedManifest === true) {
+    const index = world.rows.versions.findIndex((row) => row.id === world.pathVersionId)
+    const current = world.rows.versions[index] as PathVersion
+    world.rows.versions[index] = { ...current, manifest: asJson(DRAFT_MANIFEST) }
+  }
   const harness = createAiHarness({ resolve, clock, batch: false, pollsBeforeDone: 1 })
   const repos = createExpandRepos(clock, world.rows)
   const ids = createUuidV7Generator(clock)
@@ -104,7 +186,23 @@ function setUp(
               pathId: version.pathId,
               spec: version.spec,
               knowledgeGraph: version.knowledgeGraph,
+              manifest: version.manifest,
             }
+      },
+      updateVersion: async (id, patch) => {
+        const index = world.rows.versions.findIndex((row) => row.id === id)
+        if (index === -1) throw new Error(`no path version ${id}`)
+        const current = world.rows.versions[index] as PathVersion
+        const updated: PathVersion = {
+          ...current,
+          ...(patch.manifest === undefined
+            ? {}
+            : { manifest: patch.manifest as PathVersion['manifest'] }),
+          updatedAt: clock.now(),
+          version: current.version + 1,
+        }
+        world.rows.versions[index] = updated
+        return updated
       },
     },
     generationRuns: {
@@ -275,5 +373,54 @@ describe('createExpansionRun()', () => {
     await expect(set.handle.expand('00000000-0000-7000-8000-000000000000')).rejects.toThrow(
       /no path version/,
     )
+  })
+
+  it("merges this stage's models and cost onto the version's existing P1/P2 manifest", async () => {
+    const set = setUp({ seedManifest: true })
+    const result = await set.handle.expand(set.world.pathVersionId)
+
+    const version = set.world.rows.versions.find((row) => row.id === set.world.pathVersionId)
+    const manifest = version?.manifest as GenerationManifest | null | undefined
+    expect(manifest).toBeDefined()
+    expect(manifest).not.toBeNull()
+    if (manifest === null || manifest === undefined) return
+
+    // The pre-existing P1/P2 entries survive exactly as `persist-draft.ts` wrote them.
+    expect(manifest.models.P1_extract_chunk).toEqual(DRAFT_MANIFEST.models.P1_extract_chunk)
+    expect(manifest.models.P2_synthesize_outline).toEqual(
+      DRAFT_MANIFEST.models.P2_synthesize_outline,
+    )
+    expect(manifest.models.P2_synthesize_module).toEqual(DRAFT_MANIFEST.models.P2_synthesize_module)
+
+    // Every stage this run actually dispatched (P3, P5 — P4 is empty with `emptyAuthor`, and
+    // no QA pipeline is wired in this suite) now has an entry with what it used.
+    expect(Object.keys(result.stage.modelsByStage).sort()).toEqual(
+      ['P3_write_lesson', 'P5_make_flashcards'].sort(),
+    )
+    for (const [stageId, modelsUsed] of Object.entries(result.stage.modelsByStage)) {
+      expect(manifest.models[stageId]?.models_used).toEqual(modelsUsed)
+    }
+
+    // Cost accumulated on top of the seed manifest's own baseline, never replaced it.
+    expect(manifest.cost.calls).toBe(DRAFT_MANIFEST.cost.calls + result.stage.calls)
+    expect(manifest.cost.cache_hits).toBe(DRAFT_MANIFEST.cost.cache_hits + result.stage.cacheHits)
+    expect(manifest.cost.input_tokens).toBe(
+      DRAFT_MANIFEST.cost.input_tokens + result.stage.usage.inputTokens,
+    )
+    expect(manifest.cost.usd).toBeCloseTo(DRAFT_MANIFEST.cost.usd + result.stage.usage.usd, 6)
+
+    // Everything else about the draft's manifest — what this stage has nothing truthful to
+    // say about — is untouched.
+    expect(manifest.run_id).toBe(DRAFT_MANIFEST.run_id)
+    expect(manifest.source_hashes).toEqual(DRAFT_MANIFEST.source_hashes)
+    expect(manifest.schema_versions).toEqual(DRAFT_MANIFEST.schema_versions)
+  })
+
+  it('leaves a version with no parseable manifest untouched', async () => {
+    const set = setUp()
+    await set.handle.expand(set.world.pathVersionId)
+
+    const version = set.world.rows.versions.find((row) => row.id === set.world.pathVersionId)
+    expect(version?.manifest).toBeNull()
   })
 })

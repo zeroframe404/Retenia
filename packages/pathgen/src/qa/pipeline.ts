@@ -184,6 +184,13 @@ export interface QaRunResult {
   readonly calls: number
   readonly batchIds: readonly string[]
   readonly modelsUsed: readonly string[]
+  /**
+   * The same models as `modelsUsed`, broken down by which gate answered with them
+   * (`P6_faithfulness`, `P7_pedagogy_judge`, `P8_edit`) — for the run's manifest
+   * (`docs/spec/04-path-generation.md` §8's `models{ stage: {...} }`). A gate this run never
+   * dispatched (skipped entirely, e.g. `P7`/`P8` in light mode) has no key here.
+   */
+  readonly modelsByStage: Readonly<Record<string, readonly string[]>>
   readonly warnings: readonly GenerationWarning[]
 }
 
@@ -262,6 +269,7 @@ export async function runQaGates(deps: QaPipelineDeps, input: QaRunInput): Promi
     cacheHits: 0,
     batchIds: [] as string[],
     models: new Set<string>(),
+    modelsByStage: new Map<string, Set<string>>(),
   }
   let status: WaveStatus = 'completed'
   const worsen = (next: WaveStatus): void => {
@@ -470,12 +478,17 @@ export async function runQaGates(deps: QaPipelineDeps, input: QaRunInput): Promi
   }
 
   // --- the waves ------------------------------------------------------------------------
-  const accrue = (wave: WaveResult): void => {
+  const accrue = (promptStage: string, wave: WaveResult): void => {
     totals.cacheHits += wave.cacheHits
     totals.calls += wave.calls
     totals.usage = addUsage(totals.usage, wave.usage)
     totals.batchIds.push(...wave.batchIds)
     for (const model of wave.modelsUsed) totals.models.add(model)
+    if (wave.modelsUsed.length > 0) {
+      const forStage = totals.modelsByStage.get(promptStage) ?? new Set<string>()
+      for (const model of wave.modelsUsed) forStage.add(model)
+      totals.modelsByStage.set(promptStage, forStage)
+    }
   }
 
   const dispatch = async <T>(
@@ -534,7 +547,7 @@ export async function runQaGates(deps: QaPipelineDeps, input: QaRunInput): Promi
         report(stage, done, pending.length, entry.state.input.specId)
       },
     )
-    accrue(result)
+    accrue(promptStage, result)
     worsen(result.status)
     for (const failure of result.failed) {
       const entry = pending.find((candidate) => candidate.request.customId === failure.customId)
@@ -884,6 +897,9 @@ export async function runQaGates(deps: QaPipelineDeps, input: QaRunInput): Promi
     calls: totals.calls,
     batchIds: [...new Set(totals.batchIds)],
     modelsUsed: [...totals.models].sort(),
+    modelsByStage: Object.fromEntries(
+      [...totals.modelsByStage].map(([stage, models]) => [stage, [...models].sort()]),
+    ),
     warnings: dedupeWarnings(runWarnings),
   }
 }

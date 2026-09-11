@@ -1,4 +1,10 @@
-import type { AbortSignalLike, GenerationRun, GenerationRunRepository } from '@retenia/core'
+import type {
+  AbortSignalLike,
+  EntityPatch,
+  GenerationRun,
+  GenerationRunRepository,
+  PathVersion,
+} from '@retenia/core'
 import type { BudgetGuard } from '../budget'
 import { type GenerationConfig, parseGenerationConfig } from '../config/generation-config'
 import { GenerationError } from '../errors'
@@ -10,8 +16,14 @@ import {
 } from '../expand'
 import { asJson } from '../json'
 import { knowledgeGraphDocumentSchema } from '../schemas/knowledge-graph'
+import {
+  type GenerationManifest,
+  generationManifestSchema,
+  type ManifestCost,
+  type ManifestModel,
+} from '../schemas/manifest'
 import { type PathDraft, pathDraftSchema } from '../schemas/path-draft'
-import type { GenerationWarning } from '../schemas/warnings'
+import { dedupeWarnings, type GenerationWarning } from '../schemas/warnings'
 
 /**
  * Stage 7 as a run of its own (`docs/spec/04-path-generation.md` §3 stage 7).
@@ -30,14 +42,93 @@ import type { GenerationWarning } from '../schemas/warnings'
 
 export interface ExpansionRepos {
   readonly paths: {
-    findVersion: (
-      id: string,
-    ) => Promise<{ id: string; pathId: string; spec: unknown; knowledgeGraph: unknown } | undefined>
+    findVersion: (id: string) => Promise<
+      | {
+          id: string
+          pathId: string
+          spec: unknown
+          knowledgeGraph: unknown
+          /** The manifest `persist-draft.ts` wrote for P1/P2 — merged onto below. */
+          manifest: unknown
+        }
+      | undefined
+    >
+    /**
+     * Patches the version's `manifest` column with what stage 7/8 merged into it. Delegates to
+     * `PathRepository.updateVersion`, which is safe to call here: expansion always runs before
+     * the user freezes the path (this file's header comment), and `updateVersion`'s own doc
+     * comment says it "never checks `frozenAt` itself" — patching `manifest` mid-expansion
+     * never touches the tree `freezeVersion` protects.
+     *
+     * The patch type mirrors `EntityPatch<PathVersion>`'s own `manifest` field exactly (rather
+     * than a hand-rolled `unknown`) so the real `PathRepository` — whose `manifest` is
+     * `JsonObject | null | undefined`, not `unknown` — is structurally assignable here and
+     * `bootstrap.ts` can wire `repos.paths` in directly without a wrapper.
+     */
+    updateVersion(id: string, patch: Pick<EntityPatch<PathVersion>, 'manifest'>): Promise<unknown>
   }
   readonly generationRuns: Pick<
     GenerationRunRepository,
     'findById' | 'create' | 'update' | 'listActive' | 'findLatestByPath'
   >
+}
+
+function toManifestModel(modelsUsed: readonly string[]): ManifestModel {
+  // Nobody tracks which provider/model *config* stage 7/8 resolved to per stage the way
+  // `build-manifest.ts` does for P1/P2 (that would mean threading `ManifestModelInput` through
+  // `expand-lessons.ts` and `qa/pipeline.ts` for a P3–P8 use case that does not exist yet) — only
+  // `models_used`, from what actually answered. `null`/`0` here are "not tracked", never a
+  // fabricated guess at what ran.
+  return { provider: null, model: null, temperature: 0, seed: null, models_used: [...modelsUsed] }
+}
+
+function addManifestCost(a: ManifestCost, b: ManifestCost): ManifestCost {
+  return {
+    input_tokens: a.input_tokens + b.input_tokens,
+    output_tokens: a.output_tokens + b.output_tokens,
+    cached_tokens: a.cached_tokens + b.cached_tokens,
+    usd: a.usd + b.usd,
+    calls: a.calls + b.calls,
+    cache_hits: a.cache_hits + b.cache_hits,
+  }
+}
+
+/**
+ * Merges stage 7/8's per-stage models, cost and warnings onto the version's existing manifest —
+ * the one `persist-draft.ts` wrote for P1/P2 (`docs/spec/04-path-generation.md` §8's
+ * `models{ stage: {...} }` is an open map, not the three keys it used to be fixed to — see
+ * `schemas/manifest.ts`). Every other field — `source_hashes`, `prompt_versions`,
+ * `schema_versions`, `embeddings`, `sequencing`, `stats`, `config`, `config_hash`, `run_id`,
+ * `created_at`, `stage` — describes the draft and is left exactly as it was: this stage has
+ * nothing truthful to say about them.
+ *
+ * P9 (item bank) and P11 (remediation) track no model usage anywhere yet, so they never
+ * contribute a `models` entry here — and P11 runs after the path is frozen, when a version's
+ * manifest is not touched again anyway (freezing is the point past which `updateVersion` is no
+ * longer this stage's to call).
+ */
+function mergeManifest(
+  existing: GenerationManifest,
+  stage: Pick<ExpandStageResult, 'modelsByStage' | 'usage' | 'calls' | 'cacheHits' | 'warnings'>,
+): GenerationManifest {
+  const models = { ...existing.models }
+  for (const [stageId, modelsUsed] of Object.entries(stage.modelsByStage)) {
+    models[stageId] = toManifestModel(modelsUsed)
+  }
+  const costDelta: ManifestCost = {
+    input_tokens: stage.usage.inputTokens,
+    output_tokens: stage.usage.outputTokens,
+    cached_tokens: stage.usage.cachedTokens,
+    usd: stage.usage.usd,
+    calls: stage.calls,
+    cache_hits: stage.cacheHits,
+  }
+  return {
+    ...existing,
+    models,
+    cost: addManifestCost(existing.cost, costDelta),
+    warnings: dedupeWarnings([...existing.warnings, ...stage.warnings]),
+  }
 }
 
 export interface ExpansionRunDeps extends ExpandDeps {
@@ -179,7 +270,7 @@ export function createExpansionRun(deps: ExpansionRunDeps): ExpansionRunHandle {
     pathVersionId: string,
     options: ExpandOptions,
   ): Promise<ExpansionResult> => {
-    const { draft, concepts } = await load(pathVersionId)
+    const { version, draft, concepts } = await load(pathVersionId)
     const batchIds = readBatchIds(row)
     const seenBatches = new Set(batchIds)
 
@@ -238,6 +329,31 @@ export function createExpansionRun(deps: ExpansionRunDeps): ExpansionRunHandle {
         : stage.status === 'cancelled'
           ? 'cancelled'
           : 'blocked_budget'
+
+    // The version's manifest as `persist-draft.ts` wrote it for P1/P2, merged with what this
+    // stage tracked, so `path_versions.manifest` keeps describing the whole generation instead
+    // of freezing at the draft's picture forever (`docs/spec/04-path-generation.md` §8). A
+    // version with no parseable manifest yet — a draft persisted before this merge existed, or
+    // a fixture built without running the draft stage — is left untouched: there is nothing
+    // truthful this stage could invent for the draft-only fields `mergeManifest` preserves.
+    const draftManifest = generationManifestSchema.safeParse(version.manifest)
+    if (draftManifest.success) {
+      try {
+        await deps.runs.paths.updateVersion(pathVersionId, {
+          manifest: asJson(mergeManifest(draftManifest.data, stage)),
+        })
+      } catch (error) {
+        deps.logger.error(
+          `[pathgen] could not merge stage 7/8's manifest onto path version "${pathVersionId}"`,
+          error,
+        )
+      }
+    } else if (version.manifest !== null && version.manifest !== undefined) {
+      deps.logger.warn(
+        `[pathgen] path version "${pathVersionId}" has an unparseable manifest; stage 7/8's ` +
+          'model usage and cost were not merged into it',
+      )
+    }
 
     await checkpoint({
       status,

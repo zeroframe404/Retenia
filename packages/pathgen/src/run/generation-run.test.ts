@@ -96,7 +96,7 @@ describe('createGenerationRun().start()', () => {
       seed: null,
       models_used: ['gemini-3.7-flash'],
     })
-    expect(manifest.models.P2_synthesize_outline.models_used).toEqual(['claude-sonnet-5'])
+    expect(manifest.models.P2_synthesize_outline?.models_used).toEqual(['claude-sonnet-5'])
     expect(manifest.embeddings).toEqual({ model_id: 'fake-hash-768', dims: 768, threshold: 0.9 })
     expect(manifest.cost.calls).toBe(9 + 1 + 4)
     expect(manifest.cost.cache_hits).toBe(0)
@@ -249,8 +249,8 @@ describe('createGenerationRun().start()', () => {
     expect(resumed.status).toBe('completed')
     expect(resumed.manifest?.cost).toMatchObject({ calls: 14, cache_hits: 14 })
     expect(resumed.manifest?.cost.usd).toBe(first.manifest?.cost.usd)
-    expect(resumed.manifest?.models.P1_extract_chunk.models_used).toEqual(['gemini-3.7-flash'])
-    expect(resumed.manifest?.models.P2_synthesize_module.models_used).toEqual(['claude-sonnet-5'])
+    expect(resumed.manifest?.models.P1_extract_chunk?.models_used).toEqual(['gemini-3.7-flash'])
+    expect(resumed.manifest?.models.P2_synthesize_module?.models_used).toEqual(['claude-sonnet-5'])
     expect(resumed.draft).toEqual(first.draft)
   })
 
