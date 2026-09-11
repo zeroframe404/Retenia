@@ -112,6 +112,13 @@ function PathView() {
       <CompletionPage
         pathVersionId={pathVersionId}
         onOpenQaReport={() => navigate({ search: { view: 'qa', pathVersionId } })}
+        // "Regenerar ruta" (8.6): the new version opens in the same editable preview, which
+        // shows its diff against this one and freezes it — carrying the progress over.
+        onRegenerated={(next) =>
+          navigate({
+            search: { view: 'preview', pathVersionId: next.pathVersionId, runId: next.runId },
+          })
+        }
       />
     )
   }

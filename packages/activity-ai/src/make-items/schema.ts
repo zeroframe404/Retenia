@@ -28,22 +28,24 @@ export const optionMisconceptionSchema = z.object({
   misconception_id: z.string().min(1),
 })
 
+/** One item as the model writes it — shared with P11, whose detours carry bank-shaped items. */
+export function itemCandidateSchema() {
+  return authoringBranch('choice', ITEM_TYPES).extend({
+    form: z
+      .enum(['A', 'B'])
+      .nullable()
+      .describe('The parallel form of an exam cell; null for any other cell.'),
+    option_misconceptions: z
+      .array(optionMisconceptionSchema)
+      .describe('For each wrong option: its option id and the misconception id behind it.'),
+  })
+}
+
+export type ItemCandidate = z.infer<ReturnType<typeof itemCandidateSchema>>
+
 export function makeItemsOutputSchema() {
   return z.object({
-    items: z
-      .array(
-        authoringBranch('choice', ITEM_TYPES).extend({
-          form: z
-            .enum(['A', 'B'])
-            .nullable()
-            .describe('The parallel form of an exam cell; null for any other cell.'),
-          option_misconceptions: z
-            .array(optionMisconceptionSchema)
-            .describe('For each wrong option: its option id and the misconception id behind it.'),
-        }),
-      )
-      .min(1)
-      .max(MAX_ITEMS_PER_CALL),
+    items: z.array(itemCandidateSchema()).min(1).max(MAX_ITEMS_PER_CALL),
     /** What the author could not do: a cell the excerpts do not support, say. */
     notes: z.array(z.string().min(1).max(300)).max(6),
   })

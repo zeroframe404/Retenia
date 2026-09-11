@@ -18,7 +18,8 @@ import {
 import { ArrowDownIcon, ArrowUpIcon, Trash2Icon } from 'lucide-react'
 import { useState } from 'react'
 import { useT } from '../../i18n/use-t'
-import { useEditDraft, useFreeze, usePathVersion } from './use-pathgen'
+import { VersionDiffPanel } from './components/version-diff-panel'
+import { useEditDraft, useFreeze, usePathVersion, useVersionDiff } from './use-pathgen'
 import { useUndoStack } from './use-undo-stack'
 
 export interface PreviewPageProps {
@@ -29,6 +30,8 @@ export interface PreviewPageProps {
 export function PreviewPage({ pathVersionId, onFrozen }: PreviewPageProps) {
   const t = useT('path')
   const version = usePathVersion(pathVersionId)
+  // A regeneration's draft (8.6): what it would change in the version being studied.
+  const diff = useVersionDiff(pathVersionId)
   const editDraft = useEditDraft(pathVersionId)
   const freeze = useFreeze()
   const undoStack = useUndoStack(version.data?.draft)
@@ -128,6 +131,8 @@ export function PreviewPage({ pathVersionId, onFrozen }: PreviewPageProps) {
           </Button>
         </div>
       </div>
+
+      {diff.data?.diff != null && <VersionDiffPanel diff={diff.data.diff} />}
 
       {draft.sources.length > 1 && (
         <label className="flex items-center gap-2 text-sm">

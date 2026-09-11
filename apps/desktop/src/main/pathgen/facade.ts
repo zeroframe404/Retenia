@@ -6,8 +6,10 @@ import type {
   KnowledgeItemRepository,
   Lesson,
   PathRepository,
+  SourceRepository,
 } from '@retenia/core'
 import type {
+  AffectedLessonsDto,
   DiagnosticSectionDto,
   DiagnosticStateDto,
   GenerationEstimateDto,
@@ -24,16 +26,25 @@ import type {
   PathVersionDto,
   QaReportDto,
   QaReportLessonDto,
+  RemediationDecisionDto,
+  RemediationDto,
+  VersionDiffDto,
 } from '@retenia/ipc-contract'
 import {
+  type AffectedResult,
   type ApplyEditOptions,
   applyEdit,
+  diffDrafts,
   type ExpansionRunHandle,
   freezePath,
   type GenerationConfigInput,
   type GenerationRunHandle,
   lessonCitationSchema,
+  orderedSourceIds,
+  parseGenerationConfig,
   pathDraftSchema,
+  type RemediationService,
+  versionDiffSchema,
 } from '@retenia/pathgen'
 import { log } from '../logging/log'
 import type {
@@ -55,6 +66,14 @@ import {
   toQaReportLessonDto,
 } from './dto'
 import type { ItemBankService } from './item-bank-service'
+import {
+  conceptNamesOf,
+  createRemediationDtoBuilder,
+  toAffectedLessonsDto,
+  toRemediationDecisionDto,
+  toRemediationDto,
+  toVersionDiffDto,
+} from './remediation-dto'
 
 /**
  * What the `pathgen.*` IPC handlers call. A thin seam over `createGenerationRun`'s handle plus
@@ -67,12 +86,14 @@ export interface PathgenFacadeRepos {
   readonly paths: Pick<
     PathRepository,
     | 'findVersion'
+    | 'findVersionByNumber'
     | 'findById'
     | 'update'
     | 'updateVersion'
     | 'createSection'
     | 'createModule'
     | 'createLesson'
+    | 'updateLesson'
     | 'freezeVersion'
     | 'setActiveVersion'
     | 'loadTree'
@@ -82,9 +103,12 @@ export interface PathgenFacadeRepos {
     | 'listActivities'
   >
   readonly generationRuns: Pick<GenerationRunRepository, 'findById' | 'findLatestByPath'>
-  readonly knowledgeItems: Pick<KnowledgeItemRepository, 'listByLesson'>
+  /** `update` is the freeze of a regeneration re-pointing the cards it carries over (8.6). */
+  readonly knowledgeItems: Pick<KnowledgeItemRepository, 'listByLesson' | 'update'>
   /** For "Reportar error": a citation stores a display label, the reader route wants a page. */
   readonly chunks: Pick<ChunkRepository, 'findById'>
+  /** The titles "Regenerar afectadas" lists its sources by. */
+  readonly sources?: Pick<SourceRepository, 'findMany'>
 }
 
 export interface PathgenFacadeDeps {
@@ -103,6 +127,12 @@ export interface PathgenFacadeDeps {
   readonly itemBank?: ItemBankService
   /** The prior-knowledge diagnostic (sub-phase 8.5). */
   readonly diagnostics?: DiagnosticService
+  /** §11's remediation service (sub-phase 8.6). */
+  readonly remediation?: RemediationService
+  /** "Regenerar afectadas": which lessons rest on fragments their sources no longer have. */
+  readonly affected?: (pathVersionId: string) => Promise<AffectedResult>
+  /** A diagnostic stopped: its confident misconceptions become remediation triggers (§11). */
+  readonly onDiagnosticCompleted?: (sessionId: string) => Promise<void>
 }
 
 export interface PathgenFacade {
@@ -156,6 +186,24 @@ export interface PathgenFacade {
   diagnosticAnswer(input: DiagnosticAnswerInput): Promise<DiagnosticStateDto>
   diagnosticFinish(input: { sessionId: string }): Promise<DiagnosticStateDto>
   diagnosticRevert(input: { sessionId: string; moduleId?: string }): Promise<DiagnosticStateDto>
+  remediationList(input: { pathVersionId: string }): Promise<{ remediations: RemediationDto[] }>
+  remediationRequest(input: {
+    lessonId: string
+    conceptId?: string
+  }): Promise<RemediationDecisionDto>
+  remediationComplete(input: { remediationId: string }): Promise<RemediationDto>
+  remediationDismiss(input: { remediationId: string }): Promise<RemediationDto>
+  regenerate(input: {
+    pathId: string
+    config?: GenerationConfigInput
+    allowOverBudget?: boolean
+  }): Promise<GenerationResultDto>
+  versionDiff(input: { pathVersionId: string }): Promise<{ diff: VersionDiffDto | null }>
+  affectedLessons(input: { pathVersionId: string }): Promise<AffectedLessonsDto>
+  regenerateAffected(input: {
+    pathVersionId: string
+    lessonIds?: string[]
+  }): Promise<{ run: GenerationRunDto | null; lessons: number }>
 }
 
 async function loadVersion(repos: PathgenFacadeRepos, pathVersionId: string) {
@@ -203,7 +251,29 @@ async function summarize(
   })
 }
 
+/** A generation run still working toward its draft — as opposed to expanding or finished. */
+const GENERATING: ReadonlySet<string> = new Set([
+  'queued',
+  'extracting',
+  'consolidating',
+  'synthesizing',
+  'sequencing',
+  'persisting',
+])
+
 export function createPathgenFacade(deps: PathgenFacadeDeps): PathgenFacade {
+  const remediationDto = createRemediationDtoBuilder(deps.repos.paths)
+  /** A stopped diagnostic hands its confident misconceptions to §11; never fails the answer. */
+  const afterDiagnostic = (state: DiagnosticStateDto): DiagnosticStateDto => {
+    if (state.session.status === 'completed' && deps.onDiagnosticCompleted !== undefined) {
+      void deps
+        .onDiagnosticCompleted(state.session.id)
+        .catch((error: unknown) =>
+          log.warn('[pathgen] the diagnostic’s remediations could not be decided:', error),
+        )
+    }
+    return state
+  }
   return {
     quote: ({ config }) => deps.quote(config),
 
@@ -387,7 +457,11 @@ export function createPathgenFacade(deps: PathgenFacadeDeps): PathgenFacade {
 
     freeze: async ({ pathVersionId }) => {
       const { draft } = await loadVersion(deps.repos, pathVersionId)
+      // A regeneration's freeze diffs against the active version and carries its progress and
+      // cards over by concept (8.6); a first freeze does exactly what it always did.
       const result = await freezePath({ repos: deps.repos, clock: deps.clock }, { pathVersionId })
+      if (result.diff !== null)
+        await afterRegenerationFreeze(result.path.id, result.diff.from_version, pathVersionId)
       // The preview's "ya lo sé" gets the diagnostic's seeding (8.5), and the item bank starts
       // building right away so the diagnostic can begin while the lessons are written. Neither
       // may undo a freeze that already happened, so a failure is logged, not thrown.
@@ -434,12 +508,187 @@ export function createPathgenFacade(deps: PathgenFacadeDeps): PathgenFacade {
 
     diagnosticStart: async (input) => diagnosticsOrThrow().start(input),
 
-    diagnosticAnswer: async (input) => diagnosticsOrThrow().answer(input),
+    diagnosticAnswer: async (input) => afterDiagnostic(await diagnosticsOrThrow().answer(input)),
 
-    diagnosticFinish: async ({ sessionId }) => diagnosticsOrThrow().finish(sessionId),
+    diagnosticFinish: async ({ sessionId }) =>
+      afterDiagnostic(await diagnosticsOrThrow().finish(sessionId)),
 
     diagnosticRevert: async ({ sessionId, moduleId }) =>
       diagnosticsOrThrow().revert(sessionId, moduleId),
+
+    // --- remediation (sub-phase 8.6, §11) ---------------------------------------------------
+
+    remediationList: async ({ pathVersionId }) => {
+      const rows = await remediationOrThrow().list(pathVersionId)
+      const [version, tree] = await Promise.all([
+        deps.repos.paths.findVersion(pathVersionId),
+        deps.repos.paths.loadTree(pathVersionId),
+      ])
+      const names = conceptNamesOf(version?.knowledgeGraph)
+      const lessons = new Map<string, Lesson>()
+      for (const section of tree?.sections ?? []) {
+        for (const module of section.modules) {
+          for (const lesson of module.lessons) lessons.set(lesson.id, lesson)
+        }
+      }
+      return {
+        remediations: rows.map((row) =>
+          toRemediationDto(row, {
+            lesson: row.lessonId === null ? null : (lessons.get(row.lessonId) ?? null),
+            anchorSpecId:
+              row.anchorLessonId === null
+                ? null
+                : (lessons.get(row.anchorLessonId)?.specId ?? null),
+            conceptName: names.get(row.conceptId) ?? row.conceptId,
+          }),
+        ),
+      }
+    },
+
+    remediationRequest: async ({ lessonId, conceptId }) => {
+      const [decision] = await remediationOrThrow().handle({
+        kind: 'not_understood',
+        lessonId,
+        ...(conceptId === undefined ? {} : { conceptId }),
+      })
+      return toRemediationDecisionDto(decision, remediationDto)
+    },
+
+    remediationComplete: async ({ remediationId }) =>
+      remediationDto(await remediationOrThrow().complete(remediationId)),
+
+    remediationDismiss: async ({ remediationId }) =>
+      remediationDto(await remediationOrThrow().dismiss(remediationId), null),
+
+    // --- regeneration (§7, §13 step 6) ------------------------------------------------------
+
+    regenerate: async ({ pathId, config, allowOverBudget }) => {
+      const path = await deps.repos.paths.findById(pathId)
+      if (path === undefined) throw new Error(`pathgen: no path "${pathId}"`)
+      if (path.activeVersion === null) {
+        throw new Error(`pathgen: path "${pathId}" has no frozen version to regenerate`)
+      }
+      const base = config ?? (path.settings as GenerationConfigInput | null)
+      if (base === null) throw new Error(`pathgen: path "${pathId}" has no configuration`)
+      // One regeneration at a time: each is a full paid pipeline with its own budget guard.
+      const latest = await deps.repos.generationRuns.findLatestByPath(pathId)
+      if (latest !== undefined && GENERATING.has(latest.status)) {
+        throw new Error(`pathgen: path "${pathId}" is already being regenerated`)
+      }
+      const result = await deps.runs.start(base, {
+        pathId,
+        ...(allowOverBudget === undefined ? {} : { allowOverBudget }),
+      })
+      return toGenerationResultDto(result)
+    },
+
+    versionDiff: async ({ pathVersionId }) => {
+      const version = await deps.repos.paths.findVersion(pathVersionId)
+      if (version === undefined) throw new Error(`pathgen: no path version "${pathVersionId}"`)
+      const stored = versionDiffSchema.safeParse(version.diff)
+      if (stored.success) {
+        const previous = await deps.repos.paths.findVersionByNumber(
+          version.pathId,
+          stored.data.from_version,
+        )
+        return {
+          diff: toVersionDiffDto(
+            stored.data,
+            conceptNamesOf(version.knowledgeGraph, previous?.knowledgeGraph),
+          ),
+        }
+      }
+      // A draft of a regeneration: diffed live against the version being studied.
+      if (version.frozenAt !== null) return { diff: null }
+      const path = await deps.repos.paths.findById(version.pathId)
+      if (path?.activeVersion == null || path.activeVersion === version.number)
+        return { diff: null }
+      const active = await deps.repos.paths.findVersionByNumber(path.id, path.activeVersion)
+      const before = pathDraftSchema.safeParse(active?.spec)
+      const after = pathDraftSchema.safeParse(version.spec)
+      if (active === undefined || !before.success || !after.success) return { diff: null }
+      const diff = diffDrafts(before.data, after.data, { from: active.number, to: version.number })
+      return {
+        diff: toVersionDiffDto(diff, conceptNamesOf(version.knowledgeGraph, active.knowledgeGraph)),
+      }
+    },
+
+    affectedLessons: async ({ pathVersionId }) => {
+      const result = await affectedOrThrow()(pathVersionId)
+      const sources =
+        deps.repos.sources === undefined || result.sources.length === 0
+          ? []
+          : await deps.repos.sources.findMany(result.sources.map((source) => source.sourceId))
+      return toAffectedLessonsDto(
+        result,
+        new Map(sources.map((source) => [source.id, source.title])),
+      )
+    },
+
+    regenerateAffected: async ({ pathVersionId, lessonIds }) => {
+      // Paid work, so only on the version the learner is studying.
+      const version = await deps.repos.paths.findVersion(pathVersionId)
+      const path =
+        version === undefined ? undefined : await deps.repos.paths.findById(version.pathId)
+      if (version?.frozenAt == null || path?.activeVersion !== version.number) {
+        throw new Error(`pathgen: path version "${pathVersionId}" is not the active one`)
+      }
+      const { lessons } = await affectedOrThrow()(pathVersionId)
+      const wanted = lessonIds === undefined ? null : new Set(lessonIds)
+      const targets = lessons.filter((lesson) => wanted === null || wanted.has(lesson.lessonId))
+      if (targets.length === 0) return { run: null, lessons: 0 }
+      // The learner pressed a button and is watching, as for a single "Regenerar".
+      const result = await deps.expansion.expand(pathVersionId, {
+        userWaiting: true,
+        regenerate: true,
+        onlyLessonIds: targets.map((lesson) => lesson.specId),
+      })
+      const run = await deps.repos.generationRuns.findById(result.runId)
+      return { run: run === undefined ? null : toGenerationRunDto(run), lessons: targets.length }
+    },
+  }
+
+  /**
+   * A regeneration's version became the active one (8.6). The path takes the run's config — so
+   * the next "Regenerar ruta" starts from the one that produced what is being studied — and the
+   * superseded version's open detours close, since nothing can show them any more. Neither may
+   * undo a freeze that already happened.
+   */
+  async function afterRegenerationFreeze(
+    pathId: string,
+    previousNumber: number,
+    pathVersionId: string,
+  ): Promise<void> {
+    try {
+      const run = await deps.repos.generationRuns.findLatestByPath(pathId)
+      if (run?.pathVersionId === pathVersionId) {
+        const config = parseGenerationConfig(run.config)
+        await deps.repos.paths.update(pathId, {
+          settings: run.config,
+          sourceIds: orderedSourceIds(config),
+        })
+      }
+    } catch (error) {
+      log.warn('[pathgen] the regenerated path’s configuration could not be kept:', error)
+    }
+    if (deps.remediation === undefined) return
+    const previous = await deps.repos.paths.findVersionByNumber(pathId, previousNumber)
+    if (previous === undefined) return
+    await deps.remediation
+      .retire(previous.id, pathVersionId)
+      .catch((error: unknown) =>
+        log.warn('[pathgen] the superseded version’s detours could not be closed:', error),
+      )
+  }
+
+  function remediationOrThrow(): RemediationService {
+    if (deps.remediation === undefined) throw new Error('pathgen: remediation is not available')
+    return deps.remediation
+  }
+
+  function affectedOrThrow(): (pathVersionId: string) => Promise<AffectedResult> {
+    if (deps.affected === undefined) throw new Error('pathgen: regeneration is not available')
+    return deps.affected
   }
 
   function itemBankOrThrow(): ItemBankService {

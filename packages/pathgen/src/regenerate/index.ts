@@ -1,0 +1,35 @@
+export {
+  type AffectedCandidate,
+  type AffectedLesson,
+  type AffectedRepos,
+  type AffectedResult,
+  affectedLessons,
+  type ChangedSource,
+  type CurrentSource,
+  changedSources,
+  findAffectedLessons,
+  SOURCE_CHANGE_REASONS,
+  type SourceChangeReason,
+} from './affected'
+export {
+  diffDrafts,
+  LESSON_CHANGES,
+  type LessonChange,
+  type LessonDiff,
+  lessonDiffSchema,
+  VERSION_DIFF_VERSION,
+  type VersionDiff,
+  versionDiffSchema,
+} from './diff'
+export {
+  applyProgressMigration,
+  conceptOfItem,
+  MIGRATED_TAG,
+  type MigrationItem,
+  type MigrationLesson,
+  type MigrationPlan,
+  type MigrationRepos,
+  type MigrationSummary,
+  ORPHAN_TAG,
+  planProgressMigration,
+} from './migrate'

@@ -79,6 +79,8 @@ const PROMPTS = {
   P8_edit: [1],
   /** P9 of §9 — the item bank, one call per blueprint cell, NBME rules, forms A/B (8.5). */
   P9_items: [1],
+  /** P11 of §9 — the remediation mini-lesson: a new angle, one worked example, three items (8.6). */
+  P11_remediation: [1],
 } as const satisfies Record<string, readonly number[]>
 
 export type PromptId = keyof typeof PROMPTS

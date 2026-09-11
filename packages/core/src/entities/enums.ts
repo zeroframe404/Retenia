@@ -171,6 +171,51 @@ export const ITEM_USAGES = [
 ] as const
 export type ItemUsage = (typeof ITEM_USAGES)[number]
 
+// --- remediation ----------------------------------------------------------------------
+
+/**
+ * What fired a remediation (`docs/spec/04-path-generation.md` §11 "Triggers"): the module
+ * reinforcement under 70 % on a concept; ≥ 2 lapses in 14 days (`memory_lapses`) or a mean
+ * R under 0.7 (`memory_retention`) on the concept's cards — two values so each threshold can
+ * be tuned on its own; a confident error in the diagnostic or an exam; the same
+ * `misconception_id` failed twice; the learner's "no lo entiendo".
+ */
+export const REMEDIATION_TRIGGERS = [
+  'reinforcement_low',
+  'memory_lapses',
+  'memory_retention',
+  'confident_error',
+  'repeated_misconception',
+  'user_request',
+] as const
+export type RemediationTrigger = (typeof REMEDIATION_TRIGGERS)[number]
+
+/**
+ * A remediation's lifecycle. `active` is a detour on the path map; `completed` and
+ * `dismissed` are the learner's two ways out of it; `refused` is a trigger the §11 limits
+ * turned down, kept so the thresholds can be tuned against what was *not* inserted; `failed`
+ * is a detour P11 could not write.
+ */
+export const REMEDIATION_STATUSES = [
+  'active',
+  'completed',
+  'dismissed',
+  'refused',
+  'failed',
+] as const
+export type RemediationStatus = (typeof REMEDIATION_STATUSES)[number]
+
+/** Why the §11 limits refused a trigger. `revisit_core` is the third remediation of one
+ *  concept: the learner is sent back to the core lesson instead. */
+export const REMEDIATION_REFUSALS = [
+  'duplicate_concept',
+  'module_active',
+  'weekly_limit',
+  'revisit_core',
+  'no_anchor',
+] as const
+export type RemediationRefusal = (typeof REMEDIATION_REFUSALS)[number]
+
 // --- prior-knowledge diagnostic -------------------------------------------------------
 
 /** A diagnostic session's lifecycle (`docs/spec/04-path-generation.md` §10, sub-phase 8.5).

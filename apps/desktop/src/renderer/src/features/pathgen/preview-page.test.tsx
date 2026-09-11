@@ -94,9 +94,12 @@ function ok<T>(data: T) {
   return { ok: true as const, data }
 }
 
-function stubApi(options: { frozenAt?: string | null } = {}) {
+function stubApi(
+  options: { frozenAt?: string | null; versionDiff?: Record<string, unknown> | null } = {},
+) {
   let currentDraft = draft()
   const frozenAt = options.frozenAt ?? null
+  const versionDiff = vi.fn(async () => ok({ diff: options.versionDiff ?? null }))
 
   const getVersion = vi.fn(async () =>
     ok({
@@ -150,7 +153,7 @@ function stubApi(options: { frozenAt?: string | null } = {}) {
   )
 
   const api = {
-    pathgen: { getVersion, editDraft, freeze },
+    pathgen: { getVersion, editDraft, freeze, versionDiff },
     events: { on: vi.fn(() => vi.fn()) },
   }
   vi.stubGlobal('api', api)
@@ -210,5 +213,54 @@ describe('PreviewPage', () => {
       }),
     )
     await waitFor(() => expect(onFrozen).toHaveBeenCalledWith(PATH_VERSION_ID))
+  })
+
+  it('shows the version diff, one row per lesson, when pathgen.versionDiff answers one', async () => {
+    stubApi({
+      versionDiff: {
+        fromVersion: 1,
+        toVersion: 2,
+        lessons: [
+          {
+            change: 'unchanged',
+            specId: 'S01M1L1',
+            title: 'Lección S01M1L1',
+            previousSpecId: 'S01M1L1',
+            previousTitle: 'Lección S01M1L1',
+            addedConcepts: [],
+            removedConcepts: [],
+            keptConcepts: ['c1'],
+          },
+          {
+            change: 'changed',
+            specId: 'S01M1L2',
+            title: 'Lección S01M1L2 revisada',
+            previousSpecId: 'S01M1L2',
+            previousTitle: 'Lección S01M1L2',
+            addedConcepts: ['c2'],
+            removedConcepts: [],
+            keptConcepts: [],
+          },
+        ],
+        concepts: { added: ['c2'], removed: [], kept: 1 },
+        summary: { unchanged: 1, changed: 1, added: 0, removed: 0 },
+        conceptNames: { c2: 'Concepto nuevo' },
+      },
+    })
+    render(<PreviewPage pathVersionId={PATH_VERSION_ID} onFrozen={vi.fn()} />, { wrapper })
+
+    expect(await screen.findByTestId('version-diff')).toBeInTheDocument()
+    const rows = screen.getAllByTestId('version-diff-lesson')
+    expect(rows).toHaveLength(2)
+    expect(rows[0]).toHaveAttribute('data-change', 'unchanged')
+    expect(rows[1]).toHaveAttribute('data-change', 'changed')
+  })
+
+  it('renders no version diff when pathgen.versionDiff answers null (a first version)', async () => {
+    stubApi({ versionDiff: null })
+    render(<PreviewPage pathVersionId={PATH_VERSION_ID} onFrozen={vi.fn()} />, { wrapper })
+
+    await screen.findByTestId('pathgen-preview')
+    expect(screen.queryByTestId('version-diff')).not.toBeInTheDocument()
   })
 })

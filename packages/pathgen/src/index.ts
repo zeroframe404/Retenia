@@ -53,6 +53,8 @@ export {
   systemFor,
 } from './prompts'
 export * from './qa'
+export * from './regenerate'
+export * from './remediation'
 export * from './run'
 export {
   EMPTY_EXTRACTION,

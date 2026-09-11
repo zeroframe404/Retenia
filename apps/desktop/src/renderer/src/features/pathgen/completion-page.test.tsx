@@ -98,7 +98,14 @@ const DRAFT = {
   known_node_ids: [],
 }
 
-function stubApi(firstCitation: Record<string, unknown> | null) {
+function stubApi(
+  firstCitation: Record<string, unknown> | null,
+  options: {
+    affected?: { sources: unknown[]; lessons: unknown[] }
+    regenerateResult?: Record<string, unknown>
+    regenerateAffectedResult?: Record<string, unknown>
+  } = {},
+) {
   const api = {
     pathgen: {
       getVersion: vi.fn(async () =>
@@ -143,6 +150,23 @@ function stubApi(firstCitation: Record<string, unknown> | null) {
       ),
       expand: vi.fn(async () => ok({ runId: 'run-1', status: 'completed' })),
       regenerateLesson: vi.fn(async () => ok({ runId: 'run-1', status: 'completed' })),
+      affectedLessons: vi.fn(async () => ok(options.affected ?? { sources: [], lessons: [] })),
+      regenerate: vi.fn(async () =>
+        ok(
+          options.regenerateResult ?? {
+            runId: 'run-2',
+            pathId: PATH_ID,
+            pathVersionId: 'new-version-id',
+            status: 'completed' as const,
+            warnings: [],
+            draft: null,
+            error: null,
+          },
+        ),
+      ),
+      regenerateAffected: vi.fn(async () =>
+        ok(options.regenerateAffectedResult ?? { run: null, lessons: 0 }),
+      ),
     },
     events: { on: vi.fn(() => vi.fn()) },
   }
@@ -187,6 +211,104 @@ describe('CompletionPage', () => {
     // `null` would make the route reject the search params rather than open the source.
     await waitFor(() =>
       expect(navigate).toHaveBeenCalledWith({ to: '/library', search: { sourceId: SOURCE_ID } }),
+    )
+  })
+
+  it('regenerates the path and opens the new version through onRegenerated', async () => {
+    const user = userEvent.setup()
+    const api = stubApi(null, {
+      regenerateResult: {
+        runId: '019213cd-0000-7000-8000-000000000042',
+        pathId: PATH_ID,
+        pathVersionId: '019213cd-0000-7000-8000-000000000043',
+        status: 'completed' as const,
+        warnings: [],
+        draft: null,
+        error: null,
+      },
+    })
+    const onRegenerated = vi.fn()
+    render(<CompletionPage pathVersionId={PATH_VERSION_ID} onRegenerated={onRegenerated} />, {
+      wrapper,
+    })
+
+    await user.click(await screen.findByTestId('completion-regenerate'))
+
+    await waitFor(() =>
+      expect(api.pathgen.regenerate).toHaveBeenCalledExactlyOnceWith({ pathId: PATH_ID }),
+    )
+    await waitFor(() =>
+      expect(onRegenerated).toHaveBeenCalledWith({
+        pathVersionId: '019213cd-0000-7000-8000-000000000043',
+        runId: '019213cd-0000-7000-8000-000000000042',
+      }),
+    )
+  })
+
+  it('shows an alert and does not open a version when regeneration wrote none', async () => {
+    const user = userEvent.setup()
+    stubApi(null, {
+      regenerateResult: {
+        runId: '019213cd-0000-7000-8000-000000000044',
+        pathId: PATH_ID,
+        pathVersionId: null,
+        status: 'blocked_budget' as const,
+        warnings: [],
+        draft: null,
+        error: 'Se superó el presupuesto mensual.',
+      },
+    })
+    const onRegenerated = vi.fn()
+    render(<CompletionPage pathVersionId={PATH_VERSION_ID} onRegenerated={onRegenerated} />, {
+      wrapper,
+    })
+
+    await user.click(await screen.findByTestId('completion-regenerate'))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Se superó el presupuesto mensual.')
+    expect(onRegenerated).not.toHaveBeenCalled()
+  })
+
+  it('lists the affected lessons and regenerates them through pathgen.regenerateAffected', async () => {
+    const user = userEvent.setup()
+    const api = stubApi(null, {
+      affected: {
+        sources: [
+          {
+            sourceId: SOURCE_ID,
+            title: 'Fuente actualizada',
+            reason: 'chunks_changed' as const,
+          },
+        ],
+        lessons: [
+          {
+            lessonId: '019213cd-0000-7000-8000-000000000201',
+            specId: 'L02',
+            title: 'Cinemática',
+            sourceIds: [SOURCE_ID],
+            missingFragments: 1,
+          },
+          {
+            lessonId: '019213cd-0000-7000-8000-000000000202',
+            specId: 'L03',
+            title: 'Dinámica',
+            sourceIds: [SOURCE_ID],
+            missingFragments: 2,
+          },
+        ],
+      },
+    })
+    render(<CompletionPage pathVersionId={PATH_VERSION_ID} />, { wrapper })
+
+    expect(await screen.findByTestId('affected-lessons')).toBeInTheDocument()
+    expect(screen.getAllByTestId('affected-lesson')).toHaveLength(2)
+
+    await user.click(screen.getByTestId('regenerate-affected'))
+
+    await waitFor(() =>
+      expect(api.pathgen.regenerateAffected).toHaveBeenCalledExactlyOnceWith({
+        pathVersionId: PATH_VERSION_ID,
+      }),
     )
   })
 })

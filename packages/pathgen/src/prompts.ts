@@ -29,6 +29,7 @@ export const PATHGEN_PROMPT_IDS = {
   judge: 'P7_pedagogy_judge',
   edit: 'P8_edit',
   items: 'P9_items',
+  remediation: 'P11_remediation',
 } as const
 
 export interface PathgenPrompt {
@@ -65,6 +66,11 @@ export interface PathgenPrompts {
    * so its schema id is checked there and only its placeholder and temperature here.
    */
   readonly items: PathgenPrompt
+  /**
+   * P11 — the remediation mini-lesson (sub-phase 8.6). Parsed by `@retenia/activity-ai`'s
+   * `createRemediationAuthor`, like P4 and P9, so its schema id is checked there.
+   */
+  readonly remediation: PathgenPrompt
   /** `promptVersionSnapshot()` — every registered prompt, for the manifest. */
   readonly snapshot: Readonly<Record<string, string>>
 }
@@ -139,6 +145,15 @@ export function assertPathgenPrompts(prompts: PathgenPrompts): PathgenPrompts {
       )
     }
   }
+  // §9 puts P11 on the mid tier: a writer, so a writing role and a writing temperature. The
+  // tier the learner picked in settings overrides the role per call; the file only says what
+  // "mid" means when nobody chose.
+  if (prompts.remediation.role !== 'smart' && prompts.remediation.role !== 'cheap') {
+    throw new PathgenPromptError(
+      `${PATHGEN_PROMPT_IDS.remediation} must run on a text role, "smart" or "cheap" ` +
+        `(it declares "${prompts.remediation.role}")`,
+    )
+  }
   // §5 gate 9 and §14 pitfall 16: the judge is a model different from the generator, and the
   // `judge` role is what carries that rule through the role map. A prompt file re-pointed at
   // `smart` would have the lesson's author grade its own work.
@@ -159,6 +174,7 @@ export function assertPathgenPrompts(prompts: PathgenPrompts): PathgenPrompts {
     [PATHGEN_PROMPT_IDS.judge, prompts.judge, PEDAGOGY_JUDGE_SCHEMA_ID],
     [PATHGEN_PROMPT_IDS.edit, prompts.edit, EDIT_LESSON_SCHEMA_ID],
     [PATHGEN_PROMPT_IDS.items, prompts.items, null],
+    [PATHGEN_PROMPT_IDS.remediation, prompts.remediation, null],
   ]
   for (const [id, prompt, schema] of expected) {
     if (schema !== null && prompt.schemaVersion !== schema) {

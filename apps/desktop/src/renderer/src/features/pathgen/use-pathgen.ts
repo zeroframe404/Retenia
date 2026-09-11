@@ -1,4 +1,5 @@
 import type {
+  AffectedLessonsDto,
   Contract,
   DiagnosticStateDto,
   GenerationConfigInputDto,
@@ -6,6 +7,8 @@ import type {
   ItemBankStatusDto,
   LessonSummaryDto,
   PathEditOpDto,
+  RemediationDto,
+  VersionDiffDto,
 } from '@retenia/ipc-contract'
 import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useState } from 'react'
@@ -265,3 +268,119 @@ export function useDiagnosticRevert(pathVersionId: string) {
   const write = useWriteDiagnosticState(pathVersionId)
   return useIpcMutation('pathgen.diagnosticRevert', { onSuccess: (state) => write(state) })
 }
+
+// --- remediation and regeneration (sub-phase 8.6) ---------------------------------------------
+
+const REMEDIATIONS_KEY = (pathVersionId: string) => ['pathgen.remediationList', { pathVersionId }]
+const AFFECTED_KEY = (pathVersionId: string) => ['pathgen.affectedLessons', { pathVersionId }]
+
+/** The row a push carries, replacing the one the list already had or joining it. */
+export function upsertRemediation(
+  list: readonly RemediationDto[],
+  next: RemediationDto,
+): RemediationDto[] {
+  const index = list.findIndex((entry) => entry.id === next.id)
+  if (index === -1) return [...list, next]
+  return list.map((entry, i) => (i === index ? next : entry))
+}
+
+/**
+ * The dotted detour nodes of the path map (9.1), in the order the map draws them: beside their
+ * anchor, `before` ones ahead of it. Only live detours are nodes — a dismissed one is gone from
+ * the map, a refusal never was on it.
+ */
+export function detourNodes(remediations: readonly RemediationDto[]): RemediationDto[] {
+  return remediations.filter(
+    (entry) =>
+      (entry.status === 'active' || entry.status === 'completed') && entry.lessonId !== null,
+  )
+}
+
+/**
+ * The remediation log of a version, seeded by a query and kept live by `pathgen.remediation`:
+ * a detour that appears, is written, completed or dismissed redraws the map without a refetch.
+ */
+export function useRemediations(pathVersionId: string | undefined) {
+  const client = useQueryClient()
+  const query = useIpcQuery(
+    'pathgen.remediationList',
+    { pathVersionId: pathVersionId ?? '' },
+    { enabled: pathVersionId !== undefined },
+  )
+
+  useIpcEvent(
+    'pathgen.remediation',
+    useCallback(
+      (event) => {
+        if (pathVersionId === undefined || event.remediation.pathVersionId !== pathVersionId) return
+        client.setQueryData(
+          REMEDIATIONS_KEY(pathVersionId),
+          (previous: { remediations: RemediationDto[] } | undefined) =>
+            previous === undefined
+              ? previous
+              : { remediations: upsertRemediation(previous.remediations, event.remediation) },
+        )
+      },
+      [client, pathVersionId],
+    ),
+  )
+
+  return query
+}
+
+/** "No lo entiendo" from the lesson player. */
+export function useRequestRemediation() {
+  return useIpcMutation('pathgen.remediationRequest')
+}
+
+export function useCompleteRemediation(pathVersionId: string) {
+  const client = useQueryClient()
+  return useIpcMutation('pathgen.remediationComplete', {
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: REMEDIATIONS_KEY(pathVersionId) })
+    },
+  })
+}
+
+export function useDismissRemediation(pathVersionId: string) {
+  const client = useQueryClient()
+  return useIpcMutation('pathgen.remediationDismiss', {
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: REMEDIATIONS_KEY(pathVersionId) })
+    },
+  })
+}
+
+/** "Regenerar ruta": answers with the new, unfrozen version the preview opens. */
+export function useRegeneratePath() {
+  return useIpcMutation('pathgen.regenerate')
+}
+
+/** A version against the one it replaces; `null` for a first version. */
+export function useVersionDiff(pathVersionId: string | undefined) {
+  return useIpcQuery(
+    'pathgen.versionDiff',
+    { pathVersionId: pathVersionId ?? '' },
+    { enabled: pathVersionId !== undefined },
+  )
+}
+
+export function useAffectedLessons(pathVersionId: string | undefined) {
+  return useIpcQuery(
+    'pathgen.affectedLessons',
+    { pathVersionId: pathVersionId ?? '' },
+    { enabled: pathVersionId !== undefined },
+  )
+}
+
+export function useRegenerateAffected(pathVersionId: string) {
+  const client = useQueryClient()
+  return useIpcMutation('pathgen.regenerateAffected', {
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: AFFECTED_KEY(pathVersionId) })
+      void client.invalidateQueries({ queryKey: LESSONS_KEY(pathVersionId) })
+    },
+  })
+}
+
+export type { AffectedLessonsDto, RemediationDto, VersionDiffDto }

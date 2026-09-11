@@ -91,8 +91,12 @@ export function createTreeRepos(
 
   const paths: TreeRepos['paths'] = {
     findVersion: async (id) => live(rows.versions).find((v) => v.id === id),
+    findVersionByNumber: async (pathId, number) =>
+      live(rows.versions).find((v) => v.pathId === pathId && v.number === number),
     findById: async (id) => live(rows.paths).find((p) => p.id === id),
     update: async (id, changes) => patch(rows.paths, id, changes, 'paths'),
+    updateVersion: async (id, changes) => patch(rows.versions, id, changes, 'path_versions'),
+    updateLesson: async (id, changes) => patch(rows.lessons, id, changes, 'lessons'),
     createSection: async (input: NewEntity<Section>) => {
       const row = audit(input)
       rows.sections.push(row)

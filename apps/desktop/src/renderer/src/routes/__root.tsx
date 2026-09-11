@@ -5,6 +5,7 @@ import { DeepLinkBanner } from '../components/deep-link-banner'
 import { SourceDeepLinkListener } from '../components/source-deep-link-listener'
 import { ThemeSync } from '../components/theme-sync'
 import { UpdateStatusLog } from '../components/update-status-log'
+import { RemediationToaster } from '../features/pathgen/components/remediation-toaster'
 import { useT } from '../i18n/use-t'
 import { AppShell } from '../shell/app-shell'
 import { NotFound } from '../shell/not-found'
@@ -35,6 +36,8 @@ function RootLayout() {
           <DeepLinkBanner />
         </div>
         <UpdateStatusLog />
+        {/* §11's "desvío sugerido": a detour announces itself wherever the learner is. */}
+        <RemediationToaster />
         <Toaster />
       </HotkeysProvider>
     </MotionConfig>

@@ -10,6 +10,7 @@ import { generationRunsContract } from './generation-runs.contract'
 import { importanceLevelsContract } from './importance-levels.contract'
 import { jobsContract } from './jobs.contract'
 import { outboxContract } from './outbox.contract'
+import { remediationsContract } from './remediations.contract'
 import { reviewLogsContract } from './review-logs.contract'
 import { reviewSessionsContract } from './review-sessions.contract'
 import { schedulerProfilesContract } from './scheduler-profiles.contract'
@@ -42,6 +43,7 @@ export function runRepositoryContracts(harness: RepositoryContractHarness): void
     generationRunsContract(harness)
     extractionsContract(harness)
     diagnosticSessionsContract(harness)
+    remediationsContract(harness)
   })
 }
 
@@ -55,6 +57,7 @@ export { generationRunsContract } from './generation-runs.contract'
 export { importanceLevelsContract } from './importance-levels.contract'
 export { jobsContract } from './jobs.contract'
 export { outboxContract } from './outbox.contract'
+export { remediationsContract } from './remediations.contract'
 export { reviewLogsContract } from './review-logs.contract'
 export { reviewSessionsContract } from './review-sessions.contract'
 export { schedulerProfilesContract } from './scheduler-profiles.contract'

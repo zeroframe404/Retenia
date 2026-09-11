@@ -112,6 +112,12 @@ export interface DiagnosticService {
   sweepPendingSeeds(): Promise<number>
   /** §10 "deferred verification": re-open known modules whose cards say otherwise. */
   verifyKnownModules(now?: Date): Promise<{ reopened: number }>
+  /**
+   * §11: the third remediation of a concept lowers the module's mastery estimate — for a module
+   * the diagnostic marked known, that estimate is the verdict, so the module is re-opened the way
+   * the deferred verification re-opens one. `false` when no diagnostic had marked it known.
+   */
+  reopenModule(pathVersionId: string, moduleId: string, now?: Date): Promise<boolean>
 }
 
 // --- what a session row stores -------------------------------------------------------
@@ -133,7 +139,8 @@ interface AppliedModule {
   pendingSeedLessonIds: string[]
   revertedAt: string | null
   reopenedAt: string | null
-  reopenReason: 'lapses' | 'low_retention' | null
+  /** `remediation`: §11's third detour on one of the module's concepts (sub-phase 8.6). */
+  reopenReason: 'lapses' | 'low_retention' | 'remediation' | null
 }
 
 interface Remediation {
@@ -227,7 +234,10 @@ function readApplied(raw: JsonObject): Applied {
         pendingSeedLessonIds: strings(value.pendingSeedLessonIds),
         revertedAt: stringOrNull(value.revertedAt),
         reopenedAt: stringOrNull(value.reopenedAt),
-        reopenReason: reason === 'lapses' || reason === 'low_retention' ? reason : null,
+        reopenReason:
+          reason === 'lapses' || reason === 'low_retention' || reason === 'remediation'
+            ? reason
+            : null,
       }
     }
   }
@@ -950,6 +960,38 @@ export function createDiagnosticService(deps: DiagnosticServiceDeps): Diagnostic
       }
       return { reopened }
     },
+
+    reopenModule: async (pathVersionId, moduleId, now = clock.now()) => {
+      let reopened = false
+      for (const session of await repos.diagnosticSessions.listByPathVersion(pathVersionId)) {
+        if (session.status !== 'completed') continue
+        const applied = readApplied(session.applied)
+        const module = applied.modules[moduleId]
+        if (module === undefined || module.revertedAt !== null || module.reopenedAt !== null)
+          continue
+        for (const lessonId of module.completedLessonIds) {
+          await repos.paths.updateLesson(lessonId, { completedAt: null })
+        }
+        // Back to the importance it had — unless the learner has changed it since, as in
+        // `verifyKnownModules`.
+        const restored = new Set<string>()
+        for (const record of module.seeded) {
+          if (restored.has(record.itemId)) continue
+          restored.add(record.itemId)
+          const item = await repos.knowledgeItems.findById(record.itemId)
+          if (item?.importance === 'maintenance') {
+            await repos.knowledgeItems.update(record.itemId, {
+              importance: record.previousImportance,
+            })
+          }
+        }
+        module.reopenedAt = now.toISOString()
+        module.reopenReason = 'remediation'
+        await repos.diagnosticSessions.update(session.id, { applied: toJson(applied) })
+        reopened = true
+      }
+      return reopened
+    },
   }
 
   /**
@@ -976,6 +1018,7 @@ export function createDiagnosticService(deps: DiagnosticServiceDeps): Diagnostic
     onLessonExpanded: locked(service.onLessonExpanded),
     sweepPendingSeeds: locked(service.sweepPendingSeeds),
     verifyKnownModules: locked(service.verifyKnownModules),
+    reopenModule: locked(service.reopenModule),
   }
 }
 

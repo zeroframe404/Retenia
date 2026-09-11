@@ -78,6 +78,12 @@ const TABLE_GROUPS: readonly { title: string; blurb: string; tables: readonly st
     tables: ['exams', 'item_bank', 'exam_items', 'exam_attempts', 'diagnostic_sessions'],
   },
   {
+    title: 'Remediation',
+    blurb:
+      'The remediation log (`src/schema/remediations.ts`): every trigger that fired on a concept, what the limits of `04-path-generation.md` §11 made of it, the `L07.r1` detour it became — a `lessons` row of kind `remediation` — and its measured effect. Refusals are rows too, so the thresholds can be tuned against what was not inserted.',
+    tables: ['remediations'],
+  },
+  {
     title: 'Memory system',
     blurb:
       'Importance levels, FSRS parameters, knowledge items and cards. FSRS columns mirror `ts-fsrs` 1:1 (`src/schema/memory.ts`).',
@@ -276,6 +282,8 @@ export function renderSchemaDoc(): string {
         '`generation_runs` (the "Generate with AI" run ledger: config and its hash, status = stage, progress, estimate, cost and token totals, manifest, warnings) and `extractions` (the validated P1 output per chunk, live-unique on `custom_id`, so a re-run over the same book makes no P1 call). The draft itself is an unfrozen `path_versions` row (`04-path-generation.md` §3 stages 3–5, §7).',
       '0017_diagnostic_sessions':
         "`diagnostic_sessions` (the prior-knowledge diagnostic of `04-path-generation.md` §10: self-assessment, the answer log a resume replays, the item being served, the result, and what the result wrote so it can be undone) and `item_bank.authoring` (what P9 said about each item; `cell_key` is the item build's idempotency key). The column is added with `ALTER TABLE … ADD COLUMN … CHECK` rather than drizzle-kit's table rebuild, which cannot commit while `exam_items` rows reference `item_bank`.",
+      '0018_remediations':
+        "`remediations` (the remediation log of `04-path-generation.md` §11: trigger, the limits' verdict and its refusal reason, the anchor lesson and the `L07.r1` detour it became, the evidence, the temporary importance raise, and the outcome measured afterwards). A new table only — no existing row is rewritten.",
     }
     for (const [index, migration] of loadMigrations().entries()) {
       line(

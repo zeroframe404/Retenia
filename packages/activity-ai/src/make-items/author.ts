@@ -16,7 +16,7 @@ import type {
 } from '@retenia/core'
 import { mcqIssue } from '../make-activities/author'
 import { nbmeIssues, stemOf } from './nbme'
-import { MAKE_ITEMS_SCHEMA_ID, makeItemsOutputSchema } from './schema'
+import { type ItemCandidate, MAKE_ITEMS_SCHEMA_ID, makeItemsOutputSchema } from './schema'
 import { buildItemTask } from './task'
 
 /**
@@ -130,77 +130,86 @@ export function createItemAuthor(options: { readonly prompt: ItemAuthorPrompt })
           notes: [],
         }
       }
-
-      const allowedConcepts = new Set(call.conceptIds)
-      const allowedMisconceptions = new Set(call.misconceptionIds)
-      const items: AuthoredItem[] = []
-      const rejected: ActivityRejection[] = []
-      const reject = (type: string, code: string, message: string) =>
-        rejected.push({ type, code, message })
-
-      for (const [index, candidate] of parsed.data.items.entries()) {
-        const draft = candidate.activity as ActivityDraft
-        const checked = checkActivity({ ...draft, id: VALIDATION_ID })
-        if (!checked.ok) {
-          const issue = firstError(checked.issues)
-          reject(draft.type, issue?.code ?? 'schema', issue?.message ?? 'the item did not validate')
-          continue
-        }
-
-        const optionIds =
-          draft.payload.family === 'choice'
-            ? new Set(draft.payload.sets.flatMap((set) => set.options.map((option) => option.id)))
-            : new Set<string>()
-        const misconceptionByOption: Record<string, string> = {}
-        for (const pair of candidate.option_misconceptions) {
-          if (optionIds.has(pair.option_id) && allowedMisconceptions.has(pair.misconception_id)) {
-            misconceptionByOption[pair.option_id] = pair.misconception_id
-          }
-        }
-        const misconceptionIds = [
-          ...new Set([...candidate.misconception_ids, ...Object.values(misconceptionByOption)]),
-        ].filter((id) => allowedMisconceptions.has(id))
-
-        const mcq = mcqIssue(draft, misconceptionIds, call.misconceptionsAvailable)
-        if (mcq !== null) {
-          reject(draft.type, mcq.code, mcq.message)
-          continue
-        }
-        const nbme = nbmeIssues(draft, {
-          misconceptionsAvailable: call.misconceptionsAvailable,
-          misconceptionByOption,
-        })
-        if (nbme.length > 0) {
-          const first = nbme[0] as (typeof nbme)[number]
-          reject(draft.type, first.code, first.message)
-          continue
-        }
-        if (draft.skills.length === 0 || draft.skills.some((id) => !allowedConcepts.has(id))) {
-          reject(
-            draft.type,
-            'item_concept_unknown',
-            'the item names a concept the cell was not given',
-          )
-          continue
-        }
-        const form = call.forms.length === 0 ? null : candidate.form
-        if (form === null ? call.forms.length > 0 : !call.forms.includes(form)) {
-          reject(draft.type, 'item_form_missing', 'an exam cell needs every item on form A or B')
-          continue
-        }
-
-        items.push({
-          key: `${call.customId}#${index}`,
-          row: toActivityRow(draft, { bloom: candidate.bloom, misconceptionIds, status: 'ready' }),
-          form,
-          difficulty: draft.difficulty,
-          conceptIds: [...draft.skills],
-          misconceptionByOption,
-          stem: stemOf(draft),
-        })
-      }
-
-      return { items, rejected, notes: parsed.data.notes }
+      return { ...collectItemCandidates(call, parsed.data.items), notes: parsed.data.notes }
     },
   }
+}
+
+/**
+ * The validation every bank-shaped item goes through, in the order the module doc lists — the
+ * P9 cell's and, since 8.6, the P11 detour's, whose items are the same shape with no form.
+ */
+export function collectItemCandidates(
+  call: Pick<
+    ItemAuthorCall,
+    'customId' | 'misconceptionsAvailable' | 'conceptIds' | 'misconceptionIds' | 'forms'
+  >,
+  candidates: readonly ItemCandidate[],
+): { items: AuthoredItem[]; rejected: ActivityRejection[] } {
+  const allowedConcepts = new Set(call.conceptIds)
+  const allowedMisconceptions = new Set(call.misconceptionIds)
+  const items: AuthoredItem[] = []
+  const rejected: ActivityRejection[] = []
+  const reject = (type: string, code: string, message: string) =>
+    rejected.push({ type, code, message })
+
+  for (const [index, candidate] of candidates.entries()) {
+    const draft = candidate.activity as ActivityDraft
+    const checked = checkActivity({ ...draft, id: VALIDATION_ID })
+    if (!checked.ok) {
+      const issue = firstError(checked.issues)
+      reject(draft.type, issue?.code ?? 'schema', issue?.message ?? 'the item did not validate')
+      continue
+    }
+
+    const optionIds =
+      draft.payload.family === 'choice'
+        ? new Set(draft.payload.sets.flatMap((set) => set.options.map((option) => option.id)))
+        : new Set<string>()
+    const misconceptionByOption: Record<string, string> = {}
+    for (const pair of candidate.option_misconceptions) {
+      if (optionIds.has(pair.option_id) && allowedMisconceptions.has(pair.misconception_id)) {
+        misconceptionByOption[pair.option_id] = pair.misconception_id
+      }
+    }
+    const misconceptionIds = [
+      ...new Set([...candidate.misconception_ids, ...Object.values(misconceptionByOption)]),
+    ].filter((id) => allowedMisconceptions.has(id))
+
+    const mcq = mcqIssue(draft, misconceptionIds, call.misconceptionsAvailable)
+    if (mcq !== null) {
+      reject(draft.type, mcq.code, mcq.message)
+      continue
+    }
+    const nbme = nbmeIssues(draft, {
+      misconceptionsAvailable: call.misconceptionsAvailable,
+      misconceptionByOption,
+    })
+    if (nbme.length > 0) {
+      const first = nbme[0] as (typeof nbme)[number]
+      reject(draft.type, first.code, first.message)
+      continue
+    }
+    if (draft.skills.length === 0 || draft.skills.some((id) => !allowedConcepts.has(id))) {
+      reject(draft.type, 'item_concept_unknown', 'the item names a concept the cell was not given')
+      continue
+    }
+    const form = call.forms.length === 0 ? null : candidate.form
+    if (form === null ? call.forms.length > 0 : !call.forms.includes(form)) {
+      reject(draft.type, 'item_form_missing', 'an exam cell needs every item on form A or B')
+      continue
+    }
+
+    items.push({
+      key: `${call.customId}#${index}`,
+      row: toActivityRow(draft, { bloom: candidate.bloom, misconceptionIds, status: 'ready' }),
+      form,
+      difficulty: draft.difficulty,
+      conceptIds: [...draft.skills],
+      misconceptionByOption,
+      stem: stemOf(draft),
+    })
+  }
+
+  return { items, rejected }
 }

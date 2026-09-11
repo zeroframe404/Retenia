@@ -53,6 +53,9 @@ export const SYNCABLE_TABLES: ReadonlySet<string> = new Set([
   'modules',
   'path_versions',
   'paths',
+  // The detours on the learner's path and the importance they raised travel with the path;
+  // the log of what fired them is the evidence a second device needs to keep the limits.
+  'remediations',
   'review_logs',
   'review_sessions',
   'scheduler_profiles',

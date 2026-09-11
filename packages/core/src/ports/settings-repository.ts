@@ -137,6 +137,12 @@ export interface SettingsMap {
   /** Whether repository mutations enqueue `outbox` rows. Off in v1 — there is nothing to
    *  sync to yet (`docs/spec/07-architecture.md` §6). */
   'sync.outboxEnabled': boolean
+  /**
+   * Which text role writes a remediation mini-lesson (P11, `docs/spec/04-path-generation.md`
+   * §9 puts it on the mid tier): `smart` — Sonnet 5 by default — or the `cheap` one, for a
+   * learner who would rather trade some of the explanation's quality for its price.
+   */
+  'pathgen.remediationTier': 'smart' | 'cheap'
 }
 
 /** One role's primary + fallback profile/model choices, as stored under `ai.roles`. */
@@ -401,6 +407,7 @@ export const SETTINGS: { readonly [K in SettingsKey]: SettingSpec<SettingsMap[K]
   'retrieval.rerankerEnabled': booleanSetting(false),
   'retrieval.rerankerModel': stringSetting('bge-reranker-v2-m3'),
   'sync.outboxEnabled': booleanSetting(false),
+  'pathgen.remediationTier': oneOf(['smart', 'cheap'], 'smart'),
 }
 
 /** What `get` returns when a key was never written (or holds an unreadable value). */

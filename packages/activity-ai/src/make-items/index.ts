@@ -1,4 +1,5 @@
 export {
+  collectItemCandidates,
   createItemAuthor,
   type ItemAuthor,
   type ItemAuthorCall,
@@ -17,7 +18,9 @@ export {
 } from './nbme'
 export {
   ITEM_TYPES,
+  type ItemCandidate,
   type ItemType,
+  itemCandidateSchema,
   MAKE_ITEMS_SCHEMA_ID,
   MAKE_ITEMS_SCHEMA_NAME,
   MAKE_ITEMS_SCHEMA_VERSION,

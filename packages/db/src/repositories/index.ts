@@ -30,6 +30,7 @@ import { createKnowledgeItemRepository } from './knowledge-items'
 import { createOutboxRepository } from './outbox'
 import { createOutboxWriter, disabledOutboxWriter } from './outbox-writer'
 import { createPathRepository } from './paths'
+import { createRemediationRepository } from './remediations'
 import { createReviewLogRepository } from './review-logs'
 import { createReviewSessionRepository } from './review-sessions'
 import { createSchedulerProfileRepository } from './scheduler-profiles'
@@ -119,6 +120,7 @@ export function createRepositories(opened: OpenedDatabase, options: RepositoryOp
     knowledgeItems: createKnowledgeItemRepository(ctx),
     outbox: createOutboxRepository(ctx),
     paths: createPathRepository(ctx),
+    remediations: createRemediationRepository(ctx),
     reviewLogs: createReviewLogRepository(ctx),
     reviewSessions: createReviewSessionRepository(ctx),
     schedulerProfiles: createSchedulerProfileRepository(ctx),

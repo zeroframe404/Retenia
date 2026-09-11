@@ -26,6 +26,12 @@ export interface PersistDraftInput {
   readonly warnings: readonly GenerationWarning[]
   readonly cost: ManifestCost
   readonly now: Date
+  /**
+   * A regeneration of a path the learner is studying (sub-phase 8.6): the path row is left
+   * exactly as it is — still `active`, still titled what it was — until the new version is
+   * frozen. Only the new, unfrozen version is written.
+   */
+  readonly keepPath?: boolean
 }
 
 export interface PersistedDraft {
@@ -35,16 +41,18 @@ export interface PersistedDraft {
 
 export async function persistDraft(input: PersistDraftInput): Promise<PersistedDraft> {
   return input.repos.transaction(async (tx) => {
-    await tx.paths.update(input.pathId, {
-      status: 'draft',
-      title: input.draft.title,
-      language: input.draft.language,
-      level: input.draft.level,
-      goal: input.draft.goal,
-      targetDate: input.draft.target_date,
-      sourceIds: orderedSourceIds(input.config),
-      settings: asJson(input.config),
-    })
+    if (input.keepPath !== true) {
+      await tx.paths.update(input.pathId, {
+        status: 'draft',
+        title: input.draft.title,
+        language: input.draft.language,
+        level: input.draft.level,
+        goal: input.draft.goal,
+        targetDate: input.draft.target_date,
+        sourceIds: orderedSourceIds(input.config),
+        settings: asJson(input.config),
+      })
+    }
     const version = await tx.paths.createVersion({
       pathId: input.pathId,
       spec: asJson(input.draft),

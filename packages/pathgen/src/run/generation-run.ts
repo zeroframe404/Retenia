@@ -376,8 +376,9 @@ export function createGenerationRun(deps: GenerationRunDeps): GenerationRunHandl
       error,
       ...(terminal ? { finishedAt: deps.clock.now() } : {}),
     })
-    if (terminal) {
-      // The path stays, as an empty draft the user can retry into or discard.
+    // The path stays, as an empty draft the user can retry into or discard — unless it is a
+    // path being studied that a regeneration failed on, which simply stays what it was.
+    if (terminal && attempt.path.activeVersion === null) {
       await deps.repos.paths.update(attempt.path.id, { status: 'draft' })
     }
     return {
@@ -621,6 +622,7 @@ export function createGenerationRun(deps: GenerationRunDeps): GenerationRunHandl
       warnings,
       cost: manifest.cost,
       now: deps.clock.now(),
+      keepPath: attempt.path.activeVersion !== null,
     })
     attempt.run = persisted.run
     report(attempt, 'persisting', 1, 1)
@@ -696,7 +698,12 @@ export function createGenerationRun(deps: GenerationRunDeps): GenerationRunHandl
       if (existing === undefined) {
         throw new GenerationError('path_not_found', `no path ${options.pathId}`)
       }
-      path = await deps.repos.paths.update(existing.id, { ...pathFields, status: 'generating' })
+      // "Regenerar ruta" (sub-phase 8.6) on a path being studied: v1 stays the active, `active`
+      // path, untouched, until v2 is frozen; the run's config is the regeneration's own.
+      path =
+        existing.activeVersion === null
+          ? await deps.repos.paths.update(existing.id, { ...pathFields, status: 'generating' })
+          : existing
     }
 
     const [estimate, runnerQuote, cheap, smart] = await Promise.all([
@@ -826,7 +833,8 @@ export function createGenerationRun(deps: GenerationRunDeps): GenerationRunHandl
       cachedTokens: existing.cachedTokens,
       usd: existing.costUsd,
     }
-    await deps.repos.paths.update(path.id, { status: 'generating' })
+    if (path.activeVersion === null)
+      await deps.repos.paths.update(path.id, { status: 'generating' })
     const accounting = readAccounting(existing)
     existing.estimate = asJson({ ...estimate, runnerQuote })
     await deps.repos.generationRuns.update(runId, { estimate: existing.estimate })
@@ -883,7 +891,10 @@ export function createGenerationRun(deps: GenerationRunDeps): GenerationRunHandl
       status: 'cancelled',
       finishedAt: deps.clock.now(),
     })
-    await deps.repos.paths.update(existing.pathId, { status: 'draft' })
+    const path = await deps.repos.paths.findById(existing.pathId)
+    if (path !== undefined && path.activeVersion === null) {
+      await deps.repos.paths.update(existing.pathId, { status: 'draft' })
+    }
     return cancelledRun
   }
 

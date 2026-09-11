@@ -3,6 +3,7 @@ import {
   generationStageSchema,
   lessonQaSummaryDtoSchema,
   lessonStatusDtoSchema,
+  remediationDtoSchema,
 } from '../channels/pathgen'
 import { defineEvents } from '../define'
 
@@ -54,7 +55,18 @@ export const pathgenLessonStatusSchema = z.object({
 })
 export type PathgenLessonStatusEvent = z.infer<typeof pathgenLessonStatusSchema>
 
+/**
+ * A remediation appeared, changed or went away (sub-phase 8.6, §11): the path map redraws its
+ * dotted detour nodes, and an `inserted` one raises the "desvío sugerido" toast with its reasons.
+ */
+export const pathgenRemediationSchema = z.object({
+  kind: z.enum(['inserted', 'updated', 'removed', 'refused', 'failed']),
+  remediation: remediationDtoSchema,
+})
+export type PathgenRemediationEvent = z.infer<typeof pathgenRemediationSchema>
+
 export const pathgenEvents = defineEvents({
   'pathgen.progress': pathgenProgressSchema,
   'pathgen.lessonStatus': pathgenLessonStatusSchema,
+  'pathgen.remediation': pathgenRemediationSchema,
 })

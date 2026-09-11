@@ -1,6 +1,6 @@
 import { join } from 'node:path'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
-import type { UnitOfWork } from '@retenia/core'
+import { createDomainEventBus, type DomainEventPublisher, type UnitOfWork } from '@retenia/core'
 import { contract, type DeepLink } from '@retenia/ipc-contract'
 import * as Sentry from '@sentry/electron/main'
 import type { OpenDialogOptions } from 'electron'
@@ -102,12 +102,16 @@ if (gotLock) {
   const getCsp = () => buildCsp({ devServerUrl })
   const getAppProtocolCsp = () => buildCsp()
 
-  async function createMemoryServiceOrNull(repos: UnitOfWork): Promise<MemoryService | null> {
+  async function createMemoryServiceOrNull(
+    repos: UnitOfWork,
+    events: DomainEventPublisher,
+  ): Promise<MemoryService | null> {
     try {
       return await createMemoryService({
         repos,
         timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         dayStartHour: await repos.settings.get('review.dayStartHour'),
+        events,
       })
     } catch (error) {
       log.error('[memory] the memory system did not start:', error)
@@ -182,7 +186,20 @@ if (gotLock) {
     // leaves `memory` null and its channels reporting why, exactly as `unavailableFacade`
     // does for jobs. Without the catch, an `await` in this callback would reject the whole
     // of `whenReady` and nothing would ever open.
-    const memory = database ? await createMemoryServiceOrNull(database.repos) : null
+    // The domain's facts, published once they are durable: the memory service publishes
+    // `card.reviewed`, and §11's remediation trigger (sub-phase 8.6) listens to it. A listener
+    // that throws is logged, never allowed to undo a review that already committed.
+    const domainEvents = createDomainEventBus({
+      onError: (error, event) => log.error(`[events] a ${event.type} listener threw:`, error),
+    })
+    domainEvents.subscribeAll((event) => {
+      log.debug(
+        event.type === 'card.reviewed'
+          ? `[memory] ${event.type} ${event.card.id} rating=${event.log.rating}`
+          : `[memory] ${event.type} ${event.card.id} ${event.decision.stage} lapses=${event.decision.lapses}`,
+      )
+    })
+    const memory = database ? await createMemoryServiceOrNull(database.repos, domainEvents) : null
     if (memory) {
       // The startup sweep clears urgent-mode overrides that lapsed while the app was
       // closed. The policy already ignores them on read; this is what makes the badge go
@@ -241,6 +258,9 @@ if (gotLock) {
             embeddings: jobs.embeddings,
             // Sub-phase 8.5: the diagnostic seeds known modules and verifies them later.
             memory,
+            // Sub-phase 8.6: remediation hears reviews and pushes its detours to the map.
+            events: domainEvents,
+            emitRemediation: (event) => broadcast('pathgen.remediation', event),
           })
         : null
 

@@ -124,6 +124,14 @@ export const itemsPrompt: PathgenPrompt = {
   temperature: 0.7,
 }
 
+export const remediationPrompt: PathgenPrompt = {
+  template: 'Write the detour: a new angle, one worked example, the items asked for.\n\n{{task}}',
+  promptVersion: '1',
+  schemaVersion: 'remediate@1',
+  role: 'smart',
+  temperature: 0.5,
+}
+
 export const testPrompts: PathgenPrompts = {
   extract: extractPrompt,
   outline: outlinePrompt,
@@ -135,8 +143,10 @@ export const testPrompts: PathgenPrompts = {
   judge: judgePrompt,
   edit: editPrompt,
   items: itemsPrompt,
+  remediation: remediationPrompt,
   snapshot: {
     P9_items: '1',
+    P11_remediation: '1',
     P1_extract_chunk: '1',
     P2_synthesize_outline: '1',
     P2_synthesize_module: '1',
