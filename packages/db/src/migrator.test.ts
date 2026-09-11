@@ -526,4 +526,34 @@ describe('migrate()', () => {
     expect(appliedMigrations(opened).map((row) => row.name)).not.toContain(dangling.name)
     expect(opened.sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
   })
+
+  it('tolerates a dangling reference older than the migration, and still catches a new one', () => {
+    opened = openDatabase(IN_MEMORY)
+    const shipped = loadMigrations()
+    migrate(opened, { migrations: shipped })
+    const now = Date.now()
+    const activity = (n: string, lessonId: string) =>
+      `INSERT INTO activities (id, lesson_id, type, family, lang, config, grading, created_at, updated_at, device_id, version)
+       VALUES ('0199aaaa-bbbb-7ccc-8ddd-${n.padStart(12, '0')}', '${lessonId}', 'mcq_single', 'choice', 'es', '{}', '{}', ${now}, ${now}, 'test-device', 1);`
+    // A collection restored from somewhere that already carries a broken reference.
+    opened.sqlite.pragma('foreign_keys = OFF')
+    opened.sqlite.exec(activity('1', '0199aaaa-bbbb-7ccc-8ddd-000000000998'))
+    opened.sqlite.pragma('foreign_keys = ON')
+
+    const harmless: Migration = {
+      name: `${String(shipped.length).padStart(4, '0')}_harmless_probe`,
+      sql: 'CREATE TABLE harmless_probe (id TEXT PRIMARY KEY);',
+    }
+    expect(migrate(opened, { migrations: [...shipped, harmless] }).applied).toEqual([harmless.name])
+
+    const dangling: Migration = {
+      name: `${String(shipped.length + 1).padStart(4, '0')}_dangling_reference`,
+      sql: activity('2', '0199aaaa-bbbb-7ccc-8ddd-000000000999'),
+    }
+    expect(() => migrate(opened, { migrations: [...shipped, harmless, dangling] })).toThrow(
+      /new foreign-key violations: 1 in activities → lessons/,
+    )
+    expect(opened.sqlite.prepare('SELECT count(*) AS n FROM activities').get()).toEqual({ n: 1 })
+    expect(opened.sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
+  })
 })
