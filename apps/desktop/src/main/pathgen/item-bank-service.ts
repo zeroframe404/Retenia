@@ -49,13 +49,36 @@ export interface ItemBankServiceDeps {
   readonly examDue?: (pathVersionId: string) => Promise<boolean>
 }
 
+interface BuildOptions {
+  readonly allowOverBudget: boolean
+  /**
+   * Somebody is waiting on it — the diagnostic screen: synchronous calls, and its progress and
+   * failure are the bank's status. A build nobody waits for (the exam's, after the lessons)
+   * goes through the Batch API when there is one, and never changes what that screen shows:
+   * the diagnostic's questions do not depend on it.
+   */
+  readonly userWaiting: boolean
+}
+
 interface BuildRecord {
   running: Promise<void> | null
+  runningOptions: BuildOptions | null
   last: BuildItemBankResult | null
   error: string | null
-  /** A settled lesson asked for the exam cells while a build that predates it was running. */
-  again: boolean
+  /** What requests that arrived during the running build still need once it ends. */
+  again: BuildOptions | null
 }
+
+function merged(current: BuildOptions | null, next: BuildOptions): BuildOptions {
+  return current === null
+    ? next
+    : {
+        allowOverBudget: current.allowOverBudget || next.allowOverBudget,
+        userWaiting: current.userWaiting || next.userWaiting,
+      }
+}
+
+const BACKGROUND: BuildOptions = { allowOverBudget: false, userWaiting: false }
 
 const USAGES: readonly ItemUsage[] = [
   'diagnostic',
@@ -71,7 +94,7 @@ export function createItemBankService(deps: ItemBankServiceDeps): ItemBankServic
   const recordOf = (id: string): BuildRecord => {
     let record = records.get(id)
     if (record === undefined) {
-      record = { running: null, last: null, error: null, again: false }
+      record = { running: null, runningOptions: null, last: null, error: null, again: null }
       records.set(id, record)
     }
     return record
@@ -93,7 +116,7 @@ export function createItemBankService(deps: ItemBankServiceDeps): ItemBankServic
     )
     const last = record?.last ?? null
     const state: ItemBankStatusDto['state'] =
-      record?.running != null
+      record?.running != null && record.runningOptions?.userWaiting === true
         ? 'building'
         : record?.error != null
           ? 'failed'
@@ -128,12 +151,30 @@ export function createItemBankService(deps: ItemBankServiceDeps): ItemBankServic
     }
   }
 
-  const start = (pathVersionId: string, allowOverBudget: boolean): Promise<void> => {
+  const start = (pathVersionId: string, options: BuildOptions): Promise<void> => {
     const record = recordOf(pathVersionId)
-    if (record.running !== null) return record.running
-    record.error = null
+    if (record.running !== null) {
+      // Joining is enough unless this asks for more than the build in flight was given — the
+      // over-budget pass it lacks, or a learner now waiting behind a background build — and
+      // then a second build follows with what was asked.
+      const current = record.runningOptions
+      if (
+        current !== null &&
+        ((options.allowOverBudget && !current.allowOverBudget) ||
+          (options.userWaiting && !current.userWaiting))
+      ) {
+        record.again = merged(record.again, options)
+      }
+      return record.running
+    }
+    if (options.userWaiting) record.error = null
+    record.runningOptions = options
     record.running = deps
-      .build({ pathVersionId, allowOverBudget, userWaiting: true })
+      .build({
+        pathVersionId,
+        allowOverBudget: options.allowOverBudget,
+        userWaiting: options.userWaiting,
+      })
       .then((result) => {
         record.last = result
         log.info(
@@ -145,29 +186,38 @@ export function createItemBankService(deps: ItemBankServiceDeps): ItemBankServic
         // Clamped: the status DTO caps `error` at 2,000 characters, and a zod issue list can be
         // longer — a status that fails its own schema would lock the diagnostic screen out.
         const message = error instanceof Error ? error.message : String(error)
-        record.error = message.length > 500 ? `${message.slice(0, 500)}…` : message
+        if (options.userWaiting) {
+          record.error = message.length > 500 ? `${message.slice(0, 500)}…` : message
+        }
         log.warn(`[pathgen] the item bank of ${pathVersionId} could not be built:`, error)
       })
       .finally(() => {
         record.running = null
-        // The build that just ended started before the last lesson settled, so it left the
-        // exam cells out; the one that follows reads the settled lessons.
-        if (record.again) {
-          record.again = false
-          void start(pathVersionId, false)
+        record.runningOptions = null
+        // A request the ended build could not serve — it started before the last lesson
+        // settled, or without the over-budget pass since asked for — gets its own build now.
+        const next = record.again
+        if (next !== null) {
+          record.again = null
+          void start(pathVersionId, next)
         }
       })
     return record.running
   }
 
+  const waited = (options: { readonly allowOverBudget?: boolean }): BuildOptions => ({
+    allowOverBudget: options.allowOverBudget === true,
+    userWaiting: true,
+  })
+
   return {
     build: async (pathVersionId, options = {}) => {
-      void start(pathVersionId, options.allowOverBudget === true)
+      void start(pathVersionId, waited(options))
       return status(pathVersionId)
     },
 
     buildAndWait: async (pathVersionId, options = {}) => {
-      await start(pathVersionId, options.allowOverBudget === true)
+      await start(pathVersionId, waited(options))
       return status(pathVersionId)
     },
 
@@ -193,11 +243,11 @@ export function createItemBankService(deps: ItemBankServiceDeps): ItemBankServic
         if (!(await deps.examDue(pathVersionId))) return
         const record = recordOf(pathVersionId)
         if (record.running !== null) {
-          record.again = true
+          record.again = merged(record.again, BACKGROUND)
           return
         }
         log.info(`[pathgen] every lesson of ${pathVersionId} settled: building the exam items`)
-        void start(pathVersionId, false)
+        void start(pathVersionId, BACKGROUND)
       } catch (error) {
         log.warn(`[pathgen] checking whether ${pathVersionId} needs its exam items failed:`, error)
       }

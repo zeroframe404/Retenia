@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { buildBlueprint, FIXED_CELLS_PER_MODULE } from '../item-bank/blueprint'
 import {
   BATCH_MINUTES,
   EXPANSION_BATCH_WAVES,
@@ -16,8 +17,9 @@ import {
   P6_OUTPUT_TOKENS,
   P8_SHARE,
   P9_CALLS_PER_MODULE,
-  P9_INPUT_TOKENS_PER_CALL,
-  P9_OUTPUT_TOKENS_PER_CALL,
+  P9_EXAM_CELLS_PER_MODULE,
+  P9_INPUT_TOKENS_PER_MODULE,
+  P9_OUTPUT_TOKENS_PER_MODULE,
   QA_BATCH_WAVES,
   REGENERATE_SHARE,
 } from './estimate-generation'
@@ -386,36 +388,58 @@ describe('stage 8 rows (sub-phase 8.4)', () => {
 })
 
 describe('stage 9 row (sub-phase 8.5)', () => {
-  it('prices one synchronous P9 call per blueprint cell on the smart role, at §6’s 12.5k / 5k a module', () => {
-    const withItems = { ...systemTokens, items: 900 }
-    const sync = estimateGeneration({
+  const withItems = { ...systemTokens, items: 900 }
+  const quote = (dispatch: 'sync' | 'batch') =>
+    estimateGeneration({
       chunks: chunks(6),
       alreadyExtracted: 0,
       rates: { cheap, smart, judge },
       systemTokens: withItems,
-      dispatch: 'sync',
+      dispatch,
     })
+
+  it('prices one P9 call per blueprint cell on the smart role, at §6’s 12.5k / 5k a module', () => {
+    const sync = quote('sync')
     expect(sync.p9Items.calls).toBe(sync.modules * P9_CALLS_PER_MODULE)
-    expect(sync.p9Items.inputTokens).toBe(sync.p9Items.calls * (900 + P9_INPUT_TOKENS_PER_CALL))
-    expect(sync.p9Items.outputTokens).toBe(sync.p9Items.calls * P9_OUTPUT_TOKENS_PER_CALL)
+    expect(sync.p9Items.inputTokens).toBe(
+      Math.round(sync.p9Items.calls * (900 + P9_INPUT_TOKENS_PER_MODULE / P9_CALLS_PER_MODULE)),
+    )
+    expect(sync.p9Items.outputTokens).toBe(sync.modules * P9_OUTPUT_TOKENS_PER_MODULE)
     expect(sync.p9Items.cachedInputTokens).toBe(0)
     expect(sync.p9Items.usd).toBeCloseTo(
       (sync.p9Items.inputTokens * 2 + sync.p9Items.outputTokens * 10) / 1e6,
-      9,
+      6,
     )
     // §6: ≈ 100k in and 40k out for the eight modules of a 300-page book.
-    expect((P9_CALLS_PER_MODULE * P9_INPUT_TOKENS_PER_CALL * 8) / 1000).toBe(100)
-    expect((P9_CALLS_PER_MODULE * P9_OUTPUT_TOKENS_PER_CALL * 8) / 1000).toBe(40)
+    expect((P9_INPUT_TOKENS_PER_MODULE * 8) / 1000).toBe(100)
+    expect((P9_OUTPUT_TOKENS_PER_MODULE * 8) / 1000).toBe(40)
+  })
 
-    // The bank is built while the learner waits for the diagnostic: never at the batch rate.
-    const batch = estimateGeneration({
-      chunks: chunks(6),
-      alreadyExtracted: 0,
-      rates: { cheap, smart, judge },
-      systemTokens: withItems,
-      dispatch: 'batch',
-    })
-    expect(batch.p9Items).toEqual(sync.p9Items)
+  it('keeps the diagnostic’s cells synchronous and lets the exam’s take the batch rate', () => {
+    const sync = quote('sync')
+    const batch = quote('batch')
+    expect(batch.p9Items.calls).toBe(sync.p9Items.calls)
+    const fixedShare = FIXED_CELLS_PER_MODULE / P9_CALLS_PER_MODULE
+    expect(batch.p9Items.usd).toBeCloseTo(
+      sync.p9Items.usd * fixedShare + (sync.p9Items.usd * (1 - fixedShare)) / 2,
+      6,
+    )
+  })
+
+  it('counts the cells `buildBlueprint` writes for a module with five exam items a form', () => {
+    const modules = Array.from({ length: 8 }, (_, i) => ({
+      id: `M${String(i + 1).padStart(2, '0')}`,
+      objectiveBlooms: ['understand' as const],
+      conceptBlooms: [],
+    }))
+    const topics = modules.map((module) => ({ module_id: module.id, weight: 1 }))
+    expect(buildBlueprint({ modules, topics, examItemCount: 8 * 5 }).cells).toHaveLength(
+      8 * P9_CALLS_PER_MODULE,
+    )
+    expect(buildBlueprint({ modules, topics, examItemCount: 0 }).cells).toHaveLength(
+      8 * FIXED_CELLS_PER_MODULE,
+    )
+    expect(P9_CALLS_PER_MODULE).toBe(FIXED_CELLS_PER_MODULE + P9_EXAM_CELLS_PER_MODULE)
   })
 
   it('falls back to P4’s system weight when the caller does not measure P9’s', () => {
@@ -427,7 +451,10 @@ describe('stage 9 row (sub-phase 8.5)', () => {
       dispatch: 'sync',
     })
     expect(estimate.p9Items.inputTokens).toBe(
-      estimate.p9Items.calls * (systemTokens.activities + P9_INPUT_TOKENS_PER_CALL),
+      Math.round(
+        estimate.p9Items.calls *
+          (systemTokens.activities + P9_INPUT_TOKENS_PER_MODULE / P9_CALLS_PER_MODULE),
+      ),
     )
   })
 })

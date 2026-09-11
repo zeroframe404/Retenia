@@ -125,29 +125,30 @@ test('runs the diagnostic from the wizard to its summary, screen by screen', asy
   await expect(window.locator('[data-testid^="diagnostic-module-advanced-"]').first()).toBeVisible()
   await screenshot(window, 'diagnostic-ui-07-result-advanced')
 
-  // Undo one module the diagnostic marked known, when it marked any: its badge must follow
-  // the counts back to "Por estudiar".
+  // Undo the module the diagnostic marked known — the fake's keyed answers, given sure over a
+  // "Lo sé" section, always leave one — and its badge must follow the counts back to
+  // "Por estudiar".
   const revert = window
     .locator('[data-testid^="diagnostic-revert-"]:not([data-testid="diagnostic-revert-all"])')
     .first()
-  if ((await revert.count()) > 0) {
-    // The tile reads "<label><value>": the count is the number it ends with.
-    const knownTile = window.getByTestId('diagnostic-stat-known')
-    const known = Number((await knownTile.innerText()).match(/(\d+)\s*$/)?.[1] ?? Number.NaN)
-    expect(known).toBeGreaterThan(0)
-    // By the row's own id: the button this was found through disappears once it is used.
-    const specId = ((await revert.getAttribute('data-testid')) ?? '').replace(
-      'diagnostic-revert-',
-      '',
-    )
-    const row = window.getByTestId(`diagnostic-module-${specId}`)
-    await expect(row).toHaveAttribute('data-status', 'known')
-    await revert.click()
-    await expect(row).toHaveAttribute('data-status', 'unknown')
-    await expect(row.getByText('Deshecho')).toBeVisible()
-    await expect(knownTile).toHaveText(new RegExp(`\\D${known - 1}\\s*$`))
-    await screenshot(window, 'diagnostic-ui-08-result-reverted')
-  }
+  await expect(revert).toHaveCount(1)
+  // The tile reads "<label><value>": the count is the number it ends with.
+  const knownTile = window.getByTestId('diagnostic-stat-known')
+  const known = Number((await knownTile.innerText()).match(/(\d+)\s*$/)?.[1] ?? Number.NaN)
+  expect(known).toBeGreaterThan(0)
+  // By the row's own id: the button this was found through disappears once it is used.
+  const specId = ((await revert.getAttribute('data-testid')) ?? '').replace(
+    'diagnostic-revert-',
+    '',
+  )
+  const row = window.getByTestId(`diagnostic-module-${specId}`)
+  await expect(row).toHaveAttribute('data-status', 'known')
+  await revert.click()
+  await expect(row).toHaveAttribute('data-status', 'unknown')
+  await expect(row.getByText('Deshecho')).toBeVisible()
+  await expect(row).toContainText('El diagnóstico lo había marcado como «Ya lo sabés».')
+  await expect(knownTile).toHaveText(new RegExp(`\\D${known - 1}\\s*$`))
+  await screenshot(window, 'diagnostic-ui-08-result-reverted')
 
   await window.getByTestId('diagnostic-continue').click()
   await expect(result).toBeHidden()

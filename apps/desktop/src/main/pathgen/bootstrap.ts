@@ -284,6 +284,22 @@ export function bootstrapPathgen({
   })
 
   /**
+   * Stage 9's exam cells after a restart: the build the last settled lesson started may have
+   * been cut short — the app closed, the budget ran out — and nothing else would ask again
+   * until another lesson settles, which for a finished path is never. Cheap when there is
+   * nothing to do: `examCellsDue` answers from the rows.
+   */
+  void (async () => {
+    for (const path of await repos.paths.listByStatus('active')) {
+      if (path.activeVersion === null) continue
+      const version = await repos.paths.findVersionByNumber(path.id, path.activeVersion)
+      if (version?.frozenAt != null) await itemBank.onLessonSettled(version.id)
+    }
+  })().catch((error: unknown) =>
+    log.warn('[pathgen] the item bank’s startup sweep for exam items failed:', error),
+  )
+
+  /**
    * The diagnostic's two sweeps: cards written while the app was closed for a module marked
    * known, and §10's deferred verification — daily, as a timer that never holds the process
    * open. Main runs them rather than the job worker because both write the database, and the

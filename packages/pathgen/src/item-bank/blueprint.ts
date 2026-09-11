@@ -48,6 +48,8 @@ export const DIAGNOSTIC_CORE_DIFFICULTIES: readonly number[] = Object.freeze([2,
 export const DIAGNOSTIC_APPLY_DIFFICULTIES: readonly number[] = Object.freeze([4])
 export const REINFORCEMENT_DIFFICULTIES: readonly number[] = Object.freeze([2, 3, 4])
 export const PARALLEL_FORMS: readonly ExamForm[] = Object.freeze(['A', 'B'])
+/** The cells every module gets whatever its exam share: diagnostic core and apply, reinforcement. */
+export const FIXED_CELLS_PER_MODULE = 3
 
 const BLOOM_RANK = new Map(BLOOM_LEVELS.map((level, index) => [level, index]))
 const APPLY_RANK = BLOOM_RANK.get('apply') as number

@@ -208,22 +208,30 @@ export async function buildItemBank(
   // The exam's weights: stored once measured; measured once the lessons have settled; the
   // draft's until then (only the exam cells read them, and those wait).
   const examReady = coreLessonsSettled(tree)
-  const stored = examReady ? await storedExamBlueprint(deps.repos.exams, version) : null
+  const stored = examReady ? await storedExamBlueprint(deps.repos.exams, version) : NOTHING_STORED
   let topics: readonly { readonly module_id: string; readonly weight: number }[] =
     draft.final_exam.blueprint.topics
   let examItemCount = draft.final_exam.blueprint.item_count
   let coverage: ReadonlyMap<string, number> | null = null
-  if (stored !== null) {
+  if (stored.topics !== null) {
     topics = stored.topics
     examItemCount = stored.examItemCount ?? examItemCount
   } else if (examReady) {
     coverage = moduleCoverage(tree, draftModules, (id) => nodes.get(id)?.importance ?? 0)
     topics = coverageWeightedTopics(draft.final_exam.blueprint.topics, coverage)
   }
+  if (stored.exists && stored.topics === null) {
+    // Someone else's shape — say a blueprint 10.2's editor imported from a syllabus. It is
+    // theirs to keep: the bank weighs by what it measured and leaves the row alone.
+    deps.logger.warn(
+      `[item-bank] the final exam of ${version.id} keeps a blueprint the bank cannot read; ` +
+        'weighting its items by the measured coverage instead',
+    )
+  }
 
   const blueprint = buildBlueprint({ modules: blueprintModules, topics, examItemCount })
 
-  if (examReady && stored === null && deps.repos.exams !== undefined) {
+  if (examReady && !stored.exists && deps.repos.exams !== undefined) {
     await deps.repos.exams.create({
       title: draft.title,
       kind: 'final',
@@ -564,26 +572,37 @@ export async function buildItemBank(
   }
 }
 
-/** The blueprint a previous build measured and kept, when there is one that still parses. */
+interface StoredExamBlueprint {
+  /** The version has a `final` exam row — whether or not the bank can read its blueprint. */
+  readonly exists: boolean
+  /** Its topics, when they are the bank's own `{ module_id, weight }` shape. */
+  readonly topics: { module_id: string; weight: number }[] | null
+  readonly examItemCount: number | null
+}
+
+const NOTHING_STORED: StoredExamBlueprint = { exists: false, topics: null, examItemCount: null }
+
+/**
+ * The version's `final` exam row, and the blueprint a previous build measured into it. A row
+ * whose blueprint does not parse still `exists`: the build must neither add a second row
+ * beside it nor overwrite what someone else put there.
+ */
 async function storedExamBlueprint(
   exams: ItemBankRepos['exams'],
   version: { readonly id: string; readonly pathId: string },
-): Promise<{
-  topics: { module_id: string; weight: number }[]
-  examItemCount: number | null
-} | null> {
-  if (exams === undefined) return null
+): Promise<StoredExamBlueprint> {
+  if (exams === undefined) return NOTHING_STORED
   const rows = await exams.listByPath(version.pathId)
   const row = rows.find(
     (exam) =>
       exam.kind === 'final' && exam.deletedAt === null && exam.scope[EXAM_SCOPE_KEY] === version.id,
   )
-  if (row === undefined) return null
+  if (row === undefined) return NOTHING_STORED
   const topics = storedTopicsSchema.safeParse(row.blueprint)
-  if (!topics.success || topics.data.length === 0) return null
   const count = row.scope.exam_item_count
   return {
-    topics: topics.data,
+    exists: true,
+    topics: topics.success && topics.data.length > 0 ? topics.data : null,
     examItemCount:
       typeof count === 'number' && Number.isInteger(count) && count >= 0 ? count : null,
   }

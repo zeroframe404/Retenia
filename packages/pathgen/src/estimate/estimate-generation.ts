@@ -2,6 +2,7 @@ import type { PerMillionRates, TokenCounter } from '@retenia/ai'
 import { approximateTokens } from '@retenia/ai'
 import type { Chunk } from '@retenia/core'
 import { SYNCHRONOUS_HEAD_LESSONS } from '../expand/expand-lessons'
+import { FIXED_CELLS_PER_MODULE } from '../item-bank/blueprint'
 import type { QaMode } from '../qa/lesson-qa'
 import { type GenerationWarning, warning } from '../schemas/warnings'
 import { OUTLINE_MAX_OUTPUT_TOKENS } from '../synthesize/tasks'
@@ -103,13 +104,19 @@ export const QA_BATCH_WAVES = Object.freeze({ full: 4, light: 1 })
 /**
  * Stage 9 (sub-phase 8.5), fitted to §6's item-bank row for the same book: *"≈ 150 items:
  * diagnostic, reinforcements, exam A/B — Sonnet 5, 100k / 40k"*, i.e. 12.5k in and 5k out per
- * module. Five blueprint cells share a module's bill — two diagnostic, one reinforcement and
- * about two for the exam forms — so 2.5k in and 1k out a call. The bank is built while the
- * learner waits for the diagnostic, so it is priced synchronously, never at the batch rate.
+ * module, shared by the module's blueprint cells (one P9 call each): the
+ * `FIXED_CELLS_PER_MODULE` every module gets — two diagnostic, one reinforcement — and about
+ * three exam cells, one per difficulty band at the module's main Bloom level, which is what
+ * `buildBlueprint` gives a module with a typical five exam items a form.
+ *
+ * The fixed cells are built at freeze, while the learner waits for the diagnostic: always
+ * synchronous. The exam cells wait for the lessons and nobody waits for them, so they take the
+ * batch rate whenever the run is batched.
  */
-export const P9_CALLS_PER_MODULE = 5
-export const P9_INPUT_TOKENS_PER_CALL = 2_500
-export const P9_OUTPUT_TOKENS_PER_CALL = 1_000
+export const P9_INPUT_TOKENS_PER_MODULE = 12_500
+export const P9_OUTPUT_TOKENS_PER_MODULE = 5_000
+export const P9_EXAM_CELLS_PER_MODULE = 3
+export const P9_CALLS_PER_MODULE = FIXED_CELLS_PER_MODULE + P9_EXAM_CELLS_PER_MODULE
 
 export const P1_TOLERANCE = 0.1
 export const P2_TOLERANCE = 0.3
@@ -432,20 +439,31 @@ export function estimateGeneration(input: EstimateInput): GenerationEstimate {
           usd: round((p3Lessons.usd + p4Activities.usd + p5Flashcards.usd) * REGENERATE_SHARE),
         }
 
-  // Stage 9 — the item bank (sub-phase 8.5): one P9 call per blueprint cell, synchronous.
-  const cellCalls = chunks === 0 ? 0 : modules * P9_CALLS_PER_MODULE
-  const p9Tokens = {
-    inputTokens:
-      cellCalls *
-      ((input.systemTokens.items ?? input.systemTokens.activities) + P9_INPUT_TOKENS_PER_CALL),
+  // Stage 9 — the item bank (sub-phase 8.5): one P9 call per blueprint cell. The fixed cells
+  // are synchronous; the exam's follow the run's dispatch.
+  const p9System = input.systemTokens.items ?? input.systemTokens.activities
+  const p9TokensOf = (calls: number) => ({
+    inputTokens: Math.round(calls * (p9System + P9_INPUT_TOKENS_PER_MODULE / P9_CALLS_PER_MODULE)),
     cachedInputTokens: 0,
     cacheWriteTokens: 0,
-    outputTokens: cellCalls * P9_OUTPUT_TOKENS_PER_CALL,
-  }
+    outputTokens: Math.round((calls * P9_OUTPUT_TOKENS_PER_MODULE) / P9_CALLS_PER_MODULE),
+  })
+  const p9Fixed = p9TokensOf(chunks === 0 ? 0 : modules * FIXED_CELLS_PER_MODULE)
+  const p9Exam = p9TokensOf(chunks === 0 ? 0 : modules * P9_EXAM_CELLS_PER_MODULE)
+  const cellCalls = chunks === 0 ? 0 : modules * P9_CALLS_PER_MODULE
   const p9Items: StageEstimate =
     cellCalls === 0
       ? ZERO_STAGE
-      : { calls: cellCalls, ...p9Tokens, usd: priceOf(input.rates.smart, p9Tokens) }
+      : {
+          calls: cellCalls,
+          inputTokens: p9Fixed.inputTokens + p9Exam.inputTokens,
+          cachedInputTokens: 0,
+          cacheWriteTokens: 0,
+          outputTokens: p9Fixed.outputTokens + p9Exam.outputTokens,
+          usd: round(
+            priceOf(input.rates.smart, p9Fixed) + priceOf(input.rates.smart, p9Exam, 1 - discount),
+          ),
+        }
 
   const p2Usd = p2Outline.usd + p2Modules.usd
   // Stages 7 to 9 share P2's tolerance: their token counts are the same kind of guess —

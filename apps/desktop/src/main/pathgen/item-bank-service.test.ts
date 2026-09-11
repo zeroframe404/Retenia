@@ -1,5 +1,5 @@
 import type { ItemBankEntry } from '@retenia/core'
-import type { BuildItemBankResult, ReconcileResult } from '@retenia/pathgen'
+import type { BuildItemBankInput, BuildItemBankResult, ReconcileResult } from '@retenia/pathgen'
 import { describe, expect, it, vi } from 'vitest'
 import { createPathgenFacade, type PathgenFacadeDeps } from './facade'
 import { createItemBankService } from './item-bank-service'
@@ -149,7 +149,7 @@ describe('createItemBankService', () => {
 describe('createItemBankService — the exam cells after the last lesson', () => {
   const quietRows = { itemBank: { listByPathVersion: async () => [entry()] } }
 
-  it('builds, without the over-budget pass, once examDue says the lessons have settled', async () => {
+  it('builds in the background, without the over-budget pass, once the lessons have settled', async () => {
     const build = vi.fn(async () => result())
     const examDue = vi.fn(async () => true)
     const service = createItemBankService({
@@ -161,9 +161,65 @@ describe('createItemBankService — the exam cells after the last lesson', () =>
 
     await service.onLessonSettled('version-1')
     await vi.waitFor(() => expect(build).toHaveBeenCalledOnce())
+    // Nobody waits for the exam's items: the Batch API may take them, at its price.
     expect(build).toHaveBeenCalledWith({
       pathVersionId: 'version-1',
       allowOverBudget: false,
+      userWaiting: false,
+    })
+  })
+
+  it('never shows a background build to the diagnostic screen, running or failed', async () => {
+    let fail: (error: Error) => void = () => {}
+    const build = vi.fn(
+      () =>
+        new Promise<BuildItemBankResult>((_, reject) => {
+          fail = reject
+        }),
+    )
+    const service = createItemBankService({
+      repos: quietRows,
+      build,
+      reconcile: noReconcile,
+      examDue: async () => true,
+    })
+
+    await service.onLessonSettled('version-1')
+    await vi.waitFor(() => expect(build).toHaveBeenCalledOnce())
+    expect((await service.status('version-1')).state).toBe('ready')
+
+    fail(new Error('over budget'))
+    await vi.waitFor(async () => expect((await service.status('version-1')).state).toBe('ready'))
+    expect((await service.status('version-1')).error).toBeNull()
+  })
+
+  it('follows a background build with the over-budget pass a learner asked for meanwhile', async () => {
+    let release: () => void = () => {}
+    const build = vi
+      .fn<(input: BuildItemBankInput) => Promise<BuildItemBankResult>>()
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            release = () => resolve(result())
+          }),
+      )
+      .mockResolvedValue(result())
+    const service = createItemBankService({
+      repos: quietRows,
+      build,
+      reconcile: noReconcile,
+      examDue: async () => true,
+    })
+
+    await service.onLessonSettled('version-1')
+    await service.build('version-1', { allowOverBudget: true })
+    expect(build).toHaveBeenCalledOnce()
+
+    release()
+    await vi.waitFor(() => expect(build).toHaveBeenCalledTimes(2))
+    expect(build).toHaveBeenLastCalledWith({
+      pathVersionId: 'version-1',
+      allowOverBudget: true,
       userWaiting: true,
     })
   })

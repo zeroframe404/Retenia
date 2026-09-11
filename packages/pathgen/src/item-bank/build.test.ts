@@ -660,6 +660,41 @@ describe('buildItemBank() — the exam waits for the lessons and follows their c
     expect(fixture.repos.rows.exams).toEqual([])
   })
 
+  it('never adds a second final exam row beside one it cannot read', async () => {
+    const fixture = setUp()
+    setLesson(fixture, 'L01', { qa: uncovered('c1') })
+    // A blueprint in some other shape — say one 10.2's editor imported from a syllabus.
+    fixture.repos.rows.exams.push({
+      id: 'exam-foreign',
+      title: 'Memoria',
+      kind: 'final',
+      date: null,
+      pathId: fixture.world.pathId,
+      scope: { path_version_id: fixture.world.pathVersionId },
+      blueprint: [{ topic: 'Unidad 1', share: 0.5 }],
+      targetRetention: 0.95,
+      finalWindowDays: 3,
+      studyDaysMask: 127,
+      dailyCapacityMinutes: null,
+      status: 'planned',
+      createdAt: NOW,
+      updatedAt: NOW,
+      deletedAt: null,
+      deviceId: 'test',
+      version: 1,
+    })
+
+    await buildItemBank(depsOf(fixture), inputOf(fixture))
+    await buildItemBank(depsOf(fixture), inputOf(fixture))
+
+    expect(fixture.repos.rows.exams).toHaveLength(1)
+    expect(fixture.repos.rows.exams[0]?.blueprint).toEqual([{ topic: 'Unidad 1', share: 0.5 }])
+    // The exam is still weighted by what the lessons covered.
+    const exam = fixture.repos.rows.itemBank.filter(isExam)
+    expect(exam.length).toBeGreaterThan(0)
+    expect(exam.every((entry) => entry.moduleId === moduleIdOf(fixture, 'M02'))).toBe(true)
+  })
+
   it('is never due for a version that is not frozen', async () => {
     const fixture = setUp({ frozen: false })
     expect(await examCellsDue(fixture.repos, fixture.world.pathVersionId)).toBe(false)
