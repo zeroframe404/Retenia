@@ -1,4 +1,5 @@
 export type { AuditFields, Entity, JsonObject, JsonValue } from './_common'
+export type { DiagnosticSession } from './diagnostics'
 export * from './enums'
 export type { Exam, ExamAttempt, ExamItem, ItemBankEntry } from './exams'
 export type { Achievement, Streak, XpEvent } from './gamification'

@@ -72,10 +72,10 @@ const TABLE_GROUPS: readonly { title: string; blurb: string; tables: readonly st
     tables: ['generation_runs', 'extractions'],
   },
   {
-    title: 'Exams and item bank',
+    title: 'Exams, item bank and diagnostic',
     blurb:
-      'Dated/mock/final/diagnostic exams, their items and attempts, and the generated item bank (`src/schema/exams.ts`).',
-    tables: ['exams', 'item_bank', 'exam_items', 'exam_attempts'],
+      'Dated/mock/final/diagnostic exams, their items and attempts, and the generated item bank (`src/schema/exams.ts`); the prior-knowledge diagnostic that draws on the bank (`src/schema/diagnostics.ts`).',
+    tables: ['exams', 'item_bank', 'exam_items', 'exam_attempts', 'diagnostic_sessions'],
   },
   {
     title: 'Memory system',
@@ -274,6 +274,8 @@ export function renderSchemaDoc(): string {
       '0011_chunks_fts_trigram': `\`chunks_fts_trigram\` (FTS5, \`${FTS_TRIGRAM_TOKENIZER}\`) + sync triggers: an infix index alongside \`chunks_fts\`, so a search term that is a substring of a word — never a prefix \`chunks_fts\`'s \`unicode61\` tokenizer would produce on its own — still finds it (\`05-ingestion-rag.md\` §4).`,
       '0014_generation_runs_and_extractions':
         '`generation_runs` (the "Generate with AI" run ledger: config and its hash, status = stage, progress, estimate, cost and token totals, manifest, warnings) and `extractions` (the validated P1 output per chunk, live-unique on `custom_id`, so a re-run over the same book makes no P1 call). The draft itself is an unfrozen `path_versions` row (`04-path-generation.md` §3 stages 3–5, §7).',
+      '0017_diagnostic_sessions':
+        "`diagnostic_sessions` (the prior-knowledge diagnostic of `04-path-generation.md` §10: self-assessment, the answer log a resume replays, the item being served, the result, and what the result wrote so it can be undone) and `item_bank.authoring` (what P9 said about each item; `cell_key` is the item build's idempotency key). The column is added with `ALTER TABLE … ADD COLUMN … CHECK` rather than drizzle-kit's table rebuild, which cannot commit while `exam_items` rows reference `item_bank`.",
     }
     for (const [index, migration] of loadMigrations().entries()) {
       line(

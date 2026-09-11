@@ -24,6 +24,7 @@ const ALL_TABLES = [
   'cards',
   'chunks',
   'chunks_fts',
+  'diagnostic_sessions',
   'embeddings',
   'embeddings_i8',
   'exam_attempts',
@@ -329,6 +330,42 @@ describe('v1 schema', () => {
         difficultyLogit: -0.8,
         exposure: 1,
         stats: { n: 1, p_correct: 1 },
+        authoring: {
+          cell_key: 'M01|c-heart|recall|A',
+          kind: 'recall',
+          form: 'A',
+          difficulty: 2,
+          stem: '¿Cuántas cavidades tiene el corazón?',
+          concept_ids: ['c-heart'],
+          misconception_by_option: { b: 'mc-three-chambers' },
+        },
+        ...a,
+      })
+      .run()
+
+    db.insert(schema.diagnosticSessions)
+      .values({
+        id: ids.next(),
+        pathVersionId,
+        status: 'completed',
+        entry: 'partial',
+        selfAssessment: { S01: 'know' },
+        answers: [
+          {
+            itemId: itemBankId,
+            outcome: 'correct',
+            confidence: 'sure',
+            timeMs: 4_000,
+            difficulty: -0.8,
+            chosenOptionId: 'b',
+          },
+        ],
+        pending: null,
+        result: { modules: [{ id: moduleId, status: 'known' }] },
+        applied: { completedLessonIds: [lessonId] },
+        stopReason: 'all_classified',
+        startedAt: now,
+        finishedAt: now + 600_000,
         ...a,
       })
       .run()
@@ -705,7 +742,19 @@ describe('v1 schema', () => {
       })
       .run()
 
-    return { sourceId, chunkId, itemId, cardId, lessonId, activityId, examId, jobId, attemptId }
+    return {
+      sourceId,
+      chunkId,
+      itemId,
+      cardId,
+      lessonId,
+      activityId,
+      examId,
+      jobId,
+      attemptId,
+      pathVersionId,
+      itemBankId,
+    }
   }
 
   it('accepts one valid row per table through Drizzle, JSON columns included', () => {
@@ -714,7 +763,7 @@ describe('v1 schema', () => {
       expect(count(table), table).toBeGreaterThanOrEqual(1)
     }
     expect(count('importance_levels')).toBe(5)
-    expect(count('_migrations')).toBe(17)
+    expect(count('_migrations')).toBe(18)
     expect(count('lessons')).toBe(2)
   })
 
@@ -1039,6 +1088,77 @@ describe('v1 schema', () => {
       expect.objectContaining({ name: 'card_id' }),
       expect.objectContaining({ name: 'review' }),
     ])
+  })
+
+  it('guards diagnostic_sessions: defaults, enums, JSON shapes, the FK and the partial active index', () => {
+    const { pathVersionId, itemBankId } = seedEverything()
+    const base = {
+      pathVersionId,
+      entry: 'scratch' as const,
+      startedAt: now,
+      ...audit(now),
+    }
+    const insert = (values: Partial<typeof schema.diagnosticSessions.$inferInsert>) => () =>
+      opened.db
+        .insert(schema.diagnosticSessions)
+        .values({ ...base, id: ids.next(), ...values })
+        .run()
+
+    const id = ids.next()
+    opened.db
+      .insert(schema.diagnosticSessions)
+      .values({ ...base, id })
+      .run()
+    expect(
+      opened.sqlite
+        .prepare(
+          'SELECT status, self_assessment, answers, pending, result, applied, stop_reason, finished_at FROM diagnostic_sessions WHERE id = ?',
+        )
+        .get(id),
+    ).toEqual({
+      status: 'in_progress',
+      self_assessment: '{}',
+      answers: '[]',
+      pending: null,
+      result: null,
+      applied: '{}',
+      stop_reason: null,
+      finished_at: null,
+    })
+
+    expect(insert({ status: 'abandoned' as never })).toThrow(/diagnostic_sessions_status/)
+    expect(insert({ entry: 'guess' as never })).toThrow(/diagnostic_sessions_entry/)
+    expect(insert({ stopReason: 'bored' as never })).toThrow(/diagnostic_sessions_stop_reason/)
+    expect(insert({ pending: [1] as never })).toThrow(/diagnostic_sessions_pending_json/)
+    expect(insert({ result: 'done' as never })).toThrow(/diagnostic_sessions_result_json/)
+    expect(insert({ answers: { a: 1 } as never })).toThrow(/diagnostic_sessions_answers_json/)
+    expect(insert({ selfAssessment: [] as never })).toThrow(
+      /diagnostic_sessions_self_assessment_json/,
+    )
+    expect(insert({ applied: [] as never })).toThrow(/diagnostic_sessions_applied_json/)
+    expect(insert({ finishedAt: now - 1 })).toThrow(/diagnostic_sessions_finished_after_started/)
+    expect(insert({ pathVersionId: ids.next() })).toThrow(/FOREIGN KEY constraint failed/)
+
+    expect(() =>
+      opened.sqlite.prepare("UPDATE item_bank SET authoring = '[]' WHERE id = ?").run(itemBankId),
+    ).toThrow(/item_bank_authoring_json/)
+
+    const indexes = opened.sqlite.pragma("index_list('diagnostic_sessions')") as {
+      name: string
+      partial: number
+    }[]
+    expect(indexes.find((index) => index.name === 'diagnostic_sessions_active')).toMatchObject({
+      partial: 1,
+    })
+    expect(
+      opened.sqlite
+        .prepare<[], { sql: string }>(
+          "SELECT sql FROM sqlite_master WHERE name = 'diagnostic_sessions_active'",
+        )
+        .get()?.sql,
+    ).toMatch(
+      /WHERE "diagnostic_sessions"\."status" = 'in_progress' AND "diagnostic_sessions"\."deleted_at" IS NULL/,
+    )
   })
 
   it('ships the five importance levels with the spec values', () => {

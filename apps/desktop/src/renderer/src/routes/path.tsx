@@ -1,7 +1,14 @@
 import { Button, EmptyState } from '@retenia/ui'
 import { createFileRoute } from '@tanstack/react-router'
 import { z } from 'zod'
-import { CompletionPage, PreviewPage, QaReportPage, WizardPage } from '../features/pathgen'
+import {
+  CompletionPage,
+  DiagnosticPage,
+  DiagnosticResultPage,
+  PreviewPage,
+  QaReportPage,
+  WizardPage,
+} from '../features/pathgen'
 import { useT } from '../i18n/use-t'
 
 /**
@@ -13,8 +20,14 @@ import { useT } from '../i18n/use-t'
  */
 
 const pathSearchSchema = z.object({
-  /** `qa` is stage 8's report for the frozen version (sub-phase 8.4). */
-  view: z.enum(['generate', 'preview', 'summary', 'qa']).optional(),
+  /**
+   * `qa` is stage 8's report for the frozen version (sub-phase 8.4); `diagnostic` and
+   * `diagnosticResult` are §13 step 4's prior-knowledge diagnostic and its summary (8.5),
+   * between freezing the path and expanding it.
+   */
+  view: z
+    .enum(['generate', 'preview', 'diagnostic', 'diagnosticResult', 'summary', 'qa'])
+    .optional(),
   pathVersionId: z.uuid().optional(),
   runId: z.uuid().optional(),
 })
@@ -75,6 +88,25 @@ function PathView() {
     )
   }
 
+  if (view === 'diagnostic') {
+    return (
+      <DiagnosticPage
+        pathVersionId={pathVersionId}
+        onDone={() => navigate({ search: { view: 'summary', pathVersionId } })}
+        onResult={() => navigate({ search: { view: 'diagnosticResult', pathVersionId } })}
+      />
+    )
+  }
+
+  if (view === 'diagnosticResult') {
+    return (
+      <DiagnosticResultPage
+        pathVersionId={pathVersionId}
+        onContinue={() => navigate({ search: { view: 'summary', pathVersionId } })}
+      />
+    )
+  }
+
   if (view === 'summary') {
     return (
       <CompletionPage
@@ -84,11 +116,13 @@ function PathView() {
     )
   }
 
+  // §13 step 3's "Do I start from scratch or take the diagnostic?": freezing leads to the
+  // diagnostic, which then hands over to the completion screen that starts the expansion.
   return (
     <PreviewPage
       pathVersionId={pathVersionId}
       onFrozen={(frozenVersionId) =>
-        navigate({ search: { view: 'summary', pathVersionId: frozenVersionId } })
+        navigate({ search: { view: 'diagnostic', pathVersionId: frozenVersionId } })
       }
     />
   )

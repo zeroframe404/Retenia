@@ -90,8 +90,10 @@ export default defineConfig({
         // (`docs/spec/04-path-generation.md` §7: "reproducibility comes from … the sequencing
         // being pure code"), and the validation gates are what turn the model's proposal into
         // the DAG it sequences; `graph/` is the pure core both share. An untested branch there is
-        // a path that silently differs between two runs of the same book.
-        'packages/pathgen/src/{graph,validate,sequencing}/**': {
+        // a path that silently differs between two runs of the same book. The diagnostic
+        // (sub-phase 8.5) is held to the same bar: it is pure, it decides which lessons a
+        // learner skips, and resuming it is a replay that must reproduce every branch.
+        'packages/pathgen/src/{graph,validate,sequencing,diagnostic}/**': {
           lines: 100,
           functions: 100,
           branches: 100,

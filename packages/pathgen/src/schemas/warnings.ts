@@ -21,6 +21,7 @@ export const WARNING_STAGES = [
   'sequence',
   'expand',
   'qa',
+  'item_bank',
 ] as const
 export type WarningStage = (typeof WARNING_STAGES)[number]
 
@@ -135,6 +136,19 @@ export const WARNING_STAGE_OF = {
   lesson_below_threshold: 'qa',
   /** P6, P7 or P8 failed for one lesson. The lesson is `ready`, flagged, and not reviewed. */
   qa_failed: 'qa',
+  // Stage 9 — the item bank (sub-phase 8.5).
+  /** A P9 item that `checkActivity`, `mcqIssue` or the NBME rules refused, with the rule. */
+  item_rejected: 'item_bank',
+  /** A P9 item that asks what a lesson's exercise or another item asks (cosine > 0.92). */
+  item_duplicate: 'item_bank',
+  /** A blueprint cell kept fewer items than it wanted once the rejects were filtered out. */
+  item_bank_cell_short: 'item_bank',
+  /** P9 failed for one cell. The rest of the bank is built; the cell is retried next time. */
+  item_bank_cell_failed: 'item_bank',
+  /** `looksLikeInjection` fired on the excerpts, the concepts or the stems a cell was given. */
+  item_bank_injection_suspected: 'item_bank',
+  /** A bank item dropped (or kept for the diagnostic only) because an expanded lesson asks it. */
+  item_bank_reconciled: 'item_bank',
 } as const satisfies Record<string, WarningStage>
 
 export type WarningCode = keyof typeof WARNING_STAGE_OF

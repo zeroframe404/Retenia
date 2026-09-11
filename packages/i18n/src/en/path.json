@@ -115,7 +115,13 @@
       "edit_rejected": "{count} edits of lesson {lesson} touched a verified citation and were discarded.",
       "lesson_regenerated": "Lesson {lesson} fell under the threshold and was rewritten once.",
       "lesson_below_threshold": "Lesson {lesson} is still under the quality threshold: check it in the QA report.",
-      "qa_failed": "The check ({gate}) of lesson {lesson} could not complete: {error}"
+      "qa_failed": "The check ({gate}) of lesson {lesson} could not complete: {error}",
+      "item_rejected": "A bank question was discarded ({cell}, {type}): it breaks rule {code}.",
+      "item_duplicate": "A bank question was discarded ({cell}) because it repeats an existing one ({reason}).",
+      "item_bank_cell_short": "Bank cell {cell} kept {kept} of {wanted} questions.",
+      "item_bank_cell_failed": "The questions of cell {cell} could not be generated: {error}",
+      "item_bank_injection_suspected": "The sources of cell {cell} contain text that looks like an instruction; it was treated as content.",
+      "item_bank_reconciled": "Lesson {lesson} already asks what bank question {item} asks ({action})."
     }
   },
   "wizard": {
@@ -253,6 +259,149 @@
       "glossary_term_mixed": "Mixed term",
       "judge_edit": "Judge suggestion",
       "edit_rejected": "Edit discarded"
+    }
+  },
+  "diagnostic": {
+    "title": "How do you start?",
+    "subtitle": "Start from scratch or tell us what you already know: a short diagnostic (12–15 min) marks what does not need repeating.",
+    "loadError": "Could not load the diagnostic.",
+    "retry": "Retry",
+    "startError": "Could not start the diagnostic. Try again.",
+    "entry": {
+      "scratch": "From scratch",
+      "scratchHint": "Everything stays to study, in the order of the path.",
+      "partial": "I know part of it",
+      "partialHint": "Mark what you know and answer a few questions to skip what you already know."
+    },
+    "bank": {
+      "building": "Preparing the questions…",
+      "progress": "{done} of {total} groups ready · {count, plural, one {# question ready} other {# questions ready}}",
+      "hint": "Meanwhile you can fill in the self-assessment or start from scratch.",
+      "failed": "Could not prepare the diagnostic questions.",
+      "failedHint": "You can try again or start from scratch.",
+      "retry": "Try again",
+      "noItems": "This path has no diagnostic questions: only your self-assessment will be used."
+    },
+    "self": {
+      "title": "How much do you know of each section?",
+      "hint": "Sections you mark as “Never seen it” are not asked: they stay to study.",
+      "level": {
+        "never": "Never seen it",
+        "familiar": "Sounds familiar",
+        "know": "I know it",
+        "master": "I master it"
+      },
+      "modules": "{count, plural, one {# module} other {# modules}}",
+      "selfDeclaredHeading": "Already marked as known",
+      "selfDeclared": "Marked as known in the preview",
+      "back": "Back",
+      "begin": "Start the diagnostic",
+      "waiting": "Wait until the questions are ready."
+    },
+    "loop": {
+      "title": "Diagnostic",
+      "remaining": "{count, plural, one {~# question left} other {~# questions left}}",
+      "progressLabel": "Diagnostic progress",
+      "elapsed": "Elapsed time",
+      "itemLabel": "Question {number}",
+      "saving": "Saving your answer…",
+      "saved": "Answer saved",
+      "saveError": "Could not save the answer.",
+      "retry": "Retry",
+      "unparseable": "This question cannot be shown.",
+      "skipItem": "Skip this question",
+      "noItem": "There are no more questions for now.",
+      "finish": "Finish now",
+      "finishTitle": "Finish the diagnostic now?",
+      "finishDescription": "What you already answered is kept. What we did not get to ask stays to study.",
+      "finishConfirm": "Finish",
+      "finishCancel": "Keep answering",
+      "finishError": "Could not finish the diagnostic. Try again."
+    },
+    "activity": {
+      "check": "Answer",
+      "skip": "Skip",
+      "grading": "Saving…",
+      "gradeFailed": "The answer could not be recorded. Try again.",
+      "elapsed": "Time",
+      "timeUp": "Time is up.",
+      "deferredFeedback": "No corrections: the diagnostic only finds your starting point.",
+      "confidenceHeading": "How sure are you?",
+      "confidence": {
+        "sure": "Sure",
+        "unsure": "Likely",
+        "guessed": "Guessed"
+      },
+      "loadingRenderer": "Loading the question…",
+      "unsupportedType": "This question type cannot be shown yet.",
+      "gapLabel": "Gap {n}",
+      "yourAnswer": "Your answer",
+      "answerAreaHeading": "Your answer",
+      "unplacedHeading": "Available",
+      "dragKeyboardHint": "Drag, or press Enter to pick up, the arrow keys to choose a place and Enter to drop it.",
+      "pickUp": "Pick up",
+      "drop": "Place here",
+      "removePlacement": "Remove",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "pickedUpAnnouncement": "“{item}” picked up",
+      "placedAnnouncement": "“{item}” placed in {zone}",
+      "cancelledAnnouncement": "“{item}” put back",
+      "removedAnnouncement": "“{item}” removed from {zone}",
+      "movedAnnouncement": "“{item}” moved to position {position} of {total}",
+      "playAudio": "Play audio",
+      "audioUnavailable": "Audio is not available yet."
+    },
+    "result": {
+      "title": "Your starting point",
+      "empty": "There is no diagnostic result yet.",
+      "stats": {
+        "known": "Known modules",
+        "partial": "Partial modules",
+        "unknown": "Modules to study",
+        "asked": "Questions answered",
+        "time": "Time"
+      },
+      "status": {
+        "known": "You know it",
+        "partial": "Quick review",
+        "unknown": "To study"
+      },
+      "stopReason": {
+        "all_classified": "We stopped once every module was placed.",
+        "max_items": "We reached the diagnostic’s maximum number of questions.",
+        "time_limit": "We reached the diagnostic’s time limit.",
+        "abandoned": "You finished early: what you had answered was used.",
+        "no_items": "There were no questions for this path: your self-assessment was used.",
+        "from_scratch": "You started from scratch: everything stays to study."
+      },
+      "completed": "{lessons, plural, one {# lesson marked as completed} other {# lessons marked as completed}} · {cards, plural, one {# card seeded} other {# cards seeded}}",
+      "pendingSeed": "{count, plural, one {# lesson is waiting for its cards} other {# lessons are waiting for their cards}}",
+      "source": {
+        "diagnostic": "From your answers",
+        "never_seen": "You marked it as “Never seen it”",
+        "from_scratch": "You started from scratch",
+        "self_declared": "Marked as known in the preview",
+        "unevidenced": "Not enough questions: it stays to study"
+      },
+      "reopened": {
+        "lapses": "Reopened after failed reviews",
+        "low_retention": "Reopened for low retention"
+      },
+      "revert": "Undo",
+      "revertModule": "Undo “{title}”",
+      "reverted": "Undone",
+      "revertError": "Could not undo. Try again.",
+      "revertAll": "Undo all",
+      "revertAllTitle": "Undo everything the diagnostic marked?",
+      "revertAllDescription": "The marked lessons become pending again and the seeded cards are removed.",
+      "cancel": "Cancel",
+      "remediations": "{count, plural, one {We found # idea to reinforce; a reinforcement will be added to your path.} other {We found # ideas to reinforce; reinforcements will be added to your path.}}",
+      "advanced": "Advanced",
+      "theta": "θ {value}",
+      "probability": "P {percent} %",
+      "evidence": "{answered} answered / {inferred} inferred",
+      "continue": "Continue"
     }
   }
 }

@@ -18,6 +18,7 @@ export {
   type JsonObject,
   type JsonValue,
 } from './_common'
+export * from './diagnostics'
 export * from './exams'
 export * from './gamification'
 export * from './generation'

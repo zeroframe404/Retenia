@@ -30,6 +30,7 @@ const EXPECTED_TABLES = [
   'cards',
   'chunks',
   'chunks_fts',
+  'diagnostic_sessions',
   'embeddings',
   'exam_attempts',
   'exam_items',
@@ -103,6 +104,7 @@ describe('loadMigrations()', () => {
       '0014_generation_runs_and_extractions',
       '0015_lesson_expansion',
       '0016_lesson_qa_status',
+      '0017_diagnostic_sessions',
     ])
     for (const migration of migrations) expect(migration.sql.length).toBeGreaterThan(0)
   })
@@ -154,6 +156,7 @@ describe('migrate()', () => {
       '0014_generation_runs_and_extractions',
       '0015_lesson_expansion',
       '0016_lesson_qa_status',
+      '0017_diagnostic_sessions',
     ])
     expect(result.alreadyApplied).toEqual([])
     expect(listTables(opened)).toEqual([...EXPECTED_TABLES])
@@ -183,6 +186,7 @@ describe('migrate()', () => {
       '0014_generation_runs_and_extractions',
       '0015_lesson_expansion',
       '0016_lesson_qa_status',
+      '0017_diagnostic_sessions',
     ])
     expect(listTables(opened)).toEqual([...EXPECTED_TABLES])
     expect(opened.sqlite.prepare('SELECT count(*) AS n FROM importance_levels').get()).toEqual({
@@ -212,7 +216,7 @@ describe('migrate()', () => {
 
   it('accepts the raw handle and the Drizzle instance as targets too', () => {
     opened = openDatabase(IN_MEMORY)
-    expect(migrate(opened.sqlite).applied).toHaveLength(17)
+    expect(migrate(opened.sqlite).applied).toHaveLength(18)
     expect(migrate(opened.db).applied).toHaveLength(0)
   })
 
@@ -342,5 +346,86 @@ describe('migrate()', () => {
          VALUES ('${id('5')}', '${id('2')}', 9, 2, ${now}, 10.0, 5.0, 1, 1, 0, ${now}, 'daily', 'fsrs6', ${audit})`,
       ),
     ).toThrow(/CHECK constraint failed/)
+  })
+
+  /**
+   * The upgrade path of `0017`, which gives `item_bank` a CHECKed `authoring` column while
+   * `exam_items.item_bank_id` points into it. An existing bank row has to come through with
+   * `authoring = '{}'`, the exam item that references it has to still reference it, and both
+   * the new CHECK and the old foreign key have to still bite afterwards.
+   */
+  it('carries item_bank rows, and the exam_items pointing at them, through 0017', () => {
+    opened = openDatabase(IN_MEMORY)
+    const shipped = loadMigrations()
+    const at = shipped.findIndex((m) => m.name === '0017_diagnostic_sessions')
+    expect(at).toBeGreaterThan(0)
+
+    migrate(opened, { migrations: shipped.slice(0, at) })
+
+    const now = Date.now()
+    const id = (n: string) => `0199aaaa-bbbb-7ccc-8ddd-${n.padStart(12, '0')}`
+    const audit = `${now}, ${now}, 'test-device', 1`
+    opened.sqlite.exec(
+      `INSERT INTO activities (id, type, family, lang, difficulty, config, grading, created_at, updated_at, device_id, version)
+       VALUES ('${id('1')}', 'mcq_single', 'choice', 'es', 2, '{}', '{}', ${audit})`,
+    )
+    opened.sqlite.exec(
+      `INSERT INTO item_bank (id, activity_id, usage, difficulty_logit, exposure, stats, created_at, updated_at, device_id, version)
+       VALUES ('${id('2')}', '${id('1')}', '["diagnostic"]', -0.8, 3, '{"n":3}', ${audit})`,
+    )
+    opened.sqlite.exec(
+      `INSERT INTO exams (id, title, kind, created_at, updated_at, device_id, version)
+       VALUES ('${id('3')}', 'Simulacro', 'mock', ${audit})`,
+    )
+    opened.sqlite.exec(
+      `INSERT INTO exam_items (id, exam_id, ordinal, activity_id, item_bank_id, created_at, updated_at, device_id, version)
+       VALUES ('${id('4')}', '${id('3')}', 0, '${id('1')}', '${id('2')}', ${audit})`,
+    )
+
+    migrate(opened)
+
+    expect(
+      opened.sqlite
+        .prepare('SELECT id, usage, difficulty_logit, exposure, stats, authoring FROM item_bank')
+        .all(),
+    ).toEqual([
+      {
+        id: id('2'),
+        usage: '["diagnostic"]',
+        difficulty_logit: -0.8,
+        exposure: 3,
+        stats: '{"n":3}',
+        authoring: '{}',
+      },
+    ])
+    expect(opened.sqlite.prepare('SELECT item_bank_id FROM exam_items').all()).toEqual([
+      { item_bank_id: id('2') },
+    ])
+    expect(opened.sqlite.pragma('foreign_key_check')).toEqual([])
+    expect(opened.sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
+    expect(
+      (opened.sqlite.pragma("index_list('item_bank')") as { name: string; origin: string }[])
+        .filter((index) => index.origin === 'c')
+        .map((index) => index.name)
+        .sort(),
+    ).toEqual(['item_bank_activity', 'item_bank_module', 'item_bank_version'])
+
+    // The new CHECK holds on the upgraded table...
+    expect(() =>
+      opened.sqlite.exec(`UPDATE item_bank SET authoring = '[]' WHERE id = '${id('2')}'`),
+    ).toThrow(/item_bank_authoring_json/)
+    // ...and the foreign keys into and out of it are still enforced.
+    expect(() =>
+      opened.sqlite.exec(
+        `INSERT INTO exam_items (id, exam_id, ordinal, activity_id, item_bank_id, created_at, updated_at, device_id, version)
+         VALUES ('${id('5')}', '${id('3')}', 1, '${id('1')}', '${id('99')}', ${audit})`,
+      ),
+    ).toThrow(/FOREIGN KEY constraint failed/)
+    expect(() =>
+      opened.sqlite.exec(
+        `INSERT INTO item_bank (id, activity_id, created_at, updated_at, device_id, version)
+         VALUES ('${id('6')}', '${id('98')}', ${audit})`,
+      ),
+    ).toThrow(/FOREIGN KEY constraint failed/)
   })
 })

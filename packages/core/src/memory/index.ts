@@ -223,6 +223,15 @@ export {
   isUrgentModeActive,
   resolveImportance,
 } from './scheduling-policy'
+export {
+  createSeedKnownItems,
+  createUnseedItems,
+  SEED_IMPORTANCE,
+  type SeededCard,
+  type SeedKnownItems,
+  type SeedKnownRepos,
+  type UnseedItems,
+} from './seed-known'
 export type {
   ResolvedSessionSettings,
   SessionCandidate,

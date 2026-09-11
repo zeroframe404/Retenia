@@ -47,6 +47,7 @@ export function loadPathgenPrompts(read?: PromptFileReader): PathgenPrompts {
     faithfulness: toPathgenPrompt(PATHGEN_PROMPT_IDS.faithfulness, read),
     judge: toPathgenPrompt(PATHGEN_PROMPT_IDS.judge, read),
     edit: toPathgenPrompt(PATHGEN_PROMPT_IDS.edit, read),
+    items: toPathgenPrompt(PATHGEN_PROMPT_IDS.items, read),
     snapshot: promptVersionSnapshot(),
   })
 }

@@ -30,6 +30,12 @@ export interface ItemBankEntry extends Entity {
   discriminationHint: number | null
   exposure: number
   stats: JsonObject
+  /**
+   * What P9 said about the item: `{ cell_key, kind, form, difficulty, stem, concept_ids,
+   * misconception_by_option }`. `cell_key` is the build's idempotency key. `{}` on entries
+   * written before the column existed.
+   */
+  authoring: JsonObject
 }
 
 export interface ExamItem extends Entity {

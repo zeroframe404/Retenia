@@ -649,6 +649,22 @@ export function createHandlers({
 
     'pathgen.regenerateLesson': (input) => pathgenOrThrow().regenerateLesson(input),
 
+    // --- stage 9 and the prior-knowledge diagnostic (sub-phase 8.5) ---
+
+    'pathgen.buildItemBank': (input) => pathgenOrThrow().buildItemBank(input),
+
+    'pathgen.getItemBank': (input) => pathgenOrThrow().getItemBank(input),
+
+    'pathgen.diagnosticGet': (input) => pathgenOrThrow().diagnosticGet(input),
+
+    'pathgen.diagnosticStart': (input) => pathgenOrThrow().diagnosticStart(input),
+
+    'pathgen.diagnosticAnswer': (input) => pathgenOrThrow().diagnosticAnswer(input),
+
+    'pathgen.diagnosticFinish': (input) => pathgenOrThrow().diagnosticFinish(input),
+
+    'pathgen.diagnosticRevert': (input) => pathgenOrThrow().diagnosticRevert(input),
+
     // --- AI batches: the Batch API's tray surface (sub-phase 7.3) ---
 
     'ai.listBatches': async () => ({

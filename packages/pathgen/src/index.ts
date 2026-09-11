@@ -27,6 +27,7 @@ export {
   parseGenerationConfig,
 } from './config/generation-config'
 export * from './consolidate'
+export * from './diagnostic'
 export * from './edit'
 export {
   GENERATION_ERROR_CODES,
@@ -38,6 +39,7 @@ export * from './estimate'
 export * from './expand'
 export * from './extract'
 export * from './freeze'
+export * from './item-bank'
 export type { PathgenLogger } from './logger'
 export { silentLogger } from './logger'
 export * from './manifest'
