@@ -15,6 +15,9 @@ import {
   P6_INPUT_TOKENS_PER_LESSON,
   P6_OUTPUT_TOKENS,
   P8_SHARE,
+  P9_CALLS_PER_MODULE,
+  P9_INPUT_TOKENS_PER_CALL,
+  P9_OUTPUT_TOKENS_PER_CALL,
   QA_BATCH_WAVES,
   REGENERATE_SHARE,
 } from './estimate-generation'
@@ -144,7 +147,8 @@ describe('estimateGeneration()', () => {
       estimate.p6Faithfulness.usd +
       estimate.p7Judge.usd +
       estimate.p8Edit.usd +
-      estimate.qaRegenerate.usd
+      estimate.qaRegenerate.usd +
+      estimate.p9Items.usd
     expect(expand).toBeGreaterThan(0)
     expect(estimate.usd).toBeCloseTo(
       estimate.p1.usd + estimate.p2Outline.usd + estimate.p2Modules.usd + expand,
@@ -257,6 +261,7 @@ describe('estimateGeneration()', () => {
     expect(empty.p7Judge.calls).toBe(0)
     expect(empty.p8Edit.calls).toBe(0)
     expect(empty.qaRegenerate.calls).toBe(0)
+    expect(empty.p9Items.calls).toBe(0)
 
     const done = estimateGeneration({
       chunks: chunks(3),
@@ -377,5 +382,52 @@ describe('stage 8 rows (sub-phase 8.4)', () => {
     expect(noJudge.p7Judge.calls).toBe(noJudge.lessons)
     expect(noJudge.p7Judge.usd).toBe(0)
     expect(noJudge.priced.judge).toBe(false)
+  })
+})
+
+describe('stage 9 row (sub-phase 8.5)', () => {
+  it('prices one synchronous P9 call per blueprint cell on the smart role, at §6’s 12.5k / 5k a module', () => {
+    const withItems = { ...systemTokens, items: 900 }
+    const sync = estimateGeneration({
+      chunks: chunks(6),
+      alreadyExtracted: 0,
+      rates: { cheap, smart, judge },
+      systemTokens: withItems,
+      dispatch: 'sync',
+    })
+    expect(sync.p9Items.calls).toBe(sync.modules * P9_CALLS_PER_MODULE)
+    expect(sync.p9Items.inputTokens).toBe(sync.p9Items.calls * (900 + P9_INPUT_TOKENS_PER_CALL))
+    expect(sync.p9Items.outputTokens).toBe(sync.p9Items.calls * P9_OUTPUT_TOKENS_PER_CALL)
+    expect(sync.p9Items.cachedInputTokens).toBe(0)
+    expect(sync.p9Items.usd).toBeCloseTo(
+      (sync.p9Items.inputTokens * 2 + sync.p9Items.outputTokens * 10) / 1e6,
+      9,
+    )
+    // §6: ≈ 100k in and 40k out for the eight modules of a 300-page book.
+    expect((P9_CALLS_PER_MODULE * P9_INPUT_TOKENS_PER_CALL * 8) / 1000).toBe(100)
+    expect((P9_CALLS_PER_MODULE * P9_OUTPUT_TOKENS_PER_CALL * 8) / 1000).toBe(40)
+
+    // The bank is built while the learner waits for the diagnostic: never at the batch rate.
+    const batch = estimateGeneration({
+      chunks: chunks(6),
+      alreadyExtracted: 0,
+      rates: { cheap, smart, judge },
+      systemTokens: withItems,
+      dispatch: 'batch',
+    })
+    expect(batch.p9Items).toEqual(sync.p9Items)
+  })
+
+  it('falls back to P4’s system weight when the caller does not measure P9’s', () => {
+    const estimate = estimateGeneration({
+      chunks: chunks(6),
+      alreadyExtracted: 0,
+      rates: { smart },
+      systemTokens,
+      dispatch: 'sync',
+    })
+    expect(estimate.p9Items.inputTokens).toBe(
+      estimate.p9Items.calls * (systemTokens.activities + P9_INPUT_TOKENS_PER_CALL),
+    )
   })
 })

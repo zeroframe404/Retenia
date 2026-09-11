@@ -50,6 +50,7 @@ const BREAKDOWN_ROWS = [
   ['p7', 'p7Judge'],
   ['p8', 'p8Edit'],
   ['regenerate', 'qaRegenerate'],
+  ['p9', 'p9Items'],
 ] as const satisfies readonly (readonly [string, keyof GenerationEstimateDto])[]
 
 function breakdownOf(

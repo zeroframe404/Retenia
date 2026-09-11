@@ -153,6 +153,8 @@ export const generationEstimateDtoSchema = z.object({
   p7Judge: stageEstimateDtoSchema.default(ZERO_STAGE_DTO),
   p8Edit: stageEstimateDtoSchema.default(ZERO_STAGE_DTO),
   qaRegenerate: stageEstimateDtoSchema.default(ZERO_STAGE_DTO),
+  /** Stage 9 (sub-phase 8.5): the item bank. Defaults for the stored-row reason above. */
+  p9Items: stageEstimateDtoSchema.default(ZERO_STAGE_DTO),
   usd: z.number().min(0),
   lowUsd: z.number().min(0),
   highUsd: z.number().min(0),

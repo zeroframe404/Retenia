@@ -44,7 +44,8 @@
         "p6": "QA: fidelidad",
         "p7": "QA: juez pedagógico",
         "p8": "QA: correcciones",
-        "regenerate": "QA: reescrituras"
+        "regenerate": "QA: reescrituras",
+        "p9": "Banco de preguntas"
       }
     },
     "warning": {

@@ -44,7 +44,8 @@
         "p6": "QA: faithfulness",
         "p7": "QA: pedagogy judge",
         "p8": "QA: edits",
-        "regenerate": "QA: rewrites"
+        "regenerate": "QA: rewrites",
+        "p9": "Question bank"
       }
     },
     "warning": {

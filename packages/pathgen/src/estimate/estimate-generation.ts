@@ -100,6 +100,17 @@ export const P8_SECONDS = 15
  */
 export const QA_BATCH_WAVES = Object.freeze({ full: 4, light: 1 })
 
+/**
+ * Stage 9 (sub-phase 8.5), fitted to §6's item-bank row for the same book: *"≈ 150 items:
+ * diagnostic, reinforcements, exam A/B — Sonnet 5, 100k / 40k"*, i.e. 12.5k in and 5k out per
+ * module. Five blueprint cells share a module's bill — two diagnostic, one reinforcement and
+ * about two for the exam forms — so 2.5k in and 1k out a call. The bank is built while the
+ * learner waits for the diagnostic, so it is priced synchronously, never at the batch rate.
+ */
+export const P9_CALLS_PER_MODULE = 5
+export const P9_INPUT_TOKENS_PER_CALL = 2_500
+export const P9_OUTPUT_TOKENS_PER_CALL = 1_000
+
 export const P1_TOLERANCE = 0.1
 export const P2_TOLERANCE = 0.3
 /** `docs/spec/06-ai-providers.md` §2: the Batch API is −50 %. */
@@ -134,6 +145,8 @@ export interface EstimateInput {
     readonly faithfulness: number
     readonly judge: number
     readonly edit: number
+    /** P9. Absent (an older caller) prices it at P4's system weight, its closest sibling. */
+    readonly items?: number
   }
   /** Stage 8's depth. `light` prices no judge and no editor. Defaults to `full`. */
   readonly qaMode?: QaMode
@@ -171,6 +184,8 @@ export interface GenerationEstimate {
   readonly p7Judge: StageEstimate
   readonly p8Edit: StageEstimate
   readonly qaRegenerate: StageEstimate
+  /** Stage 9 (sub-phase 8.5): the item bank's P9 calls, one per blueprint cell. */
+  readonly p9Items: StageEstimate
   /** The midpoint; `lowUsd`/`highUsd` are the band the wizard should render. */
   readonly usd: number
   readonly lowUsd: number
@@ -417,9 +432,25 @@ export function estimateGeneration(input: EstimateInput): GenerationEstimate {
           usd: round((p3Lessons.usd + p4Activities.usd + p5Flashcards.usd) * REGENERATE_SHARE),
         }
 
+  // Stage 9 — the item bank (sub-phase 8.5): one P9 call per blueprint cell, synchronous.
+  const cellCalls = chunks === 0 ? 0 : modules * P9_CALLS_PER_MODULE
+  const p9Tokens = {
+    inputTokens:
+      cellCalls *
+      ((input.systemTokens.items ?? input.systemTokens.activities) + P9_INPUT_TOKENS_PER_CALL),
+    cachedInputTokens: 0,
+    cacheWriteTokens: 0,
+    outputTokens: cellCalls * P9_OUTPUT_TOKENS_PER_CALL,
+  }
+  const p9Items: StageEstimate =
+    cellCalls === 0
+      ? ZERO_STAGE
+      : { calls: cellCalls, ...p9Tokens, usd: priceOf(input.rates.smart, p9Tokens) }
+
   const p2Usd = p2Outline.usd + p2Modules.usd
-  // Stages 7 and 8 share P2's tolerance: their token counts are the same kind of guess —
-  // what a lesson weighs before one has been written — rather than a measured chunk length.
+  // Stages 7 to 9 share P2's tolerance: their token counts are the same kind of guess —
+  // what a lesson or an item weighs before one has been written — rather than a measured
+  // chunk length.
   const expandUsd =
     p3Lessons.usd +
     p4Activities.usd +
@@ -427,7 +458,8 @@ export function estimateGeneration(input: EstimateInput): GenerationEstimate {
     p6Faithfulness.usd +
     p7Judge.usd +
     p8Edit.usd +
-    qaRegenerate.usd
+    qaRegenerate.usd +
+    p9Items.usd
   const usd = round(p1.usd + p2Usd + expandUsd)
   const lowUsd = round(p1.usd * (1 - P1_TOLERANCE) + (p2Usd + expandUsd) * (1 - P2_TOLERANCE))
   const highUsd = round(p1.usd * (1 + P1_TOLERANCE) + (p2Usd + expandUsd) * (1 + P2_TOLERANCE))
@@ -481,6 +513,7 @@ export function estimateGeneration(input: EstimateInput): GenerationEstimate {
     p7Judge,
     p8Edit,
     qaRegenerate,
+    p9Items,
     usd,
     lowUsd,
     highUsd,
