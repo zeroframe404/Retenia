@@ -5,7 +5,7 @@ import {
   sanitizeGradeInput,
 } from '@retenia/activity-graders'
 import { normalizeText } from '@retenia/activity-schema'
-import type { TextGenerator } from '@retenia/ai'
+import type { ProviderRole, TextGenerator } from '@retenia/ai'
 import type {
   AiGradeInput,
   AiGradeResult,
@@ -48,10 +48,29 @@ import { buildGradeLongTextTask, permuteRubric } from './task'
  *    learner has already written must never be lost to a network error.
  */
 
+/**
+ * The versioned `prompts/grade_long_text/<n>.md` file, already loaded — the same shape
+ * `ItemAuthorPrompt` and `RemediationAuthorPrompt` take for P9 and P11, so this package never
+ * touches `node:fs` itself (`@retenia/ai/prompts` is Node-only) and the role and temperature
+ * travel with the wording instead of being restated at the call site.
+ *
+ * `role` is declared but not read in this file: it selects which `TextGenerator` answers —
+ * `AiClient.textGenerator({ role: prompt.role, … })` — which happens where that binding is
+ * built, before `textGenerator` reaches `createAiLongTextGrader`. It is on this type so a
+ * caller cannot construct a grader from a role-less prompt object.
+ */
+export interface GradeLongTextPrompt {
+  readonly template: string
+  /** §9: P10_grade runs on the mid ("smart") tier. */
+  readonly role: ProviderRole
+  /** §7: temperature 0 — grading is a judgment call, never a writing one. */
+  readonly temperature: number
+}
+
 export interface AiLongTextGraderOptions {
   textGenerator: TextGenerator
-  /** The contents of `prompts/grade_long_text.md`; `loadGradeLongTextPrompt()` reads the file. */
-  promptTemplate: string
+  /** `loadPrompt('grade_long_text')` from `@retenia/ai/prompts`, flattened to this shape. */
+  prompt: GradeLongTextPrompt
   /** Runs the second, permuted evaluation of §12. On by default; off halves the cost. */
   doubleEvaluate?: boolean
   maxOutputTokens?: number
@@ -68,8 +87,6 @@ export const AGREEMENT_EPSILON = 0.05
  * weight" is the line, and past it the average would be a number neither run would defend.
  */
 export const DISAGREEMENT_UNCERTAIN = 1 / 3
-
-export const GRADE_LONG_TEXT_TEMPERATURE = 0
 
 /** §10's AI band, applied to the score the code computed. */
 export function ratingForScore(score: number): Grade {
@@ -158,13 +175,13 @@ interface Run {
 }
 
 export function createAiLongTextGrader(options: AiLongTextGraderOptions): AiGrader {
-  const { textGenerator, promptTemplate, doubleEvaluate = true } = options
+  const { textGenerator, prompt, doubleEvaluate = true } = options
 
   async function runOnce(seen: AiGradeInput): Promise<Run> {
     const completion = await textGenerator({
-      system: promptTemplate.replace('{{task}}', '').trimEnd(),
+      system: prompt.template.replace('{{task}}', '').trimEnd(),
       prompt: buildGradeLongTextTask(seen),
-      temperature: GRADE_LONG_TEXT_TEMPERATURE,
+      temperature: prompt.temperature,
       jsonSchema: GRADE_LONG_TEXT_JSON_SCHEMA,
       schemaName: GRADE_LONG_TEXT_SCHEMA_NAME,
       ...(options.maxOutputTokens === undefined

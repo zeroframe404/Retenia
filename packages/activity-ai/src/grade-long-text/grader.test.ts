@@ -2,10 +2,16 @@ import type { TextGenerator } from '@retenia/ai'
 import { loadPrompt } from '@retenia/ai/prompts'
 import type { AiGradeInput } from '@retenia/core'
 import { describe, expect, it, vi } from 'vitest'
-import { createAiLongTextGrader, GRADE_LONG_TEXT_TEMPERATURE, ratingForScore } from './grader'
+import type { GradeLongTextPrompt } from './grader'
+import { createAiLongTextGrader, ratingForScore } from './grader'
 import type { GradeLongTextOutput } from './output'
 
-const PROMPT = loadPrompt('grade_long_text').template
+const LOADED = loadPrompt('grade_long_text')
+const PROMPT: GradeLongTextPrompt = {
+  template: LOADED.template,
+  role: LOADED.frontmatter.role,
+  temperature: LOADED.frontmatter.temperature,
+}
 
 const ANSWER =
   'Con repasos distribuidos aparece la recuperación activa, y por eso supera al estudio masivo.'
@@ -72,7 +78,7 @@ function generator(...outputs: GradeLongTextOutput[]): ReturnType<typeof vi.fn<T
 }
 
 function grader(textGenerator: TextGenerator, options = {}) {
-  return createAiLongTextGrader({ textGenerator, promptTemplate: PROMPT, ...options })
+  return createAiLongTextGrader({ textGenerator, prompt: PROMPT, ...options })
 }
 
 describe('createAiLongTextGrader()', () => {
@@ -89,7 +95,7 @@ describe('createAiLongTextGrader()', () => {
       feedback: 'Completísimo.',
     })
     const request = textGenerator.mock.calls[0]?.[0]
-    expect(request?.temperature).toBe(GRADE_LONG_TEXT_TEMPERATURE)
+    expect(request?.temperature).toBe(PROMPT.temperature)
     expect(request?.schemaName).toBe('grade_long_text')
     expect(request?.system).toContain('You are a grader.')
     expect(request?.system).not.toContain('{{task}}')
@@ -330,6 +336,17 @@ describe('createAiLongTextGrader()', () => {
       maxOutputTokens: 700,
       signal: controller.signal,
     })
+  })
+})
+
+describe('the real prompt file', () => {
+  it('declares P10_grade on the mid ("smart") tier at temperature 0', () => {
+    expect(LOADED.frontmatter.pipeline_prompt).toBe('P10_grade')
+    expect(LOADED.frontmatter.role).toBe('smart')
+    expect(LOADED.frontmatter.temperature).toBe(0)
+    expect(() =>
+      createAiLongTextGrader({ textGenerator: vi.fn<TextGenerator>(), prompt: PROMPT }),
+    ).not.toThrow()
   })
 })
 
